@@ -1,0 +1,11 @@
+{
+  "require": {
+    "aliyuncs/oss-sdk-php": "^2.7",
+    "smalot/pdfparser": "^2.12"
+  },
+  "sand_platform": {
+    "database": "pgsql",
+    "required_plugin": "sand-iam",
+    "local_api_prefix": "/api/sand-ai/v1"
+  }
+}
