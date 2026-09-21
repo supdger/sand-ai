@@ -1,8 +1,8 @@
 # SandAI 开源插件包
 
 这是面向 SandAdmin 的完整、可安装 SandAI 插件发布形态。唯一权威源码为
-`/Users/code/project/sand_plugins/sand-ai/`；`/Users/code/project/sandadmin/plugins/sand-ai/` 是受控同步的
-发布副本，不得直接作为开发源或独立提交目标。它不是 SandAdmin 的内置应用，也不依赖宿主的
+`supdger/sand-ai`。消费工作区的安装副本只用于受控同步和验收，不得作为并行开发源。
+它不是 SandAdmin 的内置应用，也不依赖宿主的
 `server/app/**` 中存在任何 SandAI 运行代码。
 
 ## 包内容
@@ -21,6 +21,6 @@ SandAI 的主应用开发、演示和生产运行归独立 SandAI 工作区；�
 安装验证。发布前必须在可丢弃的 PostgreSQL SandAdmin 宿主完成 `uninstall -> install -> update -> uninstall`
 生命周期和真实 API/管理端验收。
 
-修改必须先落在权威源码，再受控同步发布副本；同步后，从权威源码执行
-`tools/check-sandadmin-export.sh`，确认发布副本与源码一致。该文件一致性检查不代替 PostgreSQL
+修改必须先落在权威仓库，再受控同步到验证宿主；同步后，从权威源码执行
+`tools/check-sandadmin-export.sh`，确认验证副本与源码一致。该文件一致性检查不代替 PostgreSQL
 生命周期、真实 API 或管理端验收。
