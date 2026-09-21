@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source_root="${SAND_AI_PLUGIN_SOURCE:-/Users/code/project/sand_plugins/sand-ai}"
+source_root="${SAND_AI_PLUGIN_SOURCE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 sandadmin_root="${SANDADMIN_ROOT:-/Users/code/project/sandadmin}"
 export_root="${sandadmin_root}/plugins/sand-ai"
 
