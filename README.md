@@ -1,6 +1,21 @@
-# SandAI 开源插件包
+# SandAI
 
-SandAI 为 SandAdmin 提供模型调用、私有文件、解析、异步任务、用量及来源追溯管理。身份、应用与调用授权由 SandIAM 提供。
+SandAI 是面向 SandAdmin 的 AI 能力插件，为业务应用提供模型调用、私有文件解析、异步任务、用量和来源追溯 API。管理员在后台配置模型服务与运行参数；接入开发者通过 API 使用能力，身份、应用与调用授权由 SandIAM 提供。
+
+SandAI 的统一产品开发候选使用 [Neuron AI](https://github.com/neuron-core/neuron-ai) **4.x** 作为 AI 开发框架，当前候选固定依赖 `neuron-core/neuron-ai` **4.0.2**，版本随发行依赖管理。该候选已在本地源码中接入模型 Provider、Agent 与工具调用、RAG 检索与文本分块、Workflow、结构化输出及语音接口；安装与真实业务验收分别记录。
+
+**当前公开 `main` 源码和 `0.1.0` 预览包仍是旧插件结构，尚未包含上述 Neuron AI 4.x 依赖及统一应用载荷。** 下方安装说明适用于公开插件包；统一候选的源码和完整安装包发布后，再按对应版本升级。
+
+## Neuron AI 与 SandAI 的职责
+
+| 组件 | 负责什么 |
+| --- | --- |
+| Neuron AI 4.x | 为统一候选提供模型接口、智能体、工具、检索及 AI 处理节点编排 |
+| SandAI | 提供管理页面与业务 API，管理模型配置、私有文件、任务持久化和恢复、来源追溯、用量及费用 |
+| SandIAM | 管理身份、应用、工作负载凭证和服务授权；SandAI 消费验证后的调用上下文 |
+| SandWorkflow | 提供独立的业务流程与审批；Neuron Workflow 用于 AI 处理节点编排 |
+
+文件和 OCR 使用私有存储，AI 成果需要关联来源块。模型调用凭证由平台管理员管理，业务应用通过 SandIAM 授权使用 SandAI。
 
 ## 源码与安装包
 
