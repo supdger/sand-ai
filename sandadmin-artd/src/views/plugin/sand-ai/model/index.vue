@@ -16,6 +16,8 @@
         </template>
       </ArtTableHeader>
 
+      <ElButton v-permission="'sand_ai:setup:deployment:read'" @click="rerankSetupVisible = !rerankSetupVisible">{{ rerankSetupVisible ? '收起专业重排配置' : '专业重排配置' }}</ElButton>
+      <RerankDeploymentSetup v-if="rerankSetupVisible" />
       <ArtTable
         row-key="id"
         :loading="loading"
@@ -72,6 +74,8 @@
   import CodeNameStatusSearch from '../components/CodeNameStatusSearch.vue'
   import StatusTag from '../components/StatusTag.vue'
   import EditDialog from './modules/edit-dialog.vue'
+  import RerankDeploymentSetup from '../components/RerankDeploymentSetup.vue'
+  const rerankSetupVisible = ref(false)
 
   const emptySearch = (): SandAiPageQuery => ({
     code: undefined,

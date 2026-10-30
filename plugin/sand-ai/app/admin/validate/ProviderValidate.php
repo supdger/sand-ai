@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace plugin\SandAi\app\admin\validate;
 
-use plugin\SandAi\app\admin\support\ProviderSecret;
+use app\Infrastructure\Provider\ProviderSecretEncryptor;
+use app\Api\Support\ApiProblem;
 use plugin\sandadmin\exception\ApiException;
 
 final class ProviderValidate
@@ -44,8 +45,8 @@ final class ProviderValidate
         }
         if (isset($payload['adapter'])) {
             $payload['adapter'] = trim((string) $payload['adapter']);
-            if ($payload['adapter'] === '') {
-                throw new ApiException('SAND_AI_VALIDATION_ERROR: adapter is required');
+            if (!in_array($payload['adapter'], ['openai_compatible', 'local_runtime', 'local_ocr_runtime', 'fake', 'cohere_rerank', 'jina_rerank'], true)) {
+                throw new ApiException('SAND_AI_VALIDATION_ERROR: provider adapter is unsupported');
             }
         }
         if (isset($payload['timeout_ms'])) {
@@ -61,7 +62,11 @@ final class ProviderValidate
             if (!is_array($input['encrypted_config'])) {
                 throw new ApiException('SAND_AI_VALIDATION_ERROR: encrypted_config must be an object');
             }
-            $payload['encrypted_config'] = ProviderSecret::encrypt($input['encrypted_config']);
+            try {
+                $payload['encrypted_config'] = (new ProviderSecretEncryptor())->encrypt($input['encrypted_config']);
+            } catch (ApiProblem $problem) {
+                throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            }
         }
 
         return $payload;

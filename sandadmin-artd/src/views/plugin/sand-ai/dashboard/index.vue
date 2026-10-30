@@ -1,5 +1,6 @@
 <template>
   <div class="art-full-height">
+    <ExpertSelectionHelp />
     <ElCard class="art-table-card" shadow="never">
       <div class="dash-toolbar">
         <div>
@@ -9,6 +10,7 @@
           </p>
         </div>
         <ElSpace wrap>
+          <ElButton type="primary" @click="go('/sand-ai/onboarding')">开始使用</ElButton>
           <ElTag type="success" effect="plain">解耦 · 已冻结 API</ElTag>
           <ElButton :loading="loading" type="primary" @click="loadDashboard">刷新</ElButton>
         </ElSpace>
@@ -87,6 +89,7 @@
 </template>
 
 <script setup lang="ts">
+  import ExpertSelectionHelp from '../components/ExpertSelectionHelp.vue'
   import { computed, onMounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
   import iamApi from '../api/iam'

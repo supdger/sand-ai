@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace plugin\SandAi\app\admin\logic;
 
-use plugin\SandAi\app\model\Invocation;
+use app\Infrastructure\Persistence\Model\Invocation;
 
 /** Read-only invocation observability use case owned by the full package. */
 final class InvocationLogic

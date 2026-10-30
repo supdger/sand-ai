@@ -38,23 +38,37 @@
         @pagination:current-change="handleCurrentChange"
       />
     </ElCard>
+    <ElDialog v-model="costOpen" title="单次费用" width="680px" @close="closeCost">
+      <div v-if="costLoading" v-loading="costLoading" class="min-h-24" />
+      <ElAlert v-else-if="costError" :title="costError" type="warning" :closable="false" />
+      <InvocationCostDetails v-else-if="cost" :cost="cost" />
+    </ElDialog>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { onMounted, ref } from 'vue'
+  import InvocationCostDetails from '../usage/modules/invocation-cost-details.vue'
+  import { useAuth } from '@/hooks/core/useAuth'
+  import { h, onBeforeUnmount, onMounted, ref } from 'vue'
+  import { ElButton } from 'element-plus'
   import { useRoute } from 'vue-router'
   import { useTable } from '@/hooks/core/useTable'
   import invocationApi from '../api/invocation'
-  import type { SandAiPageQuery } from '../api/types'
+  import type { SandAiInvocation, SandAiInvocationCost, SandAiPageQuery } from '../api/types'
 
   const route = useRoute()
+  const { hasAuth } = useAuth()
 
   const emptySearch = (): SandAiPageQuery => ({
     request_id: undefined,
     state: ''
   })
   const searchForm = ref<SandAiPageQuery>(emptySearch())
+  const costOpen = ref(false)
+  const costLoading = ref(false)
+  const costError = ref('')
+  const cost = ref<SandAiInvocationCost | null>(null)
+  let costRequest = 0
 
   const {
     columns,
@@ -80,7 +94,17 @@
         { prop: 'state', label: 'state', width: 110 },
         { prop: 'latency_ms', label: 'latency_ms', width: 110 },
         { prop: 'error_code', label: 'error_code', minWidth: 140 },
-        { prop: 'request_at', label: 'request_at', width: 180 }
+        { prop: 'request_at', label: 'request_at', width: 180 },
+        {
+          prop: 'cost_action',
+          label: '费用',
+          width: 115,
+          fixed: 'right',
+          formatter: (row: SandAiInvocation) =>
+            hasAuth('sand_ai:usage:cost')
+              ? h(ElButton, { size: 'small', onClick: () => void showCost(row) }, () => '查看费用')
+              : '无费用查看权限'
+        }
       ]
     }
   })
@@ -102,6 +126,35 @@
     searchForm.value.request_id = value.trim()
     handleSearch()
   }
+
+  async function showCost(row: SandAiInvocation): Promise<void> {
+    if (!hasAuth('sand_ai:usage:cost')) return
+    const requestId = ++costRequest
+    costOpen.value = true
+    costLoading.value = true
+    costError.value = ''
+    cost.value = null
+    try {
+      const result = await invocationApi.cost(row.environment_id, row.request_id)
+      if (requestId === costRequest) cost.value = result
+    } catch (error) {
+      if (requestId === costRequest) {
+        const reason = error instanceof Error ? error.message : '后台未返回费用'
+        costError.value = `费用查询失败：${reason}。请核对调用归属及费用查看权限，关闭后按原调用重试；不会重新发起调用。`
+      }
+    } finally {
+      if (requestId === costRequest) costLoading.value = false
+    }
+  }
+
+  function closeCost(): void {
+    ++costRequest
+    cost.value = null
+    costError.value = ''
+    costLoading.value = false
+  }
+
+  onBeforeUnmount(closeCost)
 
   onMounted(() => {
     applyRequestIdFromQuery()

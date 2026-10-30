@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace plugin\SandAi\app\admin\logic;
 
 use plugin\SandAi\app\admin\validate\ModelValidate;
-use plugin\SandAi\app\model\AiModel;
-use plugin\SandAi\app\model\ModelDeployment;
+use app\Application\Onboarding\CatalogOperationReceipt;
+use app\Api\Support\ApiProblem;
+use app\Infrastructure\Persistence\Model\AiModel;
+use app\Infrastructure\Persistence\Model\ModelDeployment;
 use plugin\sandadmin\exception\ApiException;
 
 /** Package-owned model catalogue management use case. */
@@ -45,17 +47,35 @@ final class ModelLogic
     }
 
     /** @param array<string, mixed> $input */
-    public function create(array $input): int
+    public function create(array $input, int $admin = 0, ?string $key = null, ?\Closure $guard = null): int
     {
-        $model = AiModel::create($this->validate->create($input));
-        return (int) $model->getKey();
+        if ($key === null) {
+            $model = AiModel::create($this->validate->create($input));
+            return (int) $model->getKey();
+        }
+        if ($guard === null) throw new ApiProblem('SAND_AI_AUTHENTICATION_FAILED', 'Catalogue write identity is missing');
+        $receipt = (new CatalogOperationReceipt())->execute('model', 'save', $input, $admin, $key, $guard, function () use ($input): array {
+            $model = AiModel::create($this->validate->create($input));
+            return $this->read(['id' => (int) $model->getKey()]);
+        });
+        return $receipt['id'];
     }
 
     /** @param array<string, mixed> $input */
-    public function update(array $input): void
+    public function update(array $input, int $admin = 0, ?string $key = null, ?\Closure $guard = null): void
     {
-        $model = $this->find($input);
-        $model->save($this->validate->update($input));
+        if ($key === null) {
+            $model = $this->find($input);
+            $model->save($this->validate->update($input));
+            return;
+        }
+        if ($guard === null) throw new ApiProblem('SAND_AI_AUTHENTICATION_FAILED', 'Catalogue write identity is missing');
+        (new CatalogOperationReceipt())->execute('model', 'update', $input, $admin, $key, $guard, function () use ($input): array {
+            $model = AiModel::where('id', (int) ($input['id'] ?? 0))->lock(true)->find();
+            if ($model === null) throw new ApiException('SAND_AI_RESOURCE_NOT_FOUND');
+            $model->save($this->validate->update($input));
+            return $this->read(['id' => (int) $model->getKey()]);
+        });
     }
 
     /** @param array<string, mixed> $input */

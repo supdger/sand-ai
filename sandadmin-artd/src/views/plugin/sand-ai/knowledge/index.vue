@@ -1,5 +1,12 @@
 <template>
-  <div class="art-full-height">
+  <div>
+    <ExpertSelectionHelp />
+    <KnowledgeBasePanel :key="userStore.info.id" />
+    <PublicationPanel :key="userStore.info.id" />
+    <ConsumerSkillPanel :key="userStore.info.id" />
+    <ElAlert type="info" :closable="false"
+      title="下方为旧环境 Skill 配置。个人、团队或组织消费范围的方法包，请使用上方“应用方法包”入口。" />
+    <SkillPanel :key="userStore.info.id" />
     <ElCard class="art-table-card" shadow="never">
       <div class="know-header">
         <div>
@@ -14,8 +21,9 @@
       <ElForm label-width="110px" @submit.prevent>
         <RuntimeApiKeyField
           v-model="apiKey"
-          placeholder="需 retrieval:read"
+          placeholder="当前应用的 SandIAM 短期运行身份"
         />
+        <p class="know-footnote">需 sand_ai.retrieval.search 服务授权；来源文件仍按当前应用的访问权限核验。</p>
         <ElFormItem label="查询">
           <ElSpace wrap>
             <ElInput
@@ -69,18 +77,26 @@
 </template>
 
 <script setup lang="ts">
-  import { h, onMounted, ref } from 'vue'
+  import ExpertSelectionHelp from '../components/ExpertSelectionHelp.vue'
+  import { h, onMounted, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'
+  import { useUserStore } from '@/store/modules/user'
   import { ElButton, ElMessage } from 'element-plus'
   import type { ColumnOption } from '@/types'
-  import { FILE_API_KEY_STORAGE } from '../api/config'
+  import { readRuntimeBearer } from '../api/runtimeBearerSession'
   import retrievalApi from '../api/retrieval'
   import { toRuntimeUiError } from '../api/runtimeErrors'
   import type { RuntimeUiError } from '../api/runtimeErrors'
   import type { SandAiRetrievalMatch } from '../api/types'
   import RuntimeApiKeyField from '../components/RuntimeApiKeyField.vue'
+  import PublicationPanel from './modules/publication-panel.vue'
+  import KnowledgeBasePanel from './modules/knowledge-base-panel.vue'
+  import SkillPanel from './modules/skill-panel.vue'
+  import ConsumerSkillPanel from './modules/consumer-skill-panel.vue'
 
   const router = useRouter()
+  const userStore = useUserStore()
+  let viewGeneration = 0
   const apiKey = ref('')
   const query = ref('')
   const limit = ref(10)
@@ -152,20 +168,32 @@
     }
     busy.value = true
     lastError.value = null
+    const current = viewGeneration
     try {
       const result = await retrievalApi.search(apiKey.value, query.value.trim(), limit.value)
+      if (current !== viewGeneration) return
       matches.value = result.matches
       searchedQuery.value = result.query
     } catch (error) {
+      if (current !== viewGeneration) return
       lastError.value = toUiError(error)
       matches.value = []
     } finally {
-      busy.value = false
+      if (current === viewGeneration) busy.value = false
     }
   }
 
+  watch(apiKey, () => {
+    ++viewGeneration
+    matches.value = []
+    selectedIds.value = []
+    searchedQuery.value = ''
+    lastError.value = null
+    busy.value = false
+  }, { flush: 'sync' })
+
   onMounted(() => {
-    apiKey.value = sessionStorage.getItem(FILE_API_KEY_STORAGE) ?? ''
+    apiKey.value = readRuntimeBearer()
   })
 </script>
 
