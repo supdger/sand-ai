@@ -9,6 +9,7 @@ import type {
 } from './types'
 import { assertMockHealthy, delay, nextId, nowText, paginateMock } from './mock/helpers'
 import { mockProviders } from './mock/store'
+import type { CatalogConfigurationIntent, CatalogConfigurationReceipt } from './catalogConfigurationIntent'
 
 function filterProvider(row: SandAiProvider, query: SandAiPageQuery): boolean {
   if (query.code && !row.code.includes(String(query.code))) return false
@@ -20,6 +21,14 @@ function filterProvider(row: SandAiProvider, query: SandAiPageQuery): boolean {
 }
 
 export default {
+  read(id: number) {
+    return request.get<SandAiProvider>({
+      url: `${ADMIN_API_PREFIX}/provider/read`,
+      params: { id },
+      showErrorMessage: false
+    })
+  },
+
   list(params: SandAiPageQuery) {
     if (USE_SCHEMA_MOCK) {
       return (async () => {
@@ -34,7 +43,7 @@ export default {
     })
   },
 
-  async save(payload: SandAiProviderWrite) {
+  async save(payload: SandAiProviderWrite, key?: string) {
     if (USE_SCHEMA_MOCK) {
       await delay()
       assertMockHealthy()
@@ -55,11 +64,12 @@ export default {
     }
     return request.post<SandAiIdResult>({
       url: `${ADMIN_API_PREFIX}/provider/save`,
-      data: payload
+      data: payload,
+      headers: key ? { 'Idempotency-Key': key } : undefined
     })
   },
 
-  async update(payload: SandAiProviderWrite & { id: number }) {
+  async update(payload: SandAiProviderWrite & { id: number }, key?: string) {
     if (USE_SCHEMA_MOCK) {
       await delay()
       assertMockHealthy()
@@ -82,7 +92,18 @@ export default {
     }
     return request.post<unknown>({
       url: `${ADMIN_API_PREFIX}/provider/update`,
-      data: payload
+      data: payload,
+      headers: key ? { 'Idempotency-Key': key } : undefined
+    })
+  },
+
+  readOperation(intent: CatalogConfigurationIntent) {
+    if (intent.kind !== 'provider') throw new Error('原请求不是服务商配置操作')
+    return request.get<CatalogConfigurationReceipt>({
+      url: `${ADMIN_API_PREFIX}/provider/read-operation-by-request-key`,
+      params: { operation: intent.operation, request_key: intent.key, code: intent.code,
+        ...(intent.id !== null ? { target_id: intent.id } : {}) },
+      showErrorMessage: false
     })
   },
 

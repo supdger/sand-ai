@@ -16,7 +16,7 @@ final class IndexController extends BaseController
         return $this->success([
             'app' => 'SandAI',
             'plugin' => 'sand-ai',
-            'version' => '0.1.0',
+            'version' => (string) config('plugin.sand-ai.app.version'),
             'status' => 'initialized',
         ]);
     }

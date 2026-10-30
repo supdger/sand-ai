@@ -1,0 +1,4014 @@
+{
+  "schema": 1,
+  "app": "sand-ai",
+  "files": [
+    {
+      "path": "app/Api/Controller/AgentController.php",
+      "sha256": "a8284016035506a7f076123d3e212bed701001dc8bf4f0198edef6e31caf1d63"
+    },
+    {
+      "path": "app/Api/Controller/AgentStreamController.php",
+      "sha256": "72502c5090b258f6ef8587c0cff70f746884e7eb4ba9f17904c9f6304717aa76"
+    },
+    {
+      "path": "app/Api/Controller/AiTaskController.php",
+      "sha256": "b1c9889bc6c75ac964a3216ad8fe5f509e8003eef519c192d16c798f1846bda4"
+    },
+    {
+      "path": "app/Api/Controller/AudioSegmentReviewController.php",
+      "sha256": "90fdc4b0c641d338b225e86eeec198a84d34f02fd152434b8490c156eb25e718"
+    },
+    {
+      "path": "app/Api/Controller/AudioTaskController.php",
+      "sha256": "053d67afc56960ecfb76d83e0a8f3af5c894d89aaf7d36169831b48fc74836e6"
+    },
+    {
+      "path": "app/Api/Controller/ChannelController.php",
+      "sha256": "ac2d6a3b3313c0488cc4f6b9e2f472813b7e4e557ab6dbc4f472006094456e6d"
+    },
+    {
+      "path": "app/Api/Controller/ChatController.php",
+      "sha256": "415de244b5437ddb09198f185affcb969174be2a77299eda02bb1f825cb65456"
+    },
+    {
+      "path": "app/Api/Controller/CompositionController.php",
+      "sha256": "df384ddd5b7e341fa082e94e8f661ede3a4c16d6429bfaf4011e6635967add4b"
+    },
+    {
+      "path": "app/Api/Controller/CompositionCostController.php",
+      "sha256": "b0b3a10b0bd9bba1317e509f500ba3f5f07b6d6cd2762ad90cd1086e2e21b1cf"
+    },
+    {
+      "path": "app/Api/Controller/FeishuWebhookController.php",
+      "sha256": "de2806ebdfefd27f80f92d6fe283bca341266d0351a71ea71994820a531bd18e"
+    },
+    {
+      "path": "app/Api/Controller/FileController.php",
+      "sha256": "6d7c791a2d072c22da375fe18e3002e5de495feaa44239ed77ad08cf13bc508f"
+    },
+    {
+      "path": "app/Api/Controller/HealthController.php",
+      "sha256": "e148bb227c4a6859efb7fb83b93693256aafbe4cdd1d25234813a825c6c1b189"
+    },
+    {
+      "path": "app/Api/Controller/InvocationController.php",
+      "sha256": "9f5b1b5d726ec1c3a055086810b9a12b60678e8c57a844654ee007a856e575c1"
+    },
+    {
+      "path": "app/Api/Controller/InvocationCostController.php",
+      "sha256": "fff1fe3c2ba174ea6f275c4d5b351c432e920c2aa2f36f3c8f2aa9a426964471"
+    },
+    {
+      "path": "app/Api/Controller/KnowledgeAnswerController.php",
+      "sha256": "74b6b1763601dfe566158b24ce4920ced9588eb36b790e23392ecd6379cf9bea"
+    },
+    {
+      "path": "app/Api/Controller/KnowledgeBaseController.php",
+      "sha256": "1b7acf8055ec44580902d08329052e7ca3cecaa9d4fe326b04a737eef3090e6a"
+    },
+    {
+      "path": "app/Api/Controller/LegalSourceController.php",
+      "sha256": "7eabd532cd4a0c3c834e525693b0a637636d764651c98473d67c224a933d3adc"
+    },
+    {
+      "path": "app/Api/Controller/McpController.php",
+      "sha256": "bf5a9fd1f4deb1a23ab43311f0e4d001cfcf85990efe78748d341650a85b2616"
+    },
+    {
+      "path": "app/Api/Controller/MeetingSummaryController.php",
+      "sha256": "db54b80bf0fd699f091ae76636bac54e5096d4efc99b8b7a15e7e034b5c06a1b"
+    },
+    {
+      "path": "app/Api/Controller/ModelsController.php",
+      "sha256": "326a7c0597165c75a5b0dd1a80a851f56ebef02d7a6a85dd54f9ad1c091d748f"
+    },
+    {
+      "path": "app/Api/Controller/RetrievalController.php",
+      "sha256": "d826158fd47d89d6bddfdd32824e60d808dca17f50ef2658f3581efcd56298b3"
+    },
+    {
+      "path": "app/Api/Controller/SkillController.php",
+      "sha256": "0d2d0ee57f549d8e560e0f59bc8b60f62d1b735611a39b57d547924a57e217f3"
+    },
+    {
+      "path": "app/Api/Controller/SkillManagementController.php",
+      "sha256": "9ec88be4d8d4177569acad96e57aa6baf870ba540434de12a0a13c4e9cd13f28"
+    },
+    {
+      "path": "app/Api/Controller/SkillRunCostController.php",
+      "sha256": "972c3eec562eadb1996430965dba91c45cdd90bdc764c8ba61989da344645b80"
+    },
+    {
+      "path": "app/Api/Controller/SpeechController.php",
+      "sha256": "71981f4f205a0fa7579826e4f7574cad5422822e0d5fa9b182e405d98af04696"
+    },
+    {
+      "path": "app/Api/Controller/StructuredWorkflowController.php",
+      "sha256": "aebae7a5180126a9e26bd25d2bd95d4687443a92e94b72d023d2fa00aa3e8b44"
+    },
+    {
+      "path": "app/Api/Controller/TaskController.php",
+      "sha256": "e52975d65d8ce6e18fa7cd5c561f818d8b6943690674d0cd3d54a5b111f65e9d"
+    },
+    {
+      "path": "app/Api/Controller/ToolController.php",
+      "sha256": "d36f89e709ff992173caaf2b763e7607cc247991a1ef270aa7878c39dde6dd92"
+    },
+    {
+      "path": "app/Api/Controller/WecomWebhookController.php",
+      "sha256": "a8adeed15b1fb1c82de42b9f5d61173f0212eb17bbc5d4adfea77afff35f016d"
+    },
+    {
+      "path": "app/Api/Support/ApiProblem.php",
+      "sha256": "f9f724037960f27e1dfffe8f8589a3bc667781d71de209787de39160a88a5417"
+    },
+    {
+      "path": "app/Api/Support/ApiResponder.php",
+      "sha256": "4f45002873175d48f3c1a20dcc0ddba1a82912a928f1a759fc9f260f7bc0e93f"
+    },
+    {
+      "path": "app/Api/Support/ExpectedEnvironmentGuard.php",
+      "sha256": "5c06e9f7cf56e43143c1358f1f6336730565dce1dcf6c467cec660a5a16720fb"
+    },
+    {
+      "path": "app/Api/Support/IdentityContextProblem.php",
+      "sha256": "8ae9b289ad12526fd7cf63b6b734124aff65421512ba9e7653c1b3444d74be7d"
+    },
+    {
+      "path": "app/Application/Agent/AgentContinuationGateway.php",
+      "sha256": "044a1faa8b276a1f5cc21e9157308eb9bb70be071b60df12fdde92e2313807d2"
+    },
+    {
+      "path": "app/Application/Agent/AgentConversationGateway.php",
+      "sha256": "02826b901591d6868e59f553b1fd39d025c4e1998b5f90e753db4f2f1830e62b"
+    },
+    {
+      "path": "app/Application/Agent/AgentDefinitionGateway.php",
+      "sha256": "e3a40b27b283e6d72a1f87b1a284b1a9d2b28da1a593be4448c64e686230c89d"
+    },
+    {
+      "path": "app/Application/Agent/AgentDefinitionPolicy.php",
+      "sha256": "e35a41ff16febfdee4500498f5bc4c98db8866ca309faa01ea90958bdf56adb8"
+    },
+    {
+      "path": "app/Application/Agent/AgentEmbeddingCostProjection.php",
+      "sha256": "701b3ccd27dcf503829445a5c62ff18eb68e3c536c061feda6032c356667eb68"
+    },
+    {
+      "path": "app/Application/Agent/AgentExpiredReceiptFinalizer.php",
+      "sha256": "d266d8f0d90db836887f57feed978309a2c93553d3acdd6195c9f4a48597492e"
+    },
+    {
+      "path": "app/Application/Agent/AgentFileUsageGateway.php",
+      "sha256": "b0d2de06e99aaecd66766337ef732fc3562e35977fe4cde874be91a8e165f035"
+    },
+    {
+      "path": "app/Application/Agent/AgentGateway.php",
+      "sha256": "5b3c814204bd9472b9601d940788d810cc71d384fcac66155228b083f3aede55"
+    },
+    {
+      "path": "app/Application/Agent/AgentPolicy.php",
+      "sha256": "7c89d288f62547829860002c1ced8524ec4bc3c69e59eaba10512f6415819e29"
+    },
+    {
+      "path": "app/Application/Agent/AgentReadonlyToolCatalog.php",
+      "sha256": "9adc753986c459c1d24ca4ba16b46300ad6b9a1ae81a1f44a66e610a0a3f38cc"
+    },
+    {
+      "path": "app/Application/Agent/AgentReadonlyToolContinuationNode.php",
+      "sha256": "9a7447990bfd0e6c6be6dc5cb2552ad7a51cfadd70be6ce279d007212d566d6e"
+    },
+    {
+      "path": "app/Application/Agent/AgentReadonlyToolParentFacts.php",
+      "sha256": "d45a2d0142f415455c36b5e5468ce02cff54bd1a79c5df7ef601312c7122f31e"
+    },
+    {
+      "path": "app/Application/Agent/AgentReadonlyToolProtocol.php",
+      "sha256": "78cf009cf1bc97bdfae13b201fa441aab34e570950f18a64fdf2c263ad315c9f"
+    },
+    {
+      "path": "app/Application/Agent/AgentReadonlyToolReadGuard.php",
+      "sha256": "2c0e30af0d0de871aee345b50d12a73e33bd136227665136f52b9463c669544f"
+    },
+    {
+      "path": "app/Application/Agent/AgentReadonlyToolSelection.php",
+      "sha256": "ff1508af51abb19f83fa8f9422525720266d258193bc5ad12742b1fb661dd296"
+    },
+    {
+      "path": "app/Application/Agent/AgentStreamEventGateway.php",
+      "sha256": "c8de50ce4a79e93c57024a12b39d662e30211c9f0f6b9e894e11cb5c367e55d5"
+    },
+    {
+      "path": "app/Application/Agent/AgentStreamNativeTrace.php",
+      "sha256": "4a373ed08b726cd208f8f36260f90e5783336ff3384a47955163092c2c96d595"
+    },
+    {
+      "path": "app/Application/Agent/AgentStreamTextMask.php",
+      "sha256": "9d79e77e0cfd268832bd038203c647e62c80981fa76fd5e6e3b385f55b17f6d0"
+    },
+    {
+      "path": "app/Application/Audio/AudioBudgetGuard.php",
+      "sha256": "e488cfb3e2d0f4abb740798e04662ef20614b81a8fd6341c1bd6df16b0cbb195"
+    },
+    {
+      "path": "app/Application/Audio/AudioContentPurgeGateway.php",
+      "sha256": "1da3e5fba9f90d1b5d140879c1da7f32d1770317c8902a866ee1629ea873cf46"
+    },
+    {
+      "path": "app/Application/Audio/AudioSegmentReviewGateway.php",
+      "sha256": "cba2ff0402f05358acdf299f4169bcd262694f818ccbd4b4fffe360fc9bcf28b"
+    },
+    {
+      "path": "app/Application/Audio/AudioSegmentReviewLedger.php",
+      "sha256": "2711ba83c71911794ef8a2bf236ea463b0f7e52264883cbafdea7d631c297387"
+    },
+    {
+      "path": "app/Application/Audio/AudioSnapshot.php",
+      "sha256": "7372ec0b841bcfee85a00d2476d09db145889c0885afecc97f6dfc93a0b86779"
+    },
+    {
+      "path": "app/Application/Audio/AudioSourceGateway.php",
+      "sha256": "51ffbd41f142ce4402f7cce1098a562285a2c1a4dbe2b63c59ebe85cc15bdfbb"
+    },
+    {
+      "path": "app/Application/Audio/AudioTimeRangeLocator.php",
+      "sha256": "998df5e783136748689281c5eb7c0211f0af933efb663ff3ee8065469b24f27e"
+    },
+    {
+      "path": "app/Application/Audio/AudioTranscriptSealLedger.php",
+      "sha256": "1ea1b2bec88028dc368eb8c29f2acf1650679397b426f7ee51986b0d20383e66"
+    },
+    {
+      "path": "app/Application/Audio/AudioTranscriptionCatalog.php",
+      "sha256": "49ad5645dad76680fa6f002a2a43ed59a8a5b1cf08b4d729d85166bbd5e07a93"
+    },
+    {
+      "path": "app/Application/Audio/AudioTranscriptionDriver.php",
+      "sha256": "1e0f03b21aa7924eefa87d70d82c581f824e6f85dd15394e3504f9d19d325f95"
+    },
+    {
+      "path": "app/Application/Audio/AudioTranscriptionRequestPolicy.php",
+      "sha256": "19444ef8e01a8da701faddf88488d95efd12ee94410e3fb7613e2736919175fe"
+    },
+    {
+      "path": "app/Application/Audio/AudioTranscriptionResultPolicy.php",
+      "sha256": "f6232715c63d43d77c5ba47f54fe0d178c95ddceebd47a2ea568909bc53d7c91"
+    },
+    {
+      "path": "app/Application/Audio/AudioTranscriptionService.php",
+      "sha256": "d933811602525c20d7264cf052a40eb70ac39c82f586cd24479e1cee21e20091"
+    },
+    {
+      "path": "app/Application/Audio/AudioTranscriptionSourcedResultBuilder.php",
+      "sha256": "e130e29b11c03cdebcd18823ddf509d5bfc08d03df3d88e17156037c1ae6f4b6"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/AudioChunkDispatchBinding.php",
+      "sha256": "d81c6081252227fd985e57988396047942763eb3b386d455158051a42cb8c2ed"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/AudioChunkExecution.php",
+      "sha256": "37f5726cd228ca2a5e1408c1427abcf638268b17d81b58e7787e7868dc741f30"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/AudioChunkManifest.php",
+      "sha256": "3504c6afd19fff53b18b9531603046d379366e8fab79cd19667e23a5d01afece"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/AudioChunkObjectCleanup.php",
+      "sha256": "bce033d8f6a23c14ec8b4096e3ead61bacdd91fbc687023b06c62ff39571d52b"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/AudioChunkPlan.php",
+      "sha256": "8ce8298af0901169aaf987c2b69c0d808b4728df988dd39cc1059e5d717ed20a"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/AudioChunkPreparation.php",
+      "sha256": "7f8096d3fc988ff5c234852b30a9f58e63a0f2d88870447315acb2bc39a48c30"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/AudioChunkRuntimeSchema.php",
+      "sha256": "ffa162ac5115825d89dbb0b0bea0c3ce0ca07e724bbf3ef6eb230981ee02c568"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/AudioChunkTaskRunner.php",
+      "sha256": "0fe504a416f7e438b00166a74dffd1d037fcdf30d9485b89dfc0efb887fcfcc1"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/AudioChunkTranscriptAssembler.php",
+      "sha256": "e3efd8d9e60ac602a48f6af4f815b8423040c00aecc8112b11041f6249fc97a8"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/LocalPrivateAudioChunkObjects.php",
+      "sha256": "f8f2c6be3657ae61d1e426bb2dd302c07f7990355423839adef384e37ef57910"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/PostgresAudioChunkAcceptedRecoveryStore.php",
+      "sha256": "912ba0b8884fd59b94b7f974a87baddc50debcbe15b6f95ad58f402cceb7b917"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/PostgresAudioChunkAggregation.php",
+      "sha256": "a6edebf3c9b7de7332f6dddb94667eabdb081745bdac9236adddcff16be9268a"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/PostgresAudioChunkCompletion.php",
+      "sha256": "d5fc1a071e31730d02857ade6c87cfe7b0ed76613f3c0217d7ff6440a1db2021"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/PostgresAudioChunkDispatchStore.php",
+      "sha256": "97cbcf4db1b07f9d989910822b9efae33f526ef13a430520a05e7753afd218ae"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/PostgresAudioChunkExecutionLedger.php",
+      "sha256": "b45844d27d6003a611ee738096052a12717b4fa05321d6d6dd2ca98634cdb636"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/PostgresAudioChunkManifestStore.php",
+      "sha256": "c640eff49cd9bc77d238f9226b5c587fa2f1b5ca041f85654ca42aac401fb548"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/PostgresAudioChunkPreparationLedger.php",
+      "sha256": "a1187df992652ce0f73d7134bb9b63371001fc89e0735ae46df1bdc56ccaa513"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/PostgresAudioChunkResultRecoveryPort.php",
+      "sha256": "4d219cd94d8a816acf05fc288a7cad88469dd27256e5b46b53b44c8f289682a6"
+    },
+    {
+      "path": "app/Application/Audio/Chunk/PrivatePcmAudioChunker.php",
+      "sha256": "3d3f6af2cfdf73a04775b0050821c22120ce9ade9eb101874d43dbdbb775e03f"
+    },
+    {
+      "path": "app/Application/Audio/ControlledAudioInput.php",
+      "sha256": "bd4500e93b1a76e406934805001a6e7a7a2a360a0bda90f61e3e7b6c37ced853"
+    },
+    {
+      "path": "app/Application/Audio/External/DisabledExternalAudioTaskExecutor.php",
+      "sha256": "ca2083a905cddad98710e0bbb8004445e8bf62e22b11b076c4c01349f974f318"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioAcceptedRecoveryService.php",
+      "sha256": "3aa1f420d9d542c9d3c4db35930fce2f5ab997db403c5eb3fbb8bb5ac812897b"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioAcceptedRecoveryStore.php",
+      "sha256": "6a6268967d9c6785e0008ed99cbd23cb7896bacbcc6f385ba73be12a93e86f37"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioAdapter.php",
+      "sha256": "c53d1ae8d7a71f85e66bf1f80de3e504bd95ee7c4708549a53ffbaaf08925c2a"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioAdapterFactory.php",
+      "sha256": "d53e3b94d6b97d42439da8a58f380b874665ca67e8e85257f0ad86abaf349142"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioDispatchClaim.php",
+      "sha256": "840151837c018b24b2ffb597b5715309b3db9200f9fa206cc9fa0e3a6fc3c32a"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioDispatchGateway.php",
+      "sha256": "bad7de462eaad58c71210ff72edcd743aa1677b81a3d2ea2fd8d2184134b14e0"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioDispatchOutcome.php",
+      "sha256": "542a50ac1a342b87ff18567f61387275196a851a21fd03f9cc968b43c839be2a"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioDispatchRequest.php",
+      "sha256": "be9f6ef5bc2feb150ebaf5d0baf80fb88f34e80cecf0b0ba329d5adc4fe7dc6a"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioDispatchRequestFactory.php",
+      "sha256": "73b6902d611c7c35c3bf026786d66ec4f91342f14476e7b02644fe53eaf98926"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioDispatchStatePolicy.php",
+      "sha256": "06e458d3458cfad212b38a3e383bc32827d768f7f56f7fd900a193cb38701cb4"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioDispatchStore.php",
+      "sha256": "af48d041ea61df96fb6659556f89aaa36c29e5cb9c3b3ab45332aae1b1587567"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioReceiptCipher.php",
+      "sha256": "5133a3e8bb9fa0036769df12483ff6fc84118454932a8184f8652830a7d86f6c"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioRecoveryPolicy.php",
+      "sha256": "2a3ad754618824ad7abd83b2c54400c5bf54d003b7d182b3a068fa05f2363b34"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioResultRecoveryPort.php",
+      "sha256": "f2c34515e75c898717c5a4d602e4effd04b9cccc3b8934fced2ddc69506792de"
+    },
+    {
+      "path": "app/Application/Audio/External/ExternalAudioTaskExecutor.php",
+      "sha256": "35d6a04a2cd92dcdfe93d08b88bc61a7c25645ec783cbcb04ac308c9db74f542"
+    },
+    {
+      "path": "app/Application/Audio/External/FrozenAudioTaskInputPolicy.php",
+      "sha256": "0659a6f86e336f0f32461ff8284199d43e29442ac7c3576328ab573ebf51a808"
+    },
+    {
+      "path": "app/Application/Audio/External/GlmAsrAudioInputPolicy.php",
+      "sha256": "b58705f2ffa0f014994432a898b5a6b9396865074763299ba30c737e4e1d4079"
+    },
+    {
+      "path": "app/Application/Audio/External/GlmAsrAudioTranscriptionAdapter.php",
+      "sha256": "10e2f7542f75d85bb6e358e4cf1149a2c441781a1185ea4f9bde81144f31e6d1"
+    },
+    {
+      "path": "app/Application/Audio/External/GlmAsrAudioTranscriptionClient.php",
+      "sha256": "8491e5ff94dde5a716b01bfa653233adbf8f717c45633f5c0f6404e4873e9c85"
+    },
+    {
+      "path": "app/Application/Audio/External/GuzzleOpenAiCompatibleAudioTransport.php",
+      "sha256": "18ad9bdba4766db0f01f28c0282c3c241033f71f3a6f29526f44dd6340c67cd3"
+    },
+    {
+      "path": "app/Application/Audio/External/LoaderBoundExternalAudioTaskExecutor.php",
+      "sha256": "22657d34e7dc56f357a70a06ec9398267bd27c9c99cb2aab76c58942569a1dae"
+    },
+    {
+      "path": "app/Application/Audio/External/NeuronAudioTranscriptionRequestBuilder.php",
+      "sha256": "347671e0e9454128a0601f51aec1e21192e4ff8fb07010ebc7605a7527a15227"
+    },
+    {
+      "path": "app/Application/Audio/External/NeuronAudioTranscriptionRequestCapture.php",
+      "sha256": "cec2f7be62fa16489d05df970b6c5043a9d24eb3e3472eee0c8deea397f71d5a"
+    },
+    {
+      "path": "app/Application/Audio/External/NeuronOpenAiTranscriptionProvider.php",
+      "sha256": "23b44a4203932e2e81f16b1f502db4349f2cb545f4a8cac63edfbe62df6be520"
+    },
+    {
+      "path": "app/Application/Audio/External/NeuronZaiTranscriptionProvider.php",
+      "sha256": "0c717263232eccb69e51e08dd64147bcf054029c6f01d8ae67f6e9ef5ae09889"
+    },
+    {
+      "path": "app/Application/Audio/External/OpenAiCompatibleAudioHttpRequest.php",
+      "sha256": "adcbf44a7260a02240a7f20198aa1ab509f55f354ea73ff3b86f5ad781f4cda3"
+    },
+    {
+      "path": "app/Application/Audio/External/OpenAiCompatibleAudioHttpResponse.php",
+      "sha256": "845a01420904afe6076aefb5fd61fe5427dc1c9482b16859ecd366f2fe188d85"
+    },
+    {
+      "path": "app/Application/Audio/External/OpenAiCompatibleAudioResponseNormalizer.php",
+      "sha256": "d15c0c77c65787faec393e77843107e493ffd4f876b0c337131491220ff7eb15"
+    },
+    {
+      "path": "app/Application/Audio/External/OpenAiCompatibleAudioRuntime.php",
+      "sha256": "0764fd863aa2084193b85537f830a7d192dc0ba1d32ab4f8fafe8d3b125f32b5"
+    },
+    {
+      "path": "app/Application/Audio/External/OpenAiCompatibleAudioRuntimeLoader.php",
+      "sha256": "36020dc20913d6d3cc0b272a61831ad1122bca27c7aa3f467369f37b7e1162ab"
+    },
+    {
+      "path": "app/Application/Audio/External/OpenAiCompatibleAudioTranscriptionAdapter.php",
+      "sha256": "4be76bffd42d1e13560be6e22991f67479a20744756106dc6a8a87ae1db87728"
+    },
+    {
+      "path": "app/Application/Audio/External/OpenAiCompatibleAudioTranscriptionConfigPolicy.php",
+      "sha256": "4379bc2c9e0455f832d4a92651971d046381457cfd4068bdf8aa3c6636ef901a"
+    },
+    {
+      "path": "app/Application/Audio/External/OpenAiCompatibleAudioTransport.php",
+      "sha256": "e93ad12a2fc87660b488fb62b39017ba88232f28a6a05dcf23438cd3a17189a8"
+    },
+    {
+      "path": "app/Application/Audio/External/PostgresExternalAudioAcceptedRecoveryStore.php",
+      "sha256": "289cc08987b7df1479a75e1c5516e2853d1a50d966f1803c926155135d3b3bd4"
+    },
+    {
+      "path": "app/Application/Audio/External/PostgresExternalAudioDispatchStore.php",
+      "sha256": "031dfe0d94275c93bb182a50f189cbbe6fc260d01ef9e0fed2c9d6a3272dacab"
+    },
+    {
+      "path": "app/Application/Audio/External/PostgresExternalAudioRequestFactory.php",
+      "sha256": "47f7fe97d464ae8a5e031e222fa26f96c147f5270953d77f07ad9056bd0d2c04"
+    },
+    {
+      "path": "app/Application/Audio/External/PostgresExternalAudioResultRecoveryPort.php",
+      "sha256": "c11aa76f57f546e8a98af99daad5211d2d66c96b09d91c9568443c212c730d42"
+    },
+    {
+      "path": "app/Application/Audio/External/PostgresExternalAudioTaskExecutor.php",
+      "sha256": "65abc19011b7985c70b084d3d3f70afde079ac98455726ea6ef2bebdc9c11809"
+    },
+    {
+      "path": "app/Application/Audio/External/PostgresOpenAiCompatibleAudioAdapterFactory.php",
+      "sha256": "6bccba7f4b7e4ab78565a5f3bdf373389204c40cd218d207bcf09ea71a6c8850"
+    },
+    {
+      "path": "app/Application/Audio/External/PostgresOpenAiCompatibleAudioRuntimeLoader.php",
+      "sha256": "3505351a289373a48535a8be5824ec8fdc2e8b3b0dc0b450f73ce797300c003d"
+    },
+    {
+      "path": "app/Application/Audio/External/RegisteredExternalAudioAdapter.php",
+      "sha256": "84aea9b49dc447e6b9810f1dc3ecd90597ea2278060b0425ebf92226885e76ba"
+    },
+    {
+      "path": "app/Application/Audio/FrozenAudioReferenceVerifier.php",
+      "sha256": "cfbc134377c4e99e0f38619c6a0df56c1a99deb2ff79f33a2b666848155fe2ea"
+    },
+    {
+      "path": "app/Application/Audio/LoadedLocalAudioDriver.php",
+      "sha256": "654c65ebf8bc22a47d0822a9c0cb3867a392b8a4a6bbf8ecdb804035f176fa35"
+    },
+    {
+      "path": "app/Application/Audio/LocalAudioDeploymentPolicy.php",
+      "sha256": "b3cb768fc2ecc6f31b7818e8e0be96d7da92586fa4f0f9adbdedf55f1d117cf1"
+    },
+    {
+      "path": "app/Application/Audio/LocalAudioDurationProbe.php",
+      "sha256": "58d8350a4f1db9495f5c9d0a9ad075eb3b7e320e191095f2338312385521e755"
+    },
+    {
+      "path": "app/Application/Audio/LocalAudioExecutionFingerprintPolicy.php",
+      "sha256": "be7a550729c8751085613513adf949714581f0c269c7c23365134525606db04e"
+    },
+    {
+      "path": "app/Application/Audio/LocalAudioTranscriptionDriver.php",
+      "sha256": "8c43e5f21c00b410398eb1eda66a92c0dc9f3cd3e72b271ef9aa2be49c6a769d"
+    },
+    {
+      "path": "app/Application/Audio/LocalAudioWavConverter.php",
+      "sha256": "c552daf260b0b076a99c9a64e61197baae70dd15775b0af677cfd802335b462d"
+    },
+    {
+      "path": "app/Application/Audio/MeetingClaimSchema.php",
+      "sha256": "250448334d6780a9aaecbc9262dd7652f9294ecf407974f74d191eb2ea94fbe2"
+    },
+    {
+      "path": "app/Application/Audio/MeetingExecutionGateway.php",
+      "sha256": "9acb5526bed6bcaa59daa06feda95e0d7b0971c141d6de184bf81a587f301151"
+    },
+    {
+      "path": "app/Application/Audio/MeetingExecutionPolicy.php",
+      "sha256": "8d70160103658cec378a6e2e8daae7ed2bb28c06c111a5a928bf403b1c5a2eb0"
+    },
+    {
+      "path": "app/Application/Audio/MeetingExecutionRuntime.php",
+      "sha256": "7c27aaca3c3d3a1b5e5db2924e9b7d48004db4b8fee38104c0bfc11ca42d793b"
+    },
+    {
+      "path": "app/Application/Audio/MeetingLocalPlanning.php",
+      "sha256": "bf64d8782dcfe8b6d7a1350dab8d31c2e0f6d5a61d873e902f6bad09965b3d1b"
+    },
+    {
+      "path": "app/Application/Audio/MeetingOutputCorrection.php",
+      "sha256": "3df9243cbb3530ca3decea37c1ba88cea544d869031738d7cabca1357dbdcf87"
+    },
+    {
+      "path": "app/Application/Audio/MeetingOutputRejected.php",
+      "sha256": "62a64bcab72538aa61df0e77df60613694adec43747d1c84e83e6ea95b046c1e"
+    },
+    {
+      "path": "app/Application/Audio/MeetingResponseSchema.php",
+      "sha256": "7c20cff032c744d8e9d46d679ffc322774595ba072dde108db2c98a272002eca"
+    },
+    {
+      "path": "app/Application/Audio/MeetingSummaryCapacity.php",
+      "sha256": "a58c47e36933bfd99bb8040f58701d5689806ac14b24adf76722ad704b7b82a4"
+    },
+    {
+      "path": "app/Application/Audio/MeetingSummaryEvidence.php",
+      "sha256": "572f8933c4f429b24d0543187fb93c1e6315b3f9c7947437acf56ae9e21880c0"
+    },
+    {
+      "path": "app/Application/Audio/MeetingSummaryOutputContract.php",
+      "sha256": "e412dd553bb75864c2b8197ff5ddcd2efd191cccd2d9649e39d60b4e8b8be946"
+    },
+    {
+      "path": "app/Application/Audio/MeetingSummaryPlan.php",
+      "sha256": "1a21ee701296d78b86f9a8615f2c0b7aefe37e5d03934f9824238b67cf33785f"
+    },
+    {
+      "path": "app/Application/Audio/MeetingSummaryRoute.php",
+      "sha256": "80fb8acd946e004f02767fc645963d097999d60cdd5c8a3334a0f81c8932787b"
+    },
+    {
+      "path": "app/Application/Audio/MeetingSummaryRunner.php",
+      "sha256": "fd5dac6884601dc6eebc4da7c2cbb137718650790e0729736938d07544d8c413"
+    },
+    {
+      "path": "app/Application/Audio/MeetingSummarySource.php",
+      "sha256": "69e7785f94766d7df1405c24ccef45614e140f96949b36b39dab15e8cd47db4d"
+    },
+    {
+      "path": "app/Application/Audio/MeetingSummarySourceReader.php",
+      "sha256": "42c6eb1e70b860322fcc6b3ba995bbf90ade9885f5a395d8ddd8afa925f390e3"
+    },
+    {
+      "path": "app/Application/Audio/MeetingSummaryTokenCountLedger.php",
+      "sha256": "6df64cae24da1376dfb4b628274ff1ae35e089797f965e12989f1be43f2b2d73"
+    },
+    {
+      "path": "app/Application/Audio/MeetingTokenizerDrivers.php",
+      "sha256": "e7939fe0e080844f215dd18c8d7e130e2d6898e6a6f9a66e07e6de523e183ba2"
+    },
+    {
+      "path": "app/Application/Audio/NeuronMeetingSummaryCompleted.php",
+      "sha256": "a8d3c9f08cf2c1c89261c0709527ff890a95c7b1fb660f71e357e3052ec46512"
+    },
+    {
+      "path": "app/Application/Audio/NeuronMeetingSummaryCompletionNode.php",
+      "sha256": "9f8cac2664ce8de62d72d95b5b1a4659e752f4ffd71827e7e0c01fae6b0ee707"
+    },
+    {
+      "path": "app/Application/Audio/NeuronMeetingSummaryPrepareNode.php",
+      "sha256": "afa7bb6c290765874e6fa1cbcbe4fb955ef386a1332bcc0f493e2c4cde686079"
+    },
+    {
+      "path": "app/Application/Audio/NeuronMeetingSummaryPrepared.php",
+      "sha256": "b0bf195d8b7a1b698bf465f7906db364defd9d7b58ab7d0ad8e4a02a73fe5e0b"
+    },
+    {
+      "path": "app/Application/Audio/NeuronMeetingSummaryResources.php",
+      "sha256": "c9ec12e297a7971c4a277a2e466e8814be5c2d7f5df5e1a7eb7cedbf4363ff0d"
+    },
+    {
+      "path": "app/Application/Audio/NeuronMeetingSummaryValidationNode.php",
+      "sha256": "9f5a08c4edbb792a03454ed65ee4651d5687493cbdc316c4eda526e793c67de1"
+    },
+    {
+      "path": "app/Application/Audio/NeuronMeetingSummaryWorkflow.php",
+      "sha256": "dc9b6454aa84840f349c0f178744b809922803fe0f84c1bf0cea4834cf27b2a0"
+    },
+    {
+      "path": "app/Application/Audio/PostgresMeetingAggregationSource.php",
+      "sha256": "c7b07e7b6a920d4dcbbe9eda8360cc6294d869df715d762a82c874ef0ec88938"
+    },
+    {
+      "path": "app/Application/Audio/PostgresMeetingDurableCoverage.php",
+      "sha256": "de545acec83e918e4514c1f51eeeb4229b525ad0a035c5fb3398dfb9458503aa"
+    },
+    {
+      "path": "app/Application/Audio/PostgresMeetingDurablePlanner.php",
+      "sha256": "4a4ad4b76221bbd31cec9b37915dbe21d3cfcae806744a5046eff156df58e652"
+    },
+    {
+      "path": "app/Application/Audio/PostgresMeetingDurableWorker.php",
+      "sha256": "256311dc2495e23a0230bcd44c491dc61a334b87b888799e21e150a258d3764c"
+    },
+    {
+      "path": "app/Application/Audio/PostgresMeetingLeafMaterialization.php",
+      "sha256": "65274d424cb64a39cb5e92b5424ef9e20cca667ec091e6a26c29291b31a014a6"
+    },
+    {
+      "path": "app/Application/Audio/PostgresMeetingPlanStore.php",
+      "sha256": "c326a0ccbdab45efd53144de1c8dda52954dee3edd5918be13130d8c6a3c2848"
+    },
+    {
+      "path": "app/Application/Audio/PostgresMeetingPreparationStage.php",
+      "sha256": "a45e3e2f834b033036325a061cab6f942d2ffabb7e276043ec41b933bb3b6a88"
+    },
+    {
+      "path": "app/Application/Audio/PostgresMeetingTokenCountLedger.php",
+      "sha256": "635c63274e46ab27c9ab621b7a88e832d26de5b6907b8c25c546b00d659b7f3f"
+    },
+    {
+      "path": "app/Application/Audio/PostgresMeetingWorkerLedger.php",
+      "sha256": "ba892761cca3d842491643c827412bff01227ef48badbc90ce029f7e03489261"
+    },
+    {
+      "path": "app/Application/Audio/PostgresPrivateAudioFileLoader.php",
+      "sha256": "eb5009a8a3b2d611b07f2c18f527315794098cec979cc4706634fe64c9b6e5bf"
+    },
+    {
+      "path": "app/Application/Audio/PrivateAudioFileLoader.php",
+      "sha256": "e79c5bb69694b9e60ae3cbfb08649fe78e840394381432e98a70159530056612"
+    },
+    {
+      "path": "app/Application/Audio/PrivateAudioReferenceVerifier.php",
+      "sha256": "9eb5915893bdd634ddf9ac9bdaef9b94b9cb06ee86c4aad19ca4c09600529ab3"
+    },
+    {
+      "path": "app/Application/Audio/Speech/NeuronSpeechHttpClient.php",
+      "sha256": "fb61d30f1777f1f8939f1c85e70fe77ed5c99814b3969e9a5c56309c30dc4d3c"
+    },
+    {
+      "path": "app/Application/Audio/Speech/NeuronSpeechProvider.php",
+      "sha256": "ebed104d3c85460d38cc2e5c128c2195c900f9f4ebfe4a20d9beb800b2f9fe04"
+    },
+    {
+      "path": "app/Application/Audio/Speech/OpenAiCompatibleSpeechSynthesisDriver.php",
+      "sha256": "1ee11a6cf271394ab2bfbbb153e73d9463845ef1586ecfcb2fd61b1871b2c313"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechAudioFormat.php",
+      "sha256": "5cb754e24e772a880200f87643bf9d2c3f36337da2f4a0db810d624b4cac136f"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechBudgetGuard.php",
+      "sha256": "fe28783541b454ee8eee37bc4c922dbcc2f00069030ce46caac490baf7f2717d"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechCallStartPrice.php",
+      "sha256": "c4dac7e4085d094d6c22bd0be08000b1ed7539cca34cc01f4deff7418e8cc055"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechExecutionTarget.php",
+      "sha256": "04f0964c0312951da891daca85eab8ab4963c8d69ace46f2dfd70de637219937"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechResolvedRuntime.php",
+      "sha256": "5054b44d18943c87a45b2decb326d4591db817d8cef3b4c065f54d3802bcfb39"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechRunLedger.php",
+      "sha256": "48fcbe7ab700bc7ed1a256680e82b84970318b2f75a9f50bdb5b40c9b18c1ad9"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechRuntimeResolver.php",
+      "sha256": "441b66efb1a604c829bf5e19ec41af4735ca811340af1da9f4f6af558361ed94"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechSendBoundaryDriver.php",
+      "sha256": "b570177665421a1bcbad1d8113351b73a81ceded6dcea666f776be195580cfad"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechSynthesisDriver.php",
+      "sha256": "ef83d2bbbf0a18189424eda1221e09b151f8216f1e0ad267fe91ae0bdeca647e"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechSynthesisRequest.php",
+      "sha256": "a3b2dc9fbf9a8ffb8bada956cf38ebcd48dadbf7534fcf2089c6abcebd2c50a2"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechSynthesisResult.php",
+      "sha256": "9e2c1718dfd5aa07d8dc150a947c0b34ddc73369b95274cc0db19577962303b9"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechSynthesisService.php",
+      "sha256": "d97804835eb6b4c68621b32e24bac01bf8e8fe58f5e5f0df4ec5019759f0c469"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechUsageFinalizer.php",
+      "sha256": "78264e321a6401fbdd83cd9b5d41d15c73dec45622c36ed71c09ad06f3aae883"
+    },
+    {
+      "path": "app/Application/Audio/Speech/SpeechUsageRecovery.php",
+      "sha256": "511383d7c1ab8899cc2039fb912f22cae3154cd39c90b0544463ed807234cd42"
+    },
+    {
+      "path": "app/Application/Audio/VerifiedPrivateAudioReference.php",
+      "sha256": "07e05ffd567bda5af8ae74e048d14bfcae0860f8efa99fef69c2701d531711d2"
+    },
+    {
+      "path": "app/Application/Audio/WhisperCppAudioTranscriptionDriver.php",
+      "sha256": "1c24791bc902f771fcdb77eb778e24e7445d7e4b43ec3d223c82da53963b0bd6"
+    },
+    {
+      "path": "app/Application/Audio/WhisperCppExecutionConfig.php",
+      "sha256": "d6fc5332121f114cd4edf26b260421318a2b15b9bd7a29d4faab12b66470cfb8"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/CoverageStageEvent.php",
+      "sha256": "e27d4d67ae7b0738249a04093a4b1557f9ca0a5b879b913d0c9691eb86f7955d"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/CoverageStageNode.php",
+      "sha256": "a6e42b2ec8f67f8a135cc5181f5e25ed2be87ef5bf911ce16d2429cb3ffbfb5a"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/ExecuteStageEvent.php",
+      "sha256": "46e330276b54851a60f87709358a3f5aaa11cd3e0957bc7482bc772b5174899d"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/ExecuteStageNode.php",
+      "sha256": "b4d1a1896c7db3650ef866504b36f09e06fc332c922334580d930120fd19ebae"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/FrontierStageEvent.php",
+      "sha256": "e1649333040c27339295d0be827040478d6193d07e12405e97047ff63a6d7196"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/FrontierStageNode.php",
+      "sha256": "365052b24c2efea784e2835dbe459be4613f63e5cdd9f3d7803f5b4684fc3cde"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/LeafStageEvent.php",
+      "sha256": "f7d36eb53c60d1cf5d757b953df70a4f9e559a65854a0174a1b66e4a09ac1c63"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/LeafStageNode.php",
+      "sha256": "6da5b72bde0e282ebe5f107dcb42be9e783662d3bf23be2f2a0a59562a97f7ad"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/MeetingStageResources.php",
+      "sha256": "ae7b5ef4f72630f751d55431c8fc2d7374a5740c1ac64683fc78511bbc45fa66"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/MeetingStageWorkflow.php",
+      "sha256": "2c190f0c51a893003418b8f6f35de4d438350b04a0e56429767a1c34a989a343"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/MergeStageEvent.php",
+      "sha256": "687f1b8fd8bbc21814d05203e8c92b8a8230b2f370f4ad16c7c11a7365a1354a"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/MergeStageNode.php",
+      "sha256": "280fdff76225dc4388d99626335736c8bcbc4557514c07e8221dae12c76f38fd"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/PartStageEvent.php",
+      "sha256": "7dbc777f184a3b32c6cdfe0c4b58c2ccce0a73985b7e91e8ad3d008ed7e58e3f"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/PartStageNode.php",
+      "sha256": "15137e506f2631d526a0c0020bcfa8bcaccf834f5f7844331c89f24e434c8c88"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/SourceStageEvent.php",
+      "sha256": "f5caf932c5254c3fef88828d3f34e90520ba6b920d26d05c988ed22a6ca0c7d0"
+    },
+    {
+      "path": "app/Application/Audio/Workflow/SourceStageNode.php",
+      "sha256": "f752ea31dedad4e6aecc0690e5f42dc0aca98095b21e443e4c9c545f3313fc05"
+    },
+    {
+      "path": "app/Application/Billing/BillingAdminCredentialProvider.php",
+      "sha256": "7621b182000df73d19c25d42d5bd6204b374f31572995dd023633b76f7c3f9b0"
+    },
+    {
+      "path": "app/Application/Billing/BillingAdminKeyPolicy.php",
+      "sha256": "576fbe4c45fa748a45b73fb7c71faa4b91ec91105ee60534fa60000cd009695f"
+    },
+    {
+      "path": "app/Application/Billing/BillingConfigCipher.php",
+      "sha256": "9427e5766c1a7422dd9f5d9cf428d7da05a6066a378af5de39565b7c49840b2f"
+    },
+    {
+      "path": "app/Application/Billing/BillingCredentialOperationStore.php",
+      "sha256": "c07badd5a176d0060a4e7c4d4aa233cc7f4f6180a8b55e03092ae62b429d5ab7"
+    },
+    {
+      "path": "app/Application/Billing/BillingCredentialService.php",
+      "sha256": "5ce3008cd99ad4b766c61b594c05fe013ba1fb8216b42cbd1f101df715158f7f"
+    },
+    {
+      "path": "app/Application/Billing/BillingDecimal.php",
+      "sha256": "5830d6c510d070618bd83409fb528bccd05e287933ea2f8600726a649729611b"
+    },
+    {
+      "path": "app/Application/Billing/BillingEvidenceService.php",
+      "sha256": "56cc69e225da45634f316e680142219ae8acfe73b88e3e380720b39975745850"
+    },
+    {
+      "path": "app/Application/Billing/BillingFetchRequestPolicy.php",
+      "sha256": "3ebc0477fd6dea0b4e21dbe4b872bbaaf55fd19de1291e0d1711e7682bb0eb73"
+    },
+    {
+      "path": "app/Application/Billing/BillingImportAdvisoryLock.php",
+      "sha256": "9c065b16d41139884c86c31f3a75d791dec1315782ebc6516bffc48c7ec0608d"
+    },
+    {
+      "path": "app/Application/Billing/BillingImportAuditContext.php",
+      "sha256": "dbcfb7300fbc3dcc4b318feb44e217d4208adbbefcea5be304f11798d348df28"
+    },
+    {
+      "path": "app/Application/Billing/BillingImportIdempotencyPolicy.php",
+      "sha256": "96d6fae2e29abfbcb11faf2d953c45a01769ce8cdc43fdca73901d9c1abd9ee8"
+    },
+    {
+      "path": "app/Application/Billing/BillingImportPolicy.php",
+      "sha256": "5519dee556a7aaadbd4a75dacd57ca6b7a891eaabb54fdf1fd01fa185beeda2e"
+    },
+    {
+      "path": "app/Application/Billing/BillingImportService.php",
+      "sha256": "c43d11ff7b7dbdbe7256d4bdf25fe45a5608409be3f500902b49972730a23fce"
+    },
+    {
+      "path": "app/Application/Billing/BillingImportStore.php",
+      "sha256": "dba5146da2c47c74f75254bc4bba8950e68762be4858cd3fd98164c03ac82759"
+    },
+    {
+      "path": "app/Application/Billing/BillingOperationReceipt.php",
+      "sha256": "3753d2b962a72b83f9d2f122dcd856fb4b08c950e22ec313f2f65809bf5eb50d"
+    },
+    {
+      "path": "app/Application/Billing/BillingOperationRecovery.php",
+      "sha256": "8c24bd56ce90182904606093b41e16b5089be9a51c3fc53b72f0387be199d775"
+    },
+    {
+      "path": "app/Application/Billing/BillingPositiveId.php",
+      "sha256": "b040f40940af59a837f97dddbe8ddbf1220d1656520e78abb45cfe6bfaa29d93"
+    },
+    {
+      "path": "app/Application/Billing/BillingQueryPolicy.php",
+      "sha256": "ab9f20c6fd6f21f73b9c545788669db3012ba65c3dd53aac44b82111bd917e73"
+    },
+    {
+      "path": "app/Application/Billing/BillingReconciliationMatcher.php",
+      "sha256": "77947d01303eb4eb688fec0b7b4a39d3e0288e0123395a4c7162dca8ad0ebe2e"
+    },
+    {
+      "path": "app/Application/Billing/BillingReviewPolicy.php",
+      "sha256": "0b85cb3fd983061106c595ec56fa08f22ec34482cdb31a9558c23f2f83b0cec0"
+    },
+    {
+      "path": "app/Application/Billing/BillingReviewService.php",
+      "sha256": "bc02e1d6f340bf6c010b56c7189cc1d2cd5cd48dc569fc598ea8722f6400cb8c"
+    },
+    {
+      "path": "app/Application/Billing/BillingReviewStore.php",
+      "sha256": "6fdfcd394bc5a972a8a5da4911afb52f807b9846eb4aad8e430a8cb853dd9e12"
+    },
+    {
+      "path": "app/Application/Billing/BillingUsageTrace.php",
+      "sha256": "3f6966eb712138dd21241f508e21405635a37978a59099bc33fce39760f1eb3e"
+    },
+    {
+      "path": "app/Application/Billing/PostgresBillingImportStore.php",
+      "sha256": "14ff41b984071b184a5da336771c7fbf9abc4f60fd832a907e5b6f70a41203e8"
+    },
+    {
+      "path": "app/Application/Billing/PostgresBillingReviewStore.php",
+      "sha256": "b956d13d4fc1da4a2fcf92ecbd26a0ee7d164796710f8b4d22d59e72f12dee6d"
+    },
+    {
+      "path": "app/Application/Billing/PostgresProviderBillingSyncAuditStore.php",
+      "sha256": "aa06baa6e95b8deffeadacf981af48309992b3130b206dbe31f30cda8cee25f2"
+    },
+    {
+      "path": "app/Application/Billing/ProviderBillingConnector.php",
+      "sha256": "c73d031d1310282e3f845a6ea4c3e7af845f6a1373274fabfea2cdc2a892a15c"
+    },
+    {
+      "path": "app/Application/Billing/ProviderBillingConnectorRegistry.php",
+      "sha256": "e2aaf1d0860b420e0d1c685a06d5a41590e03e17d3788aca806b56c4744d9ee7"
+    },
+    {
+      "path": "app/Application/Billing/ProviderBillingCredentialStore.php",
+      "sha256": "3c3275b5d55e4b822d25d822cf723d92c210b98eedeeec7aaf50a2e1f96d2490"
+    },
+    {
+      "path": "app/Application/Billing/ProviderBillingEligibilityPolicy.php",
+      "sha256": "f1e13f32ae5abd0a3d700d2a1586bbbd6780dfe2a0364c083d743c432ac69298"
+    },
+    {
+      "path": "app/Application/Billing/ProviderBillingProviderResolver.php",
+      "sha256": "b14825d9ab88bde1814fc636c84659d6e83bb71a5b7c0ccdccb78f49b9aa6f80"
+    },
+    {
+      "path": "app/Application/Billing/ProviderBillingSyncAuditStore.php",
+      "sha256": "26ddd20d18688bb4e1ebeaff05896b7d65457a818fbdc2b620ad208dd104fe7a"
+    },
+    {
+      "path": "app/Application/Billing/ProviderBillingSyncService.php",
+      "sha256": "d69d646c11e1be6d91ae81be776efada70c22cfeb40720a87da64bda576b9bc3"
+    },
+    {
+      "path": "app/Application/Budget/BudgetAlertPolicy.php",
+      "sha256": "f9b8106ac86ccffb75aa6f1f2fd15bb457bb58e0a26563a7d5e2519da0bbbabf"
+    },
+    {
+      "path": "app/Application/Budget/BudgetCapacityBound.php",
+      "sha256": "f985cd4ae56c575d2232502b5bfbbd25c675b93c435845477871ccaa657e64f8"
+    },
+    {
+      "path": "app/Application/Budget/BudgetChatWireProtocol.php",
+      "sha256": "5ca02c7404366d8aa722df51f020059e7bf6da63f79469e6439a2b46e8fe37b7"
+    },
+    {
+      "path": "app/Application/Budget/BudgetDecimal.php",
+      "sha256": "07e8e514de7f61443e2ce4edba79e808a67bb322731b97a53a30c80400961776"
+    },
+    {
+      "path": "app/Application/Budget/BudgetInputTokenProof.php",
+      "sha256": "4bc9a6efa28e7e383c00df19f616f99b4fdd93ec7b340e264ceecee4927eb8ff"
+    },
+    {
+      "path": "app/Application/Budget/BudgetPolicyService.php",
+      "sha256": "526a78d6613acea5abed04661580deff117142dade9105093b394d5a19455958"
+    },
+    {
+      "path": "app/Application/Budget/BudgetPolicyValidator.php",
+      "sha256": "a5db986286ae9e606629d8d3e226a506bc58afc161e00e7ba57a17c1ac56b981"
+    },
+    {
+      "path": "app/Application/Budget/BudgetReservationExpiryPolicy.php",
+      "sha256": "e31b039614520cee91bf62c6e42f1c68a4ecd0def10ce6308c27cf7ce9b620f7"
+    },
+    {
+      "path": "app/Application/Budget/BudgetReservationStateMachine.php",
+      "sha256": "04875144be52f5ecfeec1010e35b4a8d7321a28a6d5abb602b6d65b7626c5beb"
+    },
+    {
+      "path": "app/Application/Budget/BudgetScopeContext.php",
+      "sha256": "58c1ce344aa2bcbe73da7f763701a4ad55afb63b502a04858ebf2c2e74fe27ed"
+    },
+    {
+      "path": "app/Application/Budget/BudgetTokenProfile.php",
+      "sha256": "f78dbe4520d2ec45dddeebc2142686ac46cffbb747d2d2e8afc1be73eba09c23"
+    },
+    {
+      "path": "app/Application/Budget/ChatBudgetGuard.php",
+      "sha256": "255d6b1000bc7ba3aa2aa0b56aab5bf9709dfc7bfb51d01f38b4276b9d08e6db"
+    },
+    {
+      "path": "app/Application/Budget/OfficialModelCapacity.php",
+      "sha256": "5ecfce21dc4844481d92cc0b7b395b411430d8c75468d69405820f7815f2a830"
+    },
+    {
+      "path": "app/Application/Budget/PreparedBudgetPolicySelection.php",
+      "sha256": "689fd4bf60ab7f125ad4c133c063e0628f8d412cffd4d554beb24fb5779383f8"
+    },
+    {
+      "path": "app/Application/Budget/TokenBudgetEstimator.php",
+      "sha256": "570f06b0cc400780c702394a595dc477e03769e87c2faa1551a46ef6ec7beb57"
+    },
+    {
+      "path": "app/Application/Capability/CapabilityProfileGateway.php",
+      "sha256": "f008140701e1a9257d6a2383c641229fbb1542d4c65442c68a87c5ba65e799bb"
+    },
+    {
+      "path": "app/Application/Capability/CapabilityProfilePolicy.php",
+      "sha256": "7f5a2b29fdda235712353cbe81e80a1319fb885edaef51b9fe21dea095d863d0"
+    },
+    {
+      "path": "app/Application/Capability/CapabilityProfileResolver.php",
+      "sha256": "71eba1675666aa2a8bc74e34259726df23cb6ce5b5260842550a48ffc563f09e"
+    },
+    {
+      "path": "app/Application/Capability/CapabilityRouteCompatibilityPolicy.php",
+      "sha256": "bd121524c7d7f47690cccfc42e7f377c6a746da4f443ad66e68d036cdd5d773b"
+    },
+    {
+      "path": "app/Application/Capability/EnvironmentCapabilityLock.php",
+      "sha256": "33d4ddffbc84352ca9056cff4502b639b8c47bb6a8fff1676fcf6562825d71b4"
+    },
+    {
+      "path": "app/Application/Channel/ChannelBindingGateway.php",
+      "sha256": "cb2d62c7a6a323800bfbe3328bb3cf034505a4bd7b41261bb2c4497d9d228948"
+    },
+    {
+      "path": "app/Application/Channel/ChannelBindingPolicy.php",
+      "sha256": "438db7783a197c35747dfa0634ee27938546cfda4afa5835f19172d9ff815cab"
+    },
+    {
+      "path": "app/Application/Channel/ChannelConversationGateway.php",
+      "sha256": "5a8c809f78d89298f5eeb4a4cb6beb26e085c86a5a310bd458a6ee7e5b927577"
+    },
+    {
+      "path": "app/Application/Channel/ChannelConversationPolicy.php",
+      "sha256": "f6773c253a28c56dcf231b5df6b9ac30ae0d5e0dc2eae040ac5d80671f52986b"
+    },
+    {
+      "path": "app/Application/Channel/ChannelCredentialOperationRecovery.php",
+      "sha256": "8bfbeae2854f37a4311e9b46683cfc3c52e0dd73a6377e8eace09876ed80bea7"
+    },
+    {
+      "path": "app/Application/Channel/ChannelDeliveryGateway.php",
+      "sha256": "157ef33298b8f8e6a73814b36b1b397bcd47a938768bcbc863be36ca13ac17eb"
+    },
+    {
+      "path": "app/Application/Channel/ChannelDeliveryRetryRecovery.php",
+      "sha256": "0325f1ed3b348672dd6e46eaa65e2a67b70ae10ae802101e112a17def41dbfcc"
+    },
+    {
+      "path": "app/Application/Channel/ChannelReceiptRecoveryGateway.php",
+      "sha256": "17c66e7d6fa6ad5ccf658226b956057ee8a102a202f6a22cf4f4f812b16081cb"
+    },
+    {
+      "path": "app/Application/Channel/ChannelSourceGateway.php",
+      "sha256": "909163246c654afa6ebd6baedbecb55da224df6f9f38590a77db23d922e0c9fe"
+    },
+    {
+      "path": "app/Application/Channel/ChannelWebhookConversationControl.php",
+      "sha256": "33e55eaa1c35871954de6c70948cc008c81ff0e650a3dcd4b17ea8e23c0cb9bc"
+    },
+    {
+      "path": "app/Application/Channel/ChannelWebhookMessageIdentity.php",
+      "sha256": "1ceab3086ebf5c7885dd5919235c864b29f9422029f507b214f4721fd45b936c"
+    },
+    {
+      "path": "app/Application/Channel/FeishuChannelCredentials.php",
+      "sha256": "962ebb170c5612fc227d3b909b48c992916e18fdf4f169f526c4e40bb3be008e"
+    },
+    {
+      "path": "app/Application/Channel/FeishuChannelStatusGateway.php",
+      "sha256": "730e04530605bc0c7264635f262b13561a675ed94630e874369ea22ad621ca27"
+    },
+    {
+      "path": "app/Application/Channel/FeishuCredentialCipher.php",
+      "sha256": "4a4493df10d2f5818861b08c3c2243cc0ea80fc9a9c3b0f7cb53987c2159af99"
+    },
+    {
+      "path": "app/Application/Channel/FeishuCredentialGateway.php",
+      "sha256": "cdaf9a25b59eb2cdd9bea6d751a9a90ccee9f3943bb21b85d8386d3c897fe7dd"
+    },
+    {
+      "path": "app/Application/Channel/FeishuCredentialRequestSecrets.php",
+      "sha256": "88d1642b563301c8564ac2c9b27fc7b50f9ab6e0f55c95923bf2dca636b7b05a"
+    },
+    {
+      "path": "app/Application/Channel/FeishuDeliveryCipher.php",
+      "sha256": "f86985ff75b5615d23632e4ffda31ec3d858d5e3b594708ee553ab9188244d0b"
+    },
+    {
+      "path": "app/Application/Channel/FeishuDeliveryGateway.php",
+      "sha256": "76393eec9f792ea44e3f85ccd43e3543824e0ad27f465f05f80eba7014b6b1d0"
+    },
+    {
+      "path": "app/Application/Channel/FeishuEventDecoder.php",
+      "sha256": "b921d1c1ccda0561e4738b0edbc6641f6887b0e49de046cfdbdbbf74e21f9ae4"
+    },
+    {
+      "path": "app/Application/Channel/FeishuMessageClient.php",
+      "sha256": "3752721ca254e654fdece086c2fc9b5480d0c3bea9e083a062a819cc8797359a"
+    },
+    {
+      "path": "app/Application/Channel/FeishuWebhookGateway.php",
+      "sha256": "b573210d1423c03a49e9df3c62a2ab533fd98ce775db918910e3d41b12f5263f"
+    },
+    {
+      "path": "app/Application/Channel/WecomChannelCredentials.php",
+      "sha256": "d59663142657edbe18d3ff3232ee08a5354a9c6829ad7db156322649c64001d6"
+    },
+    {
+      "path": "app/Application/Channel/WecomChannelStatusGateway.php",
+      "sha256": "e869f00f9f84ae6a3901267139dbf8b58ae18850a666fdecf5cd5d99880b42c7"
+    },
+    {
+      "path": "app/Application/Channel/WecomCredentialCipher.php",
+      "sha256": "579ccdefbc3ef22cf4d5ed4e195f90582add005726bbb3f15f9d0f406f258450"
+    },
+    {
+      "path": "app/Application/Channel/WecomCredentialGateway.php",
+      "sha256": "5dece66317877661923efe00066ec7fcb0c5cf979db74a2aa020751c8e765cf7"
+    },
+    {
+      "path": "app/Application/Channel/WecomCredentialRequestSecrets.php",
+      "sha256": "8e9a12a9ae8143d1931bad29afba10b8f329569005c19e200a1da8410ebb393d"
+    },
+    {
+      "path": "app/Application/Channel/WecomDeliveryCipher.php",
+      "sha256": "7650d55f9287c73f2831d0fcbba5e79ea97143693b9fe90066d9a9d239aab39f"
+    },
+    {
+      "path": "app/Application/Channel/WecomDeliveryGateway.php",
+      "sha256": "d391f1b3cd776d98b7dba47b0504a8809752a4de57d7e430b44cf8a0cfd94757"
+    },
+    {
+      "path": "app/Application/Channel/WecomEventDecoder.php",
+      "sha256": "96abcd7928cb90007cc9eb5535cbddd3ec8b5f40618e7c301d1c0d07f14ed207"
+    },
+    {
+      "path": "app/Application/Channel/WecomMessageClient.php",
+      "sha256": "03b4947f8a0dd9b99177849699d9287981cdc858d13c0990df29f6f90677b8c4"
+    },
+    {
+      "path": "app/Application/Channel/WecomWebhookGateway.php",
+      "sha256": "11b6b0e7a4d9e3f81a127ab46edd4994afa8ccb6c36ed8137d27705bceabc0f7"
+    },
+    {
+      "path": "app/Application/Composition/CompositionDefinitionGateway.php",
+      "sha256": "ce8d5e008975f931819eae69650e2fb541c62d02a67b2bbfd33e4837c06f8cbf"
+    },
+    {
+      "path": "app/Application/Composition/CompositionExecuteNode.php",
+      "sha256": "77bf32e56dc3a6b91b1a69da39a27d274c673e2e4e0f467227433b5ae416b8b0"
+    },
+    {
+      "path": "app/Application/Composition/CompositionGraphPolicy.php",
+      "sha256": "7bbd3b4311cb55658055b231d5238a5f8cff893b87662af8d2b920419ee4039f"
+    },
+    {
+      "path": "app/Application/Composition/CompositionInputVault.php",
+      "sha256": "d6e77be59f815607531b4a912fd088f20e033220881e3ac86e77c93974ea88d1"
+    },
+    {
+      "path": "app/Application/Composition/CompositionNodeReady.php",
+      "sha256": "3cc4aad31d6af3b32430e1791b53b2e0deb7401c3544ba4db8d4b11bb1e52376"
+    },
+    {
+      "path": "app/Application/Composition/CompositionNodeRequest.php",
+      "sha256": "db7586f6eeddde04f6b651b85f1c992781671257ed34207b2a3933019c64dc10"
+    },
+    {
+      "path": "app/Application/Composition/CompositionResources.php",
+      "sha256": "2e65e82d39b1fba33b0d2f29ff637bf31394647552b2f45181692738a6867487"
+    },
+    {
+      "path": "app/Application/Composition/CompositionRunGateway.php",
+      "sha256": "c737ae8ddfa1beebfb0de49d5a498ab3030e4eca3a4c787d6b55c33f25189ebe"
+    },
+    {
+      "path": "app/Application/Composition/CompositionSelectNode.php",
+      "sha256": "0a4fbf095949e9223bff713cd332a03d7abc227a6709c4cdb8bee0c353757fef"
+    },
+    {
+      "path": "app/Application/Composition/CompositionServiceAdapter.php",
+      "sha256": "4864976b94b326a4b23e42fe31e8a05dd524f65fbbbbae58d6152eee94001bed"
+    },
+    {
+      "path": "app/Application/Composition/CompositionServiceCatalog.php",
+      "sha256": "e7fbb2172e24866db8f80dad800a7c0983c1aa2418ca88cd891d3987fcf04b23"
+    },
+    {
+      "path": "app/Application/Composition/NeuronCompositionWorkflow.php",
+      "sha256": "8632d0a2add84ce19b0f68939f2cd586156bb67ba258198162e96bc03e89760b"
+    },
+    {
+      "path": "app/Application/File/CleanupStatusProjection.php",
+      "sha256": "51ef67720be76a09ea0b4b053878e47aed266f01a40c92b78cfaf0b372b9e3e7"
+    },
+    {
+      "path": "app/Application/File/FileDeletionRecoveryService.php",
+      "sha256": "0d9cd672fe63dc6c5701f8cb692d3085a3a1c84751bbde542ac96648ad62b484"
+    },
+    {
+      "path": "app/Application/File/FileGateway.php",
+      "sha256": "6ed4fa0fde0f79988623f7f35aa50d84881ace3ea1a18b55e57d5b9e4333db93"
+    },
+    {
+      "path": "app/Application/File/FileOwnershipGuard.php",
+      "sha256": "c57c6e7fd67e86888b790e817e22c90ca3bc13f0e271b1c9a00c05f39394ae2e"
+    },
+    {
+      "path": "app/Application/File/FileParseGateway.php",
+      "sha256": "e0a2da3680f3c57a98a0df0f1c05d700082f7fd7ccce674b5cef05a6cafa82b6"
+    },
+    {
+      "path": "app/Application/File/FileSourceBlockGateway.php",
+      "sha256": "56385852fbb79a1c4bae92fd0018cfe6b02670cb3f46579e2ec98f93fa2ac073"
+    },
+    {
+      "path": "app/Application/File/FileSourceBlockLocator.php",
+      "sha256": "a5dcf0ce36985d0ea4302c4eefcbc95290f6f9129cc61e1cbb08ee49e8a1e18e"
+    },
+    {
+      "path": "app/Application/File/FileUploadPolicy.php",
+      "sha256": "a45ce4f8b1c97fc9e16d4b136e53b82e6ca460cfcab8440a7a8de1a7325b883e"
+    },
+    {
+      "path": "app/Application/File/FragmentedM4aAudioInspector.php",
+      "sha256": "2580c49066d6f3c1a3539f92578f611aceca90708d8b86eecb49aee4b5416e26"
+    },
+    {
+      "path": "app/Application/File/LocalOcrDeploymentPolicy.php",
+      "sha256": "e21b08ed96a1ea21c23d7c0688bc1ff6afe08113cff899d86702206bf16c201c"
+    },
+    {
+      "path": "app/Application/File/OcrBudgetGuard.php",
+      "sha256": "606c4f5219cf1e68856e2190b97574dd46b529ef16328dbe28d4bec1e0c037e8"
+    },
+    {
+      "path": "app/Application/File/OcrCallStartPrice.php",
+      "sha256": "9f4466c0c08f04c33b0b557ef1e2bc4546987f6fb3dedf6e33a3ada4745c7adc"
+    },
+    {
+      "path": "app/Application/File/OcrUsageLedger.php",
+      "sha256": "8eedc28e4dd0258cbcf65e374876012396c59c62c752f1106e99ef4233095bb8"
+    },
+    {
+      "path": "app/Application/File/OpaqueFileReference.php",
+      "sha256": "52d21732dcd82eaa51cd5e4aed5d93953e5d7a258c393110ff04b4826178a244"
+    },
+    {
+      "path": "app/Application/Gateway/CanonicalProviderRequest.php",
+      "sha256": "25a1a410f9800f94009f796eec0219003d788d520fcd7b32a391b0755832a554"
+    },
+    {
+      "path": "app/Application/Gateway/ChatCompletionOptions.php",
+      "sha256": "b8b707b75b70e1c519da677d25e5d8a6a345511253d0cca8586710fe1fcdf470"
+    },
+    {
+      "path": "app/Application/Gateway/ChatCompletionOptionsPolicy.php",
+      "sha256": "e28f5df87ae0c106e7cbe72cd8de067ec8c2f4bd60d92d89ca810ee2a12dbcd4"
+    },
+    {
+      "path": "app/Application/Gateway/ChatGateway.php",
+      "sha256": "8a955661635ca50b0fc18f9baa26c6d2a08f82539805c439fac64e61d3af8f41"
+    },
+    {
+      "path": "app/Application/Gateway/DisabledDispatchAuthorizer.php",
+      "sha256": "f62e4b69b50962ca6e36c9934bb8d042049e1b32ad5cb237b4fd4c6a1433f65a"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchAuthorizationDecision.php",
+      "sha256": "4443374d66a463cce04f34619c3cb16e99056b1ce946d39d2ba9c729a31bafd0"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchAuthorizer.php",
+      "sha256": "79cdf7216ef4895b46295e6f83149b9d6febfd9499579cdd8da5e9b754af4739"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchClaimOutcome.php",
+      "sha256": "b4684bb92a3dc3208737e87690b5f31ddae7615cbedfbf249dee3e8fbac23e87"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchClaimPolicy.php",
+      "sha256": "285295c5e8e2e35ad230e5ae233ef3c79e2a6089d3d373d7ad5a6fdb6909fd73"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchClaimRoutePolicy.php",
+      "sha256": "912300307905958edd2c60154859cb2bcd2b260edc9767e7d67ed9c4097a7b63"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchCoordinator.php",
+      "sha256": "6dceacd2baf24d41aebbe30d2f1d2b295b07cc641cccdc8c1d42e3848231ecf2"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchExecutionScope.php",
+      "sha256": "cf000099e2ca6e1b49d27e8d1a82e3bbb1626ea5e944aef9b87db9e8b145617e"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchFailurePolicy.php",
+      "sha256": "2505a175ca048f2928c6310022380cb330bf256fdb330c9e2a4607fe2d42c482"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchFinalizationStore.php",
+      "sha256": "d9bad1b9b4e3b037ac9b07b7e0ee731d750ed3192bf37ffc3d8478cf4b970d88"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchFinalizer.php",
+      "sha256": "f5883781f19adeb79912bb502c22cbe0dd6580e16a9e5ba379c543e087bcccf9"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchLedgerGateway.php",
+      "sha256": "40a16f02bd897c8e68b179f351b43a671701a7aab56710032a394cdbb5a8da0b"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchRouteSnapshot.php",
+      "sha256": "baa30be09752962ec23de3261c3555d7b554106faa9b0e91d36e27f5fb9b7279"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchStatePolicy.php",
+      "sha256": "9243e340334d26039b93a7d025df98dbbdd2d67606ce3b39fb1b62f072e32d57"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchTerminalMutationPolicy.php",
+      "sha256": "3f9fd79e856974e2f12c9cba8537918730b38522879ba8d2e7f6695864c911c9"
+    },
+    {
+      "path": "app/Application/Gateway/DispatchTransactionPort.php",
+      "sha256": "54f73150ba36249e9c47f1881b430543244e9fd5630be41eb6abe8a182fa0d5c"
+    },
+    {
+      "path": "app/Application/Gateway/FakeProviderPolicy.php",
+      "sha256": "c442dede064bbd9abf9372574b2e77a6a31246ef9381677444b2f9a6107bc923"
+    },
+    {
+      "path": "app/Application/Gateway/FormalWorkflowDispatchAuthorizer.php",
+      "sha256": "ef6d98cf30e97206b7cbb4cedeb4364fd40838742ade862ba11eb3dbfb40189a"
+    },
+    {
+      "path": "app/Application/Gateway/InternalModelInvocationContext.php",
+      "sha256": "c5c18a1da05449ada47bc5cc2f0117b87bdc6c3d487f1c09845704427378cc66"
+    },
+    {
+      "path": "app/Application/Gateway/LowCostChatRouteResolver.php",
+      "sha256": "86008a401b2517f50becf0cecf6d3de28c1bc4c4f8a266ce4d1fdcbb1657a416"
+    },
+    {
+      "path": "app/Application/Gateway/LowCostRoutePolicy.php",
+      "sha256": "9cb93fb35d5371ae8cc94edbf408ba5559131d9d7c6074ce10ec6782f4a2a0fb"
+    },
+    {
+      "path": "app/Application/Gateway/LowCostRouteReplayPolicy.php",
+      "sha256": "c8acc26772588a6311296ee8dcae90619cfa15080d6d4487d94de1728f683b29"
+    },
+    {
+      "path": "app/Application/Gateway/MeetingSummaryReceiptScope.php",
+      "sha256": "aa0fd9e83e7dc3aaa5b2b5656d81e20ec9c34f22956b421f64dace5c4d142ae2"
+    },
+    {
+      "path": "app/Application/Gateway/ModelCapabilityInvocationPolicy.php",
+      "sha256": "df2b90710815e2a5590ec7889c3a7a4602685bd9a2ea8d0649d2776b28546c20"
+    },
+    {
+      "path": "app/Application/Gateway/NeuronOutputContract.php",
+      "sha256": "d78ac380590cc7ca24474638e7a211883d93c114981d6cf075c4bfd8a6de1ae4"
+    },
+    {
+      "path": "app/Application/Gateway/OutcomeReceiptCipher.php",
+      "sha256": "1045deac2759026ad8606f61c5ff5a2d612e0cf23471f0b1ff3b2659ac2d6d1d"
+    },
+    {
+      "path": "app/Application/Gateway/OutcomeReceiptCleanupConfig.php",
+      "sha256": "e94eebd801c20ddba7e718388286066de39a76a9c9c81f8840a0fc638d7b3ec9"
+    },
+    {
+      "path": "app/Application/Gateway/OutcomeReceiptCleanupService.php",
+      "sha256": "4b49a68c80b9cabd04afc804ea8fe45f43a7123c6a800fda64a0866eb7647eb8"
+    },
+    {
+      "path": "app/Application/Gateway/OutcomeReceiptCleanupStore.php",
+      "sha256": "e5d53b967f82026685d4757e3f259d2cb17914dbae352bda53833029965bb145"
+    },
+    {
+      "path": "app/Application/Gateway/OutcomeReceiptEnvelope.php",
+      "sha256": "76e4a894d88235f83e5a580867ec477c0ce9891d4a5df7972d3808900a0a434f"
+    },
+    {
+      "path": "app/Application/Gateway/OutcomeReceiptReplayPolicy.php",
+      "sha256": "55a9c69cd6e6b45409efa4405c30c2c10f87e21b091801047b86689cff86c107"
+    },
+    {
+      "path": "app/Application/Gateway/OutcomeReceiptRequest.php",
+      "sha256": "4b25ebdc26c48eb17218ee4b5594b2fad373f795c9560862725697273b2b2521"
+    },
+    {
+      "path": "app/Application/Gateway/OutcomeReceiptRetentionPolicy.php",
+      "sha256": "1a9f1893180e99e36b8ee876b352daf7e220486634e9fe15ccc46a339b811bbf"
+    },
+    {
+      "path": "app/Application/Gateway/OutcomeReceiptService.php",
+      "sha256": "cdd677f2a6e27747d80a665251d1dd023bf88b304afef189d4811ba580012c3e"
+    },
+    {
+      "path": "app/Application/Gateway/OutcomeReceiptStore.php",
+      "sha256": "e0510d812c1c19c0383e96e35301bb9adf17887bf80dbdd6f53d4b3562e2043d"
+    },
+    {
+      "path": "app/Application/Gateway/PostgresDispatchFinalizationStore.php",
+      "sha256": "913ed493c71d6cf3afbcbbc6c5a4b41c1f202fb6ab136e4f7fc79c020b6091fc"
+    },
+    {
+      "path": "app/Application/Gateway/PostgresDispatchTransactionPort.php",
+      "sha256": "68bf150e93c8d9edda27b20cf6a0f95393a6d4eb1a39b3de7590c54bb54f901a"
+    },
+    {
+      "path": "app/Application/Gateway/PostgresOutcomeReceiptCleanupStore.php",
+      "sha256": "69d10cbc7a4595c68ccb55940f1f7e8fbd510a71ea70bd2d988f17e340658cdb"
+    },
+    {
+      "path": "app/Application/Gateway/PostgresOutcomeReceiptStore.php",
+      "sha256": "e36e626cdb5296ebf772ddc6a72ba6c0cfe488847bf985feb6c6b362eba52218"
+    },
+    {
+      "path": "app/Application/Gateway/PostgresPreDispatchRejectionPersistence.php",
+      "sha256": "0850d39080b10e2eb925344aca82d1e45b36674acac42fdd8de79a123049ed3e"
+    },
+    {
+      "path": "app/Application/Gateway/PreDispatchGuard.php",
+      "sha256": "689e3c6d772ee37aac8f1e67c0306c0fc95afc5478f620a12c94efee60ba7127"
+    },
+    {
+      "path": "app/Application/Gateway/PreDispatchRejectionEvidence.php",
+      "sha256": "76adf5f4844ebe7043a1134dbab8b99dd749a06aa3a0e6e3d4642ff215e19e02"
+    },
+    {
+      "path": "app/Application/Gateway/PreDispatchRejectionPersistence.php",
+      "sha256": "0da5e4f8cad5d93c018d7e1884749c67cbb2a4d6e7cfa6057c8696671e139c7d"
+    },
+    {
+      "path": "app/Application/Gateway/PreDispatchRejectionPolicy.php",
+      "sha256": "80966579fdd5ddcb98b9a2471abfa3543c1deb4d29b3a6cd8a59fa83fbca1d72"
+    },
+    {
+      "path": "app/Application/Gateway/PreDispatchRejectionStore.php",
+      "sha256": "2d9cdd9c0988a3982541a08d07a499cdfe46081e92b1823e2f2de87d735d6e4c"
+    },
+    {
+      "path": "app/Application/Gateway/PreparedDispatchRecoveryPolicy.php",
+      "sha256": "c0df62473fd6c85f7c332b27ed1cf9fefeb0e84f87f5d68b21a2394286934f62"
+    },
+    {
+      "path": "app/Application/Gateway/PreparedDispatchRejectionPolicy.php",
+      "sha256": "aa9dd74ff903883e3fa1786fdb58d30c883f3d3cc5df5cd5a8bead54c0490b39"
+    },
+    {
+      "path": "app/Application/Gateway/ProviderCallLimitGuard.php",
+      "sha256": "9b33b596737dacda1d0ce6658bfb71477908418f72e59dd81561f1ff66696b9f"
+    },
+    {
+      "path": "app/Application/Gateway/ProviderDispatchContext.php",
+      "sha256": "e7c3346ec0e936badf3af0d51cb7d33cca04f1a23939cf2e2ba1e96367143dce"
+    },
+    {
+      "path": "app/Application/Gateway/ProviderDispatchTerminalization.php",
+      "sha256": "6e566a890cc469fd8ef45ee12353123b41855eb680662585e75900a0784ab1bb"
+    },
+    {
+      "path": "app/Application/Gateway/ProviderDispatchTerminalizationPolicy.php",
+      "sha256": "44352f5157ea492e252868d5cb8e1543005423616a29779c75b5868053de53c7"
+    },
+    {
+      "path": "app/Application/Gateway/ProviderIdempotencyCapability.php",
+      "sha256": "3baa841863ad50453794f1b610e27c9437cc2f52844451f5e14f3b18399c91c5"
+    },
+    {
+      "path": "app/Application/Gateway/ProviderRequestBodyBuilder.php",
+      "sha256": "0f1169b7f4cb75f861d15a181995e6c83241327f3bf11eecfdc2e867ab95c4d9"
+    },
+    {
+      "path": "app/Application/Gateway/ProviderResponseIdentity.php",
+      "sha256": "87204240827f8290accfa5c7ef65933a0b04024a8a8b5cf0f57bf1c825b68488"
+    },
+    {
+      "path": "app/Application/Gateway/ProviderResponseIdentityStore.php",
+      "sha256": "de4d0f36ded5f8a2d1a9e76ef8d3308b55315d54d626c95657ab34f72d7f11c0"
+    },
+    {
+      "path": "app/Application/Gateway/ProviderSendBoundary.php",
+      "sha256": "d9e29cdbdec50c4029e7ab6c5bda5ba8d0fbca4e06dc2bca1cbf73199042ee56"
+    },
+    {
+      "path": "app/Application/Gateway/RequestIdempotencyKey.php",
+      "sha256": "1d8dadf199083c09039a0e2eedb9d76c8011476b8e42c2982b3f8ea4585f0555"
+    },
+    {
+      "path": "app/Application/Gateway/RequestPayloadFingerprint.php",
+      "sha256": "f298567bb60e994db5d9939bb8eaebb6582827c5a24801c880b4df21116d38d3"
+    },
+    {
+      "path": "app/Application/Gateway/SandIamContextAuthenticator.php",
+      "sha256": "39848a39bc9c9efbd106a684f864a864a18d50fcfd59943f127fb145153445d8"
+    },
+    {
+      "path": "app/Application/Gateway/TaskLeaseStatePolicy.php",
+      "sha256": "f243e6b022e4cfa357e55efeb7458bc5eb9305892d9383975026fc91e2349f73"
+    },
+    {
+      "path": "app/Application/Knowledge/EmbeddingPreparedExpiryRecoveryService.php",
+      "sha256": "6a1c2059a9685182a6f58850ca8387415da7ddb4e693b76cdb7740e4973a3b63"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeAnswerAttribution.php",
+      "sha256": "4084ce5976087bd1fb30343078d220c2dbcdaee1927cab9af2de44009b750c58"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeAnswerPolicy.php",
+      "sha256": "4cbe917a7c4ab8c99d7bcaf6486e67326674e8902da6f66f40e28159dd30bdda"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeBaseGateway.php",
+      "sha256": "0185fa8c55a62836a30292914f6ba297af539ecfeae7ed7d75a1d227925e63bc"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeBasePolicy.php",
+      "sha256": "4966ada4979c538072c8a43016634542e4b4792a784a9ca57f40056b2796d4a7"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeBaseQueryGateway.php",
+      "sha256": "a486e3c066d18caf973104a825ad586811eb4f1ff2ca3878145277dab3259950"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeBaseTrialGateway.php",
+      "sha256": "0c0809f92ad6f71083fc64311f20fa588c7894e37bba17f9a01ec3b83ae25be7"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeConversationContextMask.php",
+      "sha256": "62a1dbd255d9761eacc880815f66a63e762b6b84d7ba6276cacebd94911299cb"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeConversationGateway.php",
+      "sha256": "a0eff305ac4ad59cca693799b1d80f74018109640a90c3f8ee5ec7b79c8838ba"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeConversationPolicy.php",
+      "sha256": "2ef7c3f1e39f871f7af58a57d58342e8ee5bfc278264f747c30cec5ba474bb3c"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeConversationSummaryGateway.php",
+      "sha256": "c4c2442ce7a7714b5b1fb6f563ed6210d98afe2ff6be4604040a25b85c817c04"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeEmbeddingAccountingOutcome.php",
+      "sha256": "df21a43d0521da0df1e9b8d232a559013a6503fa7216ebad89e26516875edd7e"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeEmbeddingBuildGateway.php",
+      "sha256": "0161ce3766a37c1cece765a310b801c27fd9cb869a053a9610dc92057ab47d90"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeEmbeddingDispatchClosed.php",
+      "sha256": "6bd530d34e3b267b18ce0b1f5665b4d054b701a5130b3af763a3a13ef3c2e818"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeEmbeddingIndexGateway.php",
+      "sha256": "7532a96ccca43d0188e0e8e73e68a18e24e049c372dce358fc96b5b9da5cd20f"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeEmbeddingOutcome.php",
+      "sha256": "5716964cdf44f8791e320ac1455757a121c97fefe07ee977aafb10b8b05ee61a"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeProfessionalRerankBudget.php",
+      "sha256": "5765df214f038305dd5aeb8505c6fa7e07ef72dad37a273b0e72b8337c28a3ce"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeProfessionalRerankGateway.php",
+      "sha256": "6c59271a58d402a7a73729d16923a3528956ce2e6bdc87b912226ad5c17b6ce8"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeProfessionalRerankPrice.php",
+      "sha256": "cc8c4ec5446c853d6a837a957c0fc0d7d1285fb1ce99c5f55054d49e3e4a6fd1"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeProfessionalRerankSoftBudget.php",
+      "sha256": "7c944f628e8929eaa77ec3fc4cb9dc07c5192a92ec86cc4bd5afbb5775a36161"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeProfessionalRerankUsage.php",
+      "sha256": "0bf4eeb5bccd1a69465d39e1cc12fe4dd9be6179748dc5ddd906073ddef9106a"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeProviderOutcome.php",
+      "sha256": "e52481d4bb53b9ea028d788f91a9d143eb7047f0fe70e61580681160a51ec9ec"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgePublicationGateway.php",
+      "sha256": "c5697883def227a2329565cf307f95e7f3c582614d1fdc230315886a3d212681"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeQueryEmbeddingGateway.php",
+      "sha256": "c570299b31d95c0af6135b93a2e0f97c9fca0596d99aa21ffc0a323879d136d3"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeQueryEmbeddingOutcome.php",
+      "sha256": "73331d4c0da01d1fd61acbb370d17ca161e626d0b960e817c485bca3e1d442e2"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeQueryEmbeddingRecoveryService.php",
+      "sha256": "ec5d877f78939c8877bfeb2246e5f431e0fd0a036f600f1b7d9bcefc0685bd93"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeQueryIntentGateway.php",
+      "sha256": "a39e3f980e1b4e425512f217a07dc50abfc1f5fa25bbf6ebc42586097d620c48"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeRerankGateway.php",
+      "sha256": "4af82f055b21b4ce4a353cd78d0ae3a4787c551c24a274b29b7705d489eaa42f"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeSearchExpression.php",
+      "sha256": "5259772ee62a89dbf8079efef96ddc5225cc10d053dd40b2157180129a386080"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeSourceAttribution.php",
+      "sha256": "dd3946e162909951b7fbb84a69b02d6f9b218bf2311f28eece3cffdd6e649313"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeSourceGateway.php",
+      "sha256": "11cb06acbbf718b8a7bd981a86b22fcf7434052fb22bda82151017fb056abe4c"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeSourcePurgeGateway.php",
+      "sha256": "77a8a919906290a74df93b36be4ea44f55802a4a1246930bda05a1cccd98df88"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeSourceReferenceGuard.php",
+      "sha256": "d27c766f8f6217cb16af74d14066b980a688cfdd162806788766c5d45e3a14fb"
+    },
+    {
+      "path": "app/Application/Knowledge/KnowledgeVersionSourceScope.php",
+      "sha256": "3d43313d2e757c366375bd42d000896c526bf1cf0bf22ff08098092c1ea8ce7c"
+    },
+    {
+      "path": "app/Application/Knowledge/NeuronKnowledgeChatRerankPostProcessor.php",
+      "sha256": "b146cd0ced6bb069dbda4f4d4da34d362ec38e7a7639e1003f5fad85eddccd9f"
+    },
+    {
+      "path": "app/Application/Knowledge/NeuronKnowledgeRankFusion.php",
+      "sha256": "8cd6a3f6268079162c88d9798215b115556cf4c3aa7f5e2442f971e12428a406"
+    },
+    {
+      "path": "app/Application/Knowledge/NeuronKnowledgeScopedRetrieval.php",
+      "sha256": "d5b49b1f054b9988dd3ed91d078a92d4722f678bde5c8b53eb254eb9c782c656"
+    },
+    {
+      "path": "app/Application/Knowledge/ProfessionalRerankOutcome.php",
+      "sha256": "2f316c33a30bf7ffaab8151fee7553760118845226510598d61835ac210623a8"
+    },
+    {
+      "path": "app/Application/Legal/ComplaintDraftOutputValidator.php",
+      "sha256": "7c2cb12a866912c157c46c0999f0061c3f48ca73155b33070614f58d42f686ef"
+    },
+    {
+      "path": "app/Application/Legal/ComplaintDraftPolicy.php",
+      "sha256": "11ba4d9f880992aeb594093600138291ef0e1e8068b5bbb48b7cee7ec6c223d8"
+    },
+    {
+      "path": "app/Application/Legal/ComplaintDraftSchema.php",
+      "sha256": "4d798253fb143d6cc4b70b651895f40d229231b64f827687faf86b853fbf04cb"
+    },
+    {
+      "path": "app/Application/Legal/ComplaintElementSchema.php",
+      "sha256": "73797aa049c6b9c3b1b0d46b6d1d589ae48417df6700d41c195b7dd6c6c83956"
+    },
+    {
+      "path": "app/Application/Legal/ComplaintResponseSchema.php",
+      "sha256": "9a192a8eb752b09b9f9187d706b9a3e0e1fa7abe6b00049b06b39d66ff43d631"
+    },
+    {
+      "path": "app/Application/Legal/ComplaintSectionSchema.php",
+      "sha256": "345377d067c0e6bf24cb6fe1ccdbbaae9d8d2d1862c9c04b32d2bf2fada14fd6"
+    },
+    {
+      "path": "app/Application/Legal/LegalAnalysisExecutor.php",
+      "sha256": "a343a73c4c409184cb224d4ec045505c3d5b4721d2ffaefd440cfbfc8c9cb39f"
+    },
+    {
+      "path": "app/Application/Legal/LegalAnalysisInputPolicy.php",
+      "sha256": "275bc23f6fc5bb0c0f0e2e104e7c6d336b152540031a36c3a8ce21874484febc"
+    },
+    {
+      "path": "app/Application/Legal/LegalAnalysisOutputValidator.php",
+      "sha256": "7a4e01a023af47d40480bd1a2f486e2473ce53d50062fa992561e209d8f64e39"
+    },
+    {
+      "path": "app/Application/Legal/LegalAnalysisProfileGateway.php",
+      "sha256": "e6e74a4f8de7094f90e062f01e260c76b939edd9501a543736f10a4157074368"
+    },
+    {
+      "path": "app/Application/Legal/LegalAnalysisProfileRegistry.php",
+      "sha256": "3c42111809635d7f6e5f22881e0f6fcaddca17c10283915d59c1863c696eb8dd"
+    },
+    {
+      "path": "app/Application/Legal/LegalAnalysisPromptFactory.php",
+      "sha256": "31ca3809f90df82a23bf69f1256e8196022d11f071f34eab7a3406360515229f"
+    },
+    {
+      "path": "app/Application/Legal/LegalDraftSchema.php",
+      "sha256": "19a4a7ab86bde0588b6357ab55626c498fcee674c6ea4e5d751740d5f6a5fec8"
+    },
+    {
+      "path": "app/Application/Legal/LegalFindingSchema.php",
+      "sha256": "77628a7c33a1403368f0b9a27ca62bc195ed5a9bfb695aa596942342bf7e370c"
+    },
+    {
+      "path": "app/Application/Legal/LegalOutputContract.php",
+      "sha256": "3b6a62c5623c95c8d8e46f420b3b1d09afbb3fffcd31e40eb2d01201f08fd6e3"
+    },
+    {
+      "path": "app/Application/Legal/LegalOutputFailureWriter.php",
+      "sha256": "f1e19d3f0c22846e2ca4c803bb11f4ccfd0494883811b31e9b4a726277e51add"
+    },
+    {
+      "path": "app/Application/Legal/LegalOutputRejected.php",
+      "sha256": "44c02aab984c73bbb02f3b69ccbe94d9326b0575fc34c95a96bde983244c2b5a"
+    },
+    {
+      "path": "app/Application/Legal/LegalProfileOperationReceipt.php",
+      "sha256": "d4d9aa43747a7f964f4caa8533d73306190bf62122fa2aa51ecfd80ad66ecc63"
+    },
+    {
+      "path": "app/Application/Legal/LegalResearchPlanPolicy.php",
+      "sha256": "c755675df1f8ea734b271ff728a7cfd85548c2616a5cd78e1a149faa981cdb5e"
+    },
+    {
+      "path": "app/Application/Legal/LegalResponseSchema.php",
+      "sha256": "9b698d2f33ad079d0f92366569f284e3fa8e20e69d28e8ed37deaca824919789"
+    },
+    {
+      "path": "app/Application/Legal/LegalRiskSchema.php",
+      "sha256": "d1f69eea543654eb0f46e359fc30a1b38cee8e73820c9b35f01006978455af56"
+    },
+    {
+      "path": "app/Application/Legal/LegalSourceGateway.php",
+      "sha256": "86c8a576c83e0cec131bb1c8ade476459e67e6aa3e92c0445abf262cc70424f3"
+    },
+    {
+      "path": "app/Application/Legal/LegalUnverifiedSchema.php",
+      "sha256": "2e15e6994b03e22103cdeed14dccc9b744c1e5ad8fcdc33ec3a651eb151a8072"
+    },
+    {
+      "path": "app/Application/Legal/NeuronLegalAnalysisResources.php",
+      "sha256": "336a31703122a7d91b86ceb56c0c1cb8b9360d7a68f8ccd889c36afb77ed7bf5"
+    },
+    {
+      "path": "app/Application/Legal/NeuronLegalAnalysisWorkflow.php",
+      "sha256": "eff06c0d252663ccafb66ad3db0ee88a619bafbeac256bebd6ca75de3a41b421"
+    },
+    {
+      "path": "app/Application/Legal/NeuronLegalCompletionNode.php",
+      "sha256": "7c3a2ea85a5c9e649979702aa42c731b6b2d93da8445b1eec4f09aaa1e94704e"
+    },
+    {
+      "path": "app/Application/Legal/NeuronLegalCompletionReady.php",
+      "sha256": "d7b85937727e2f59e8b91ee3e3043fe01e46066bf313c8f791b5c631e712e7c2"
+    },
+    {
+      "path": "app/Application/Legal/NeuronLegalPrepareNode.php",
+      "sha256": "90ecfc41c73a5c4d16945eb2bdd88d2a4dcc708f4284ee6d282030e88a335af8"
+    },
+    {
+      "path": "app/Application/Legal/NeuronLegalPromptReady.php",
+      "sha256": "3b3750a1af776557c35430695d63c101f7871109c8acb0679f76dd0320a34096"
+    },
+    {
+      "path": "app/Application/Legal/NeuronLegalValidationNode.php",
+      "sha256": "801dbb664ba1b26ff577b8c9f4094ef2aae869a4974c724b062515b71d36bf67"
+    },
+    {
+      "path": "app/Application/Legal/RemedyInputPolicy.php",
+      "sha256": "04aaeb987ed1c2d621c14a57e2b408fe00baab054ca6a7afa6b549f26ce0ac2f"
+    },
+    {
+      "path": "app/Application/Legal/RemedyOutputPolicy.php",
+      "sha256": "634c9a6176271a7317f21b09fa132c0cbf961510e4e5de5c460d10de6cb31f75"
+    },
+    {
+      "path": "app/Application/Legal/RemedyPromptPolicy.php",
+      "sha256": "190e71a5ca96f58dbae04c0edf4062861016cc2bc0d6cab06d4398073e401a72"
+    },
+    {
+      "path": "app/Application/Onboarding/CatalogOperationReceipt.php",
+      "sha256": "7601b85b6ea1a452d819432551c38c49298bffbc73bac02c507d374485ca899c"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentDirectoryGateway.php",
+      "sha256": "5a1dd0024fc2be74712917313f36c86dad393aea587a6541c87f91ea5bdb77ee"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentDirectoryQueryPolicy.php",
+      "sha256": "9d36f4c1bad70200b39496832f782e8a9372f35da8040013817b0a7fd33f57fe"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentDraftConfigurationPolicy.php",
+      "sha256": "9ff91433ff62b46224bb87314d2470e4507560b8929fbfc04fe53421ace8fbf8"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentDraftSaveRequestPolicy.php",
+      "sha256": "3f49d3dfe0e7691a262bcf0019d4d169b25bcb23e9100043574c951a97025f39"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentDraftSaveService.php",
+      "sha256": "0c2998d1499a744dea46b5a7ebb4aec1e262083582392eaf845172ad10120475"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentDraftVerificationService.php",
+      "sha256": "e6445965553dfdac1af83d89251c711e85ec6f048cce4e1104abe94299dcc597"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentEmbeddingVerifier.php",
+      "sha256": "78f9b10d47a4378c323f166ab4cf524cecdf0d6215f09c670b653c9ea247aa0f"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentExecutionSnapshot.php",
+      "sha256": "6d9c5124d1124e2c5a763a53854b6a9469b19f0e022dafd8047956671355e869"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentOcrVerifier.php",
+      "sha256": "2f876c4c9e7197f83e474d1e89f72c20588e8869fa6de038ddbf8306b8ec17b2"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentProcessingPolicy.php",
+      "sha256": "55cad5388f2052a6551b6f75bcddf3304a40cbab1bba7c94d3372f8479282a84"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentPublicationChainLoader.php",
+      "sha256": "9489bec6b990a73cf11094327a3a9a118c39687db8f93100bfc559c52d9bb455"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentPublicationChainPolicy.php",
+      "sha256": "dab7df2f7155c066883a648adc35425cb5a2b0cc1a729de80865b33a95381570"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentPublicationLifecyclePolicy.php",
+      "sha256": "08e7fe4d0677d230ec85c8b672bf09c322beb8709ca8119781ad71e258192b0f"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentRerankVerifier.php",
+      "sha256": "16384012d5cbd4fb3cb8b5264c8be65fb95226a2ce6a718220aa1dcbcb2ec3c9"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentTranscriptionVerifier.php",
+      "sha256": "91c82f1f4bbe72e6f30530c8d189de7a3fe1104bd1d9c2554715e4b3a839ccf2"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentValidationEvidence.php",
+      "sha256": "fd7c298e7e408d0c47b96369118d5048867bbcd006d41d264a467e766cbf93c5"
+    },
+    {
+      "path": "app/Application/Onboarding/DeploymentVerificationRequestPolicy.php",
+      "sha256": "1431b102fe4e95f1d378abf6c9f9c472ddfe94106762ed174e2f105eecdb34ff"
+    },
+    {
+      "path": "app/Application/Onboarding/EmbeddingVerificationFailure.php",
+      "sha256": "99d523643f24004dfa365a17f39ea4934e9f66cea0e5401790d1cf6ac41d2fe6"
+    },
+    {
+      "path": "app/Application/Onboarding/GuzzleOnboardingHttpTransport.php",
+      "sha256": "17f71a26d99a8deb980161ded34da381e58af2f26ab90da48c3f123144cf52e6"
+    },
+    {
+      "path": "app/Application/Onboarding/HostResolver.php",
+      "sha256": "746df52174e1214a142d09a2979d5ffd975670e366fd2ed814963d5931701aa9"
+    },
+    {
+      "path": "app/Application/Onboarding/InternalSecurityInitialization.php",
+      "sha256": "a3dfbe06d1a7856c38d28ac8910715555020a04562dcccc60f033ce2af020b2d"
+    },
+    {
+      "path": "app/Application/Onboarding/LegacyTestedDeploymentPolicy.php",
+      "sha256": "e05f3c58c29ae63b0ede1c9306c277673673b55505fc2d062ec09524714079eb"
+    },
+    {
+      "path": "app/Application/Onboarding/OnboardingHttpResponse.php",
+      "sha256": "64ff5758de7474eb5b70f43d11ae91f77782003791fdffddc43c7bb3b2da7dce"
+    },
+    {
+      "path": "app/Application/Onboarding/OnboardingHttpTransport.php",
+      "sha256": "efa249affa336be9b62c438fb34fb11fd2a2f4c8fd0245bdd710ec2b9a68c154"
+    },
+    {
+      "path": "app/Application/Onboarding/OnboardingPublicationService.php",
+      "sha256": "d382845fcd6b78afd7b5b686ed3e18644a368c6859ebc3b4b20eefd690bc8862"
+    },
+    {
+      "path": "app/Application/Onboarding/OnboardingRequestSecrets.php",
+      "sha256": "c18e434e347a2b3d0a4852ed753966ddba49ba65bb996020f017b25e6725cedf"
+    },
+    {
+      "path": "app/Application/Onboarding/OnboardingStatus.php",
+      "sha256": "74b32425949f4347ddc327ba46c0c9cf7cf83d777121038f20f373f40227c03a"
+    },
+    {
+      "path": "app/Application/Onboarding/OnboardingTokenBoundPolicy.php",
+      "sha256": "2fc8321f42c1d2b4f03df831c22d9859556b2441b0f0c1914dca55a21b6ab212"
+    },
+    {
+      "path": "app/Application/Onboarding/OpenAiCompatibleOnboardingClient.php",
+      "sha256": "b0c6524ef71ce01bfed83aca793d8f118974bc0c19570728d2d64fe3a0f515e6"
+    },
+    {
+      "path": "app/Application/Onboarding/ProviderConnectionPolicy.php",
+      "sha256": "515af3c540f616c3c9c8f775cbf4b9ce0b7e2acc76eca5ca27296ed4bdc8b856"
+    },
+    {
+      "path": "app/Application/Onboarding/ProviderGuideCatalog.php",
+      "sha256": "a167a73d892af69d2e3e1d2c799bae842fae164c4cb62ea3f6ccf520fca43c3a"
+    },
+    {
+      "path": "app/Application/Onboarding/RemoteModelIdentifier.php",
+      "sha256": "f938ff095aed7d1f4267560b642b82fd6e60188edaafc5c1686305a7e8485d9f"
+    },
+    {
+      "path": "app/Application/Onboarding/RerankVerificationFailure.php",
+      "sha256": "028c2495a72aae8d593402ea8b348c0f80e58e5dde9ac6da871575da911bcaab"
+    },
+    {
+      "path": "app/Application/Onboarding/SolutionGuideCatalog.php",
+      "sha256": "28c692d149c4bf1dcb20f170c2cecfbd48f16c60589561848caf61183d4c1a75"
+    },
+    {
+      "path": "app/Application/Onboarding/SystemHostResolver.php",
+      "sha256": "3b099ed985253b7c93a557c2b3a164293201bca151ef60e8053870d6e27e4956"
+    },
+    {
+      "path": "app/Application/Onboarding/TemporaryModelVerificationService.php",
+      "sha256": "8bcaeb94bf0b6268cfaa4cf23338430110c009e9c6b5121efebb5789378c653e"
+    },
+    {
+      "path": "app/Application/Onboarding/VerifiedEndpoint.php",
+      "sha256": "4409595433a3c1794c37ba5fd043b407331ada7efc4a6eaf6c8c5e112e2ce70d"
+    },
+    {
+      "path": "app/Application/Onboarding/VerifiedModelDraftService.php",
+      "sha256": "562550ec49d1238ce77d7c73591faeb451053c2f31298a9b001505034410e3af"
+    },
+    {
+      "path": "app/Application/Provider/ProviderEncryptedConfigCipher.php",
+      "sha256": "a6d8af5f3a416e02b7e37c6a75b1fea417fe63222e78aa7878410ad7129f6696"
+    },
+    {
+      "path": "app/Application/Provider/ProviderEncryptedConfigMutator.php",
+      "sha256": "9cec745cdbaa7ceb6dd71ee12804776d04ecc1d6b8d89887fd35b75e4f78ba7c"
+    },
+    {
+      "path": "app/Application/Provider/ProviderEncryptedConfigStore.php",
+      "sha256": "5b1e1feb09ad47831acc545b86d064f137122bbee1c6ce6695df18775cb5bc7e"
+    },
+    {
+      "path": "app/Application/Retrieval/RetrievalGateway.php",
+      "sha256": "de47dbca0892c7c40d9e794f7c318cf617e9d5bb8ed4908b113c23e3fcfd2fb3"
+    },
+    {
+      "path": "app/Application/Retrieval/RetrievalPolicy.php",
+      "sha256": "2f6ca1f3e3451bec268e4a98d650697cabb7024357e579acaceede08be080daf"
+    },
+    {
+      "path": "app/Application/Skill/SkillAttribution.php",
+      "sha256": "5988c24bfc41d2aea50aa78d3c2ba40c63c8bd855cb55847d7157b5495edf0f3"
+    },
+    {
+      "path": "app/Application/Skill/SkillCaseGateway.php",
+      "sha256": "12a3e6ae9e83f2fe15760ed761eeb0e149c3bf348ae9502469c2ee2d055f7478"
+    },
+    {
+      "path": "app/Application/Skill/SkillCasePublicationPolicy.php",
+      "sha256": "30c2b8ac48190625bac64a6170bf397163331790b10be58bbfcd944cfaa4d5c3"
+    },
+    {
+      "path": "app/Application/Skill/SkillConsumerContext.php",
+      "sha256": "5837e43dbdfd0c5583317540f32f88e675fda1d59e41e4774d47096b2f67f3b9"
+    },
+    {
+      "path": "app/Application/Skill/SkillFinalizationPolicy.php",
+      "sha256": "230b455a5e56d8f5c2a5969ff9f95e5c670ac30028ed33775b2d68784c4ec045"
+    },
+    {
+      "path": "app/Application/Skill/SkillGateway.php",
+      "sha256": "c50d07efe7363940625077c6282b5bde82dc75bbaab32aafb64da50d590fca88"
+    },
+    {
+      "path": "app/Application/Skill/SkillKnowledgePublication.php",
+      "sha256": "4dbb8dcc4f2cc91fbcc9513b01c259a08ec81e2dfa8c2693d1a656108b353536"
+    },
+    {
+      "path": "app/Application/Skill/SkillOperationFingerprint.php",
+      "sha256": "31f78cd9c83aa90ae0e068d97c18a36cdd43b3c8e47ba06160100a9b4a43a109"
+    },
+    {
+      "path": "app/Application/Skill/SkillOutputContract.php",
+      "sha256": "2020c307089c351259f0068f58e94cb1f31c9e324fbebad8822dfbffa5ab3557"
+    },
+    {
+      "path": "app/Application/Skill/SkillOutputStrategy.php",
+      "sha256": "21d97f099bc3e65c0fb5830363765be3540d335b5b14979988112b3b37d626c2"
+    },
+    {
+      "path": "app/Application/Skill/SkillProviderOutcome.php",
+      "sha256": "1e26563858604b25f305b0eadb2ca444ad11619d8921b0199386946646b12c42"
+    },
+    {
+      "path": "app/Application/Skill/SkillRunCostGateway.php",
+      "sha256": "505b8596e9256136a1d37cb6c29f8f7a7141104b5737e3bc959145113e81b046"
+    },
+    {
+      "path": "app/Application/Skill/SkillRunError.php",
+      "sha256": "029210af5b4f9360c16dc97987244031130e98895a2dd5589dc0a221d23996b1"
+    },
+    {
+      "path": "app/Application/Skill/SkillRunLeasePolicy.php",
+      "sha256": "df84fa929f10bb1ac7567eb39d8d7bf883cd7d5e439fb05370a5c0a0536fe226"
+    },
+    {
+      "path": "app/Application/Skill/SkillRunRecoveryRequest.php",
+      "sha256": "b6b6e28073a113c2645b5611b58d225249ad60ef71a1064147bac4d968d69fb0"
+    },
+    {
+      "path": "app/Application/Skill/SkillRunStateMachine.php",
+      "sha256": "1137a0673de976b2a4b7faee3914324b7fd1e2d19e3e7f1b3a10e42652ea045b"
+    },
+    {
+      "path": "app/Application/Skill/SkillSchemaPolicy.php",
+      "sha256": "841686ee32bfa94554ef6166371b60bfb96d2b6a9a182bea6e1bd6ec224bfecf"
+    },
+    {
+      "path": "app/Application/Skill/SkillSourceScope.php",
+      "sha256": "9d025d38e51626f9a8aeb39ac050ed96eae4bbac6a08e821e6e239aff9b9830c"
+    },
+    {
+      "path": "app/Application/Skill/SkillSourceSuggestionContentPurgeGateway.php",
+      "sha256": "37cdc71c7bf75d8cf26a6e18d6224ff8c5c4af26902b6adb656c752e022ebbe2"
+    },
+    {
+      "path": "app/Application/Skill/SkillSourceSuggestionContext.php",
+      "sha256": "1dcfd36890f55532a4bdbbb1d31cbb2a2012aa6e309a041564e91e6ad9fb14a4"
+    },
+    {
+      "path": "app/Application/Skill/SkillSourceSuggestionGateway.php",
+      "sha256": "48685bf0066ea9929af6a812dc656cd3cd65f87a3026f5604a356829f0d0764f"
+    },
+    {
+      "path": "app/Application/Skill/SkillSourceSuggestionUsageProof.php",
+      "sha256": "2ec0d9537a9b2038884ca181cf91cd6a77373497f02abfb82665ec2961aa3cb0"
+    },
+    {
+      "path": "app/Application/Skill/SkillWorkloadRequest.php",
+      "sha256": "45875612afa507c7cf16a30ae20044d30c001851f7103d3e4d0598b333294d2c"
+    },
+    {
+      "path": "app/Application/Skill/SkillWorkspaceGateway.php",
+      "sha256": "d9582dfbea0bbf89d0760b8282c381be3fa8b15fb765bc53a231fb18df1988a1"
+    },
+    {
+      "path": "app/Application/Task/AiTaskGateway.php",
+      "sha256": "4d6278c5c80de46ab8d35b7bf2bcdc27a2b3edb046a02c4703904ce2d0306001"
+    },
+    {
+      "path": "app/Application/Task/AiTaskPolicy.php",
+      "sha256": "69ab4243bb895361522dc54d9e794c9f629fa3e6c12410cdc78798ced1defd77"
+    },
+    {
+      "path": "app/Application/Task/AudioTaskGateway.php",
+      "sha256": "518f1fa04156da7490e02f87eb013e9fc31b1b2549b850012b4e778cd8860b34"
+    },
+    {
+      "path": "app/Application/Task/AudioTaskResultPresenter.php",
+      "sha256": "af7dda9ab30406c02928679b994e849465570fe9b617ba8b877825a030a9235b"
+    },
+    {
+      "path": "app/Application/Task/DispatchRetryPolicy.php",
+      "sha256": "cb880440610abc8a9515675f64ba697bde93e3e15019d83e92dc56920d06c3c2"
+    },
+    {
+      "path": "app/Application/Task/DispatchStaleRecoveryPolicy.php",
+      "sha256": "cb511b6df891593a32952e830d9b62efea443b24fc03daaae2835bd360c36651"
+    },
+    {
+      "path": "app/Application/Task/LocalOutcomeRecoveryService.php",
+      "sha256": "e6889cca1976a02c942c8f9e4e1f402815df4ede27eb91c565203f1b6ef92f7a"
+    },
+    {
+      "path": "app/Application/Task/MaterialFileDispatchFence.php",
+      "sha256": "ffb44c5efe6cb120d542857559b86d212de8d96359b9a022a4e38cf132727444"
+    },
+    {
+      "path": "app/Application/Task/MaterialFileFinalizationRecoveryPolicy.php",
+      "sha256": "cb817ad8607569f9094c069905dcd372a0fadad62f3023f7ae7e92f154b807e9"
+    },
+    {
+      "path": "app/Application/Task/MeetingSummaryCostProjection.php",
+      "sha256": "cc13a9252fce9b3d9e6eea7d68e5876ace87d4d01751987c93785015a01f7f4e"
+    },
+    {
+      "path": "app/Application/Task/MeetingSummaryResultGuard.php",
+      "sha256": "e4cfefa871045bf7c928416405c9bcd56b7263accc3e37e21a08d9d2757e5021"
+    },
+    {
+      "path": "app/Application/Task/RecoveryReviewTargetPolicy.php",
+      "sha256": "c9768e51bfe0c77ed454911372656a9d75fa25e340bed2315a8d55c648f1d69b"
+    },
+    {
+      "path": "app/Application/Task/StructuredTaskAccessGuard.php",
+      "sha256": "9221df5754b97675410a62551e705c6888224482b8bb092129b4e364901e217f"
+    },
+    {
+      "path": "app/Application/Task/TaskAttemptPolicy.php",
+      "sha256": "091cf30c3fc24e4a1b2693070f12122a2f033a9a3c59aee7bb59c6055d0df711"
+    },
+    {
+      "path": "app/Application/Task/TaskAudioReceiptContinuation.php",
+      "sha256": "c9fab1e9d07e32585e4a51e52df53d6bfde7c30b70ebe7301c58dfe01a810767"
+    },
+    {
+      "path": "app/Application/Task/TaskAuthorizationContinuation.php",
+      "sha256": "89698491ff0ff899e3f92c85e12bae86fbb5b79a91cff7e841a78e0d0c282e96"
+    },
+    {
+      "path": "app/Application/Task/TaskExecutionLease.php",
+      "sha256": "47f3f6532a18d909b2cd7ef3013e4aefd4839b35db79229490f45ead837bf307"
+    },
+    {
+      "path": "app/Application/Task/TaskGateway.php",
+      "sha256": "4155166066623af7f6a368ded7c61e267015ecc534df19a3927e905f39a3be67"
+    },
+    {
+      "path": "app/Application/Task/TaskInputAccessGuard.php",
+      "sha256": "a12fbfbf491c5071640ba81c07f001593f47b16df62d6f392a67b7b98c281113"
+    },
+    {
+      "path": "app/Application/Task/TaskLeasePolicy.php",
+      "sha256": "2dbabb523ac892b1a20b8e52c80ebc8e9264bbed245337b4cda31dc19a5fb772"
+    },
+    {
+      "path": "app/Application/Task/TaskLeaseTerminalGuard.php",
+      "sha256": "841755b30097cbb0becea494f87c8faf8b9f279b734a9070215a63443bd8f317"
+    },
+    {
+      "path": "app/Application/Task/TaskPreparedDispatchCancellation.php",
+      "sha256": "f90f6e1251568f47fe4c87ecb597914b8267e3250339009c919f1f1cb5affd88"
+    },
+    {
+      "path": "app/Application/Task/TaskState.php",
+      "sha256": "237f222cd7112ab073174fdc77a160f58bdbb9d51fd74734268b90d39a872c79"
+    },
+    {
+      "path": "app/Application/Task/TaskWorkerIdentity.php",
+      "sha256": "608bc13b33e6cc6eb3659c3a5b7200f84c863f2130a063b4e80b101b027300e3"
+    },
+    {
+      "path": "app/Application/Tool/BoundedToolResponseStream.php",
+      "sha256": "0b89c508974618af5fc00f3bc10016c7f143a7775aca2da401aaad20c7e33313"
+    },
+    {
+      "path": "app/Application/Tool/ExternalSearchResultPolicy.php",
+      "sha256": "7a7285e077b67597791ae8968158e76e907f1b8a05b3580203087f7720e57b88"
+    },
+    {
+      "path": "app/Application/Tool/GuzzleStandardReadonlyHttpTransport.php",
+      "sha256": "33a2ca7b1481d8f3619dd1ddc560ea04e4bba607a387540f3e8f264fa1bf7abc"
+    },
+    {
+      "path": "app/Application/Tool/LegalFulltextAdapter.php",
+      "sha256": "edc778e9c45c006b08a8473f386f4e6f7ac67d291d2af57fe5a54c57abdcdaaf"
+    },
+    {
+      "path": "app/Application/Tool/LegalFulltextToolRegistration.php",
+      "sha256": "05dce67f03ac3628e3ce69a6eefcba4f1f0a5f0e824828a9566a661a7308100c"
+    },
+    {
+      "path": "app/Application/Tool/McpDocumentAdapter.php",
+      "sha256": "b47253b2eaefc19d2e7a017c9cddca0211f893ad93142bff32ed18cab65f008e"
+    },
+    {
+      "path": "app/Application/Tool/McpProtocolDispatchEvidence.php",
+      "sha256": "c9be06a6c8ed32345a9b7430ad5b3230d6067b35bc041067bcbb25733b32788c"
+    },
+    {
+      "path": "app/Application/Tool/McpProtocolExchangePolicy.php",
+      "sha256": "f5e6833a914ddb6f9d96912d270e4f72f02112294072614600ff4240fc3cd4bd"
+    },
+    {
+      "path": "app/Application/Tool/McpReadonlyToolRegistry.php",
+      "sha256": "73f3b070a6ca7f20ddea117377b3037511453a91f3af4887107dfd0cbca70884"
+    },
+    {
+      "path": "app/Application/Tool/McpSnapshotPolicy.php",
+      "sha256": "7c59d7a6d6302696ea43b6f86282a9445da10da6e63e3ac444a4b67e6b83b384"
+    },
+    {
+      "path": "app/Application/Tool/McpStreamableHttpClient.php",
+      "sha256": "0dde4a05dabcb118745dca3ff8d1e8f7e7e5ae00d7ee4e9b76f8750c19a39dc6"
+    },
+    {
+      "path": "app/Application/Tool/McpToolAdminGateway.php",
+      "sha256": "7a624358ea2fc9654ed4fd74b4e51c29fb02bfcfd016256bb8b15eda1d09b8df"
+    },
+    {
+      "path": "app/Application/Tool/NeuronReadonlyMcpClient.php",
+      "sha256": "d42568b7456d37b7bc594cfb79dc540017975c6b5a60043a5cb8d2390b2867f7"
+    },
+    {
+      "path": "app/Application/Tool/NeuronReadonlyMcpTransport.php",
+      "sha256": "6c1b9bfb291181d16049915f0ffee5afb0d694048a25ed54d9045bd87d53505e"
+    },
+    {
+      "path": "app/Application/Tool/NullToolRunBoundaryPause.php",
+      "sha256": "362a1c048a194393b148260d3b4c2bca829d2e6a4c89e2e8f07f1714cf397f66"
+    },
+    {
+      "path": "app/Application/Tool/PkulawArticleAdapter.php",
+      "sha256": "671efd29da0eb219c476dd6f52691d177114f75a561f73ea379f343b39205d2b"
+    },
+    {
+      "path": "app/Application/Tool/PkulawCaseAdapter.php",
+      "sha256": "6caf9e8aec05f494c81a5d70c76eae6d13ee6ad36ab849221bbcc553b57a5804"
+    },
+    {
+      "path": "app/Application/Tool/PkulawCaseFilteredAdapter.php",
+      "sha256": "9403221d4b7b832d44a395e82befff23c806dbfa320e5fc84746d145d7669c6f"
+    },
+    {
+      "path": "app/Application/Tool/PkulawReadonlyToolRegistration.php",
+      "sha256": "9e102daa287f8a7a4e5c3f879073e7c78dab0e92a4b9fdc3fc1b2ce7818067c9"
+    },
+    {
+      "path": "app/Application/Tool/PublishedReadonlyToolGateway.php",
+      "sha256": "6bb6cdb22146c45891cf70f0b6ad2e2c6c075b5c3a8f4ba7ccfab1be99fe260c"
+    },
+    {
+      "path": "app/Application/Tool/StandardReadonlyHttpTransport.php",
+      "sha256": "2a95c83a0280502dbf13e2bd208151b8824a20bba0eb4e23a2392392b85ccacb"
+    },
+    {
+      "path": "app/Application/Tool/StrictJsonObjectDecoder.php",
+      "sha256": "af9e9b8f26ba87323780d84e029398f99167c5af763e4c2b2c6cc0a1767f3d32"
+    },
+    {
+      "path": "app/Application/Tool/SystemToolHostResolver.php",
+      "sha256": "6df0eb5da87d6c627716412dd58e798550562ec10c5337bd3481180bb730e17c"
+    },
+    {
+      "path": "app/Application/Tool/ToolAdminGateway.php",
+      "sha256": "ed4d25d0ee78aef129431398def97d160f2594099055188e1b56e2d51bb33f17"
+    },
+    {
+      "path": "app/Application/Tool/ToolConnectionConfigLoader.php",
+      "sha256": "510a0afd07c19d15b7f091562702c7fae47c3aa0c158c48c07467d1bea8e0220"
+    },
+    {
+      "path": "app/Application/Tool/ToolConnectionRequestSecrets.php",
+      "sha256": "75b0c007e033e88c3cd523826b2971690245a6ee00c30e05f4ef316db166c6ce"
+    },
+    {
+      "path": "app/Application/Tool/ToolConnectionSecretCipher.php",
+      "sha256": "d7dbbe0542572a4b1a610e3afd8b9d918db9b4692a1394a496ded6a93ae1c525"
+    },
+    {
+      "path": "app/Application/Tool/ToolEndpointPolicy.php",
+      "sha256": "795bf612f5b8315229e9336eca43eb8ed6283b440260ca9c72ad2f6c7c6c4e88"
+    },
+    {
+      "path": "app/Application/Tool/ToolEndpointVerifier.php",
+      "sha256": "756662a17d3e3dba7b76719e8e246bc08e6adba84d2663aa993b6e805eeef90e"
+    },
+    {
+      "path": "app/Application/Tool/ToolFingerprint.php",
+      "sha256": "bd4d6db9d8caa802b1faa3977b18de57f10c56b4d2c28beb7bcdd47394e9921d"
+    },
+    {
+      "path": "app/Application/Tool/ToolFulltextFileGateway.php",
+      "sha256": "495c5c00e9e2ebfc6da15d04e9504bbae470426a4801253b338273c247bf7a71"
+    },
+    {
+      "path": "app/Application/Tool/ToolGatewayFactory.php",
+      "sha256": "f5daabc832b7d24a3e9d52ff70b2aff06db5374d9f119ef7002f3230d003dd37"
+    },
+    {
+      "path": "app/Application/Tool/ToolHostResolver.php",
+      "sha256": "58ebb158bbeecbc9db7228b96ef6ad8850c3a102a242d94f9a2868d71594e0c3"
+    },
+    {
+      "path": "app/Application/Tool/ToolHttpResponse.php",
+      "sha256": "7d4a723a6f6c6693fee4f1db5ba2b8d3db69709f79dbf215d24145c033a577ba"
+    },
+    {
+      "path": "app/Application/Tool/ToolNoReceiptRecoveryPolicy.php",
+      "sha256": "997675215eda1110f5d1c9fb25c76b00368057b4302df6a9b673b0d5ec8ee999"
+    },
+    {
+      "path": "app/Application/Tool/ToolOutcomeReceiptCipher.php",
+      "sha256": "a89aa27f45e9fa70b44ae14a4098291b1af6a9dfbca41b55f59505d049ed425c"
+    },
+    {
+      "path": "app/Application/Tool/ToolProviderOutcome.php",
+      "sha256": "0308b4e4cf1af2c2f132064bddc805cc087dd0d7b4da6ab091080e565a1a241d"
+    },
+    {
+      "path": "app/Application/Tool/ToolResponsePolicy.php",
+      "sha256": "4dc32c062e219c0646e6f2156b9f7b05d926ae44d99633fdc1f3b3641cf6fca7"
+    },
+    {
+      "path": "app/Application/Tool/ToolRunBoundaryPause.php",
+      "sha256": "71217c6ad3d8e3f90ef097d1795e1d407a2af274257489ea68828442b96ba295"
+    },
+    {
+      "path": "app/Application/Tool/ToolRunError.php",
+      "sha256": "63c58e9da9a4640ef115f97b8e43a742a0ffa3d0f9705ed3ef059bcf4e0a2cc3"
+    },
+    {
+      "path": "app/Application/Tool/ToolRunGateway.php",
+      "sha256": "c373c24190ceeec6f000f133fcc71fd00b1a6577c11ee410057c38ebcf62c9e9"
+    },
+    {
+      "path": "app/Application/Tool/ToolRunLeaseFence.php",
+      "sha256": "8c436e3894748ef8c194548f7d063e884dd0356e405ade5ae1cd5d38d0abe103"
+    },
+    {
+      "path": "app/Application/Tool/ToolSchemaPolicy.php",
+      "sha256": "3799975b1a35102fb68ce1af96268158a70c4d6089b95ce934473455b3a2eb2c"
+    },
+    {
+      "path": "app/Application/Tool/ToolUsageMeter.php",
+      "sha256": "12b8e1769617c85d3c722dcbd91b5f3458f76e96269dcd39c4707a40979d9a00"
+    },
+    {
+      "path": "app/Application/Tool/VerifiedToolEndpoint.php",
+      "sha256": "47dc78980c71aa75f3de5bbdf4cdb34f26c9cd82b2844cf5162af3a0444ddb89"
+    },
+    {
+      "path": "app/Application/Usage/AdminValidationUsage.php",
+      "sha256": "3c0f5ecdc0e36336971464bc3652bacdf2c6f1ddd69b57061fdf5a090b9e0b5e"
+    },
+    {
+      "path": "app/Application/Usage/AmbiguousUsageProjectionPolicy.php",
+      "sha256": "c6d783cc33af43d23e9cdd7c0ae3ba085944a957803164b379cfb9baa29e15e1"
+    },
+    {
+      "path": "app/Application/Usage/AudioCallStartPricingSnapshot.php",
+      "sha256": "2dafcf14dfb504865abaa1505a64bf739465a98d3bd10d1827dd83b49276ad8e"
+    },
+    {
+      "path": "app/Application/Usage/AudioExecutionTarget.php",
+      "sha256": "786d3d783b5c61898921b4744e621f775abcd4017822621096db7558adccab62"
+    },
+    {
+      "path": "app/Application/Usage/AudioPriceCalculator.php",
+      "sha256": "333474841418e5235162151eebf78aad07a641940c0b73ac322448a1b61203ef"
+    },
+    {
+      "path": "app/Application/Usage/AudioPriceResolver.php",
+      "sha256": "2d502b991301d1ffb91366b0f6b6082eea8431bc8872c93cb69883efa188bb44"
+    },
+    {
+      "path": "app/Application/Usage/AudioPriceRevisionStore.php",
+      "sha256": "0eb864434c583e6e7d073a7a55be8af6fb82efcd8b9ffef45aa9ff592132e504"
+    },
+    {
+      "path": "app/Application/Usage/AudioSeconds.php",
+      "sha256": "0ccb44eeae8c5a6b6eac421e2114a3ec028ba7b26095a3b0b7391199982af733"
+    },
+    {
+      "path": "app/Application/Usage/AudioTaskCostProjection.php",
+      "sha256": "fa197ed6f620063de7a0f5ad53a57e687fea0bccf71ebb1ba56a9d599f627f33"
+    },
+    {
+      "path": "app/Application/Usage/AudioUsageEventStore.php",
+      "sha256": "d0babf8294c1ba45a8c8e28307bcfa9ab017adc64061422185be1a288bcbce5e"
+    },
+    {
+      "path": "app/Application/Usage/AudioUsageMeter.php",
+      "sha256": "c0624a26d83f78a46f58d0e76726ea08896de4ef89d33c286e623eae6b83d47b"
+    },
+    {
+      "path": "app/Application/Usage/AudioUsageRequest.php",
+      "sha256": "84f86109ce89fb09d08e0eb0d22794e193f1d61fc357a5b86a5de5f1e69cc059"
+    },
+    {
+      "path": "app/Application/Usage/CallStartPricingSnapshot.php",
+      "sha256": "a50eb7a1fdca0d0a819fda2b8f4e3cc589d43d8c338154f1ce518ec16b798576"
+    },
+    {
+      "path": "app/Application/Usage/CompositionCostGateway.php",
+      "sha256": "fbf80c5ba614d710b8ece9f5fa99c35f4cf24dbd978fd3303405ac1e5ab4830c"
+    },
+    {
+      "path": "app/Application/Usage/CompositionKeywordCostProof.php",
+      "sha256": "0ea5e2c103387ea0c5b9f8968b4ac0b3b67d374e67eb78f39696efe1e43d792f"
+    },
+    {
+      "path": "app/Application/Usage/CompositionUsageAssociationSql.php",
+      "sha256": "bb7e416a1e4cc88d1b454f50ccf2f8457237aaf7a70be507112ba9c592da46d2"
+    },
+    {
+      "path": "app/Application/Usage/InvocationCostBreakdown.php",
+      "sha256": "198fd454355cf76b032a00eac4c643482ff98abd1884a913e7842a6df6fb7cde"
+    },
+    {
+      "path": "app/Application/Usage/InvocationCostEstimatePolicy.php",
+      "sha256": "ddf480f746c04d2a7dddb31fc1441089fc6525b4a1b6a0bfaeadf4f0c157ab87"
+    },
+    {
+      "path": "app/Application/Usage/InvocationCostEstimateProjection.php",
+      "sha256": "706ef66f6ca0dd9f059ac9386ff10215f90b5a842b8897a85cfe8e6d85df0105"
+    },
+    {
+      "path": "app/Application/Usage/NumericSql.php",
+      "sha256": "c97bf676882067b8bcef0f69ab018029e8e044f8437a83fa55f2b0202ce685c2"
+    },
+    {
+      "path": "app/Application/Usage/PlatformValidationQuery.php",
+      "sha256": "e8f9f2f6dd9ad4aaaf4833c3ecfb5a9257f9036e7601c6280cbb9bd398b51b93"
+    },
+    {
+      "path": "app/Application/Usage/PostgresAudioPriceRevisionStore.php",
+      "sha256": "988b155d0e80022ff4906a1f9ab15158c75b6302a09a8d5bb6bbcf11422a35b6"
+    },
+    {
+      "path": "app/Application/Usage/PostgresAudioUsageEventStore.php",
+      "sha256": "236bb659f2b88774154e189acfa3a2d244d55a1ede6151dbbdbd44e7e981ab44"
+    },
+    {
+      "path": "app/Application/Usage/PriceResolver.php",
+      "sha256": "3677548a909ae1b7d8136ee1b95f58f5785662d6a1ecd91a412df887bbca82fd"
+    },
+    {
+      "path": "app/Application/Usage/PriceRevisionBackfillPolicy.php",
+      "sha256": "74e8f0af72a64bc9c79148945e053e815a4039c0a167243d8aa39b6cfce80f60"
+    },
+    {
+      "path": "app/Application/Usage/PriceRevisionSelector.php",
+      "sha256": "0c33bc32971c7ec8ea59a66489da7c17fa2aae53bc14f04380d0b0548da3a680"
+    },
+    {
+      "path": "app/Application/Usage/PricingOperationReceipt.php",
+      "sha256": "96c7fbf1da318a0b297640c4c0237f209967c6694fe543aa913ecdd09152f490"
+    },
+    {
+      "path": "app/Application/Usage/PricingRevisionPolicy.php",
+      "sha256": "c63c289bcaf1657123ba94c937e389d67bf17a110a93689d992f306da5d68def"
+    },
+    {
+      "path": "app/Application/Usage/PricingRevisionPublicationPolicy.php",
+      "sha256": "c551b9d549d6673e572de0a44087161450d41511b9868bda64d2616a4479b534"
+    },
+    {
+      "path": "app/Application/Usage/PricingRevisionService.php",
+      "sha256": "d733adeb86718f992e05da86c2f92b3afaa1d723751774af0f27127ad5150ede"
+    },
+    {
+      "path": "app/Application/Usage/PricingValuePolicy.php",
+      "sha256": "8818a399b4e2518171fdf17b9da501ce68f384935949e5b246956e0b677d80a6"
+    },
+    {
+      "path": "app/Application/Usage/ResolvedAudioPrice.php",
+      "sha256": "7190bf3d554ae4fabddba85ce5b050881c9cf020f37266d13f17c0e2060ff549"
+    },
+    {
+      "path": "app/Application/Usage/ResolvedTokenPrice.php",
+      "sha256": "fa3d34a54cbbdd02bcbf4ca02ea9cee382eff354a029fe288c8c132391ea6d32"
+    },
+    {
+      "path": "app/Application/Usage/ResourceUsageAssociationSql.php",
+      "sha256": "3bbd161482a99ba4304e2c05d056c2600d0d015ad45e1588c75e97c246699e3d"
+    },
+    {
+      "path": "app/Application/Usage/TokenPriceCalculator.php",
+      "sha256": "6ffd5151f36ccfd0d2bcddcf2af2748dfdfd53a95cd2d48f79beee7f194a1403"
+    },
+    {
+      "path": "app/Application/Usage/UsageAttribution.php",
+      "sha256": "2f7f6ebdb51a7f38e300015c5b11b825040cd5be7e7aa19d68509f39d2f3885e"
+    },
+    {
+      "path": "app/Application/Usage/UsageCostComparisonPolicy.php",
+      "sha256": "edd8aeeeb756d3717fd2bfc5bc161948e62860603f25c47168570c8a27f082a5"
+    },
+    {
+      "path": "app/Application/Usage/UsageEventQuery.php",
+      "sha256": "1698b0c857d671ca5c96568df7f709a53d944280daa3450e9dfd90f4717ca59b"
+    },
+    {
+      "path": "app/Application/Usage/UsageGateway.php",
+      "sha256": "69ec53e1ffe96fd4f8b47b7327f4a4624cdc519b5dc05c6f49822dc477bf81e6"
+    },
+    {
+      "path": "app/Application/Usage/UsageMeter.php",
+      "sha256": "c259e58325b9618d08d36ac101b9458f72360ebb83f0943261fad62c0e8d2e26"
+    },
+    {
+      "path": "app/Application/Usage/UsagePricing.php",
+      "sha256": "3ca959280787c17af8ffbf4a73b5f72e0c75d4dfc76e12309bfb51f5000c42e8"
+    },
+    {
+      "path": "app/Application/Usage/UsageRefundPolicy.php",
+      "sha256": "eb204ca9902b2fad1e09422dcdaddb0f8e22a110c213f0ad9756a9cb51b2f0e2"
+    },
+    {
+      "path": "app/Application/Usage/UsageRefundService.php",
+      "sha256": "7df9de18c42507c40b82f7bdd9b54fa56499a38499f9fea02e7eea8b32c34d66"
+    },
+    {
+      "path": "app/Application/Usage/UsageSummaryAssociationSql.php",
+      "sha256": "9f9dde90187f639768204acd395e9e2f170379b899846ffa6072bbc3e00757e2"
+    },
+    {
+      "path": "app/Application/Usage/UsageSummaryCsvExporter.php",
+      "sha256": "4bdcf2cf6fe4db3eeaaeeae585c3f85b1dd612d9154cdf932bfa12ccdf2ff060"
+    },
+    {
+      "path": "app/Application/Usage/UsageSummaryEstimateProjection.php",
+      "sha256": "b6a563208845729af7ac760436eda76ebb116e914465e685e85713333c998fb7"
+    },
+    {
+      "path": "app/Application/Usage/UsageSummaryGateway.php",
+      "sha256": "bcdd19b906e03b5d6f3e10b641791132deaec7063742767614c4bea7cf61f7f9"
+    },
+    {
+      "path": "app/Application/Usage/UsageSummaryPolicy.php",
+      "sha256": "716d04e235e76fc5ccfe53b0d500cdf3dbc812b51ca6973dcad8acf93a3404df"
+    },
+    {
+      "path": "app/Application/Usage/UsageSummaryReducer.php",
+      "sha256": "65bb1a9072a90e2d43185c27b88ca68ba3e933dc53b354347746830f24a0006e"
+    },
+    {
+      "path": "app/Application/Workflow/ArtifactManifestConsistencyPolicy.php",
+      "sha256": "fbd315055fa85b717e1545c95f3a94f68ef327b557ff446f31c0282b01441e44"
+    },
+    {
+      "path": "app/Application/Workflow/ChatGatewayMaterialAnalysisCompletionClient.php",
+      "sha256": "f241f654b63e9d3251a425fa5a34edc5d6e40f165cac2cebe51445f6214efaeb"
+    },
+    {
+      "path": "app/Application/Workflow/ExecutionSnapshotBuilder.php",
+      "sha256": "17c1f305c6b7d89eb5837fd17d94c3d623b434946a6b6cda06557e5e360748ad"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisCandidateSchema.php",
+      "sha256": "df44cbe61d7b67a383bd86b462bc497cb477a02ec5c2f29c52c15c9c34cb3e06"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisCompletionClient.php",
+      "sha256": "5635f5f6edda12697376358c5df63dcdfa0841010465b4ee6b77dbb66726ef1d"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisCompletionClientFactory.php",
+      "sha256": "0c62eec3089ebf189c6152d364a21a548a294eebc3443adb8570c4bec54d8cf0"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisEvidenceState.php",
+      "sha256": "d122a583cfe452c6ecbb5d6917893538a548e56d77c5076fa27835d4a1b0cfc1"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisExecutor.php",
+      "sha256": "7c3fbc58ce3119441b368a3daf8b93aa476f45fba0622b908aada375ac49c437"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisFileAttemptIdentity.php",
+      "sha256": "f57af2621e70196a21bd821a09260d884ee283ab85272d30979d0075c96d411c"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisFileFinalizer.php",
+      "sha256": "f446b7932f5528f13a7d6babdc6bbdf9edc6c5e9a1db19c39c4b210531f11ed4"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisFilePayloadDigest.php",
+      "sha256": "fc5df91680acd898c6a278674646dd82c6bcc4fe17d8420fa36ade416dcb8695"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisFileResultMerger.php",
+      "sha256": "cdbf2631b12c9532d4d876655bbbfb4e041dfb970816d63693e2a8229cec963b"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisFileResultPolicy.php",
+      "sha256": "0bacba4756ac6b5e617580b7bc66ce4a1b3d6c7283138a6aaae71a021bf2c5e6"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisFileResultWriter.php",
+      "sha256": "0c770ebdbf9681f2ad41f73b97ec08c107a5bd99cae46aa82dcefa4b4b0d6259"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisOutputRejected.php",
+      "sha256": "804554a39bd56ae0500889aa747d145e130751cbc3eec344946751c80e597bc6"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisOutputValidator.php",
+      "sha256": "fdee4322dfc099c0ad2a7292c1b8a75a7270ebd25adaffc9e0b5a6c021bc6e54"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisProfileDraftPolicy.php",
+      "sha256": "38012dee612ac03c5479ce934725e5c9bd7bf06ca83431640bb88352db83d1b1"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisProfileGateway.php",
+      "sha256": "5a39a0fa898259e47f40396e6359b1b65c7e5e475a8d4a6dcdf435c916753977"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisProfilePolicy.php",
+      "sha256": "bed3e5a4a624f62856df7d04ee76ca8215cf933c4932c63ce31059b72916cdbc"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisProfileRegistry.php",
+      "sha256": "d016d0453f3f15dbe98e495c9e99174f3659c9e18f275047afe8b0ca0a2d7d92"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisPrompt.php",
+      "sha256": "13f77806f623d94f89da84cbc9cc326f4c50da893d8f1d795ca8324ac40dc7ce"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisPromptFactory.php",
+      "sha256": "3d7f9858b4ef5d9fd81815ba6cc3b587ad27d6db9dfcbfa768830a4ee7945f95"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisSampleEvidencePolicy.php",
+      "sha256": "2ce2746e84a84312214a0765f12ea676b2a23b1afb4964d0f34ce8f419231a67"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialAnalysisSampleProfileRegistry.php",
+      "sha256": "973b7457e84be9d988250f5493bd646b44752ce6f2c4889f67d7bbd4cac1c615"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialBudgetRejectionEvidence.php",
+      "sha256": "ecc3362f3cddfe9025b06cb4a4bb5190dd08f9727d7903cd5b2dbd19e408805f"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialChunkAttemptIdentity.php",
+      "sha256": "dbc839767b89e3a904d808afb7ca88ed680e21e9e29c44fcd9e7ec6361461883"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialChunkCheckpoint.php",
+      "sha256": "d8ead2c7b9e1f3079f0d8458a049ca4034cebec5f4b6239880462bb1323c2a55"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialChunkCoverage.php",
+      "sha256": "bb837c6cd15e305280ba196f2e0ac43635d5218a73a4b6047632147955ac8d8a"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialChunkDispatchEvidence.php",
+      "sha256": "4ba8db18c70271bc44ecb24ff0f41bfe7888a33fe4e793460985a36b659de306"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialChunkMergeExecutor.php",
+      "sha256": "7c9dd72420eb01190d8643d8005219e167f6ce95791b287d2a107b36fe5e36f7"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialChunkPlan.php",
+      "sha256": "778d3d9a4b094aa6844e90a2661d451516acba3044cd2e912d08cec28cfb15b0"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialChunkRunner.php",
+      "sha256": "d0847d6aa3b7907ce1529ee7eacfdf76101350ae98dff09c52d3ef63086ce4d2"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialConflictFieldLocator.php",
+      "sha256": "fbd4c27839a0b98efe48ef689f38e764df2cb5f7b33a57d5e10646c51342a4cc"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialCrossFileReviewAttemptIdentity.php",
+      "sha256": "205467bd64e7964947dacef842029da658b9b9cda56a453a4800fe00e36fc421"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialCrossFileReviewChunkAttemptIdentity.php",
+      "sha256": "223a2b3128aa2e73f76c8a9b755102707bec8445d8f9c505d9abf5518d85296d"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialCrossFileReviewChunkRunner.php",
+      "sha256": "f5b997351b48838de0274b7153f7d20e0f708c2af2e308c0aca35a8d8ca7aa36"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialCrossFileReviewInputLoader.php",
+      "sha256": "5daa73c645ab57a7e639c3f644d375c299a4364d445496f27cc50590f8638b9d"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialCrossFileReviewOptionsStore.php",
+      "sha256": "4dd901f952683bbc1517c0359b7950b7ef0b84c1c28a9d343ed1244c30d774ac"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialCrossFileReviewOutputValidator.php",
+      "sha256": "642da804583926a2d2aa1dfb21232a19e9b691ba5e0b3088ba43b24b4dc51ee3"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialCrossFileReviewPromptFactory.php",
+      "sha256": "81635105dcf7bca098a44c6e54efb777cde9948cc7a5b71c477408f927eaf812"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialCrossFileReviewRequestEvidence.php",
+      "sha256": "eeaf801a7358e2a3979764415653da40ad3dfd3d62a27c0537a94f005546914f"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialCrossFileReviewResultPolicy.php",
+      "sha256": "397e869ad18101910184efb0674398e06c17562c86ee413eccba97d5096f5a1a"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialCrossFileReviewResultWriter.php",
+      "sha256": "eb7529c7a3b37d2c1eb2cd5eb5ca54e1624b5993296cb8211693682443f2bcc3"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialCrossFileReviewedMerger.php",
+      "sha256": "ffb159a7cb032d02d589afbc166dee1b4978539ff1e736d81544c78bac1f7025"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialDuplicateFileWarnings.php",
+      "sha256": "e7f961b59ee0136fb6c0da9345d11c0c4d71f9f618cf0769a6b288e403f3d025"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialFileOutputFailureEvidence.php",
+      "sha256": "69914c69cc3efba7327e3d30285d7135814b8c4e2deafa2abc0670f78cbf8d4e"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialFileResultPager.php",
+      "sha256": "49c6d895a7a54e549680a00e39e656e9f605ed4dec3b43e3737726ec2c7ca721"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialOutcomeRecoveryBindingPolicy.php",
+      "sha256": "3181c5f9f28c3757ce971cb1f3a1910bed60a50bd07fb336d321ffcbc8329729"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialOutputFailureDiagnostics.php",
+      "sha256": "39f2017e43d4c8907dbbd21ba981fd9c4a7be0976b41c3c483e92f4ba7b06d32"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialReviewCandidateReferenceSchema.php",
+      "sha256": "c5757d7cdb8edf7eba70ccbcece7d58a3d13077de4839f66c4f2a60b6b731d5d"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialReviewItemSchema.php",
+      "sha256": "8a813829176c5ef324f7c3f0384f372a302825b8339a12e8ac857100d7c2306d"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialReviewOutputContract.php",
+      "sha256": "7da15161611edbe75fb92020bdca2f4ecf29863c7828a26d35150345920633c5"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialReviewOutputFailureWriter.php",
+      "sha256": "1c37aac0e143dd8be6d3fcfd1f0b96a398c510ba332b390aadb4634938512cf9"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialReviewOutputRejected.php",
+      "sha256": "5683ed4e88b77b862c9f17683ebd10876ee65053c5230e61593f7c07e923ec9f"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialReviewReason.php",
+      "sha256": "73bb5dd778228b1334b582223746930c3120026ae91fc66a7828c7877fecf3af"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialReviewReceiptOnlyGuard.php",
+      "sha256": "d6972be940172a7f08c3b4e2bd0a804e8270b42ad7c23f22f8d1b07ed488f41b"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialReviewRequirement.php",
+      "sha256": "1fab27ffa84a47322a867c11cfb658b16d369c857dabef3924bace8f1d503f55"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialReviewResponseSchema.php",
+      "sha256": "6ab791f5a08f003bcebafa1775aa98bd32f71e9e9e7aa99f83da5dcbcef79c41"
+    },
+    {
+      "path": "app/Application/Workflow/MaterialWorkflowUsageAggregator.php",
+      "sha256": "60345b28dbeb7b1483d8c4ca02634afba3cf0e528eb42ffe5f6a3924416d094c"
+    },
+    {
+      "path": "app/Application/Workflow/MeetingReviewWorkflowBridge.php",
+      "sha256": "de1cbfe7b8c8561247865a8c4cacbac28d69f3b724b43e2a000af8d9bea85ea3"
+    },
+    {
+      "path": "app/Application/Workflow/MeetingReviewWorkflowDefinition.php",
+      "sha256": "bc2e3a0ffc5e7853dce90cac1e0a23d9e018ddc86e97522c58c17a378d8185d1"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialAnalysisResources.php",
+      "sha256": "a89083b07ce6b3a814853c3c91ab836539488446b300e8481e7ed8790bb755da"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialAnalysisWorkflow.php",
+      "sha256": "eddbea84357f4716e95e55040bddbe11dca0e4ff42664876f7e968ae386cc2ca"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialCompletionNode.php",
+      "sha256": "6610be98e2e7990b50dc8193ad82050aea82bb7dcc9f9e1ec69cb41898d6ce80"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialCompletionReady.php",
+      "sha256": "11165373d77992f3aa18b3d05dc96ba10e40f78b80624d5062bdc870cc6e7552"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialPrepareNode.php",
+      "sha256": "65a9a1539617017e812e0ff34b675e7fe2c5450f93d9d01e8bccb0ba17a00eef"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialPromptReady.php",
+      "sha256": "0d2edbc357a19dd261d7f84d68c4cec25b5cd70017e8a0985f3721cd761ec04f"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialReviewCompleted.php",
+      "sha256": "bf23bc190be8ec9faf3d64ca511468815342a766a796e6f6a8c6531bb4c7988b"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialReviewCompletionNode.php",
+      "sha256": "5c474ca93bd9a269d5f2c78ce453da50c0276ff1d9c0998e9ff2cd1bc5a86f1f"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialReviewPrepareNode.php",
+      "sha256": "2d56dc178a723f987f4b0754994f8f0b5f747c092d028afdadd456a44ac09331"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialReviewPrepared.php",
+      "sha256": "fbb9054dfd1263042834bdc146311e8feac7c0f086ec47560ea82117dc038c04"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialReviewResources.php",
+      "sha256": "9180b87f0b3eac8712ad10360ceddea614b522925645792afab08be7e41c5119"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialReviewValidationNode.php",
+      "sha256": "13bf3f0d893d386e626af6b6629eecb824769acafb2a4e429a5c826239d45cde"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialReviewWorkflow.php",
+      "sha256": "abc9cfe87ae66fefa474d04a103b41616d14b0b41f3d2cfb697512d0621bae1c"
+    },
+    {
+      "path": "app/Application/Workflow/NeuronMaterialValidationNode.php",
+      "sha256": "c89fb98ec854c706dc2ae980866568ffd481dada5bc9585d6f48f40957a01534"
+    },
+    {
+      "path": "app/Application/Workflow/ProductionMaterialAnalysisCompletionClientFactory.php",
+      "sha256": "398d9e40be363466cbc1aff73ad659dabba460bc5c13ed891b23b6762be926e0"
+    },
+    {
+      "path": "app/Application/Workflow/RetainedOutcomeFailurePolicy.php",
+      "sha256": "b82ea09782fee3ec6a2551739a0032dcb684c8711ac22d12a250960c021c2f89"
+    },
+    {
+      "path": "app/Application/Workflow/SandWorkflowConsumer.php",
+      "sha256": "5b5b9dd66728815ad87dd8a53a64b3dc27294f4520b27e9526452534bfca0852"
+    },
+    {
+      "path": "app/Application/Workflow/SourceManifestBuilder.php",
+      "sha256": "638a2c7768d9ef45babad3f29dbce211841824c853bd56b97d8f4d52c2008feb"
+    },
+    {
+      "path": "app/Application/Workflow/StructuredArtifactCommitContext.php",
+      "sha256": "8f49e901f8deb3df91a6e5a28db84a68bf097c60d543cb1ef98780b19ace1116"
+    },
+    {
+      "path": "app/Application/Workflow/StructuredArtifactWriter.php",
+      "sha256": "715179d5eacbf7cbbee6ab1438e3d2eed0d596493c5efd79ad3295d7625d82f9"
+    },
+    {
+      "path": "app/Application/Workflow/StructuredCompletionContext.php",
+      "sha256": "82197c2cce46c6c9a0bf488ce7842fbc98b9cea6c5ec6fe1c46849e455a51ee6"
+    },
+    {
+      "path": "app/Application/Workflow/StructuredProviderOutcome.php",
+      "sha256": "d1d1792e1160dbae2cd3a7683e27a93561ef8f542b1240edc329f4c20e9512a2"
+    },
+    {
+      "path": "app/Application/Workflow/StructuredServiceRunPresenter.php",
+      "sha256": "f19dcc2c4c1b6003f98574b20eeebb006167c165d2b1dc86806d9355c48153fc"
+    },
+    {
+      "path": "app/Application/Workflow/StructuredUsageRecovery.php",
+      "sha256": "66814b7b13494628a5d9b360ad1c3aed67712ddb455e8c26527212b5133870eb"
+    },
+    {
+      "path": "app/Application/Workflow/StructuredWorkflowGateway.php",
+      "sha256": "b2347f6699676aacff009de374ccfb1898c395c6dc3d3dc314205392230feb3b"
+    },
+    {
+      "path": "app/Application/Workflow/StructuredWorkflowPolicy.php",
+      "sha256": "73cb1a4bc12571792977f6dc0dfa248ddf6a8776190d3f09c3bd50df8895d34e"
+    },
+    {
+      "path": "app/Application/Workflow/UnavailableMaterialAnalysisCompletionClient.php",
+      "sha256": "2a222d87f26463aa5aaafc6a54cbd6503d44a5765a2ed8be01fd6e30625e95f3"
+    },
+    {
+      "path": "app/Application/Workflow/WorkflowContentPurgeGateway.php",
+      "sha256": "c770e2a4400b27cb506c3ada9dad85c5222fe4316d23f9cfef7cddfd498d2c1b"
+    },
+    {
+      "path": "app/Application/Workflow/WorkflowDefinitionRegistry.php",
+      "sha256": "78b075b16150e8d28efdb6232337c1304468bce432130613a6762cdbf0e8e5da"
+    },
+    {
+      "path": "app/Application/Workflow/WorkflowRunFileState.php",
+      "sha256": "23b702745cca847d73f1f92bc0bc280dc054cebd8f84c146e2d3fbe69ce3b46f"
+    },
+    {
+      "path": "app/Application/Workflow/WorkflowServiceCatalog.php",
+      "sha256": "faf0fc989c0f1d6918ef1a1bf140a72fb9fea0ea6b4f03cbd363c6eeb90447a4"
+    },
+    {
+      "path": "app/Application/Workflow/WorkflowStateRevision.php",
+      "sha256": "7831ebf3cb1dc5293a9fbd0e41d6745ddc8a08c687f13f19841ffac0bb99c493"
+    },
+    {
+      "path": "app/Identity/Contract/EnvironmentReferenceVerifier.php",
+      "sha256": "e551f4232c4b6b0beac11f622a0effff5cbb07de28dcf1dac6bd2df422a152da"
+    },
+    {
+      "path": "app/Identity/Contract/IdentityContext.php",
+      "sha256": "a2c1162eaaef179ddc53503ef096773c20c5993803068b3b41697fc2f684ca44"
+    },
+    {
+      "path": "app/Identity/Contract/IdentityContextException.php",
+      "sha256": "a66b22770829f9f04a43c1a30f4b502abdf09d476342f1768fa509a289e5ebb3"
+    },
+    {
+      "path": "app/Identity/Contract/IdentityContextProvider.php",
+      "sha256": "560741593f213b6a990f1b9998eb7e0c2d3c2643d6f9f1e36c5270b7fb513fbe"
+    },
+    {
+      "path": "app/Identity/Infrastructure/AgentKnowledgeAccessGuard.php",
+      "sha256": "357ef0288a028abbbdf6daad3c046e310fd87e59771e9f2e7ed225491465a7e5"
+    },
+    {
+      "path": "app/Identity/Infrastructure/AgentRetrievedSourceGuard.php",
+      "sha256": "e023534cdbad4bd2c236a157e5bb6712f77125964109634e95779f6c7fe32722"
+    },
+    {
+      "path": "app/Identity/Infrastructure/AgentSourceFacts.php",
+      "sha256": "7dd9a7546be4b528dfe531bdad15e9f1c024e09d99d8c39d03745e6735f3c7f1"
+    },
+    {
+      "path": "app/Identity/Infrastructure/AiTaskSourceFacts.php",
+      "sha256": "72ecd3eca77d8af04306942f1c2545fece1c66b8856635602e65f1ab707e76c3"
+    },
+    {
+      "path": "app/Identity/Infrastructure/AudioTaskAccessGuard.php",
+      "sha256": "96a72817fa88435a6b578b00b38c4df2f2c58b9b3fb75a4776ca80302a9d8488"
+    },
+    {
+      "path": "app/Identity/Infrastructure/ChatInvocationAccessGuard.php",
+      "sha256": "d3f4adccf58402b1dd088c464657c171b010619b77a411bd84adba9f1285751d"
+    },
+    {
+      "path": "app/Identity/Infrastructure/ChatInvocationFacts.php",
+      "sha256": "2d3480a5d7959665f238f9199a094c913615289363cad7bd4c9d4837d6286165"
+    },
+    {
+      "path": "app/Identity/Infrastructure/FileInvocationFacts.php",
+      "sha256": "f432d226412024621972cb97503e2100cc883e0648630575b8c30e6441fe9044"
+    },
+    {
+      "path": "app/Identity/Infrastructure/FileParseAccessGuard.php",
+      "sha256": "1e7d13b967b078cbf631f3708ad4707496e1809ba6e6a8b041e6cc29d5120c2e"
+    },
+    {
+      "path": "app/Identity/Infrastructure/FileUploadAccessGuard.php",
+      "sha256": "2a6fce0a61428d1f756e95b60fdb8dfc6cba8e7e6da5386377e39383c927a09b"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamChatFactResolver.php",
+      "sha256": "01a1c7b8cfb8312b748814f12ec21a51c304db70dbc6a65135b373e9a1246c8b"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamCompositionCostFactResolver.php",
+      "sha256": "999465ff1f5f0707c5fb87632536e3f1410d7aa55fa7ec5dd103625bf44d46ea"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamEnvironmentFacts.php",
+      "sha256": "3f7477d4fe0aae79022ffcb4bd14acd28be1fad46d672e0feaad8142d37a2040"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamEnvironmentReferenceVerifier.php",
+      "sha256": "32caf12a7a52e264046f363b17b7fcf54488d5f14e9644613f546e542e13099b"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamErrorMapper.php",
+      "sha256": "a2b82cdef80c8c07d30627b0d092eb7c414e188668f52c32cd41941d09b298ff"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamFileFactResolver.php",
+      "sha256": "e8154f0d4866b17793f19bce30f6f315bdc64f28eb4198c39bd82ec7e6181f7c"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamFileMetadataFactResolver.php",
+      "sha256": "97b12959fd4ae72c42c77347ff9ef8762aea19969fda15abd3276048a8cee322"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamIdentityContextProvider.php",
+      "sha256": "8bbf20f98038e8382ba0b3b38e8e2dccd28e7ed16459cf1f4e10162f62b3f3bd"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamInvocationAuthorizer.php",
+      "sha256": "7c354673af6ed133341c0dc30b2786890b443ed1eba0a11474781fea12ee11bf"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamInvocationReadFactResolver.php",
+      "sha256": "9fb2d492131ed3576779d1ad87c8035c52a4f9fb07b77bfe57527f65a989c4a3"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamKnowledgeFactResolver.php",
+      "sha256": "1fddb7fa89c781be05abe99c8db2b51dd710e506083d2daadb0d52ca916baabc"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamRuntime.php",
+      "sha256": "83904476c8fa4df864dbe455340ca125486f54bee4e4f084e8e86f0a7709e90f"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamServiceCatalog.php",
+      "sha256": "c823824933bb14b96b2797ad32edf7e0f5b676efd513ba42acec458875d6ffaf"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamSkillFactResolver.php",
+      "sha256": "eff0c08f8bc56d97f0388e15b391a2949250be3b046fb81eec2113146fa166a5"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamSkillKnowledgeFactResolver.php",
+      "sha256": "afe4dd2ce73101cd599510b7e0b5a98545f18e3c5fd49362633a53a575aa18f0"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamSkillManagementFactResolver.php",
+      "sha256": "feee341f47033a2fc73b0eff75b0de8ea9bfdbf5a45d9a22bde03e6fdd8518f3"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamSkillRevokeFactResolver.php",
+      "sha256": "229e84f7203c68ba917eb34a02154e2da5d7b026350ebafb453458102d5e0c62"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamSkillSourceSuggestionFactResolver.php",
+      "sha256": "b5a14daee700e2a0a7b849a2ee7cb1e53b53dd905797c9872af4e21942efea21"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamSpeechFactResolver.php",
+      "sha256": "18e4397d62d40fd5f9c5f7de923dcb244350a71d6b6bf310eb37ca0bf76260ef"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamTaskFactResolver.php",
+      "sha256": "f2068181e5e8135eda7b9f511c53e0aed5decf6fcaf23f6a0d3ddc97c4a9f0d5"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamTaskOperationFactResolver.php",
+      "sha256": "eb4f04fe5a197407b712318606b72f27fbcb12a20b0fae5fe5e985ba1a09e252"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamToolFactResolver.php",
+      "sha256": "14d2634af6fee5469fcecaac09221f9473edcbde1d3d61757bde6c25f80470de"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamWorkflowFactResolver.php",
+      "sha256": "6d04920fdd28e814b57b806e5ab152f42ebb319bb7c13ccd6f8dda191e12f729"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HostSandIamWorkloadClientFactResolver.php",
+      "sha256": "32c723db4b511a90ee7f89e8de014021c8b390b7fd41f1cffcbc3f111387b6bf"
+    },
+    {
+      "path": "app/Identity/Infrastructure/HttpStreamAuthorizationScope.php",
+      "sha256": "8a8d316fb6ef06c1fda248c786cc4e3fa551a9fa6dc02cd10860c64aaa924081"
+    },
+    {
+      "path": "app/Identity/Infrastructure/InvocationReadFacts.php",
+      "sha256": "f3f75715fd60415ec8fff1e6ec05d1f96992704c23845ae608530b567a249a2e"
+    },
+    {
+      "path": "app/Identity/Infrastructure/KnowledgePublicationAccessGuard.php",
+      "sha256": "3d3e55451da741df4ff4e9595f35a24e330612b88c824ec0b2638289b11fcda6"
+    },
+    {
+      "path": "app/Identity/Infrastructure/KnowledgePublicationFacts.php",
+      "sha256": "5c05acc64937e19ecea9fa1b559c8efe33d07e454f1554c75977bfa4ee265fe5"
+    },
+    {
+      "path": "app/Identity/Infrastructure/ModelCatalogAccessGuard.php",
+      "sha256": "9520eaa60ac2e2948f5b6a48070ef440d96fe6f73f00292c999c60528b366971"
+    },
+    {
+      "path": "app/Identity/Infrastructure/QueuedSandIamAudioBinding.php",
+      "sha256": "af3e5419cb31f1d3a0c9a7003290cd0dfddf3fb58adc61db6ac0429779fb1a5d"
+    },
+    {
+      "path": "app/Identity/Infrastructure/QueuedSandIamContextAad.php",
+      "sha256": "b62a1012db6f4417ca7d0a2abee36371f930b4ff1f2f2ee3f59b6429838001e0"
+    },
+    {
+      "path": "app/Identity/Infrastructure/QueuedSandIamContextBinding.php",
+      "sha256": "194a2d82a9dc6e1ba37e51768af48471da1dbbb10dabc59849be5fe05fb586ff"
+    },
+    {
+      "path": "app/Identity/Infrastructure/QueuedSandIamContextCipher.php",
+      "sha256": "71d8e5706804aa3b98563dcb04f61aec6627e8058e8dfd3156b9b6e05716eaf4"
+    },
+    {
+      "path": "app/Identity/Infrastructure/QueuedSandIamFileBinding.php",
+      "sha256": "83a68c7ce9f7a9fec0e8e59b4e3dffeeb48313bbb2f307e5d4f4b68c7c4acff7"
+    },
+    {
+      "path": "app/Identity/Infrastructure/QueuedSandIamTaskBinding.php",
+      "sha256": "d5bc3bdd9791f3e7789802a53978b8e71e72b60fc6d2b35253d455626fadb5f0"
+    },
+    {
+      "path": "app/Identity/Infrastructure/RequestAuditId.php",
+      "sha256": "4063d284482178b2dd85438d88e7c9df9fb825e1c5c49d5c10cc5f8e84f81fc6"
+    },
+    {
+      "path": "app/Identity/Infrastructure/RetrievalSearchAccessGuard.php",
+      "sha256": "f2156901274daeaffba9bc20dc4ca371f592a04c79bec145e7b426bb0bfaaa49"
+    },
+    {
+      "path": "app/Identity/Infrastructure/RetrievalSourceAccessGuard.php",
+      "sha256": "3e7c59034ca95ce1d437b3a8808e3ea4c4dcb1cc29b471f80488de37512cf4fd"
+    },
+    {
+      "path": "app/Identity/Infrastructure/SkillInvocationAccessGuard.php",
+      "sha256": "cc1745857fd578b4deda2698e75ef938c1cc74f3984e8da06643ea73a15f4213"
+    },
+    {
+      "path": "app/Identity/Infrastructure/SkillInvocationFacts.php",
+      "sha256": "cd4c671cf2ce4515911f7aa09a74559d78d1738da25658ea15f30047f97cc7e4"
+    },
+    {
+      "path": "app/Identity/Infrastructure/SpeechInvocationFacts.php",
+      "sha256": "97ebb2535c2ab9d6ac5d1d6e75244e605cec3245d87560802b3e98d797edef3f"
+    },
+    {
+      "path": "app/Identity/Infrastructure/SpeechRunAccessGuard.php",
+      "sha256": "a3039dcd81ba738d745a5f57fe08241cc4c9a71d27e23c21553586161bcdbeb1"
+    },
+    {
+      "path": "app/Identity/Infrastructure/TaskInvocationFacts.php",
+      "sha256": "04971b73a6120d25885197a4ebad8a1065f10c68d791c3efc0560ad787035889"
+    },
+    {
+      "path": "app/Identity/Infrastructure/TaskOperationAccessGuard.php",
+      "sha256": "5a051052676c9bc4eb90c0003d7e6198e2609e6f99674d52c76c4ccbb55a0c6a"
+    },
+    {
+      "path": "app/Identity/Infrastructure/TaskOperationFacts.php",
+      "sha256": "18b0cad4aa0b653c987dabcfa926b5b81f4d48c0090a21df31351107ee182aee"
+    },
+    {
+      "path": "app/Identity/Infrastructure/TaskRunAccessGuard.php",
+      "sha256": "3b18c41fc93df370afe5292e01c09de69b7c8f2762a4aa2ecf4d856875b84784"
+    },
+    {
+      "path": "app/Identity/Infrastructure/ToolInvocationFacts.php",
+      "sha256": "91d6b137ec17956a468f5fd098882a2726acedb058a6cb34085f6b62d7da55a1"
+    },
+    {
+      "path": "app/Identity/Infrastructure/ToolRunAccessGuard.php",
+      "sha256": "0826290a19c41269d31a362b0167f5b868aae448c898175d919ade69551a8ed8"
+    },
+    {
+      "path": "app/Identity/Infrastructure/WorkflowInvocationFacts.php",
+      "sha256": "a29b521b3f7c30fdba054284018ed250fa65cef228afa68a0ca38f572f116edc"
+    },
+    {
+      "path": "app/Identity/Infrastructure/WorkflowRunAccessGuard.php",
+      "sha256": "8e116abd7966bd997be5ed11ea6833de2868e8829eed6d8153752d53d4b028fe"
+    },
+    {
+      "path": "app/Infrastructure/Agent/AgentToolRegistry.php",
+      "sha256": "6fb3149ea3b946b365a4320ab6893616b362b6a8783f2b436197b03979716a59"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronAgentCaller.php",
+      "sha256": "69bae43a8f09e96b61c1c5f8fe20ce5d970b964f6c4a6d99bf0ea457214e572a"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronAgentCheckpoint.php",
+      "sha256": "58d435fea2d9a10e1aa110da619bc2724a970c2f11987c8d6267f213d254eb74"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronAgentExecutionJournal.php",
+      "sha256": "11f45f46faddedcfc123915a035995ba368ca66e5d49e572e065ad966c8f117f"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronAuthorizedReadonlyTool.php",
+      "sha256": "6cedd0e1ccae677f83d547747411d7f8bda4258989bff8a8c39b6edf7a6d4f75"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronAuthorizedRetrievalTool.php",
+      "sha256": "419cd2aa02e4e766eedf9d0c27b1c1738cd789dcd56c78211338e54ada3355e2"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronCheckpointCipher.php",
+      "sha256": "cc9c869640b0f74bc643fe2c6fa015d667ae51f79acd7c2fdf34511e8f0cfe59"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronCheckpointMiddleware.php",
+      "sha256": "07cef56c022447e4abe6a34dd212f3d33d40b3d84605f085c611e2a759cfd20a"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronCheckpointSerializer.php",
+      "sha256": "1a1d5fcba43f93d53503cd8b0d41459b1455c37f53f92e3b04f719a52b4c6023"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronControlledProvider.php",
+      "sha256": "7c68157c938c0fc28b546cf4de152aed067147d6a71d619fb6d9ce312c12b444"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronKnowledgeConversationSummarization.php",
+      "sha256": "677ccdbb9310a8e4a57bcd0604b32b31e57b7b824b061fa16f76453bc4fd8e7a"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronKnowledgeSummaryProvider.php",
+      "sha256": "b3f5a314b4a60c3445f84abc9ea65c6e589e63a8de813dc8bb87f9faf6c0c7bf"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronScopedMessageStore.php",
+      "sha256": "a1f6ff9276ca5f14dbf8621a1b36a9b5689c08c8fdc6a9e82e795753f0140c92"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronScopedSummarization.php",
+      "sha256": "1f140f3e88eb4e028a0b32c73aa588d3e8b3f0bf71b20ac3c0364185742c1e59"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronSummaryProvider.php",
+      "sha256": "0ae68a53869a9fdd6290ef9bb7fe62b9b51b8df4012694533616b8bcd39e255a"
+    },
+    {
+      "path": "app/Infrastructure/Agent/NeuronTextWireMapper.php",
+      "sha256": "fbcedb0ddf2970fec4cdac353792907044b87b552dc0463c57e72113008fec01"
+    },
+    {
+      "path": "app/Infrastructure/Agent/PostgresAgentCheckpointStore.php",
+      "sha256": "e2b92f532e214db7044e30e25557475831d2d7b002aefe8bd38be6d8e3bfd22d"
+    },
+    {
+      "path": "app/Infrastructure/Billing/BillingHttpTransport.php",
+      "sha256": "187342cc84725217bdf939053a81c19f9b916e0c0b189a47f6a3810f0ef3ca72"
+    },
+    {
+      "path": "app/Infrastructure/Billing/BoundedResponseBuffer.php",
+      "sha256": "9d1ffeea3b13025cfcdb6681477df471d327104e7d2ae9828cb13e2c25802819"
+    },
+    {
+      "path": "app/Infrastructure/Billing/LosslessJsonDecoder.php",
+      "sha256": "f77e61c5d8f497c8af66bcfdd66027771aa8f49629ada9279639cd912043f415"
+    },
+    {
+      "path": "app/Infrastructure/Billing/LosslessJsonNumber.php",
+      "sha256": "acc067fbc8e736f5ad5f82cb3291a287a4a1116b907db2e671bd2b0384127782"
+    },
+    {
+      "path": "app/Infrastructure/Billing/OfficialOpenAiBillingEndpointResolver.php",
+      "sha256": "79724becf7cd4cd305e7516b2fc019024d8429e0eda46db50f247d7b9dc7d9e2"
+    },
+    {
+      "path": "app/Infrastructure/Billing/OpenAiBillingCurlTransport.php",
+      "sha256": "36e809788003c6756b16cd610277ea81e7e183d93916106b0431d6ce58d65ffd"
+    },
+    {
+      "path": "app/Infrastructure/Billing/OpenAiBillingEndpointResolver.php",
+      "sha256": "27fc7fd5ecf1df1709e2f1b12d38d7a8d1c95bdd628f7a4c680bd43157bd9807"
+    },
+    {
+      "path": "app/Infrastructure/Billing/OpenAiCostDecimal.php",
+      "sha256": "d4172ff438ce788d6060847f853bcab76b58a396e08733621540a5c72c4ac2e2"
+    },
+    {
+      "path": "app/Infrastructure/Billing/OpenAiOrganizationCostsConnector.php",
+      "sha256": "ef3273a8517d2e52e7c89e1ac7571cb100dd8bcdbfc0dc1394640f9f4f845c26"
+    },
+    {
+      "path": "app/Infrastructure/Billing/OpenRouterBillingCurlTransport.php",
+      "sha256": "a61861f4832d5a2873ccea8174d20d77354f2539b76ca78899c47d913e6b004a"
+    },
+    {
+      "path": "app/Infrastructure/Billing/OpenRouterGenerationConnector.php",
+      "sha256": "eaa1bbef2f75efe656390cd1cf5866202a1e007dbc94df49062f2a0404cc9719"
+    },
+    {
+      "path": "app/Infrastructure/Billing/OpenRouterGenerationUsage.php",
+      "sha256": "d846f3c63d1e60fea79e70ec8edcf5848bf24dc8903ba821062d8fc626064c2b"
+    },
+    {
+      "path": "app/Infrastructure/Billing/ProviderBillingAdminCredentialProvider.php",
+      "sha256": "28543ff472f4c6b439ab0306cf24808f411fe26a6836b85c9fe123a9ca2f3f80"
+    },
+    {
+      "path": "app/Infrastructure/Billing/ProviderBillingCredentialAdapters.php",
+      "sha256": "a5acc0cc3d5211a3f44d641566c400ad536a18498766b7bd9c72fc3872e99b73"
+    },
+    {
+      "path": "app/Infrastructure/Billing/ProviderBillingProviderResolver.php",
+      "sha256": "98430c527184f8d3d0ff77e41e84ce14e4fcaf6908564b5be10f2ebc7d6604c6"
+    },
+    {
+      "path": "app/Infrastructure/Billing/ProviderBillingRuntimeFactory.php",
+      "sha256": "42077bc522e8d49c5b0b8357f68ad1bdd869c3f004fe083bb65dac616d4181e6"
+    },
+    {
+      "path": "app/Infrastructure/Billing/ProviderConfigCipher.php",
+      "sha256": "4cff4c49d1085c4290dcccd910b4deea95d87cf153185b3c4e2424ab584ad02f"
+    },
+    {
+      "path": "app/Infrastructure/Billing/ProviderModelBillingCredentialStore.php",
+      "sha256": "044f8fea8ff6b3f95b026a5f48d3241acc704db0db1e843f45b5bc2719b8e967"
+    },
+    {
+      "path": "app/Infrastructure/Capability/CapabilityDriverRegistry.php",
+      "sha256": "729a9a9ca75b2608a702396f8c3b064b22523946ddf103881a50e0be2804399a"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/CsvParseDriver.php",
+      "sha256": "49adf1ac7d141a8837ab9c6cf137279038ea1fe2b588dd3dfc9bb0350e4d0934"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/DocxParseDriver.php",
+      "sha256": "8f394dcd1fecae27e13976656bb301a688b50aa1170cc0e6d08892cc5879d250"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/ImageParseDriver.php",
+      "sha256": "8f3643ca71154967876fef8ac32cc8264e7896f1ea796bd34af8a64650d27488"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/LocalOcrExecutionConfig.php",
+      "sha256": "be28423817cc59d045464292a9fcc46a89ccbeeb7f50e89248dc77330ed13ccf"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/LocalPaddleOcrDriver.php",
+      "sha256": "be48a15a18f64fbdaabad1e0e4e09d68fd600ce4a921806a94fac6601e3625e8"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/LocalPaddleOcrResponse.php",
+      "sha256": "278feed6d9e03bd0ea77b84c1d8e6ae754fa3aad69101a109259758f87f18b9f"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/NeuronSourceTextSplitter.php",
+      "sha256": "ff5311141fec03be04892698791148e2e0f8cf3640538f6f3eec5bf59b0701bc"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/ParseDriver.php",
+      "sha256": "3143c314d3a23f5f6aefd536d8b4fb4aabd5fa03049780ee9a8af40821140b10"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/ParseDriverFactory.php",
+      "sha256": "f07530e206f29e65baf8e959369ef5b20aa05682626e4c0038dae0522688df32"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/ParseException.php",
+      "sha256": "f1c910013e1b839df5c5dcfc50896dc4e33d4e7779f13bfb7f83746d5fe47a51"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/ParseInput.php",
+      "sha256": "734dba0f591790464d7f35f06672c35d325672c7f93e94720d25fe59770a54dd"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/ParseResult.php",
+      "sha256": "6ee6cbd842700970654af966df135bdb11c4fe9793e132d227659ad550b76f2d"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/ParsedSourceBlock.php",
+      "sha256": "f5ecbdf1fe66e913ee16ef29ceba7d9ce03002816938bda4e28e4fa59bac7a91"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/PdfOcrCoveragePolicy.php",
+      "sha256": "4a21bfada69e86107f85d5d177da2ed2d735a6c0592c5ea914d43f9a60cb0578"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/PdfParseDriver.php",
+      "sha256": "d1a7390ecb40728e1289f940622228ef005a7b7ab7f6c014599288af53262af7"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/TextParseDriver.php",
+      "sha256": "4955d9f74384d444aa9bf01375ff2bf1df2addeea38124a64d084294e8dae183"
+    },
+    {
+      "path": "app/Infrastructure/Parsing/XlsxParseDriver.php",
+      "sha256": "1d350db621614f6369147491825a812278861ac1e9bfca2bc9078890b2970d7d"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/AiFile.php",
+      "sha256": "637da4a72b09057eea9ad514b2f717bb9e5f0397fa9f6ba285eae4e4ce91ea6c"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/AiFileParse.php",
+      "sha256": "e793208c20b28a63662c6a14d68d0156427925141e5178609966cb066a07009e"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/AiModel.php",
+      "sha256": "17a374ed22d352d98453b03b69ac29d6fa122adcf4c7d5b0347dc3bb9d987486"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/Artifact.php",
+      "sha256": "50a7e55c7bf483eed6520a5b852ff0b3caa26223f380103738e822b0e94282e8"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ArtifactFieldSource.php",
+      "sha256": "735436f9c86d196694498e53deed7dc9242145f613f08ee7aa43af2785a23cd2"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/AudioSegmentReview.php",
+      "sha256": "c7cb7e4a455ec01b09f8a8b47bb8f36bed0903bab061489e46018c7be29d356c"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/AuditLog.php",
+      "sha256": "57c7e46b71cc98575d9727da16bf096b27f16158624bf35a32f7e9b62e071b27"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/BillingImport.php",
+      "sha256": "840e4ee8951d47d29dc54eccb186368e881b9bda92e0af3ead0be1aa647da32a"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/BillingLine.php",
+      "sha256": "3b751ca1e29e68a1be2293697e658d7d7116c1b68a8e82ee8de907307363a6ad"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/BudgetEvent.php",
+      "sha256": "782b9a38441aae1762e662bbe66901872064f815e20af7378b795d33ae44ff7f"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/BudgetPolicy.php",
+      "sha256": "25ce586609cb6b310791572ff4e42184da166dc92c4b0ec4ea1a0340255e6163"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/BudgetReservation.php",
+      "sha256": "3cb64eb337148ac5a376efa7401a2171c69a2f67a34a0b62ec6374798b400dcc"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/BudgetWindow.php",
+      "sha256": "a036d38454daee9dab56b829e238349bec9fb2ea43860938e26fa91dc8249e65"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/CapabilityProfile.php",
+      "sha256": "5ebc6ffd24f1a90d350418d78576543ae3d1786043a25ae23f2b7731da055299"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/CapabilityRoute.php",
+      "sha256": "cc21bcaaa21871e91379e05e03c48e4d4af4a554bd032ccc1445173b402d5a0d"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ConfigRevision.php",
+      "sha256": "fa48b5bedc5ae34431e6ad65f32af56273cbddc4f5a636a37b2dff60ea46f2a7"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ImmutableSandAiModel.php",
+      "sha256": "b0a31b12db94d2e6a496c9fcc65231299b9390ce145395ff690b270e7e1e015d"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/Invocation.php",
+      "sha256": "00f716ac7887e7efac7a35ea7f4eed669ee88c8568a2ae9d89de18758508b1f8"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/InvocationDispatch.php",
+      "sha256": "2660dd348311fafbfe5cfcccec1b355ca1462b31c5abc348cb5b70412fdc2240"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/InvocationOutcomeReceipt.php",
+      "sha256": "7901ab51b371efc9a0ef9c7cb6402758b295fa19ae7b365385b27456a2f653ea"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/KnowledgeBase.php",
+      "sha256": "1769d8f18a9db41b157049ee437859fe4f0cd67e5bfa3410b02bec35e8bb9d36"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/KnowledgeBaseSource.php",
+      "sha256": "e5993ae82583b8d426c6012636c7bb1a7766326e4b44e77a48e076f8d6ea6dcf"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/KnowledgeBaseVersion.php",
+      "sha256": "8f36eaecc716cc771732d3123dacce131ab15bdb64f58de3112215ffc0985570"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/LegalAnalysisProfile.php",
+      "sha256": "182225b3c715f29acca93f0b023935beaba9fad3e683a2e2bc111580195c320c"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/MaterialAnalysisProfile.php",
+      "sha256": "704f08a5494603f1a48031a327af6d6d52c9b9840cfc2420a131f2bf84eed5b9"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/MeetingExecutionRegistration.php",
+      "sha256": "f434b8c84669ba6ed8e922a2db73afa06827f97841b48999b7e1d93531e0985b"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/MeetingSummaryNode.php",
+      "sha256": "1dee7fa997cdc3926fee640967adbf23d441fdd144f80faaaf40536426d62cd8"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ModelDeployment.php",
+      "sha256": "4dea1a8e87b912f313054f8397bea35e04754584bdf38d62390ba717c5460206"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/PreDispatchRejection.php",
+      "sha256": "9be0f13e49e6d1d9e8fadddb9a8fd04a15113a785201f341970534eb83c57249"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/PriceRate.php",
+      "sha256": "fb850f0bb2b927496ab1f96de0fa122a224ae4f34319a3160c53bdb69ac8e1f9"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/PriceRevision.php",
+      "sha256": "a47dd0e613d544048d02de6f8b9d8aae6857503f0dbe93d9b683ae8f7d122c0f"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/Provider.php",
+      "sha256": "1623cf44d2a8d4e53b6088b1088788eaacea48bba0bc6d3c2b374af961db5d7b"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/SandAiModel.php",
+      "sha256": "175593c26212d415c8f3f0322b432ad09837208dbba3ba0db7bd879a513bec98"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/Skill.php",
+      "sha256": "69fced489f017961dec826157a518e8c239a96f6b56f4913b278292c0a9365db"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/SkillCase.php",
+      "sha256": "61b60f69c356e37a57b286a22ed752762ad5d93831dd57357e07a846049657e4"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/SkillCaseEvaluation.php",
+      "sha256": "45c8de71e7988377ad8deb17806677684f40fe5f1960782d63137cec7e941346"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/SkillKnowledgeRef.php",
+      "sha256": "1246daa5dd1c227ea1e903c9b344ecf7431460728aea4e16bdc85caeb6d7cc56"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/SkillRun.php",
+      "sha256": "59d6f8d96ebeba2d4facb34c60a44dc18286dac673393eedbe7d641917efecdd"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/SkillSourceSuggestion.php",
+      "sha256": "399ac0f575a5ad5f7733519ce6a8db2bdc76ed7567ea2749525c67c4bcc9db65"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/SkillVersion.php",
+      "sha256": "ef6b5ac0982e8c90639bf2d79499f9ebeada3d36b669f42c57390bc37b25a7b1"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/SourceBlock.php",
+      "sha256": "d3d62b876f2eb8aa21941369ae6ca27894c5122014f3c1d1592c3f678da91933"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/TaskRun.php",
+      "sha256": "75321404ec3b32fd261f86162a4fb709f7b82fe8a566340522d72b159955d7a5"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/TaskStep.php",
+      "sha256": "fe3607cb2c897d5574c3df0c40ffb35cba5480d74f115d7e499120755aa33bb5"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/Tool.php",
+      "sha256": "b82e607f995409799333fa0769ca1ab1c3a967ff12f81563dfcb6d26e300c58e"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolAttempt.php",
+      "sha256": "b4d7026116e9d2bd572e4af892bbaa1d59c9cc1df09a389852d34b3eeeaf222a"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolConnection.php",
+      "sha256": "3d21ecbd37c62ecd9cf1a84849f42cc0e212ce13eff6f4ce9c41e0d3008db484"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolConnectionRevision.php",
+      "sha256": "de619973e076067940850da248b7073597e5f8f7739d7010bee97413dab49907"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolEnvironmentBinding.php",
+      "sha256": "51ac72ac45ecccfcb6bac684af68a5d4f71c1fd4b711e71364fb3695c4a0df3f"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolMcpSnapshot.php",
+      "sha256": "f0106f7decf7e02b842df61909bc5c8dcd74a39834267d9cb6e16a6a5b58922a"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolMcpSnapshotItem.php",
+      "sha256": "f2dc23364464ad56714218372c13d31b08105a2844f2faae3a5c5eb17cd701cb"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolOperation.php",
+      "sha256": "acf49d39c13663927f0e5db5fa2e51b7b6d37665d7573be6f325496e0ab601f9"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolOutcomeReceipt.php",
+      "sha256": "6b3995e7937377058c8ddd5c5e56b7ffaef82ade8560d660126f4d864371d571"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolProtocolRequest.php",
+      "sha256": "7213e78ef4729fb9ead007d9fd8c77e638d52972acb8fe2dd00ffc0e4a6f5e05"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolRun.php",
+      "sha256": "591c9672b8dfc7fd2e703cedc98b9a823900f9429c7b3fadf72075d4caa7fea3"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolSource.php",
+      "sha256": "cf61fa293e7c02e61a71556d7776ee1d66a70b6004789f728f8ba37d3f57a6ae"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/ToolVersion.php",
+      "sha256": "a11b486bed34b139f07abd2d85748f07d97ab35953c3e28b90fd3bc5f81a9032"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/UsageEvent.php",
+      "sha256": "d954bc5830f8843684e69f1afeb2267e395c4431e0b42e3a2381bb33480a37cb"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/UsageReconciliation.php",
+      "sha256": "a10798d2776438bf428855fd871585182a1392e5a66fa0277b1f0c47b1e8ba4f"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/UsageRecord.php",
+      "sha256": "986d738cb289f48be230f9329a81df0de0270f1a9eae375715386e0e5dc528e3"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/WorkflowCrossFileReview.php",
+      "sha256": "fb5887906c51d9fc9d93d2aea0df4c6e00d318b3d8b061a345346ab7b2473536"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/WorkflowCrossFileReviewResult.php",
+      "sha256": "e8f5dadd757aedafde305d33c3a300de3df72a6c0c61fae5096beff93b9ed07f"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/WorkflowCrossFileReviewSource.php",
+      "sha256": "8c4ab8b119899ff9c2e3bff3e35c7c00b78b9a40086e2d8089d469151dc2111c"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/WorkflowCrossFileReviewWithheld.php",
+      "sha256": "c4bfb6d89667aaf5a50be63a8b0d429c7706e3a31407cfaef8afd9227c7427f8"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/WorkflowFileResult.php",
+      "sha256": "a1b698f5c2a969a7bf9cc409a142876ee0d6d28093be72acc364918a063d53f5"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/WorkflowFileResultSource.php",
+      "sha256": "b8fdcfc3a48b3bda524bf26e020871faeccafef44238084d527699ce6910ae1a"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/WorkflowRun.php",
+      "sha256": "6f7ab3f7709a3d8f7ce896c282bcf40d2199ac5c54ecbb712242fbb0b7d0341d"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Model/WorkflowRunFile.php",
+      "sha256": "baf8408176d4d417c327026db2c264ba3a4eef53286fe676680ecf745faa0479"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Schema/InitialSchema.php",
+      "sha256": "ff743fe21336c9a991219634022e4cab4ae5de8fbb09606978764df30442d8a8"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Schema/MainApplicationMigrationPlan.php",
+      "sha256": "ff6e8992706bc7040e0addf3a6b5d4bd2c77b5f8ae7bb0bf8c2cd5edc3745b19"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Schema/MainApplicationMigrationPolicy.php",
+      "sha256": "2cf955d9f5fccc65f22a4fff09d2dbf7f52b520756fda2bd57297d24cd27a2ec"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Schema/MainApplicationMigrations.php",
+      "sha256": "029eb8ac51e08d554347bd25cc71ba6edf4d6168362d8be79c5e417009914484"
+    },
+    {
+      "path": "app/Infrastructure/Persistence/Schema/MainApplicationSchemaCommandConfig.php",
+      "sha256": "b0492430a3316b0eb2e5caf677352b748e28a539bf288af542035b37e9761833"
+    },
+    {
+      "path": "app/Infrastructure/Provider/AgentToolChatRequest.php",
+      "sha256": "86518d6d84ce67c73a618b5dd12dc09fd297ee61d67b0da85ab2c28dda752eef"
+    },
+    {
+      "path": "app/Infrastructure/Provider/AgentToolProviderOutcome.php",
+      "sha256": "014fd9a9f899fd71fd68e5b682418169aad64df507b84eaf09808c934e7ae865"
+    },
+    {
+      "path": "app/Infrastructure/Provider/BigModelMeetingTokenCounter.php",
+      "sha256": "0766338a0ecbb9fb0076156d236cfb7ef883c900341b315087e705e58b246ff1"
+    },
+    {
+      "path": "app/Infrastructure/Provider/BoundedEmbeddingResponseStream.php",
+      "sha256": "d8d5e2c8a3e3ec4b20826bacbd879b1d32c5999aee0a6289fba3fb2627e47b32"
+    },
+    {
+      "path": "app/Infrastructure/Provider/BoundedProviderResponseStream.php",
+      "sha256": "6150071f6bb612a3d0da6d029cd85f42bcebc64047f8e68f4c6c4f0e27d8eaa6"
+    },
+    {
+      "path": "app/Infrastructure/Provider/ChatProviderFailurePolicy.php",
+      "sha256": "5ab6d7a3d00565e8272aa407cd3cbe5fdbc1be680d57e645052e37b0f0cca928"
+    },
+    {
+      "path": "app/Infrastructure/Provider/FakeChatProvider.php",
+      "sha256": "c32deada6e058a92890b5a4178b53f682188c7e46783bbdf0f2eb17ea30acc77"
+    },
+    {
+      "path": "app/Infrastructure/Provider/HttpsProviderEndpointResolver.php",
+      "sha256": "e80a02223e11155bc439e3ed7666fd4ba8bcb6f1a06dc6d8c1aba1bfbb3e2669"
+    },
+    {
+      "path": "app/Infrastructure/Provider/MeasuredChatFailure.php",
+      "sha256": "aaa138d5b3f12bdae1024a5a5acd5a06b6d953bb74926b7264ee787337641fcb"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronAgentStreamHttpClient.php",
+      "sha256": "a5871b8989569d866ab86892bfafc722f37b1aab1eae69a842e8a7a41b240523"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronAgentStreamProvider.php",
+      "sha256": "ae6155182bcb6c4f8362f4bd36aec3cbe785d823ea4e6a0d241a48e14557bdb4"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronControlledHttpClient.php",
+      "sha256": "65b94ddf07fd7ef874ca5491dd327ff6d1072e4348699e980f008b6f8863b754"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronEmbeddingHttpClient.php",
+      "sha256": "27a06cc76f178c582291e2d6983b5a017b947318c4c7d31f7879995e32bca1d2"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronMaterialChatProvider.php",
+      "sha256": "ffd8253795cda00622ad23bb74d28cb60b8778b6a3ab65302aa87e36c6e13445"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronPinnedAgentStream.php",
+      "sha256": "c35b3936091d0904cff41fd5646aea43d24998c40d03426b7726594b4fd17a63"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronProfessionalRerankCapacity.php",
+      "sha256": "516c88af1fd7107111eba9d0a6213add61c39a90df3bd4496b51b010ffd41fb0"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronProfessionalRerankHttpClient.php",
+      "sha256": "63f6f8c572200d12d3f3602869bf6340a5a343b0c13dfd183eab40653f8210a3"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronProfessionalRerankJinaPostProcessor.php",
+      "sha256": "4b1b675b8991f380310d32275a8ff87fdd2aba76b27118bf157826f8a999cb29"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronProfessionalRerankProvider.php",
+      "sha256": "c36a3e0b5a2f22c42fe02839ebee50ec28658be13942a4bd970deb62c4e9c28e"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronSkillOutputAdapter.php",
+      "sha256": "5e207c0f023fdff6ee8c295f2511ec8b02962dd4a4a48b53d256fc28ad927c2d"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronSkillRequestCapture.php",
+      "sha256": "52d8f4e46d9dab2eb9b00e2db744fdebe29ba662dab4833764befb34f4a3991e"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronSkillRequestCaptured.php",
+      "sha256": "10d6b9072abbac1daea9106685ec3aaa12b5784f4b7bafe02734ef761e497fd7"
+    },
+    {
+      "path": "app/Infrastructure/Provider/NeuronSkillZaiProvider.php",
+      "sha256": "00d09e7a25a04274920b24696e8923a12d3f295af4f6e230461eff39b664010f"
+    },
+    {
+      "path": "app/Infrastructure/Provider/OpenAiCompatibleChatProvider.php",
+      "sha256": "d4435c01611f5ed6c892ea744b46a44f7750935f588baa015c87202c46cb2606"
+    },
+    {
+      "path": "app/Infrastructure/Provider/OpenAiCompatibleEmbeddingProvider.php",
+      "sha256": "1dbdd67dbde33ed5aeeb9cc636f62452a025915244d0e27de6bdf80bd897c688"
+    },
+    {
+      "path": "app/Infrastructure/Provider/OpenAiCompatibleEmbeddingResponseNormalizer.php",
+      "sha256": "6313f3beaf7ebf782bbf0be9d092038929d244b261552b389eb54a5c80f260af"
+    },
+    {
+      "path": "app/Infrastructure/Provider/OpenAiCompatibleExecutionConfigPolicy.php",
+      "sha256": "b8ea393e6205b71bd5d8b9aefbdf37e5490c0b3e289f573ada2eebf20c60f2dd"
+    },
+    {
+      "path": "app/Infrastructure/Provider/OpenAiCompatibleSegmentStream.php",
+      "sha256": "1b72854cb36bbe9797c825892e50c1b10059c89b37f07e4b0938aee836f4728d"
+    },
+    {
+      "path": "app/Infrastructure/Provider/PreparedChatProviderCall.php",
+      "sha256": "1fd2b1aab134ae02a5002db1d0044057ef9b8d30de808ede2e0dfa0ad2ffa6ba"
+    },
+    {
+      "path": "app/Infrastructure/Provider/PreparedEmbeddingProviderCall.php",
+      "sha256": "0eb4236e92fa6c7db74ff2f95093209eee9be182a6955ce737a259c061aa2b6e"
+    },
+    {
+      "path": "app/Infrastructure/Provider/ProviderEndpointResolver.php",
+      "sha256": "dc94b8024520291c686262e75a210798da0cc5cedd77f91a6c7de4094abe27c1"
+    },
+    {
+      "path": "app/Infrastructure/Provider/ProviderExecutionConfigFingerprint.php",
+      "sha256": "4044742687d6e904227084210761480acb21a4013b248f79eeabf1cd99a1b294"
+    },
+    {
+      "path": "app/Infrastructure/Provider/ProviderSecretDecryptor.php",
+      "sha256": "ca32de38fb4f6f9dc1bfc6a5d9837ee57678812418ced26b0e9658ee034f986a"
+    },
+    {
+      "path": "app/Infrastructure/Provider/ProviderSecretEncryptor.php",
+      "sha256": "b463399883ae2e3e2be2a0d07c714636b2c4db6cc03f3d97825c002b3f10cbd2"
+    },
+    {
+      "path": "app/Infrastructure/Provider/RequestScopedProviderConnection.php",
+      "sha256": "105dcc8e924e2e123cb4523b023ce473d0cce343eea1770ea259f235f27911de"
+    },
+    {
+      "path": "app/Infrastructure/Provider/ResolvedProviderEndpoint.php",
+      "sha256": "76f458abb148a24286725c485a554211485c9b31e7bbb45d799af78a1aa5440c"
+    },
+    {
+      "path": "app/Infrastructure/Provider/SourceBoundAnswerSegments.php",
+      "sha256": "d9742eaad176a79a6330ca06e04053b68b3d89cd50e2238f2fc23f4ae0aa58c3"
+    },
+    {
+      "path": "app/Infrastructure/Storage/LocalPrivateStorageDriver.php",
+      "sha256": "90e7b5107431848042c3144eb815372f2c257af73bf4fd9279e767817d6ac30c"
+    },
+    {
+      "path": "app/Infrastructure/Storage/ObjectKey.php",
+      "sha256": "5e1da0f794fb3aaa9491fb93d00f400746a3da1fd6d73a685c7e23e418872a1e"
+    },
+    {
+      "path": "app/Infrastructure/Storage/OssPrivateStorageDriver.php",
+      "sha256": "1b3ceaba4df7cf5b75566f637a8d098acafe2912f8d41fa5bcb8db6c2ac04d01"
+    },
+    {
+      "path": "app/Infrastructure/Storage/StorageDriver.php",
+      "sha256": "1290db769a73beee4f444ba3a50a72df6fa288138be7c386c0a45552e8d9242d"
+    },
+    {
+      "path": "app/Infrastructure/Storage/StorageDriverFactory.php",
+      "sha256": "99eb01a79a18ccaf746e43826d9630bcaff2bc3e1ffa00e7113ad94d8736e6e7"
+    },
+    {
+      "path": "app/Infrastructure/Storage/StorageException.php",
+      "sha256": "b17a922dfaf0ac45196f077e42030ea9cd4e4ce90ddb6706df03ccaa0e965600"
+    },
+    {
+      "path": "app/Mcp/Identity/McpInvocationContext.php",
+      "sha256": "0b134173e443d2f55f004a0c54334f470d9db98db970117e55d8074a0c491286"
+    },
+    {
+      "path": "app/Mcp/Identity/McpMetadataSessionStore.php",
+      "sha256": "0789e2fdce24e3337592eea389112fc3ac848ece9594b5891289c8178c5e835a"
+    },
+    {
+      "path": "app/Mcp/Identity/McpSessionScope.php",
+      "sha256": "ed6f0a3aa5e76d268a6f5c37fe701015c4ec3ccba91f86d762865fa39147867d"
+    },
+    {
+      "path": "app/Mcp/McpBusinessBridge.php",
+      "sha256": "b0b3ad2709b4ee1d718d162fe0cdf403acb9a81601d678c138184004f1f31d8d"
+    },
+    {
+      "path": "app/Mcp/McpHttpBridge.php",
+      "sha256": "7e9b0c7cc0523c7a7fc89efc94b59d8beac34028ca0f383c2abef8c627333ba7"
+    },
+    {
+      "path": "app/Mcp/McpToolArgumentHandler.php",
+      "sha256": "bba43882a9cce6efa75c5cf1d57dbfa36963b7437d24273389705b60a3c09d7d"
+    },
+    {
+      "path": "app/Mcp/SandAiMcpTools.php",
+      "sha256": "94c40749c2dce602a4d2cfbb7977f3ea8ff588917207a0d0f06b3002e8f12d84"
+    },
+    {
+      "path": "app/command/SandAiProviderCallLimitCommand.php",
+      "sha256": "3ef49156d5999d901ae6f9a1a26f5e78c1e6523d4808b5b3b4fd84854d033922"
+    },
+    {
+      "path": "app/command/SandAiSecurityCommand.php",
+      "sha256": "d6ccf1309402ab5bef5e6409a5ecd0dfb99c41180c8c299b3ca16f5ed42288eb"
+    },
+    {
+      "path": "app/process/FeishuDeliveryWorker.php",
+      "sha256": "4866950d8d7e755ee5ff2de646f465325222d50d6f1f0b1d4dd53173f88d70ac"
+    },
+    {
+      "path": "app/process/FileDeletionRecoveryWorker.php",
+      "sha256": "25c5fda63eb4a9858eef0fbda7638c4015730189c06fb3b685ffca0f5489f9d6"
+    },
+    {
+      "path": "app/process/OutcomeReceiptCleanupWorker.php",
+      "sha256": "443af2597a295fffc47810bfb679b2725934fdd2d7235e96f84cae8dd31b62a9"
+    },
+    {
+      "path": "app/process/SpeechUsageRecoveryWorker.php",
+      "sha256": "594e34fe96437b8fce571dd4d3c01e1e7ab79b5252bc13628c199d3cb19d70df"
+    },
+    {
+      "path": "app/process/TaskWorker.php",
+      "sha256": "c9ed90804d47542f410925aa649717fafc846c6ee419ac1b33762e0327760160"
+    },
+    {
+      "path": "app/process/WecomDeliveryWorker.php",
+      "sha256": "cadbd50bdd95008e16fa03b387ee6c38551832923d1cb089bcc1ddec842a5052"
+    },
+    {
+      "path": "config/sand_ai_audio_execution.php",
+      "sha256": "0c3e3ee7429004e26c1a3cd71b7565e8a02eb8161b82bd7fdd541bb148d3492a"
+    },
+    {
+      "path": "config/sand_ai_audio_transcription.php",
+      "sha256": "c822ce90f790c8c59fc8b68697399650570a28b79c05105420ee917f59516e14"
+    },
+    {
+      "path": "config/sand_ai_external_audio_receipt.php",
+      "sha256": "d4a0b33f25095348f6f8a5ee3a0c739a461a396ccc923e79944977fd5bff970f"
+    },
+    {
+      "path": "config/sand_ai_feishu.php",
+      "sha256": "ca50d0e9079451107b28cf70593c20201ce0f253285706035878863bb11d0a79"
+    },
+    {
+      "path": "config/sand_ai_file.php",
+      "sha256": "1b9f7128c1f16f7567a8dc939a4a90348e1e2234c5c16bdb74c2ce062bb1c1b6"
+    },
+    {
+      "path": "config/sand_ai_iam_context.php",
+      "sha256": "c33a812d264304e6a46a7d191896efc0ead4891aaaa2510aeb5d7a21954a4e9d"
+    },
+    {
+      "path": "config/sand_ai_legal.php",
+      "sha256": "9234ff575e74874a02d8b15581baf4eadf1ca8d48484a006e22d5c9d07230d43"
+    },
+    {
+      "path": "config/sand_ai_legal_fulltext.php",
+      "sha256": "5ec51df699257fefb4eece539d908b8442f3392591b0cb50e78cb2d6a35d7de7"
+    },
+    {
+      "path": "config/sand_ai_material_analysis.php",
+      "sha256": "becdb176aef8eb365f3778e7e54acde0e49a383b80159c270db5c2a776b0f2b7"
+    },
+    {
+      "path": "config/sand_ai_material_analysis_dispatch.php",
+      "sha256": "c5f16992f06db2691e2d225aa9e82a4430db054d6ed4ef760f2b3adb5ef7a517"
+    },
+    {
+      "path": "config/sand_ai_mcp.php",
+      "sha256": "fa0e304aa9a8171c79db75adaf8622ba6fb8b4c52d753b73d7ab0a4f222aefff"
+    },
+    {
+      "path": "config/sand_ai_mcp_server.php",
+      "sha256": "582683a1a3af88bf825653b3503b6e1d83ec4f14f08f4a4b9fcec44e10f9a2cb"
+    },
+    {
+      "path": "config/sand_ai_meeting_summary.php",
+      "sha256": "33cda317ed23a797b66a70e70fbc6c1a1f933c8cc618f6d94e47a06545d17e64"
+    },
+    {
+      "path": "config/sand_ai_ocr.php",
+      "sha256": "c5f6e054d55c7847c2acc8a2c04ce7c8199e17484f2cf77e948a43b5ce9d7d30"
+    },
+    {
+      "path": "config/sand_ai_outcome_receipt.php",
+      "sha256": "983cc207289ef4711bdb05709b69fc824dda3c1efb72419f52d5d1df3aee9875"
+    },
+    {
+      "path": "config/sand_ai_parse.php",
+      "sha256": "023acf9f0ed05ecfd1d123e6764453b381082ff04b7f2d4d20f118d35c910e02"
+    },
+    {
+      "path": "config/sand_ai_pkulaw.php",
+      "sha256": "d22d6643ffa58432b7f071133203b82683b7b3cedd38d9220205ca32e1c01484"
+    },
+    {
+      "path": "config/sand_ai_solution_guides.php",
+      "sha256": "a926c7a4905a171fa43152c9afbca595fdb219aa079b7323aa14f4b01f32a076"
+    },
+    {
+      "path": "config/sand_ai_storage.php",
+      "sha256": "34ba3f5854872a57b4fbc4b9c165c4a36549f67adb6ee74498583a165e633b1b"
+    },
+    {
+      "path": "config/sand_ai_task.php",
+      "sha256": "e312dad0fe0aaa89ea0a9e71e97c36f7c3d9229c680104af0ee363e9c884b5ce"
+    },
+    {
+      "path": "config/sand_ai_tool_connection.php",
+      "sha256": "7e38eec0b9700913c4bf87e94b921574ffe1061b7f39bb9f30dedc7e36e00a4f"
+    },
+    {
+      "path": "config/sand_ai_wecom.php",
+      "sha256": "a9009501bb5bff3f8d0186d02af631ef7a103fe9051aa522f8fd89446d48fb29"
+    },
+    {
+      "path": "config/sand_ai_workflow.php",
+      "sha256": "86f5426edc9637c17933d06636120b5ccacf5ac9109f21ba4ba4f04dd7fb954e"
+    },
+    {
+      "path": "config/sand_ai_workflow_services.php",
+      "sha256": "53a26873d91de0e7df5cdcab8d726fccd27d29957d011d3b220bcd8b06fa5fb6"
+    }
+  ]
+}

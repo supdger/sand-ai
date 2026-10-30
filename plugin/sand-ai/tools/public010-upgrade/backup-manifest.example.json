@@ -1,0 +1,130 @@
+{
+    "format": "sand-ai-public010-backup/v1",
+    "database": "<existing_database>",
+    "schema": "public",
+    "old_package_sha256": "509fbb9ab18b112400d6979443fd00821e4bea293f033a0b130bc8ad8ac2909e",
+    "target_version": "0.2.27",
+    "target_update_sha256": "<sha256_of_this_candidate_update.sql>",
+    "consumers_stopped": false,
+    "restore_rehearsed": false,
+    "artifacts": [
+        {
+            "kind": "database",
+            "path": "<absolute_path_to_private_database_backup>",
+            "bytes": "<actual_backup_byte_count>",
+            "sha256": "<actual_backup_sha256>"
+        },
+        {
+            "kind": "files",
+            "path": "<absolute_path_to_private_files_backup>",
+            "bytes": "<actual_backup_byte_count>",
+            "sha256": "<actual_backup_sha256>"
+        },
+        {
+            "kind": "private_storage",
+            "path": "<absolute_path_to_private_storage_backup>",
+            "bytes": "<actual_backup_byte_count>",
+            "sha256": "<actual_backup_sha256>"
+        }
+    ],
+    "table_snapshot": [
+        {
+            "table": "sand_ai_provider",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_model",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_model_deployment",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_config_revision",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_invocation",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_usage",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_audit_log",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_file",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_file_parse",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_source_block",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_capability_profile",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_capability_route",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_task_run",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        },
+        {
+            "table": "sand_ai_task_step",
+            "row_count": "<snapshot_row_count>",
+            "rows_sha256": "<snapshot_rows_sha256>",
+            "sequence_last_value": "<snapshot_sequence_last_value>",
+            "sequence_is_called": false
+        }
+    ]
+}

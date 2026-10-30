@@ -6,7 +6,7 @@ export type SandAiDataEgressPolicy = 'local_only' | 'private_only' | 'approved_c
 export type SandAiCapabilityRoute = {
   id?: number
   capability_code: string
-  route_kind: 'model_deployment' | 'parse_driver' | string
+  route_kind: 'model_deployment' | 'parse_driver' | 'audio_driver'
   deployment_id?: number | null
   driver_code?: string | null
   priority: number
@@ -39,6 +39,7 @@ export type SandAiCapabilityMetadata = {
 
 export type CapabilitySavePayload = {
   environment_id: number
+  expected_revision: number | null
   name: string
   template_code?: string | null
   data_egress_policy?: SandAiDataEgressPolicy | string
@@ -66,7 +67,7 @@ export default {
     })
   },
 
-  publishProfile(payload: { environment_id: number; id: number }) {
+  publishProfile(payload: { environment_id: number; id: number; expected_revision?: number }) {
     return request.post<{ profile: SandAiCapabilityProfile }>({
       url: `${ADMIN_API_PREFIX}/setup/capability/profile/publish`,
       data: payload

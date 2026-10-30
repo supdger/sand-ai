@@ -9,6 +9,7 @@ import type {
 } from './types'
 import { assertMockHealthy, delay, nextId, nowText, paginateMock } from './mock/helpers'
 import { mockModels } from './mock/store'
+import type { CatalogConfigurationIntent, CatalogConfigurationReceipt } from './catalogConfigurationIntent'
 
 function filterModel(row: SandAiModel, query: SandAiPageQuery): boolean {
   if (query.code && !row.code.includes(String(query.code))) return false
@@ -20,6 +21,14 @@ function filterModel(row: SandAiModel, query: SandAiPageQuery): boolean {
 }
 
 export default {
+  read(id: number) {
+    return request.get<SandAiModel>({
+      url: `${ADMIN_API_PREFIX}/model/read`,
+      params: { id },
+      showErrorMessage: false
+    })
+  },
+
   list(params: SandAiPageQuery) {
     if (USE_SCHEMA_MOCK) {
       return (async () => {
@@ -34,7 +43,7 @@ export default {
     })
   },
 
-  async save(payload: SandAiModelWrite) {
+  async save(payload: SandAiModelWrite, key?: string) {
     if (USE_SCHEMA_MOCK) {
       await delay()
       assertMockHealthy()
@@ -54,11 +63,12 @@ export default {
     }
     return request.post<SandAiIdResult>({
       url: `${ADMIN_API_PREFIX}/model/save`,
-      data: payload
+      data: payload,
+      headers: key ? { 'Idempotency-Key': key } : undefined
     })
   },
 
-  async update(payload: SandAiModelWrite & { id: number }) {
+  async update(payload: SandAiModelWrite & { id: number }, key?: string) {
     if (USE_SCHEMA_MOCK) {
       await delay()
       assertMockHealthy()
@@ -79,7 +89,18 @@ export default {
     }
     return request.post<unknown>({
       url: `${ADMIN_API_PREFIX}/model/update`,
-      data: payload
+      data: payload,
+      headers: key ? { 'Idempotency-Key': key } : undefined
+    })
+  },
+
+  readOperation(intent: CatalogConfigurationIntent) {
+    if (intent.kind !== 'model') throw new Error('原请求不是模型配置操作')
+    return request.get<CatalogConfigurationReceipt>({
+      url: `${ADMIN_API_PREFIX}/model/read-operation-by-request-key`,
+      params: { operation: intent.operation, request_key: intent.key, code: intent.code,
+        ...(intent.id !== null ? { target_id: intent.id } : {}) },
+      showErrorMessage: false
     })
   },
 

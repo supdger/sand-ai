@@ -1,12 +1,10 @@
+## 0.2.42 (source candidate)
+
+- Seed the remaining administrator navigation nodes and button permissions (overview/model/invocation/audit pages, usage/capability/agent/knowledge buttons, navigation-only file center); seeds only make permissions grantable, budget stays superadmin-only.
+## 0.2.41 (source candidate)
+
+- Bind new private uploads to trusted caller scope and original request, with durable pending recovery and read-only lookup. Existing files are not backfilled.
+
 # 更新日志
 
-## 0.1.0 预览版 · 2026-09-21
-
-公开版本：[sand-ai-v0.1.0-preview-2821503](https://github.com/supdger/sand-ai/releases/tag/sand-ai-v0.1.0-preview-2821503)。
-
-- 从独立 SandAI 仓库重新构建预览包，包内文档明确 `supdger/sand-ai` 为唯一权威源码。
-- 本预览基线采用插件独立布局，提供管理端与 PostgreSQL 生命周期入口；模型、私有文件、解析、任务、用量和来源追溯由插件内运行代码承担，身份与服务授权依赖 SandIAM。此为基线能力说明，不补造更早版本新增时间。
-
-升级影响：不包含当前统一宿主应用载荷候选。安装前由维护者核实 SandAdmin、SandPackage、SandIAM 的版本组合和包摘要；不能因版本号相近认定兼容。真实宿主升级及完整业务链验收尚未完成，暂不建议用于正式环境。安装边界见 [README](README.md)。
-
-[版本更新与升级影响（Wiki）](https://github.com/supdger/sandadmin/wiki/plugin-updates) · [全部公开发布记录](https://github.com/supdger/sand-ai/releases)
+正文随统一安装包单一维护，请阅读 [完整文档](plugin/sand-ai/CHANGELOG.md)。此路径保留为源码入口，不重复维护正文。

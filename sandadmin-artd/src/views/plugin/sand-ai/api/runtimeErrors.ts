@@ -5,6 +5,7 @@
  */
 
 import { SandAiRuntimeError } from './runtime'
+import { runtimeIdentityRefusalForCode } from './runtimeIdentityNotice'
 
 export type RuntimeUiError = {
   title: string
@@ -19,8 +20,9 @@ export const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
   SAND_AI_IDENTITY_CONTEXT_UNAVAILABLE:
     '宿主未安装可验证的 SandIAM context adapter，或 signer 不可用；不会回退 API Key。',
   SAND_AI_SERVICE_ACTION_FORBIDDEN: '已识别调用方，但未授予当前服务动作，或 audience 不是 sand-ai。',
+  SAND_AI_ENVIRONMENT_MISMATCH: '应用运行身份与所选环境不一致，请使用该环境的 SandIAM 运行身份。',
   SAND_AI_OCR_UNAVAILABLE: 'OCR 尚未配置，图片不会被标成已解析。',
-  SAND_AI_OCR_REQUIRED: '扫描 PDF 需要 OCR，当前不会伪造成功。',
+  SAND_AI_OCR_REQUIRED: '材料包含尚未解析的图片或嵌入对象，不能标为完整解析。PDF 需配置 OCR 后继续原解析任务；DOCX 需先在私有处理流程中导出保留视觉正文的 PDF，再走现有 OCR 解析流程。',
   SAND_AI_PARSE_UNSUPPORTED: '当前文件类型没有可用解析驱动。',
   SAND_AI_PARSE_EMPTY: '未提取到有效文本。',
   SAND_AI_PARSE_FAILED: '解析失败，请查看 error_summary。',
@@ -45,6 +47,8 @@ export function hintForRuntimeErrorCode(errorCode: string | null | undefined): s
   if (!errorCode) {
     return undefined
   }
+  const identityRefusal = runtimeIdentityRefusalForCode(errorCode)
+  if (identityRefusal) return identityRefusal.description
   return RUNTIME_ERROR_HINTS[errorCode]
 }
 

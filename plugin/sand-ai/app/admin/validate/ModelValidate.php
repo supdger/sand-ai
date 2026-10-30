@@ -17,6 +17,9 @@ final class ModelValidate
         if (!isset($payload['type'])) {
             throw new ApiException('SAND_AI_VALIDATION_ERROR: model type is required');
         }
+        if ($payload['type'] === 'rerank' && ($payload['capabilities'] ?? null) !== ['rerank']) {
+            throw new ApiException('SAND_AI_VALIDATION_ERROR: professional rerank models require the rerank capability');
+        }
         return $payload;
     }
 
@@ -40,7 +43,7 @@ final class ModelValidate
         if (isset($payload['name'])) {
             $payload['name'] = $this->name($payload['name']);
         }
-        if (isset($payload['type']) && !in_array($payload['type'], ['chat', 'embedding', 'rerank'], true)) {
+        if (isset($payload['type']) && !in_array($payload['type'], ['chat', 'embedding', 'rerank', 'audio_transcription', 'audio_speech', 'image_ocr'], true)) {
             throw new ApiException('SAND_AI_VALIDATION_ERROR: invalid model type');
         }
         if (isset($payload['capabilities'])) {
@@ -48,6 +51,9 @@ final class ModelValidate
                 throw new ApiException('SAND_AI_VALIDATION_ERROR: capabilities must be a string array');
             }
             $payload['capabilities'] = array_values(array_unique($payload['capabilities']));
+            if (($payload['type'] ?? null) === 'rerank' && $payload['capabilities'] !== ['rerank']) {
+                throw new ApiException('SAND_AI_VALIDATION_ERROR: professional rerank models require only the rerank capability');
+            }
         }
         if (isset($payload['status']) && !in_array((int) $payload['status'], [1, 2], true)) {
             throw new ApiException('SAND_AI_VALIDATION_ERROR: invalid status');

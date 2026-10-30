@@ -1,6 +1,55 @@
 {
   "require": {
-    "aliyuncs/oss-sdk-php": "^2.7",
-    "smalot/pdfparser": "^2.12"
+    "aliyuncs/oss-sdk-php": ">=2.7",
+    "smalot/pdfparser": ">=2.12",
+    "neuron-core/neuron-ai": ">=4.0.2",
+    "mcp/sdk": ">=0.8.1",
+    "guzzlehttp/psr7": ">=2.7"
+  },
+  "plugin_dependencies": {
+    "sand-iam": {
+      "version": "0.8.4",
+      "sha256": "1a3352a6a5556bb8f605e783dd8f66981d5d3436d0af33c053fcb618424e9366"
+    }
+  },
+  "service_catalog": {
+    "service": {
+      "code": "sand_ai",
+      "name": "SandAI"
+    },
+    "actions": {
+      "sand_ai.chat.complete": "AI 对话",
+      "sand_ai.agent.submit": "智能体提交",
+      "sand_ai.agent.run": "智能体读取来源",
+      "sand_ai.retrieval.search": "私有来源检索",
+      "sand_ai.invocation.read": "调用状态读取",
+      "sand_ai.usage.read": "调用费用读取",
+      "sand_ai.knowledge.query": "知识库查询",
+      "sand_ai.document_parse": "私有文件解析",
+      "sand_ai.workflow.run": "结构化工作流运行",
+      "sand_ai.workflow.read": "结构化工作流读取",
+      "sand_ai.file.write": "私有文件写入",
+      "sand_ai.file.read": "私有文件读取",
+      "sand_ai.model.read": "模型目录读取",
+      "sand_ai.task.read": "任务结果读取",
+      "sand_ai.task.cancel": "任务取消",
+      "sand_ai.task.retry": "任务重试",
+      "sand_ai.tool.run": "工具运行",
+      "sand_ai.tool.read": "工具结果读取",
+      "sand_ai.skill.run": "运行个人 Skill",
+      "sand_ai.audio.transcription": "音频转写",
+      "sand_ai.audio.review": "音频片段复核",
+      "sand_ai.audio.speech": "语音合成",
+      "sand_ai.audio.speech.read": "语音合成结果读取",
+      "sand_ai.skill.read": "读取应用方法包",
+      "sand_ai.skill.manage": "管理应用方法包与案例",
+      "sand_ai.skill.test": "测试应用方法包并计费",
+      "sand_ai.skill.publish": "发布、撤销及回退应用方法包"
+    }
+  },
+  "sand_ai": {
+    "database": "pgsql",
+    "required_plugin": "sand-iam",
+    "local_api_prefix": "/api/sand-ai/v1"
   }
 }
