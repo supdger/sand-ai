@@ -1011,7 +1011,7 @@
     "config/sand_ai_wecom.php": "a9009501bb5bff3f8d0186d02af631ef7a103fe9051aa522f8fd89446d48fb29",
     "config/sand_ai_workflow.php": "86f5426edc9637c17933d06636120b5ccacf5ac9109f21ba4ba4f04dd7fb954e",
     "config/sand_ai_workflow_services.php": "53a26873d91de0e7df5cdcab8d726fccd27d29957d011d3b220bcd8b06fa5fb6",
-    "dependencies/sand-iam-0.8.4.zip": "1a3352a6a5556bb8f605e783dd8f66981d5d3436d0af33c053fcb618424e9366",
+    "dependencies/sand-iam-0.8.4.zip": "f062fc43720d01e979dd2da76a4e3def4696dfa47a917f3a794344ae2ad0bd09",
     "host-payload.json": "f69104ce309ba69dae0146965af85b4706bca68e940e474f1beee33d556d21d0",
     "info.ini": "9d9d74ac265374e8ef275409117e2e99991ce580ee6c63bc1b1dc0c0e2b9a5d4",
     "install.sql": "e833638b9170905e8159808d7a8018755ffaf4b99911cac82e4d463a7cf58210",
