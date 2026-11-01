@@ -1,4 +1,5 @@
--- Generated from database/migrations by scripts/build-sand-ai-install-sql.php.
+-- Assembled from plugin/sand-ai/migrations/main-app/*.pgsql plus migration-ledger
+-- seed entries; the packaging script that produced this file is pending commit.
 -- Fresh installs only. Existing SandAI objects require explicit adoption.
 BEGIN;
 DO $sand_ai_install$

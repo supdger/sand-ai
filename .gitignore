@@ -1,0 +1,7 @@
+# Dependency plugin artifacts are injected at build time, never committed.
+# See tools/build-package.php --iam-bundle=<path>; identity (version + sha256)
+# stays declared in config.json plugin_dependencies.
+dependencies/*.zip
+
+# OS / editor noise
+.DS_Store

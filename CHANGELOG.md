@@ -1,3 +1,6 @@
+## 0.3.0 (source candidate)
+
+- Version bump to 0.3.0; dropped historical bundled SandIAM zips (0.7.6/0.8.3) to fit the 16 MiB intake limit; the pinned 0.8.4 artifact identity stays declared in `config.json` `plugin_dependencies`. Dependency artifacts are injected at build time (`tools/build-package.php --iam-bundle=`) instead of being committed; `release-payload.json` regenerated from the official builder member set (1398 members) by `tools/build-release-payload.php`; stale root `tools/` duplicates removed. Not yet repackaged, installed, or acceptance-verified.
 ## 0.2.42 (source candidate)
 
 - Seed the remaining administrator navigation nodes and button permissions (overview/model/invocation/audit pages, usage/capability/agent/knowledge buttons, navigation-only file center); seeds only make permissions grantable, budget stays superadmin-only.

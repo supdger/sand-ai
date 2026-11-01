@@ -1,3 +1,6 @@
+## 0.3.0 (source candidate)
+
+- Version bump to 0.3.0; dropped historical bundled SandIAM zips (0.7.6/0.8.3) to fit the 16 MiB intake limit; the pinned 0.8.4 artifact identity stays declared in `config.json` `plugin_dependencies`. Dependency artifacts are injected at build time (`tools/build-package.php --iam-bundle=`) instead of being committed; `release-payload.json` regenerated from the official builder member set (1398 members) by `tools/build-release-payload.php`; stale root `tools/` duplicates removed. Not yet repackaged, installed, or acceptance-verified.
 ## 0.2.42 (source candidate)
 
 - Seed the remaining administrator navigation nodes and button permissions (overview/model/invocation/audit pages, usage/capability/agent/knowledge buttons, navigation-only file center); seeds only make permissions grantable, budget stays superadmin-only.
@@ -6,6 +9,13 @@
 - Persist original upload request associations and provide scoped read-only recovery; preserve unknown uploads and reject changed input under the same key.
 
 # 更新日志
+
+## 0.3.0（源码候选）
+
+- 版本 0.2.42 → 0.3.0：删除历史捆绑 SandIAM 工件（0.7.6/0.8.3）以满足 16 MiB 上传入口上限；`config.json` 的 `plugin_dependencies` 继续以 version+sha256 声明固定的 0.8.4 工件身份。
+- 依赖插件工件改为构建期外部注入、不再提交进源码仓：`tools/build-package.php --iam-bundle=<锁定工件>` 在临时组装目录注入后经官方 SandPackage builder 构包；`tools/build-release-payload.php` 按官方 builder 实际成员集重新生成 `release-payload.json`（1398 成员），`docs/`、`tests/`、`tools/` 不进入发行清单。
+- 删除根级 `tools/` 过期重复副本（与 `plugin/sand-ai/tools/` 同源旧版）；修正 `install.sql` 头部生成声明为实际来源 `plugin/sand-ai/migrations/main-app/`。
+- 本候选尚未重新构包、安装或运行验收，不证明 0.3.0 发行包在真实宿主可用。
 
 ## 0.2.42（源码候选）
 
