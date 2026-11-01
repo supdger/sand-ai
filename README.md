@@ -56,6 +56,15 @@ DOCX 原生解析 `docx/zip-xml@1.5` 沿现有 `native_document_parse` 配置，
 
 首次接入应确认：已授权的聊天请求返回结果和可查询的调用记录，未获授权或已撤权的请求被拒绝。后台保存成功、SDK 接入或安装成功各自不代表该业务链已验收。
 
+### 宿主必需运行密钥（2026-11-01 真实安装验收记录）
+
+安装完成不代表运行就绪；以下宿主 `.env` 项缺失时对应功能会以明确的 `*_UNAVAILABLE` 错误拒绝，须由宿主管理员生成随机值（建议 `openssl rand -hex 32` 或等效 ≥32 字节随机串）后重载：
+
+- `SAND_IAM_CONTEXT_SIGNING_KEY`：SandIAM 签名上下文签发与验签；缺失时所有 `/api/sand-ai/v1/*` 调用拒绝 `SAND_AI_IDENTITY_CONTEXT_UNAVAILABLE`。
+- `SAND_AI_CONFIG_KEY`：服务商连接配置（base_url/API Key）加密落库；缺失时服务商保存拒绝 `SAND_AI_PROVIDER_CONFIG_INVALID`。
+- `SAND_AI_IDEMPOTENCY_KEY`：部署草稿/目录写操作的幂等证明材料；缺失时部署保存拒绝 `SAND_AI_IDEMPOTENCY_KEY_UNAVAILABLE`。多实例轮换可用 `SAND_AI_IDEMPOTENCY_KEY_ID` 与 `SAND_AI_IDEMPOTENCY_KEYRING`。
+- macOS 宿主建议 `PGGSSENCMODE=disable`：本机 libpq 的 GSS/Kerberos 协商会在 fork 出的 Webman worker 内触发 `dispatch_apply` 段错误（查询型页面直接断连）；Linux 宿主不受影响。
+
 材料整理还需为同一应用环境发布 `structured_extraction` 能力路由及模型部署。在后台 **材料整理配置** 保存草稿，由已获 `sand_ai.workflow.run` 授权的应用运行该精确修订的私有材料样本，再选择成功样本并点击 **核验样本并发布**；正式调用使用已发布的代码和版本。样本及正式运行可能产生模型费用，发送前仍核对当前 SandIAM 授权、私有来源、已发布路由、出站策略和预算。
 
 材料与共用结构化调用链默认允许进入上述受控执行流程。维护时可在宿主运行环境显式设置 `SAND_AI_MATERIAL_ANALYSIS_DISPATCH_ENABLED=false`，并按宿主既有服务管理流程重新加载 HTTP 与任务 Worker；此时拒绝新的结构化发送，不取消已发请求，也不改写已有成果或费用。解除维护时设为 `true`（或移除该覆盖值）并重新加载。升级前若需继续暂停已排队但尚未发送的任务，请保留显式 `false`；配置文件缺失或无效仍拒绝发送。
