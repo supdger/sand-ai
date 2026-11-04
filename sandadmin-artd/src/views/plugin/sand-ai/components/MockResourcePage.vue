@@ -1,6 +1,6 @@
 <template>
-  <div class="art-full-height">
-    <ElCard class="art-table-card mock-search-card" shadow="never">
+  <div class="sand-ai-page">
+    <ElCard class="art-table-card sand-ai-page-card mock-search-card" shadow="never">
       <ElForm :inline="true" @submit.prevent>
         <ElFormItem :label="searchLabel">
           <ElInput
@@ -18,7 +18,7 @@
       </ElForm>
     </ElCard>
 
-    <ElCard class="art-table-card" shadow="never">
+    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
       <div class="mock-toolbar">
         <div class="mock-toolbar__left">
           <h2 class="mock-toolbar__title">{{ title }}</h2>
@@ -69,6 +69,7 @@
 </template>
 
 <script setup lang="ts">
+  import './sandAiPage.css'
   import { computed } from 'vue'
   import type { MockListItem } from '../composables/useMockList'
 

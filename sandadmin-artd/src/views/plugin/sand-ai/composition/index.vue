@@ -1,12 +1,12 @@
 <template>
-  <div class="art-full-height">
+  <div class="sand-ai-page">
     <ExpertSelectionHelp />
     <ElCard shadow="never" class="environment-card">
       <div class="environment-row">
-        <div><h2>AI 工作流</h2><p>选择应用环境，将已发布服务组合为多个节点，保存草稿并发布，再使用应用凭证试用固定版本。</p></div>
+        <div><h2>AI 工作流</h2><p>选择应用环境，将已启用服务组合为多个节点，保存草稿并启用，再使用应用凭证试用固定版本。</p></div>
         <ElSelect v-model="environmentId" filterable clearable placeholder="选择应用环境" style="width: 300px">
           <ElOption v-for="environment in environments" :key="environment.id"
-            :label="`${environment.name} · ${environment.code}`" :value="environment.id" />
+            :label="environment.name" :value="environment.id" />
         </ElSelect>
         <ElButton :loading="environmentLoading" @click="loadEnvironments(true)">刷新环境</ElButton>
         <ElButton v-if="environmentMore" :loading="environmentLoading" @click="loadEnvironments(false)">更多环境</ElButton>
@@ -18,6 +18,7 @@
 </template>
 
 <script setup lang="ts">
+  import '../components/sandAiPage.css'
   import ExpertSelectionHelp from '../components/ExpertSelectionHelp.vue'
   import { onMounted, onUnmounted, ref, watch } from 'vue'
   import { useUserStore } from '@/store/modules/user'
@@ -46,6 +47,7 @@
       environmentPage = targetPage
       environmentMore.value = targetPage * 100 < result.total
       if (environmentId.value && !environments.value.some(item => item.id === environmentId.value)) environmentId.value = null
+      if (!environmentId.value && environments.value.length === 1 && !environmentMore.value) environmentId.value = environments.value[0].id
     } catch {
       if (current === environmentEpoch) environmentError.value = true
     } finally {

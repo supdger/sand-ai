@@ -1,6 +1,6 @@
 <template>
   <ElCard shadow="never">
-    <template #header><h3>AI 工作流</h3><p>把已发布服务组成多个节点，设置依赖和参数来源。保存草稿后明确发布，应用使用固定版本运行。</p></template>
+    <template #header><h3>AI 工作流</h3><p>把已启用服务组成多个节点，设置依赖和参数来源。保存草稿后明确启用，应用使用固定版本运行。</p></template>
     <ElEmpty v-if="!environmentId" description="先选择应用环境" />
     <template v-else>
       <ElAlert v-if="error" :title="error" type="warning" :closable="false" />
@@ -14,22 +14,22 @@
         <span>本身份与环境留存的原管理操作：</span>
         <ElButton v-for="target in pendingAdminCodes" :key="target" :disabled="busy || Boolean(adminPending)" @click="openAdminRecovery(target)">找回 {{ target }}</ElButton>
       </ElSpace>
-      <ElAlert v-if="adminPending" type="warning" :closable="false" :title="adminSent ? '管理操作结果尚未确认，请沿原请求号找回' : '本页尚未发送：请保存原请求号后明确提交原配置'" />
-      <p v-if="adminPending">原操作：{{ adminPending === 'draft' ? '保存草稿' : adminPending === 'publish' ? '发布草稿' : '停用工作流' }} · {{ adminTarget?.code ?? code }} · 原请求号 {{ adminKey }}。恢复时不更改节点、依赖或服务版本。</p>
+      <ElAlert v-if="adminPending" type="warning" :closable="false" :title="adminSent ? '管理操作结果尚未确认，请沿请求编号找回' : '本页尚未发送：请保存请求编号后明确提交原配置'" />
+      <p v-if="adminPending">原操作：{{ adminPending === 'draft' ? '保存草稿' : adminPending === 'publish' ? '启用草稿' : '停用工作流' }} · {{ adminTarget?.code ?? code }} · 请求编号 {{ adminKey }}。恢复时不更改节点、依赖或服务版本。</p>
       <ElButton v-if="adminPending && adminSent" :disabled="busy" @click="recoverAdmin">只读找回管理操作</ElButton>
-      <ElButton v-if="adminPending && !adminSent" :disabled="busy" @click="sendAdminOriginal()">保存原请求号并提交原配置</ElButton>
+      <ElButton v-if="adminPending && !adminSent" :disabled="busy" @click="sendAdminOriginal()">保存请求编号并提交原配置</ElButton>
       <ElButton v-if="adminStorageError" :disabled="busy" @click="restoreAdmin">重新读取原操作记录</ElButton>
       <ElForm label-width="110px" :disabled="busy || Boolean(adminPending)">
         <ElFormItem label="工作流标识"><ElInput v-model="code" :disabled="Boolean(detail)" placeholder="例如 customer_reply" /></ElFormItem>
         <ElFormItem label="工作流名称"><ElInput v-model="name" placeholder="例如 客服资料查询与答复" /></ElFormItem>
-        <ElFormItem label="读取版本"><ElSelect v-model="versionId" @change="selectVersion"><ElOption v-for="item in versions" :key="item.id" :value="item.id" :label="`第 ${item.version_no} 版 · ${item.state === 'draft' ? '草稿' : '已发布'}${detail?.definition.active_version_id === item.id ? ' · 当前版本' : ''}`" /></ElSelect></ElFormItem>
-        <p>编辑已发布版本并保存会产生新草稿，原发布版本保留。当前草稿修订号：{{ revision }}。</p>
-        <ElAlert v-if="!catalog.length" type="info" :closable="false" title="本环境尚无可组合的已发布服务，请先发布服务再配置节点" />
+        <ElFormItem label="读取版本"><ElSelect v-model="versionId" @change="selectVersion"><ElOption v-for="item in versions" :key="item.id" :value="item.id" :label="`第 ${item.version_no} 版 · ${item.state === 'draft' ? '草稿' : '已启用'}${detail?.definition.active_version_id === item.id ? ' · 当前版本' : ''}`" /></ElSelect></ElFormItem>
+        <p>编辑已启用版本并保存会产生新草稿，原启用版本保留。当前草稿修订号：{{ revision }}。</p>
+        <ElAlert v-if="!catalog.length" type="info" :closable="false" title="本环境尚无可组合的已启用服务，请先启用服务再配置节点" />
         <section v-for="(node, position) in nodes" :key="node.key" class="node">
           <h4>节点 {{ position + 1 }}</h4>
           <ElFormItem label="节点标识"><ElInput v-model="node.id" :disabled="nodeIdReferenced(node)" placeholder="例如 lookup（小写字母、数字、下划线）" /><p v-if="nodeIdReferenced(node)">此标识已被依赖、参数或成果节点引用；先移除这些引用后再修改。</p></ElFormItem>
           <ElFormItem label="中文名称"><ElInput v-model="node.name" placeholder="例如 查询退款规则" /></ElFormItem>
-          <ElFormItem label="已发布服务"><ElSelect v-model="node.serviceKey" filterable @change="selectService(node)"><ElOption v-for="service in catalog" :key="serviceKey(service)" :value="serviceKey(service)" :label="`${kindLabel(service.kind)} · ${service.name} · 第 ${service.version} 版`" /></ElSelect><p v-if="node.serviceKey && !nodeService(node)">原服务版本不在当前目录中，保留绑定；重新发布前需核对服务。</p></ElFormItem>
+          <ElFormItem label="已启用服务"><ElSelect v-model="node.serviceKey" filterable @change="selectService(node)"><ElOption v-for="service in catalog" :key="serviceKey(service)" :value="serviceKey(service)" :label="`${kindLabel(service.kind)} · ${service.name} · 第 ${service.version} 版`" /></ElSelect><p v-if="node.serviceKey && !nodeService(node)">原服务版本不在当前目录中，保留绑定；重新启用前需核对服务。</p></ElFormItem>
           <ElFormItem label="依赖节点"><ElSelect v-model="node.depends" multiple placeholder="这些节点成功后才执行"><ElOption v-for="other in nodes.filter(item => item.key !== node.key && item.id)" :key="other.key" :value="other.id" :label="`${other.name || other.id} · ${other.id}`" /></ElSelect></ElFormItem>
           <div v-for="binding in node.bindings" :key="binding.field">
             <ElCheckbox v-if="!binding.required" v-model="binding.enabled">配置 {{ binding.label }}（可选）</ElCheckbox>
@@ -41,7 +41,7 @@
               <ElSelect v-model="binding.path" filterable allow-create placeholder="选择已声明字段，或填写 JSON Pointer">
                 <ElOption v-for="option in upstreamPaths(binding)" :key="option.path" :value="option.path" :label="option.label" />
               </ElSelect>
-              <p>选项来自上游已发布版本的成果定义；手写路径须由服务端确认，未声明路径不能通过发布。</p>
+              <p>选项来自上游已启用版本的成果定义；手写路径须由服务端确认，未声明路径不能通过启用。</p>
               <details><summary>查看上游实际成果定义</summary><pre>{{ JSON.stringify(upstreamSchema(binding), null, 2) }}</pre></details>
             </ElFormItem>
             <ElFormItem v-else label="固定值"><CompositionSchemaValue v-model="binding.literal" :schema="binding.schema" :disabled="busy || Boolean(adminPending)" /></ElFormItem>
@@ -53,7 +53,7 @@
         <ElButton :disabled="nodes.length >= 12" @click="addNode">增加节点</ElButton>
         <ElFormItem label="节点失败后"><ElSelect v-model="failurePolicy"><ElOption label="停止后续节点" value="stop" /><ElOption label="继续无依赖的其他节点" value="continue_independent" /></ElSelect></ElFormItem>
         <ElFormItem label="成果节点"><ElSelect v-model="outputs" multiple><ElOption v-for="node in nodes.filter(item => item.id)" :key="node.key" :value="node.id" :label="node.name || node.id" /></ElSelect></ElFormItem>
-        <ElSpace><ElButton type="primary" @click="mutate('draft')">保存草稿</ElButton><ElButton :disabled="!draftVersion || versionId !== draftVersion.id || dirty" @click="mutate('publish')">发布已保存草稿</ElButton><ElButton type="danger" :disabled="!detail?.definition.active_version_id" @click="mutate('disable')">停用工作流</ElButton></ElSpace>
+        <ElSpace><ElButton type="primary" @click="mutate('draft')">保存草稿</ElButton><ElButton :disabled="!draftVersion || versionId !== draftVersion.id || dirty" @click="mutate('publish')">启用已保存草稿</ElButton><ElButton type="danger" :disabled="!detail?.definition.active_version_id" @click="mutate('disable')">停用工作流</ElButton></ElSpace>
       </ElForm>
       <ElDivider />
       <h3>应用版本试用</h3><p>使用应用凭证，逐节点查看原子运行。父工作流不额外计费，费用以各子运行记录为准。</p>
@@ -69,7 +69,7 @@
       </ElForm>
       <p v-if="runtimePending || purgePending">先找回本页未确认的原操作，再查看其他已有运行；不会覆盖原请求记录。</p>
       <ElAlert v-if="existingRunView" type="info" :closable="false" title="当前仅查看已有运行，不续行、不重试、不清理输入，也不改变本页原请求记录。" />
-      <ElSelect v-model="runtimeVersion" :disabled="runtimeLocked" placeholder="选择已发布版本"><ElOption v-for="item in versions.filter(item => item.state === 'published')" :key="item.id" :value="item.version_no" :label="`第 ${item.version_no} 版`" /></ElSelect>
+      <ElSelect v-model="runtimeVersion" :disabled="runtimeLocked" placeholder="选择已启用版本"><ElOption v-for="item in versions.filter(item => item.state === 'published')" :key="item.id" :value="item.version_no" :label="`第 ${item.version_no} 版`" /></ElSelect>
       <ElForm label-width="130px" :disabled="runtimeLocked">
         <ElFormItem v-for="path in inputPaths" :key="path" :label="inputLabel(path)"><CompositionSchemaValue :model-value="inputValues[path] ?? ''" :schema="inputSchema(path)" :disabled="runtimeLocked" @update:model-value="value => inputValues[path] = value" /></ElFormItem>
         <ElButton type="primary" :disabled="!apiKey.trim() || !runtimeVersion || !code || runtimeLocked" @click="submitRun">提交此版本</ElButton>
@@ -442,15 +442,15 @@ const builtinInputFields: Partial<Record<ServiceKind, Record<string, { label: st
     files: { label: '待处理文件', help: '选择本环境获授权的私有文件，提供文件编号、SHA256 摘要与版本引用。' }
   },
   knowledge: {
-    query: { label: '检索问题', help: '填写需要从已发布知识库查找依据的问题，可接收上游文字成果。' },
+    query: { label: '检索问题', help: '填写需要从已启用知识库查找依据的问题，可接收上游文字成果。' },
     limit: { label: '最多返回条数', help: '填写本次最多返回的检索结果数量。' },
     rerank: { label: '使用重排', help: '是否对检索结果重新排序；启用时仍须具备当前环境的重排能力和授权。' },
     model: { label: '检索模型', help: '需要指定检索模型时填写当前环境可用的模型标识。' },
-    rerank_mode: { label: '重排模式', help: '按已发布服务提供的选项选择模式，实际选项值保持原定义。' }
+    rerank_mode: { label: '重排模式', help: '按已启用服务提供的选项选择模式，实际选项值保持原定义。' }
   },
   tool: {
     business_scope: { label: '业务范围标识', help: '填写消费应用本次工具调用所属的业务范围标识。' },
-    input: { label: '工具输入', help: '按此只读工具已发布的实际字段定义提供输入。' }
+    input: { label: '工具输入', help: '按此只读工具已启用的实际字段定义提供输入。' }
   }
 }
 function fieldLabel(service: CompositionService, field: string, title?: string): string {
@@ -579,20 +579,20 @@ function persistAdmin(target: AdminTarget): void {
   const targetPath = `${target.scope}:admin-target:${target.operation}`
   const originalKey = sessionStorage.getItem(keyPath)
   const metadata = JSON.stringify(target)
-  if (originalKey !== null && originalKey !== target.key) throw new Error('此目标已有另一个原请求号，请先找回原操作')
+  if (originalKey !== null && originalKey !== target.key) throw new Error('此目标已有另一个请求编号，请先找回原操作')
   const originalTarget = sessionStorage.getItem(targetPath)
   if (originalTarget !== null && originalTarget !== metadata) throw new Error('此目标已有另一个原操作记录，请先找回原操作')
   sessionStorage.setItem(targetPath, metadata)
   sessionStorage.setItem(keyPath, target.key)
   if (sessionStorage.getItem(keyPath) !== target.key || sessionStorage.getItem(targetPath) !== metadata) {
-    throw new Error('原请求号与目标记录保存后无法读回')
+    throw new Error('请求编号与目标记录保存后无法读回')
   }
 }
 function clearAdmin(target: AdminTarget): void {
   const keyPath = `${target.scope}:admin:${target.operation}`
   const targetPath = `${target.scope}:admin-target:${target.operation}`
   const storedKey = sessionStorage.getItem(keyPath)
-  if (storedKey !== null && storedKey !== target.key) throw new Error('原请求号记录已变化，当前不会解除原操作锁')
+  if (storedKey !== null && storedKey !== target.key) throw new Error('请求编号记录已变化，当前不会解除原操作锁')
   const metadata = sessionStorage.getItem(targetPath)
   if (metadata !== null && metadata !== JSON.stringify(target)) throw new Error('原目标记录已变化，当前不会解除原操作锁')
   sessionStorage.removeItem(targetPath)
@@ -658,9 +658,9 @@ async function mutate(operation: CompositionOperation): Promise<void> {
     if (!/^[a-z][a-z0-9_-]{0,63}$/.test(targetCode) || !targetName) throw new Error('填写工作流名称和合法标识')
     if (operation === 'draft') frozenGraph = graph()
     if (operation === 'publish' && (!draft || versionId.value !== draft.id || dirty.value)) {
-      throw new Error('先保存当前节点、依赖及服务版本，再发布这个明确草稿')
+      throw new Error('先保存当前节点、依赖及服务版本，再启用这个明确草稿')
     }
-    if (operation === 'disable' && !detail.value?.definition.active_version_id) throw new Error('当前没有可停用的已发布版本')
+    if (operation === 'disable' && !detail.value?.definition.active_version_id) throw new Error('当前没有可停用的已启用版本')
   } catch (cause) { error.value = message(cause); return }
   const key = newRuntimeRequestId('workflow-admin')
   const version = operation === 'disable' ? null : draft
@@ -677,8 +677,8 @@ async function mutate(operation: CompositionOperation): Promise<void> {
     if (operation !== 'draft') {
       try {
         await ElMessageBox.confirm(operation === 'publish'
-          ? `发布第 ${version?.version_no} 版、修订 ${expectedRevision} 的已保存草稿，应用可按此固定版本运行。继续？`
-          : '停用后将拒绝新运行及续行。继续？', operation === 'publish' ? '发布工作流' : '停用工作流')
+          ? `启用第 ${version?.version_no} 版、修订 ${expectedRevision} 的已保存草稿，应用可按此固定版本运行。继续？`
+          : '停用后将拒绝新运行及续行。继续？', operation === 'publish' ? '启用工作流' : '停用工作流')
       } catch { return }
     }
     if (env !== props.environmentId || current !== epoch || target.scope !== prefix() || adminPending.value) return
@@ -797,7 +797,7 @@ async function sendOriginalRun(): Promise<void> {
     const pending = sessionStorage.getItem(storage)
     if (pending !== null && pending !== original.key) throw new Error('原运行记录已变化，不覆盖或发送')
     sessionStorage.setItem(storage, original.key)
-    if (sessionStorage.getItem(storage) !== original.key) throw new Error('原请求号保存读回失败')
+    if (sessionStorage.getItem(storage) !== original.key) throw new Error('请求编号保存读回失败')
   } catch (cause) { error.value = `本页确认尚未发送，保留原输入与原号：${message(cause)}`; return }
   if (original.epoch !== runtimeEpoch || original.scope !== runtimePrefix() || original.credential !== apiKey.value) return
   const flight = beginRuntimeFlight()
@@ -921,7 +921,7 @@ async function runAction(action: 'advance' | 'cancel' | 'retry', nodeId?: string
     if (sessionStorage.getItem(`${storage}:pending`) !== key || sessionStorage.getItem(`${storage}:action-pending`) !== key
       || sessionStorage.getItem(`${storage}:action-target`) !== metadata) throw new Error('原动作目标记录读回失败')
   }
-  catch (cause) { error.value = `原请求号保存失败，本次未发送：${message(cause)}`; return }
+  catch (cause) { error.value = `请求编号保存失败，本次未发送：${message(cause)}`; return }
   clearRunCost()
   actionExpectation = { scope: runtimePrefix(), runId: targetId, key, operation: action === 'retry' ? `retry:${nodeId ?? ''}` : action }
   actionPending.value = true

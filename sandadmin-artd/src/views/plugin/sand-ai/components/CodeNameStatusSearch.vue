@@ -9,12 +9,12 @@
   >
     <el-col :xs="24" :sm="12" :md="8" :lg="6">
       <el-form-item label="编码" prop="code">
-        <el-input v-model="formData.code" placeholder="按 code 过滤" clearable />
+        <el-input v-model="formData.code" placeholder="按编码过滤" clearable />
       </el-form-item>
     </el-col>
     <el-col :xs="24" :sm="12" :md="8" :lg="6">
       <el-form-item label="名称" prop="name">
-        <el-input v-model="formData.name" placeholder="按 name 过滤" clearable />
+        <el-input v-model="formData.name" placeholder="按名称过滤" clearable />
       </el-form-item>
     </el-col>
     <el-col :xs="24" :sm="12" :md="8" :lg="6">

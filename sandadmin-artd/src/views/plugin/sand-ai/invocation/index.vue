@@ -1,5 +1,5 @@
 <template>
-  <div class="art-full-height">
+  <div class="sand-ai-page">
     <sa-search-bar
       v-model="searchForm"
       label-width="90px"
@@ -8,24 +8,24 @@
       @search="handleSearch"
     >
       <el-col :xs="24" :sm="12" :md="8" :lg="6">
-        <el-form-item label="request_id" prop="request_id">
-          <el-input v-model="searchForm.request_id" clearable placeholder="按 request_id" />
+        <el-form-item label="请求编号" prop="request_id">
+          <el-input v-model="searchForm.request_id" clearable placeholder="按请求编号" />
         </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="12" :md="8" :lg="6">
-        <el-form-item label="state" prop="state">
+        <el-form-item label="状态" prop="state">
           <el-select v-model="searchForm.state" clearable placeholder="全部">
-            <el-option label="queued" value="queued" />
-            <el-option label="running" value="running" />
-            <el-option label="succeeded" value="succeeded" />
-            <el-option label="failed" value="failed" />
-            <el-option label="canceled" value="canceled" />
+            <el-option label="排队中" value="queued" />
+            <el-option label="进行中" value="running" />
+            <el-option label="成功" value="succeeded" />
+            <el-option label="失败" value="failed" />
+            <el-option label="已取消" value="canceled" />
           </el-select>
         </el-form-item>
       </el-col>
     </sa-search-bar>
 
-    <ElCard class="art-table-card" shadow="never">
+    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
       <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData" />
 
       <ArtTable
@@ -47,6 +47,7 @@
 </template>
 
 <script setup lang="ts">
+  import '../components/sandAiPage.css'
   import InvocationCostDetails from '../usage/modules/invocation-cost-details.vue'
   import { useAuth } from '@/hooks/core/useAuth'
   import { h, onBeforeUnmount, onMounted, ref } from 'vue'
@@ -54,6 +55,7 @@
   import { useRoute } from 'vue-router'
   import { useTable } from '@/hooks/core/useTable'
   import invocationApi from '../api/invocation'
+  import { runStateLabel } from '../api/displayLabels'
   import type { SandAiInvocation, SandAiInvocationCost, SandAiPageQuery } from '../api/types'
 
   const route = useRoute()
@@ -88,13 +90,18 @@
       apiParams: {},
       columnsFactory: () => [
         { prop: 'id', label: 'ID', width: 80, align: 'center' },
-        { prop: 'request_id', label: 'request_id', minWidth: 160 },
-        { prop: 'environment_id', label: 'environment_id', width: 130 },
-        { prop: 'model_id', label: 'model_id', width: 100 },
-        { prop: 'state', label: 'state', width: 110 },
-        { prop: 'latency_ms', label: 'latency_ms', width: 110 },
-        { prop: 'error_code', label: 'error_code', minWidth: 140 },
-        { prop: 'request_at', label: 'request_at', width: 180 },
+        { prop: 'request_id', label: '请求编号', minWidth: 160 },
+        { prop: 'environment_id', label: '环境', width: 130 },
+        { prop: 'model_id', label: '模型', width: 100 },
+        {
+          prop: 'state',
+          label: '状态',
+          width: 110,
+          formatter: (row: SandAiInvocation) => runStateLabel(row.state)
+        },
+        { prop: 'latency_ms', label: '耗时（毫秒）', width: 110 },
+        { prop: 'error_code', label: '错误码', minWidth: 140 },
+        { prop: 'request_at', label: '请求时间', width: 180 },
         {
           prop: 'cost_action',
           label: '费用',

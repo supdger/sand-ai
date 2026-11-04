@@ -35,13 +35,13 @@
       v-model="versionId"
       :disabled="environmentId === null || busy"
       clearable
-      placeholder="选择已发布的知识库版本"
+      placeholder="选择已启用的知识库版本"
       style="width: 420px"
     >
       <ElOption
         v-for="base in publishedBases"
         :key="base.active_version_id!"
-        :label="`${base.name} · 已发布版本 ${base.active_version_no ?? base.active_version_id}`"
+        :label="`${base.name} · 已启用版本 ${base.active_version_no ?? base.active_version_id}`"
         :value="base.active_version_id!"
       />
     </ElSelect>
@@ -84,13 +84,13 @@
       {{ indexedCount ?? '待查询' }} / {{ sourceCount ?? '待查询' }} 块
       <template v-if="dimensions !== null"> · {{ dimensions }} 维</template>
     </p>
-    <p class="hint">准备和来源块处理属于新索引构建，全部就绪后才激活。新构建失败不表示旧发布版本或先前激活索引失败；检索以服务端当前有效的发布版本与激活索引为准，来源撤销后须重新核对。</p>
+    <p class="hint">准备和来源块处理属于新索引构建，全部就绪后才激活。新构建失败不表示旧启用版本或先前激活索引失败；检索以服务端当前有效的启用版本与激活索引为准，来源撤销后须重新核对。</p>
     <p v-if="stage" role="status">当前操作阶段：{{ stage }}</p>
     <p v-if="pendingBlock" class="hint">原来源块 #{{ pendingBlock.id }} · {{ pendingBlock.state === 'in_progress' ? '原调用仍在处理' : '原调用结果待确认' }}。先只读核对索引，再沿原索引找回，不能换号重发。</p>
     <p v-if="state === 'failed' && !needsStatus" class="hint">原索引已确认失败，不能继续写入或激活；可明确重新准备新索引，旧请求与索引仍可只读查询。</p>
     <details class="notice">
       <summary>原 TXT 来源块超过输入上限时如何恢复</summary>
-      <p class="hint">仅重新准备索引不会改变旧来源块。确认失败原因确为原块过大后，保留原请求与索引，在上方“准备知识来源”重新上传原 TXT 并解析，再选用来源；用新文件号和新的知识库代码建立、发布知识库，再在此选择新发布版本准备索引。</p>
+      <p class="hint">仅重新准备索引不会改变旧来源块。确认失败原因确为原块过大后，保留原请求与索引，在上方“准备知识来源”重新上传原 TXT 并解析，再选用来源；用新文件号和新的知识库代码建立、启用知识库，再在此选择新启用版本准备索引。</p>
       <p class="hint">当前默认解析已有按字节分块，长 TXT 并不必然无法索引。新 TXT 解析保留原行的实际字符范围；模型的 Token 或输入限制仍须按所选能力核对。结果不明时先只读查询原索引，不能借新文件、新知识库或新请求重发未确认的调用。</p>
     </details>
     <ElAlert

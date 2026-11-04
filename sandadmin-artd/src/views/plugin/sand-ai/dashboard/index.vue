@@ -1,20 +1,24 @@
 <template>
-  <div class="art-full-height">
+  <div class="sand-ai-page">
     <ExpertSelectionHelp />
-    <ElCard class="art-table-card" shadow="never">
+    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
       <div class="dash-toolbar">
         <div>
-          <h2 class="dash-title">总览</h2>
+          <h2 class="dash-title">概览</h2>
           <p class="dash-desc">
-            管理列表 `index.total` + 近期调用/审计；运行面入口覆盖契约 1.5–1.8（能力档/任务/检索/Agent）。不发明未冻结 stats 字段。
+            查看应用、服务商、模型与调用的整体情况，并进入各功能页。
           </p>
         </div>
         <ElSpace wrap>
           <ElButton type="primary" @click="go('/sand-ai/onboarding')">开始使用</ElButton>
-          <ElTag type="success" effect="plain">解耦 · 已冻结 API</ElTag>
           <ElButton :loading="loading" type="primary" @click="loadDashboard">刷新</ElButton>
         </ElSpace>
       </div>
+
+      <p v-if="bootstrapNotice" class="dash-bootstrap">
+        {{ bootstrapNotice.message }}
+        <ElButton v-if="bootstrapNotice.retryable" link type="primary" :loading="bootstrapBusy" @click="retryBootstrap">重试</ElButton>
+      </p>
 
       <div v-if="loading" class="dash-body">
         <ElSkeleton :rows="5" animated />
@@ -55,40 +59,43 @@
               @row-click="goInvocation"
             >
               <ElTableColumn prop="id" label="ID" width="70" />
-              <ElTableColumn prop="request_id" label="request_id" min-width="140" />
-              <ElTableColumn prop="state" label="state" width="100" />
-              <ElTableColumn prop="request_at" label="request_at" width="170" />
+              <ElTableColumn label="请求编号" min-width="140">
+                <template #default="{ row }">{{ row.request_id }}</template>
+              </ElTableColumn>
+              <ElTableColumn label="状态" width="100">
+                <template #default="{ row }">{{ runStateLabel(row.state) }}</template>
+              </ElTableColumn>
+              <ElTableColumn prop="request_at" label="请求时间" width="170" />
             </ElTable>
           </ElCol>
           <ElCol :xs="24" :lg="12">
             <h3 class="dash-section-title">近期审计</h3>
             <ElTable :data="recentAudits" row-key="id" border stripe empty-text="暂无审计记录">
               <ElTableColumn prop="id" label="ID" width="70" />
-              <ElTableColumn prop="action" label="action" min-width="120" />
-              <ElTableColumn prop="summary" label="summary" min-width="160" />
-              <ElTableColumn prop="create_time" label="create_time" width="170" />
+              <ElTableColumn label="操作" min-width="120">
+                <template #default="{ row }">{{ serviceActionLabel(row.action) }}</template>
+              </ElTableColumn>
+              <ElTableColumn prop="summary" label="摘要" min-width="160" />
+              <ElTableColumn prop="create_time" label="时间" width="170" />
             </ElTable>
           </ElCol>
         </ElRow>
 
         <ElSpace wrap>
-          <ElButton @click="go('/sand-ai/capability')">能力配置 1.5</ElButton>
+          <ElButton @click="go('/sand-ai/capability')">能力配置</ElButton>
           <ElButton @click="go('/sand-ai/file')">文件中心</ElButton>
-          <ElButton @click="go('/sand-ai/task')">任务中心 1.6</ElButton>
-          <ElButton @click="go('/sand-ai/knowledge')">检索 1.7</ElButton>
-          <ElButton @click="go('/sand-ai/agent')">Agent 1.8</ElButton>
+          <ElButton @click="go('/sand-ai/task')">任务与会议试用</ElButton>
+          <ElButton @click="go('/sand-ai/knowledge')">知识库配置</ElButton>
+          <ElButton @click="go('/sand-ai/agent')">智能体配置</ElButton>
           <ElButton @click="go('/sand-iam/application')">应用管理（SandIAM）</ElButton>
         </ElSpace>
-
-        <p class="dash-footnote">
-          计数来自各资源 `index` 的 `total`；不是独立 stats 接口。API 1.5–1.8 已冻结可消费；演示站部署不是前端前置。
-        </p>
       </div>
     </ElCard>
   </div>
 </template>
 
 <script setup lang="ts">
+  import '../components/sandAiPage.css'
   import ExpertSelectionHelp from '../components/ExpertSelectionHelp.vue'
   import { computed, onMounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
@@ -99,6 +106,8 @@
   import usageApi from '../api/usage'
   import auditApi from '../api/audit'
   import type { SandAiAuditLog, SandAiInvocation } from '../api/types'
+  import { runStateLabel, serviceActionLabel } from '../api/displayLabels'
+  import { useSetupBootstrap } from '../composables/useSetupBootstrap'
 
   type SummaryCard = {
     key: string
@@ -109,6 +118,7 @@
   }
 
   const router = useRouter()
+  const { notice: bootstrapNotice, busy: bootstrapBusy, ensure: ensureBootstrap, retry: retryBootstrap } = useSetupBootstrap()
   const loading = ref(false)
   const errorMessage = ref('')
   const totals = ref({
@@ -127,42 +137,42 @@
       key: 'apps',
       label: '应用',
       value: String(totals.value.applications),
-      hint: 'SandIAM application/index.total',
+      hint: '已接入的应用',
       path: '/sand-iam/application'
     },
     {
       key: 'providers',
       label: '服务商',
       value: String(totals.value.providers),
-      hint: 'provider/index.total',
+      hint: '已配置的模型服务商',
       path: '/sand-ai/provider'
     },
     {
       key: 'models',
       label: '模型',
       value: String(totals.value.models),
-      hint: 'model/index.total',
+      hint: '已登记的模型',
       path: '/sand-ai/model'
     },
     {
       key: 'calls',
       label: '调用记录',
       value: String(totals.value.invocations),
-      hint: 'invocation/index.total',
+      hint: '最近的模型调用',
       path: '/sand-ai/invocation'
     },
     {
       key: 'usage',
       label: '用量记录',
       value: String(totals.value.usages),
-      hint: 'usage/index.total',
+      hint: '已记录的用量',
       path: '/sand-ai/usage'
     },
     {
       key: 'audit',
       label: '审计记录',
       value: String(totals.value.audits),
-      hint: 'audit/index.total',
+      hint: '后台操作记录',
       path: '/sand-ai/audit'
     }
   ])
@@ -209,6 +219,7 @@
   }
 
   onMounted(() => {
+    ensureBootstrap()
     void loadDashboard()
   })
 </script>
@@ -237,6 +248,12 @@
     line-height: 1.5;
     color: var(--el-text-color-secondary);
     max-width: 720px;
+  }
+
+  .dash-bootstrap {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: var(--el-color-warning);
   }
 
   .dash-body {

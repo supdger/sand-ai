@@ -206,6 +206,43 @@ type UnsubmittedInputProof = {
   retryable: false
 }
 
+export type SetupBootstrapFailureReason = 'sandiam_unavailable' | 'sandiam_disabled' | 'catalog_error'
+
+export interface SetupBootstrapReady {
+  ready: true
+  service_code: string
+  groups: { base: number; skill: number; audio: number }
+}
+
+export interface SetupBootstrapFailure {
+  ready: false
+  reason: SetupBootstrapFailureReason
+  retryable: boolean
+  message: string
+}
+
+const bootstrapFailureReasons: readonly SetupBootstrapFailureReason[] = [
+  'sandiam_unavailable', 'sandiam_disabled', 'catalog_error'
+]
+
+function bootstrapFailureProof(value: unknown): SetupBootstrapFailure | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null
+  if (Reflect.get(value, 'code') !== 400) return null
+  const data: unknown = Reflect.get(value, 'data')
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) return null
+  if (Reflect.get(data, 'ready') !== false) return null
+  const reason: unknown = Reflect.get(data, 'reason')
+  const knownReason = bootstrapFailureReasons.find(item => item === reason)
+  if (!knownReason) return null
+  const message: unknown = Reflect.get(value, 'message')
+  return {
+    ready: false,
+    reason: knownReason,
+    retryable: Reflect.get(data, 'retryable') === true,
+    message: typeof message === 'string' && message ? message : '系统准备未完成'
+  }
+}
+
 function unsubmittedInputProof(value: unknown): UnsubmittedInputProof | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return null
   const code = Reflect.get(value, 'code')
@@ -218,6 +255,33 @@ function unsubmittedInputProof(value: unknown): UnsubmittedInputProof | null {
 }
 
 export default {
+  async bootstrap(): Promise<SetupBootstrapReady> {
+    let failure: SetupBootstrapFailure | null = null
+    try {
+      return await request.post<SetupBootstrapReady>({
+        url: `${setup}/bootstrap`,
+        data: {},
+        showErrorMessage: false,
+        // The native interceptor drops the business `data` payload on code=400;
+        // retain the frozen failure proof so the page can distinguish reasons.
+        transformResponse: [(value: unknown): unknown => {
+          let parsed: unknown = value
+          if (typeof value === 'string') {
+            try { parsed = JSON.parse(value) } catch { return value }
+          }
+          failure = bootstrapFailureProof(parsed)
+          return parsed
+        }]
+      })
+    } catch (error) {
+      if (error instanceof HttpError && error.code === 400 && failure !== null) {
+        throw new HttpError(error.message, error.code, {
+          data: failure, url: error.url, method: error.method
+        })
+      }
+      throw error
+    }
+  },
   serviceCatalogPreflight() {
     return request.get<ServiceCatalogPreflight>({
       url: `${setup}/service-catalog/preflight`,

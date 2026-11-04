@@ -1,0 +1,20 @@
+/**
+ * SandAI 管理页滚动容器。
+ *
+ * 宿主全高容器会锁死页面高度，表格卡片会裁切超出内容，长列表/表单底部无法到达。
+ * 本样式只设最小高度、不锁死高度、不裁切溢出，内容增高后由宿主主栏滚动。
+ */
+.sand-ai-page {
+  box-sizing: border-box;
+  min-height: var(--art-full-height, 100%);
+  padding-bottom: 24px;
+}
+
+.sand-ai-page-card {
+  width: 100%;
+}
+
+.sand-ai-page-card > .el-card__body {
+  height: auto;
+  overflow: visible;
+}

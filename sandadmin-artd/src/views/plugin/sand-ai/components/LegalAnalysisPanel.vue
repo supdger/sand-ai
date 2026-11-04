@@ -8,14 +8,14 @@
       <ElAlert v-if="error" :title="error" type="error" :closable="false" />
       <ElAlert v-if="notice" :title="notice" type="info" :closable="false" />
       <section v-if="pending" aria-labelledby="legal-operation-heading">
-        <h4 id="legal-operation-heading">原{{ pending.operation === 'publish' ? '发布' : '撤销' }}操作待确认</h4>
+        <h4 id="legal-operation-heading">原{{ pending.operation === 'publish' ? '启用' : '撤销' }}操作待确认</h4>
         <p>{{ modeLabel(pending.code) }} · 版本 {{ pending.version }} · 原修订 {{ pending.observed_revision }} · 原请求号 {{ pending.request_key }}</p>
-        <p>保留原号，仅查询这次操作。查询不到记录、读取失败或结果未明时，不重复发布或撤销。</p>
+        <p>保留原号，仅查询这次操作。查询不到记录、读取失败或结果未明时，不重复启用或撤销。</p>
         <ElButton :loading="requests > 0" :disabled="busy" @click="recoverOriginal">只读查询原操作</ElButton>
       </section>
       <section v-if="completed" aria-labelledby="legal-operation-receipt-heading">
         <h4 id="legal-operation-receipt-heading">原操作已确认</h4>
-        <p>{{ completed.operation === 'publish' ? '发布' : '撤销' }} · {{ modeLabel(completed.profile.code) }} · {{ completed.profile.version }} · 原修订 {{ completed.profile.revision }} · {{ stateLabel(completed.profile.state) }}</p>
+        <p>{{ completed.operation === 'publish' ? '启用' : '撤销' }} · {{ modeLabel(completed.profile.code) }} · {{ completed.profile.version }} · 原修订 {{ completed.profile.revision }} · {{ stateLabel(completed.profile.state) }}</p>
         <p>原请求号 {{ completed.requestKey }}。下方列表单独显示当前状态。</p>
       </section>
       <ElSpace wrap class="toolbar">
@@ -31,7 +31,7 @@
         <ElTableColumn label="操作" min-width="280"><template #default="{ row }">
           <ElButton v-if="row.state === 'draft'" v-permission="'sand_ai:setup:legal-profile:save'" link :disabled="locked" @click="edit(row)">编辑</ElButton>
           <ElButton v-if="row.state !== 'draft'" v-permission="'sand_ai:setup:legal-profile:save'" link :disabled="locked" @click="edit(row, true)">另建版本</ElButton>
-          <ElButton v-if="row.state === 'draft'" v-permission="'sand_ai:setup:legal-profile:publish'" link type="primary" :disabled="locked" @click="transition(row, 'publish')">发布</ElButton>
+          <ElButton v-if="row.state === 'draft'" v-permission="'sand_ai:setup:legal-profile:publish'" link type="primary" :disabled="locked" @click="transition(row, 'publish')">启用</ElButton>
           <ElButton v-if="row.state === 'published'" link type="primary" :disabled="locked" @click="trial = row">试运行</ElButton>
           <ElButton v-if="row.state === 'published'" v-permission="'sand_ai:setup:legal-profile:revoke'" link type="danger" :disabled="locked" @click="transition(row, 'revoke')">撤销</ElButton>
         </template></ElTableColumn>
@@ -71,7 +71,7 @@ function holdAnalysisFlight(): () => void {
   return () => { if (!released) { released = true; requests.value-- } }
 }
 function modeLabel(code: string): string { return Object.entries(legalModes).find(([key]) => key === code)?.[1] ?? code }
-function stateLabel(state: string): string { return ({ draft: '草稿', published: '已发布', revoked: '已撤销' } as Record<string, string>)[state] ?? state }
+function stateLabel(state: string): string { return ({ draft: '草稿', published: '已启用', revoked: '已撤销' } as Record<string, string>)[state] ?? state }
 function scope(): Scope | null {
   const adminId = userStore.info.id, environmentId = props.environmentId
   return typeof adminId === 'number' && Number.isSafeInteger(adminId) && adminId > 0 && typeof environmentId === 'number' && Number.isSafeInteger(environmentId) && environmentId > 0 && userStore.accessToken ? { adminId, environmentId, token: userStore.accessToken, epoch } : null
@@ -99,7 +99,7 @@ function acceptOperation(answer: LegalOperationReceipt, original: TransitionJour
   if (answer.operation !== original.operation || answer.environment_id !== original.environment_id || answer.code !== original.code || answer.version !== original.version || answer.request_key !== original.request_key || answer.expected_revision !== original.expected_revision) throw new Error('回执与原人员环境、请求号或版本修订不一致，请保留原号')
   if (answer.state === 'unknown') {
     if (answer.actor_id !== null || answer.receipt !== null) throw new Error('未确认操作回执不完整，请保留原号')
-    notice.value = '原操作尚未确认，请保留原号继续只读查询，不重复发布或撤销。'
+    notice.value = '原操作尚未确认，请保留原号继续只读查询，不重复启用或撤销。'
     return
   }
   const receipt = answer.receipt
@@ -159,7 +159,7 @@ async function transition(row: LegalProfile, operation: 'publish' | 'revoke'): P
   const target: LegalProfile = { id: row.id, environment_id: row.environment_id, code: row.code, version: row.version, name: row.name, revision: row.revision, state: row.state, status: row.status }
   confirming.value = true; error.value = ''; notice.value = ''
   try {
-    try { await ElMessageBox.confirm(operation === 'publish' ? `发布「${target.name}」${target.version} 修订 ${target.revision}？发布后不能修改本版本。` : `撤销「${target.name}」${target.version} 修订 ${target.revision}？使用该版本的新运行和尚未外发的任务将被拒绝。`,operation === 'publish' ? '发布配置' : '撤销配置',{ type: 'warning', confirmButtonText: operation === 'publish' ? '发布' : '撤销', cancelButtonText: '取消' }) }
+    try { await ElMessageBox.confirm(operation === 'publish' ? `启用「${target.name}」${target.version} 修订 ${target.revision}？启用后不能修改本版本。` : `撤销「${target.name}」${target.version} 修订 ${target.revision}？使用该版本的新运行和尚未外发的任务将被拒绝。`,operation === 'publish' ? '启用配置' : '撤销配置',{ type: 'warning', confirmButtonText: operation === 'publish' ? '启用' : '撤销', cancelButtonText: '取消' }) }
     catch (reason) { if (reason === 'cancel' || reason === 'close') return; throw reason }
     if (!sameScope(current) || !hasAuth(`sand_ai:setup:legal-profile:${operation}`)) return
     const previous = readJournal(current.adminId,current.environmentId)
@@ -181,7 +181,7 @@ watch([() => props.environmentId, () => userStore.info.id, () => userStore.acces
   const current = scope()
   if (current) {
     try { pending.value = readJournal(current.adminId,current.environmentId) }
-    catch { journalError.value = true; error.value = '原操作记录不能读取，请保留原请求号，不要重新发布或撤销' }
+    catch { journalError.value = true; error.value = '原操作记录不能读取，请保留原请求号，不要重新启用或撤销' }
   }
   reloadWanted = true; void load()
 }, { immediate: true, flush: 'sync' })

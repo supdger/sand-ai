@@ -1,6 +1,6 @@
 <template>
-  <div class="art-full-height">
-    <ElCard class="art-table-card" shadow="never">
+  <div class="sand-ai-page">
+    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
       <div class="file-header">
         <div>
           <h2 class="file-title">文件中心</h2>
@@ -9,22 +9,24 @@
             清理进行中请刷新状态；清理失败可在原文件上重试，无需重新上传。
           </p>
         </div>
-        <ElTag type="success" effect="plain">API 1.4 · runtime</ElTag>
       </div>
 
-      <ElAlert v-for="fileId in pendingCleanupIds" :key="fileId" type="warning" :closable="false"
-        :title="cleanupConflicts.has(fileId) ? `原文件 #${fileId} 的删除被资源占用阻止` : `原文件 #${fileId} 的清理结果尚未确认`" class="file-alert">
-        <p>{{ cleanupConflicts.has(fileId) ? '请先处理占用并读取原文件状态。确认原文件尚未进入清理后，可重新确认删除。' : '请读取原文件状态。找不到或无权读取不表示清理完成；明确清理失败后才可在原文件上重试。' }}</p>
-        <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(fileId)">读取原文件清理状态</ElButton>
-      </ElAlert>
+      <details v-for="fileId in pendingCleanupIds" :key="fileId" class="file-alert file-recover">
+        <summary>{{ cleanupConflicts.has(fileId) ? `原文件 #${fileId} 的删除被占用阻止` : `原文件 #${fileId} 的清理结果尚未确认` }}（查看详情）</summary>
+        <ElAlert type="warning" :closable="false"
+          :title="cleanupConflicts.has(fileId) ? `原文件 #${fileId} 的删除被资源占用阻止` : `原文件 #${fileId} 的清理结果尚未确认`" class="file-alert">
+          <p>{{ cleanupConflicts.has(fileId) ? '请先处理占用并读取原文件状态。确认原文件尚未进入清理后，可重新确认删除。' : '请读取原文件状态。找不到或无权读取不表示清理完成；明确清理失败后才可在原文件上重试。' }}</p>
+          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(fileId)">读取原文件清理状态</ElButton>
+        </ElAlert>
+      </details>
       <ElForm label-width="110px" class="file-cred" @submit.prevent>
         <RuntimeApiKeyField
           v-model="apiKey"
-          placeholder="Bearer 环境凭证（需 files:read / files:write）"
+          placeholder="当前应用的调用密钥（需允许使用文件读写）"
         />
-        <ElFormItem label="按 id 查询">
+        <ElFormItem label="按编号查询">
           <ElSpace wrap>
-            <ElInputNumber v-model="lookupId" :min="1" :controls="false" placeholder="file id" />
+            <ElInputNumber v-model="lookupId" :min="1" :controls="false" placeholder="文件编号" />
             <ElButton :loading="busy === 'read'" @click="handleLookup">查询</ElButton>
           </ElSpace>
         </ElFormItem>
@@ -37,28 +39,34 @@
 
       <details class="file-alert">
         <summary>长 TXT 来源与旧解析恢复</summary>
-        <p class="file-desc">新 TXT 解析将长行分成来源块，保留原行及实际字符范围；更新不会改写旧解析或已发布知识版本。</p>
-        <p class="file-desc">若已确认旧来源块超过模型或索引输入上限，请重新选择原 TXT 上传，取得新的文件号，再提交解析。解析结果不明时沿原请求号找回，失败只处理原任务；完成后到知识库配置选择新文件，使用新的知识库代码建立草稿、发布并准备索引。</p>
-        <p class="file-desc">保留旧文件、已发布知识库及原索引记录。停用不会解除已发布来源引用；清理向量或解除来源引用不能用于重新解析并保留历史。</p>
+        <p class="file-desc">新 TXT 解析将长行分成来源块，保留原行及实际字符范围；更新不会改写旧解析或已启用知识版本。</p>
+        <p class="file-desc">若已确认旧来源块超过模型或索引输入上限，请重新选择原 TXT 上传，取得新的文件号，再提交解析。解析结果不明时沿请求编号找回，失败只处理原任务；完成后到知识库配置选择新文件，使用新的知识库代码建立草稿、启用并准备索引。</p>
+        <p class="file-desc">保留旧文件、已启用知识库及原索引记录。停用不会解除已启用来源引用；清理向量或解除来源引用不能用于重新解析并保留历史。</p>
         <ElButton :disabled="Boolean(busy)" @click="router.push('/sand-ai/knowledge')">继续建立新知识库</ElButton>
       </details>
 
       <ElDivider content-position="left">找回文件解析</ElDivider>
-      <ElAlert v-if="parseRecoveryLocked" class="file-alert" type="warning" :closable="false"
-        title="原解析尚未确认成功。请按原请求号只读找回；失败只重试原任务，取消后须核实未派发证据才能重新解析。" />
-      <ElAlert v-for="fileId in pendingCleanupIds" :key="fileId" type="warning" :closable="false"
-        :title="cleanupConflicts.has(fileId) ? `原文件 #${fileId} 的删除被资源占用阻止` : `原文件 #${fileId} 的清理结果尚未确认`" class="file-alert">
-        <p>{{ cleanupConflicts.has(fileId) ? '请先处理占用并读取原文件状态。确认原文件尚未进入清理后，可重新确认删除。' : '请读取原文件状态。找不到或无权读取不表示清理完成；明确清理失败后才可在原文件上重试。' }}</p>
-        <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(fileId)">读取原文件清理状态</ElButton>
-      </ElAlert>
+      <details v-if="parseRecoveryLocked" class="file-alert file-recover">
+        <summary>原解析尚未确认成功（查看详情）</summary>
+        <ElAlert class="file-alert" type="warning" :closable="false"
+          title="原解析尚未确认成功。请按请求编号只读找回；失败只重试原任务，取消后须核实未派发证据才能重新解析。" />
+      </details>
+      <details v-for="fileId in pendingCleanupIds" :key="fileId" class="file-alert file-recover">
+        <summary>{{ cleanupConflicts.has(fileId) ? `原文件 #${fileId} 的删除被占用阻止` : `原文件 #${fileId} 的清理结果尚未确认` }}（查看详情）</summary>
+        <ElAlert type="warning" :closable="false"
+          :title="cleanupConflicts.has(fileId) ? `原文件 #${fileId} 的删除被资源占用阻止` : `原文件 #${fileId} 的清理结果尚未确认`" class="file-alert">
+          <p>{{ cleanupConflicts.has(fileId) ? '请先处理占用并读取原文件状态。确认原文件尚未进入清理后，可重新确认删除。' : '请读取原文件状态。找不到或无权读取不表示清理完成；明确清理失败后才可在原文件上重试。' }}</p>
+          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(fileId)">读取原文件清理状态</ElButton>
+        </ElAlert>
+      </details>
       <ElForm label-width="110px" class="file-cred" @submit.prevent>
-        <ElFormItem label="原文件号">
+        <ElFormItem label="原文件编号">
           <ElInputNumber v-model="parseLookupFileId" :min="1" :controls="false"
             :disabled="Boolean(busy) || !!pendingParseSubmit" />
         </ElFormItem>
-        <ElFormItem label="原解析请求号">
+        <ElFormItem label="原解析请求编号">
           <ElInput v-model.trim="parseLookupKey" maxlength="96"
-            :disabled="Boolean(busy) || !!pendingParseSubmit" placeholder="原提交解析时的 X-Request-Id" />
+            :disabled="Boolean(busy) || !!pendingParseSubmit" placeholder="原提交解析时的请求编号" />
         </ElFormItem>
         <ElFormItem>
           <ElSpace wrap>
@@ -71,7 +79,7 @@
               :disabled="Boolean(busy) || !apiKey.trim() || !canRetryOriginalParse(parseRecoveredTask)" @click="retryOriginalParse">重试原解析任务</ElButton>
             <ElButton v-if="canRestartCanceledParse(parseRecoveredTask)"
               :disabled="Boolean(busy) || !apiKey.trim()" @click="restartCanceledParse()">重新解析原文件</ElButton>
-            <ElTag v-if="parseRecoveredTask">原任务 #{{ parseRecoveredTask.id }} · {{ parseRecoveredTask.state }}</ElTag>
+            <ElTag v-if="parseRecoveredTask">原任务 #{{ parseRecoveredTask.id }} · {{ runStateLabel(parseRecoveredTask.state) }}</ElTag>
           </ElSpace>
         </ElFormItem>
         <p v-if="parseRecoveredTask?.state === 'canceled'" class="file-desc">已取消不代表没有费用。有已发送或结果不明的 OCR 请求时，保留原任务核对，不重新解析。</p>
@@ -80,14 +88,14 @@
       </ElForm>
 
       <ElDivider content-position="left">只读查询已有解析</ElDivider>
-      <p class="file-desc">填写已知的原文件号和原解析请求号。查询另一项解析不会替换本页待确认的请求，也不会重新解析文件。</p>
+      <p class="file-desc">填写已知的原文件编号和原解析请求编号。查询另一项解析不会替换本页待确认的请求，也不会重新解析文件。</p>
       <ElForm label-width="110px" class="file-cred" @submit.prevent>
-        <ElFormItem label="原文件号">
+        <ElFormItem label="原文件编号">
           <ElInputNumber v-model="parseReaderFileId" :min="1" :precision="0" :controls="false" :disabled="parseReaderBusy" />
         </ElFormItem>
-        <ElFormItem label="原解析请求号">
+        <ElFormItem label="原解析请求编号">
           <ElInput v-model.trim="parseReaderKey" maxlength="96" :disabled="parseReaderBusy"
-            placeholder="原解析的 X-Request-Id" />
+            placeholder="原解析的请求编号" />
         </ElFormItem>
         <ElFormItem>
           <ElButton :loading="parseReaderBusy"
@@ -97,7 +105,7 @@
       </ElForm>
       <ElAlert v-if="parseReaderError" type="warning" :closable="false" class="file-alert" :title="parseReaderError" />
       <section v-if="parseReaderTarget && parseReaderResult" class="file-alert">
-        <p>原文件 #{{ parseReaderTarget.fileId }} · 原任务 #{{ parseReaderResult.id }} · {{ parseReaderResult.state }}。</p>
+        <p>原文件 #{{ parseReaderTarget.fileId }} · 原任务 #{{ parseReaderResult.id }} · {{ runStateLabel(parseReaderResult.state) }}。</p>
         <p v-if="parseReaderResult.file_parse_id">解析记录 #{{ parseReaderResult.file_parse_id }}。</p>
         <p v-if="parseReaderResult.error_code">错误码：{{ parseReaderResult.error_code }}。</p>
         <p class="file-desc">此结果未提供费用金额。请按原任务号查看成果、来源与实际费用记录；解析请求号不是费用记录号。</p>
@@ -109,22 +117,28 @@
         :title="audioRecoveryStorageError">
         <ElButton :disabled="Boolean(busy)" @click="restoreAudioRecovery">重新读取本地原号</ElButton>
       </ElAlert>
-      <ElAlert v-if="audioRecoveryLocked" class="file-alert" type="warning" :closable="false"
-        title="原转写请求尚未确认完成，请保留原请求键只读找回。修改参数、文件或凭证不会重新提交。" />
-      <ElAlert v-for="fileId in pendingCleanupIds" :key="fileId" type="warning" :closable="false"
-        :title="cleanupConflicts.has(fileId) ? `原文件 #${fileId} 的删除被资源占用阻止` : `原文件 #${fileId} 的清理结果尚未确认`" class="file-alert">
-        <p>{{ cleanupConflicts.has(fileId) ? '请先处理占用并读取原文件状态。确认原文件尚未进入清理后，可重新确认删除。' : '请读取原文件状态。找不到或无权读取不表示清理完成；明确清理失败后才可在原文件上重试。' }}</p>
-        <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(fileId)">读取原文件清理状态</ElButton>
-      </ElAlert>
+      <details v-if="audioRecoveryLocked" class="file-alert file-recover">
+        <summary>原转写请求尚未确认完成（查看详情）</summary>
+        <ElAlert class="file-alert" type="warning" :closable="false"
+          title="原转写请求尚未确认完成，请保留请求编号只读找回。修改参数、文件或凭证不会重新提交。" />
+      </details>
+      <details v-for="fileId in pendingCleanupIds" :key="fileId" class="file-alert file-recover">
+        <summary>{{ cleanupConflicts.has(fileId) ? `原文件 #${fileId} 的删除被占用阻止` : `原文件 #${fileId} 的清理结果尚未确认` }}（查看详情）</summary>
+        <ElAlert type="warning" :closable="false"
+          :title="cleanupConflicts.has(fileId) ? `原文件 #${fileId} 的删除被资源占用阻止` : `原文件 #${fileId} 的清理结果尚未确认`" class="file-alert">
+          <p>{{ cleanupConflicts.has(fileId) ? '请先处理占用并读取原文件状态。确认原文件尚未进入清理后，可重新确认删除。' : '请读取原文件状态。找不到或无权读取不表示清理完成；明确清理失败后才可在原文件上重试。' }}</p>
+          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(fileId)">读取原文件清理状态</ElButton>
+        </ElAlert>
+      </details>
       <ElForm label-width="110px" class="file-cred" @submit.prevent>
-        <ElFormItem label="原录音文件号">
+        <ElFormItem label="原录音文件编号">
           <ElInputNumber v-model="audioLookupFileId" :min="1" :controls="false"
             :disabled="Boolean(busy) || !!pendingAudioSubmit" />
         </ElFormItem>
-        <ElFormItem label="原转写请求键">
+        <ElFormItem label="原转写请求编号">
           <ElInput v-model.trim="audioLookupKey" maxlength="512"
             :disabled="Boolean(busy) || !!pendingAudioSubmit"
-            placeholder="原提交转写时的 Idempotency-Key" />
+            placeholder="原提交转写时的请求编号" />
         </ElFormItem>
         <ElFormItem>
           <ElSpace wrap>
@@ -136,7 +150,7 @@
             <ElButton v-if="audioRecoveredTask" :disabled="Boolean(busy)" @click="viewRecoveredAudio">
               查看原任务与恢复操作
             </ElButton>
-            <ElTag v-if="audioRecoveredTask">原任务 #{{ audioRecoveredTask.id }} · {{ audioRecoveredTask.state }}</ElTag>
+            <ElTag v-if="audioRecoveredTask">原任务 #{{ audioRecoveredTask.id }} · {{ runStateLabel(audioRecoveredTask.state) }}</ElTag>
           </ElSpace>
         </ElFormItem>
         <p v-if="audioRecoveredTask?.state === 'succeeded'" class="file-desc">
@@ -222,6 +236,7 @@
 </template>
 
 <script setup lang="ts">
+  import '../components/sandAiPage.css'
   import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { ElButton, ElMessage, ElMessageBox, ElSpace } from 'element-plus'
@@ -235,6 +250,7 @@
   import { hintForRuntimeErrorCode, toRuntimeUiError } from '../api/runtimeErrors'
   import type { RuntimeUiError } from '../api/runtimeErrors'
   import type { SandAiCleanupState, SandAiCleanupStatus, SandAiFile, SandAiTask } from '../api/types'
+  import { runStateLabel } from '../api/displayLabels'
   import RuntimeApiKeyField from '../components/RuntimeApiKeyField.vue'
   import PrivateFileUpload from '../components/PrivateFileUpload.vue'
 
@@ -663,7 +679,7 @@
         || submitted.task.resource_type !== 'audio_transcription'
         || submitted.task.resource_id !== submitted.task.id
         || !Number.isSafeInteger(submitted.task.id) || submitted.task.id < 1) {
-        throw new Error('转写提交未返回有效任务号，请保留原请求键只读找回')
+        throw new Error('转写提交未返回有效任务号，请保留请求编号只读找回')
       }
       retainAudioRecovery({ fileId: file.id, key, taskId: submitted.task.id })
       audioRecoveredTask.value = submitted.task
@@ -731,7 +747,7 @@
       }
       retainAudioRecovery({ fileId: item.fileId, key: item.key, taskId: item.taskId })
     } catch {
-      audioRecoveryStorageError.value = '本地原转写记录无法读取或与当前原号不符，已阻止新提交。请保留原文件号和原请求键，只读找回原任务。'
+      audioRecoveryStorageError.value = '本地原转写记录无法读取或与当前原号不符，已阻止新提交。请保留原文件号和请求编号，只读找回原任务。'
     }
   }
 
@@ -766,7 +782,7 @@
       if (task.task_type !== 'audio_transcription' || task.resource_type !== 'audio_transcription'
         || task.resource_id !== task.id || !Number.isSafeInteger(task.id) || task.id < 1
         || (taskId !== null && task.id !== taskId)) {
-        throw new Error('找回的转写任务与原记录不一致，请保留原请求键核对')
+        throw new Error('找回的转写任务与原记录不一致，请保留请求编号核对')
       }
       retainAudioRecovery({ fileId, key, taskId: task.id })
       audioRecoveredTask.value = task
@@ -824,7 +840,7 @@
   function assertOriginalParse(task: SandAiTask, fileId: number, taskId: number | null): void {
     if (task.task_type !== 'file_parse' || task.resource_type !== 'file' || task.resource_id !== fileId
       || !Number.isSafeInteger(task.id) || task.id < 1 || (taskId !== null && task.id !== taskId)) {
-      throw new Error('解析任务与原文件或任务号不一致，请保留原请求号核对')
+      throw new Error('解析任务与原文件或任务号不一致，请保留请求编号核对')
     }
   }
 
@@ -1197,5 +1213,20 @@
 
   .file-alert {
     margin-bottom: 16px;
+  }
+
+  .file-recover > summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--el-color-warning-dark-2);
+    list-style: none;
+  }
+
+  .file-recover > summary::before {
+    content: '▸ ';
+  }
+
+  .file-recover[open] > summary::before {
+    content: '▾ ';
   }
 </style>

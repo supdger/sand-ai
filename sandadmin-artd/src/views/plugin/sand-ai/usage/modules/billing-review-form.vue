@@ -1,6 +1,6 @@
 <template>
   <div v-if="recoveryMeta" class="my-3">
-    <p>待确认原请求号：{{ recoveryMeta.request_key }}</p>
+    <p>待确认请求编号：{{ recoveryMeta.request_key }}</p>
     <p class="text-sm">只保存请求摘要。恢复只查询原请求结果；结果未确认前不能再次提交或更换请求号。</p>
     <ElButton :loading="busy" :disabled="writeFlight" @click="queryOriginal">查询原请求结果</ElButton>
     <p v-if="rejectionCode">正式拒绝业务码：{{ rejectionCode }}。此请求号不会再次执行。</p>
@@ -201,7 +201,7 @@
       <ElTableColumn prop="evidence_locator" label="人工填写位置" min-width="150" />
       <ElTableColumn prop="note" label="说明" min-width="180" />
       <ElTableColumn prop="reason" label="比较说明" min-width="180" />
-      <ElTableColumn prop="idempotency_key" label="原请求号" min-width="220" />
+      <ElTableColumn prop="idempotency_key" label="请求编号" min-width="220" />
     </ElTable>
   </template>
 </template>

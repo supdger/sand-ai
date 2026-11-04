@@ -1,5 +1,5 @@
 <template>
-  <ElFormItem label="运行面 Bearer">
+  <ElFormItem label="调用密钥">
     <div class="runtime-key">
       <ElInput
         :model-value="modelValue"
@@ -28,7 +28,7 @@
         show-icon
       />
       <p class="runtime-key__hint">
-        请填写 SandIAM 签发的短期运行身份，不含 Bearer 前缀；受众为 sand-ai。填写后仍由每次调用验证身份与服务授权。
+        请填写管理员在身份与授权插件（SandIAM）中生成的调用密钥，不含 Bearer 前缀。填写后仍由每次调用验证身份与允许使用。
       </p>
     </div>
   </ElFormItem>
@@ -49,7 +49,7 @@
       persistInSession?: boolean
     }>(),
     {
-      placeholder: 'Bearer workload context（仅保存在本机 sessionStorage）',
+      placeholder: '应用的调用密钥（仅保存在本机会话中）',
       persistInSession: true
     }
   )

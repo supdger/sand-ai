@@ -10,24 +10,20 @@
     <ElAlert v-if="pending" type="warning" :closable="false"
       :title="`原${pending.operation === 'save' ? '新增' : '更新'}保存待确认：${pending.code}${pending.id !== null ? ' · ID ' + pending.id : ''}`"
       description="只读取原保存回执，不再次发送；原回执表示当时保存结果，当前配置由列表另行读取。" />
-    <el-input v-if="pending" :model-value="pending.key" readonly aria-label="原保存请求号" />
+    <el-input v-if="pending" :model-value="pending.key" readonly aria-label="原保存请求编号" />
     <ElButton v-if="pending || journalError" :loading="reading" :disabled="submitting || reading" @click="recoverOperation">读取原保存回执</ElButton>
     <ElButton v-if="canSendUnsubmitted" :disabled="submitting || reading" @click="handleSubmit">保留原号首次提交</ElButton>
     <ElAlert v-if="errorMessage" type="warning" :closable="false" :title="errorMessage" />
     <ElButton v-if="!pending && !journalError && !configurationLoaded" :loading="loadingExisting"
       :disabled="submitting || reading" @click="loadExisting">重新读取当前配置</ElButton>
     <el-form ref="formRef" :model="formData" :rules="rules" :disabled="formBlocked" label-width="120px">
-      <el-form-item label="编码" prop="code">
-        <el-input
-          v-model="formData.code"
-          placeholder="小写字母/数字/_/-"
-          :disabled="dialogType === 'edit'"
-        />
+      <el-form-item v-if="formData.code" label="编码">
+        <span>编码：{{ formData.code }}（自动生成）</span>
       </el-form-item>
       <el-form-item label="名称" prop="name">
         <el-input v-model="formData.name" />
       </el-form-item>
-      <el-form-item label="适配器" prop="adapter">
+      <el-form-item label="服务商类型" prop="adapter">
         <el-select v-model="formData.adapter" style="width: 100%" :disabled="dialogType === 'edit'">
           <el-option label="OpenAI 兼容模型接口" value="openai_compatible" />
           <el-option label="Cohere 专业重排" value="cohere_rerank" />
@@ -37,23 +33,33 @@
           <el-option v-if="formData.adapter === 'fake'" label="开发用模拟接口" value="fake" />
         </el-select>
       </el-form-item>
-      <el-form-item label="超时(ms)" prop="timeout_ms">
+      <el-form-item label="超时（毫秒）" prop="timeout_ms">
         <el-input-number v-model="formData.timeout_ms" :min="formData.adapter === 'local_ocr_runtime' ? 1000 : 1" :max="formData.adapter === 'local_ocr_runtime' ? 120000 : undefined" :step="1000" />
       </el-form-item>
-      <el-form-item v-if="formData.adapter !== 'local_ocr_runtime'" label="密钥配置">
-        <el-input
-          v-model="formData.encryptedConfigText"
-          type="textarea"
-          :rows="4"
-          :placeholder="configPlaceholder"
-        />
-        <div class="config-hint">{{ configHint }}</div>
-        <div class="config-hint">
-          {{
-            hasEncryptedConfig
-              ? '当前已有密钥配置（has_encrypted_config=true），不会回显密文。'
-              : '当前尚无密钥配置。'
-          }}
+      <template v-if="needsSecretFields">
+        <el-form-item label="接口地址">
+          <el-input v-model="formData.configBaseUrl" placeholder="服务商提供的 HTTPS API 基础地址" />
+        </el-form-item>
+        <el-form-item label="API Key">
+          <el-input
+            v-model="formData.configApiKey"
+            type="password"
+            show-password
+            autocomplete="off"
+            placeholder="服务商提供的 API Key"
+          />
+        </el-form-item>
+      </template>
+      <el-form-item v-if="formData.adapter !== 'local_ocr_runtime'" label="连接说明">
+        <div>
+          <div class="config-hint">{{ configHint }}</div>
+          <div class="config-hint">
+            {{
+              hasEncryptedConfig
+                ? '当前已保存密钥，不会回显；填写上方任意一项将整体替换原连接配置，全部留空则不修改。'
+                : '当前尚无连接配置。'
+            }}
+          </div>
         </div>
       </el-form-item>
       <el-form-item label="状态" prop="status">
@@ -80,6 +86,7 @@
     resolveCatalogConfigurationIntent, matchesCatalogConfigurationReceipt, type CatalogConfigurationIntent
   } from '../../api/catalogConfigurationIntent'
   import providerApi from '../../api/provider'
+  import { generateCatalogCode } from '../../api/catalogCode'
   import type { DataStatus, SandAiProvider, SandAiProviderWrite } from '../../api/types'
 
   type FormModel = {
@@ -88,7 +95,8 @@
     name: string
     adapter: string
     timeout_ms: number
-    encryptedConfigText: string
+    configBaseUrl: string
+    configApiKey: string
     status: DataStatus
   }
 
@@ -135,50 +143,32 @@
     name: '',
     adapter: 'openai_compatible',
     timeout_ms: 30000,
-    encryptedConfigText: '',
+    configBaseUrl: '',
+    configApiKey: '',
     status: 1
   })
 
-  const configPlaceholder = computed(() => {
-    switch (formData.adapter) {
-      case 'openai_compatible':
-        return '仅写入：JSON 对象，例如 {"base_url":"<OpenAI 兼容服务的 HTTPS API 基础地址>","api_key":"<该服务的 API Key>"}。留空表示不修改。'
-      case 'cohere_rerank':
-        return '仅写入：JSON 对象，例如 {"base_url":"<Cohere 重排服务的 HTTPS API 基础地址>","api_key":"<该服务的 API Key>"}。留空表示不修改。'
-      case 'jina_rerank':
-        return '仅写入：JSON 对象，例如 {"base_url":"<Jina 重排服务的 HTTPS API 基础地址>","api_key":"<该服务的 API Key>"}。留空表示不修改。'
-      default:
-        return '仅写入：JSON 对象。留空表示不修改。'
-    }
-  })
+  const needsSecretFields = computed(() => !['local_ocr_runtime', 'local_runtime', 'fake'].includes(formData.adapter))
   const configHint = computed(() => {
     switch (formData.adapter) {
       case 'openai_compatible':
-        return '将示例中的占位文字替换为所选 OpenAI 兼容服务提供的基础地址与 API Key；请勿填写其他协议的接口地址。保存不会调用服务。'
+        return '填写所选 OpenAI 兼容服务提供的接口地址与 API Key；请勿填写其他协议的接口地址。保存不会调用服务。'
       case 'cohere_rerank':
-        return '将占位文字替换为 Cohere 重排服务提供的 HTTPS API 基础地址与 API Key；基础地址不含 /rerank。模型标识在部署草稿中指定，保存不会调用服务。'
+        return '填写 Cohere 重排服务提供的 HTTPS API 基础地址与 API Key；基础地址不含 /rerank。模型标识在部署草稿中指定，保存不会调用服务。'
       case 'jina_rerank':
-        return '将占位文字替换为 Jina 重排服务提供的 HTTPS API 基础地址与 API Key；基础地址不含 /rerank。模型标识在部署草稿中指定，保存不会调用服务。'
+        return '填写 Jina 重排服务提供的 HTTPS API 基础地址与 API Key；基础地址不含 /rerank。模型标识在部署草稿中指定，保存不会调用服务。'
       case 'local_runtime':
-        return '本地运行不使用远程 API 地址或 API Key，无需填写密钥配置。'
+        return '本地运行不使用远程接口地址或 API Key，无需填写连接配置。'
       case 'fake':
         return '开发用模拟接口不连接真实模型，无需填写真实 API Key。'
       default:
-        return '请按当前适配器已声明的配置填写，不使用其他适配器的示例。'
+        return '请按当前服务商类型已声明的连接方式填写接口地址与 API Key。'
     }
   })
 
   const rules: FormRules<FormModel> = {
-    code: [
-      { required: true, message: '请输入编码', trigger: 'blur' },
-      {
-        pattern: /^[a-z0-9][a-z0-9_-]{1,63}$/,
-        message: '编码需为小写字母数字开头，仅含 a-z 0-9 _ -',
-        trigger: 'blur'
-      }
-    ],
     name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
-    adapter: [{ required: true, message: '请输入适配器', trigger: 'blur' }],
+    adapter: [{ required: true, message: '请选择服务商类型', trigger: 'blur' }],
     timeout_ms: [{ required: true, message: '请输入超时', trigger: 'change' }, {
       validator: (_rule, value: unknown, callback) => {
         if (formData.adapter === 'local_ocr_runtime' && (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1000 || value > 120000)) {
@@ -205,7 +195,7 @@
     unsubmitted.value = null
     formData.id = undefined; formData.code = ''; formData.name = ''
     formData.adapter = 'openai_compatible'; formData.timeout_ms = 30000
-    formData.encryptedConfigText = ''; formData.status = 1
+    formData.configBaseUrl = ''; formData.configApiKey = ''; formData.status = 1
     hasEncryptedConfig.value = false
     configurationLoaded.value = false
     formRef.value?.clearValidate()
@@ -220,7 +210,11 @@
     loadingExisting.value = false
     restoreIntent()
     if (!visible.value || !owner || pending.value || journalError.value) return
-    if (props.dialogType === 'add') { configurationLoaded.value = true; return }
+    if (props.dialogType === 'add') {
+      if (!formData.code) formData.code = generateCatalogCode('provider_')
+      configurationLoaded.value = true
+      return
+    }
     const id = props.data.id
     if (typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1) {
       errorMessage.value = '原编辑目标无法确认，请重新从列表选择'
@@ -255,13 +249,14 @@
   }
 
   function parseEncryptedConfig(): Record<string, unknown> | undefined {
-    if (formData.adapter === 'local_ocr_runtime') return undefined
-    const text = formData.encryptedConfigText.trim()
-    if (text === '') return undefined
-    const parsed: unknown = JSON.parse(text)
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
-      throw new Error('密钥配置须为 JSON 对象')
-    return parsed as Record<string, unknown>
+    if (!needsSecretFields.value) return undefined
+    const baseUrl = formData.configBaseUrl.trim()
+    const apiKey = formData.configApiKey.trim()
+    if (baseUrl === '' && apiKey === '') return undefined
+    const parsed: Record<string, unknown> = {}
+    if (baseUrl !== '') parsed.base_url = baseUrl
+    if (apiKey !== '') parsed.api_key = apiKey
+    return parsed
   }
 
   async function confirmOriginal(original: CatalogConfigurationIntent, current: number, credential: string): Promise<void> {
@@ -329,7 +324,8 @@
       pending.value = readCatalogConfigurationIntent(owner, 'provider')
       if (!pending.value) throw new Error('原请求标识未安全保存，本次不发送')
       errorMessage.value = ''
-      formData.encryptedConfigText = ''
+      formData.configBaseUrl = ''
+      formData.configApiKey = ''
       unsubmitted.value = null
       sent = true
       if (original.operation === 'save') await providerApi.save({ ...payload, code: original.code }, original.key)

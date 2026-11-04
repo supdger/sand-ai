@@ -8,11 +8,11 @@
         <ElSelect v-model="code" filterable :disabled="busy || !!pending" placeholder="选择当前消费环境的知识库" class="query-input">
           <ElOption v-for="item in available" :key="item.id" :label="publicationLabel(item)" :value="item.code" />
         </ElSelect>
-        <ElButton :loading="versionsBusy" :disabled="busy || props.environmentId === null" @click="loadVersions">刷新当前发布版本</ElButton>
+        <ElButton :loading="versionsBusy" :disabled="busy || props.environmentId === null" @click="loadVersions">刷新当前启用版本</ElButton>
         <span v-if="!available.length" class="hint">请先选择消费环境并开放知识库。</span>
       </ElFormItem>
       <ElAlert v-if="versionsError" type="error" :title="versionsError" :closable="false" class="notice" />
-      <p v-if="selectedVersion" class="hint">当前发布预览：{{ selectedVersion.owner_name }} · 第 {{ selectedVersion.version_no }} 版。实际查询版本由服务端受理时固定，按原结果读取；预览不锁定该版本。刷新版本会清除已显示的来源和费用，原请求仍保留。</p>
+      <p v-if="selectedVersion" class="hint">当前启用预览：{{ selectedVersion.owner_name }} · 第 {{ selectedVersion.version_no }} 版。实际查询版本由服务端受理时固定，按原结果读取；预览不锁定该版本。刷新版本会清除已显示的来源和费用，原请求仍保留。</p>
       <ElFormItem label="查询操作">
         <ElSelect v-model="operationMode" :disabled="busy || !!pending" class="query-input">
           <ElOption label="新检索" value="new" />
@@ -47,14 +47,14 @@
         <ElFormItem label="重排模型">
           <ElInput v-if="operationMode === 'recover'" v-model="rerankModel" :disabled="parametersLocked" class="query-input" placeholder="填写原请求使用的完整模型代码，无需当前目录仍包含该模型" />
           <ElSelect v-else v-model="rerankModel" filterable :disabled="busy || !!pending || modelsBusy" :placeholder="rerankMode === 'professional' ? '读取并选择已授权的专业重排模型' : '读取并选择已授权的聊天模型'" class="query-input">
-            <ElOption v-for="item in models" :key="item.code" :label="`${item.name} (${item.code})`" :value="item.code" />
+            <ElOption v-for="item in models" :key="item.code" :label="item.name" :value="item.code" />
           </ElSelect>
           <ElButton v-if="operationMode === 'new'" :loading="modelsBusy" :disabled="!ready || busy || !!pending" @click="loadModels">读取可用模型</ElButton>
         </ElFormItem>
         <p v-if="operationMode === 'new'" class="hint">重排会将来源摘录发送至所选服务，可能产生费用，最多返回 10 条。少于 2 条来源时不调用重排服务。{{ rerankMode === 'professional' ? '专业目录按当前知识库的 knowledge.query 授权读取。' : '聊天模型目录需 model.read 权限。' }}</p>
         <p v-if="operationMode === 'new' && rerankMode === 'professional'" class="hint">软预算的未定费用调用遵循已配置策略，返回真实用量后结算；硬预算无法证明费用上限时会拒绝发送。</p>
         <ElAlert v-if="operationMode === 'new' && modelsError" type="error" :title="modelsError" :closable="false" class="notice" />
-        <p v-if="operationMode === 'new' && modelsLoaded && !models.length" class="hint">当前应用没有可用的{{ rerankMode === 'professional' ? '专业重排' : '聊天' }}模型，请在模型与能力配置中发布对应服务，并核对消费环境授权。</p>
+        <p v-if="operationMode === 'new' && modelsLoaded && !models.length" class="hint">当前应用没有可用的{{ rerankMode === 'professional' ? '专业重排' : '聊天' }}模型，请在模型与能力配置中启用对应服务，并核对消费环境授权。</p>
         <p v-if="typeof limit === 'number' && limit > 10" class="hint">请将最多返回数量改为 10 或更少后检索。</p>
       </template>
       <ElFormItem>
@@ -280,7 +280,7 @@ async function search(): Promise<void> {
       try {
         await ElMessageBox.confirm(
           `在消费环境 #${original.environmentId} 检索 ${original.code}，最多返回 ${original.limit} 条；${originalRerankLabel(original.options)}。` +
-          `当前发布预览为第 ${previewVersion ?? '未确认'} 版，实际版本由服务端受理时固定，按原结果读取。` +
+          `当前启用预览为第 ${previewVersion ?? '未确认'} 版，实际版本由服务端受理时固定，按原结果读取。` +
           '存在活动向量索引时会调用查询 Embedding；开启重排且至少命中两条来源时会向所选服务发送摘录，可能产生费用。授权、预算和实际费用由正式调用记录确认，未知金额不代表零。' +
           `确认后只发送这份查询与设置；原请求号 ${original.key}，结果不明时仅按原号只读找回。`,
           '确认知识检索', { type: 'warning', confirmButtonText: '确认检索', cancelButtonText: '取消' }
@@ -410,7 +410,7 @@ async function loadVersions(): Promise<void> {
       if (!current()) return
       items.push(...response.data)
       if (items.length >= response.total) break
-      if (!response.data.length) throw new Error('当前发布版本列表不完整，请重新读取。')
+      if (!response.data.length) throw new Error('当前启用版本列表不完整，请重新读取。')
     }
     if (current()) versions.value = items
   } catch (cause) {

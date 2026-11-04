@@ -2,13 +2,12 @@
   <section ref="trialPanel" class="chat-trial">
     <h3>聊天路线试用</h3>
     <p class="chat-trial__hint">
-      使用 SandIAM 工作负载 Bearer 调用，环境由该凭证决定。上方管理端环境选择不会授予调用权限。
-      需要 sand_ai.model.read、sand_ai.chat.complete；结果找回和费用读取分别需要
-      sand_ai.invocation.read、sand_ai.usage.read。
+      填写应用的调用密钥后调用，环境由该密钥决定。
+      需允许使用“模型目录读取”“AI 对话”；结果找回和费用读取分别需要“调用状态读取”“调用费用读取”。
     </p>
     <ElForm label-width="120px" @submit.prevent="submit">
       <RuntimeApiKeyField v-model="bearer" :persist-in-session="false" placeholder="填写 SandIAM 签发的 Bearer（仅本页面）" />
-      <ElFormItem label="已发布模型">
+      <ElFormItem label="已启用模型">
         <ElButton :disabled="!bearer.trim() || Boolean(busy)" :loading="busy === 'models'" @click="loadModels">
           读取当前凭证的模型
         </ElButton>
@@ -21,11 +20,11 @@
       </ElFormItem>
       <ElFormItem v-if="mode === 'fixed'" label="模型">
         <ElSelect v-model="modelCode" :disabled="locked" placeholder="先读取模型，再选择" class="chat-trial__select">
-          <ElOption v-for="model in models" :key="model.id" :value="model.code" :label="`${model.name} (${model.code})`" />
+          <ElOption v-for="model in models" :key="model.id" :value="model.code" :label="model.name" />
         </ElSelect>
       </ElFormItem>
       <ElAlert v-if="mode === 'lowest'" type="info" :closable="false"
-        title="仅比较当前凭证环境已发布的聊天路线。服务端核对容量、有效价格与同币种预算；币种不同或没有合资格路线时拒绝调用。目录没有价格字段，发送前本页无法取得预算上界；调用后可读取本次冻结的预算上界记录。" />
+        title="仅比较当前凭证环境已启用的聊天路线。服务端核对容量、有效价格与同币种预算；币种不同或没有合资格路线时拒绝调用。目录没有价格字段，发送前本页无法取得预算上界；调用后可读取本次冻结的预算上界记录。" />
       <ElFormItem label="最大输出 token">
         <ElInputNumber v-model="maxOutputTokens" :min="1" :max="131072" :precision="0" :disabled="locked" />
       </ElFormItem>
@@ -50,7 +49,7 @@
         核对本页能力路线
       </ElButton>
       <p v-if="failureGuidance.target === 'route' || failureGuidance.target === 'route-and-budget'" class="chat-trial__hint">
-        请核对原调用凭证所属应用和环境的已发布路线、模型容量与有效价格；
+        请核对原调用密钥所属应用和环境的已启用路线、模型容量与有效价格；
         当前管理端环境选择不会改变该凭证的调用范围。
       </p>
       <p v-if="(failureGuidance.target === 'budget' || failureGuidance.target === 'route-and-budget') && !canManageBudget" class="chat-trial__hint">
@@ -58,7 +57,7 @@
       </p>
     </div>
     <div v-if="pendingKey" class="chat-trial__recovery">
-      <p>原请求键：<code>{{ pendingKey }}</code></p>
+      <p>请求编号：<code>{{ pendingKey }}</code></p>
       <p>请求结果尚未确认。仅查询原请求，不会重发；请使用原调用身份的 Bearer。404 或无权限不能证明原请求未执行。</p>
       <p v-if="invocation?.state === 'failed'">调用失败不代表未发送或无费用。原请求保持锁定，请只读核对调用与费用记录。</p>
       <ElButton :disabled="!bearer.trim() || Boolean(busy)" :loading="busy === 'recover'" @click="recover">
@@ -140,22 +139,22 @@
   type FailureGuidance = { message: string; target: 'budget' | 'route' | 'route-and-budget' | 'record' }
   const failureGuidanceByCode: Readonly<Record<string, FailureGuidance>> = {
     SAND_AI_BUDGET_EXCEEDED: { message: '硬预算可用额度不足。请管理员核对全部匹配预算的额度和占用；软预算允许超额，但其他匹配硬预算仍会限制调用。', target: 'budget' },
-    SAND_AI_BUDGET_UNPRICED: { message: '本次没有可验证的冻结价格上界；软预算和硬预算都不能放行未定价调用。请核对发布模型的有效价格。', target: 'route' },
+    SAND_AI_BUDGET_UNPRICED: { message: '本次没有可验证的冻结价格上界；软预算和硬预算都不能放行未定价调用。请核对启用模型的有效价格。', target: 'route' },
     SAND_AI_BUDGET_CURRENCY_MISMATCH: { message: '调用价格与匹配预算的币种不一致，不能相加或自动换算。请管理员核对预算币种。', target: 'budget' },
-    SAND_AI_LOW_COST_CURRENCY_MISMATCH: { message: '合资格最低成本候选使用不同币种，服务端无法直接比较。请管理员核对已发布路线的价格币种。', target: 'route' },
-    SAND_AI_LOW_COST_ROUTE_UNAVAILABLE: { message: '没有同时满足发布状态、容量、有效价格和当前预算的聊天路线。请管理员逐项核对；最低成本选择不会绕过硬预算。', target: 'route-and-budget' },
-    SAND_AI_LOW_COST_ROUTE_CHANGED: { message: '所选最低成本路线、冻结请求或价格版本在准备期间发生变化。请管理员核对发布路线和原调用记录；保留原请求键，只读找回，不能更换模型或改键重发。', target: 'route' },
-    SAND_AI_CONFIGURATION_NOT_PUBLISHED: { message: '当前凭证环境没有可用的已发布能力配置。保存草稿后还需正式发布才能用于调用。', target: 'route' },
+    SAND_AI_LOW_COST_CURRENCY_MISMATCH: { message: '合资格最低成本候选使用不同币种，服务端无法直接比较。请管理员核对已启用路线的价格币种。', target: 'route' },
+    SAND_AI_LOW_COST_ROUTE_UNAVAILABLE: { message: '没有同时满足启用状态、容量、有效价格和当前预算的聊天路线。请管理员逐项核对；最低成本选择不会绕过硬预算。', target: 'route-and-budget' },
+    SAND_AI_LOW_COST_ROUTE_CHANGED: { message: '所选最低成本路线、冻结请求或价格版本在准备期间发生变化。请管理员核对启用路线和原调用记录；保留请求编号，只读找回，不能更换模型或改键重发。', target: 'route' },
+    SAND_AI_CONFIGURATION_NOT_PUBLISHED: { message: '当前凭证环境没有可用的已启用能力配置。保存草稿后还需正式启用才能用于调用。', target: 'route' },
     SAND_AI_BUDGET_OUTPUT_BOUND_REQUIRED: { message: '预算或最低成本选择需要明确的最大输出上限。请核对原请求的最大输出 token 设置。', target: 'record' },
-    SAND_AI_BUDGET_INPUT_PROOF_REQUIRED: { message: '模型输入上界缺少可验证依据。请管理员核对发布模型的容量和输入计量配置。', target: 'route' },
+    SAND_AI_BUDGET_INPUT_PROOF_REQUIRED: { message: '模型输入上界缺少可验证依据。请管理员核对启用模型的容量和输入计量配置。', target: 'route' },
     SAND_AI_BUDGET_INPUT_BOUND_EXCEEDED: { message: '原请求输入超过所选路线的已验证容量。请管理员核对请求与模型容量，不能靠少算输入放行。', target: 'route' },
-    SAND_AI_BUDGET_CAPACITY_UNVERIFIED: { message: '已发布路线的模型容量或实际请求未能通过预算核验。请管理员核对发布版本、容量依据和请求上限。', target: 'route' },
-    SAND_AI_BUDGET_PRICE_REVISION_MISMATCH: { message: '预算报价与本次冻结的价格版本不一致。请管理员核对原调用和发布价格，不能用当前价格替换历史报价。', target: 'route' },
+    SAND_AI_BUDGET_CAPACITY_UNVERIFIED: { message: '已启用路线的模型容量或实际请求未能通过预算核验。请管理员核对启用版本、容量依据和请求上限。', target: 'route' },
+    SAND_AI_BUDGET_PRICE_REVISION_MISMATCH: { message: '预算报价与本次冻结的价格版本不一致。请管理员核对原调用和启用价格，不能用当前价格替换历史报价。', target: 'route' },
     SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE: { message: '匹配预算配置不能执行。请管理员核对软／硬限制、未定价阻止及未测得用量保留占额设置。', target: 'budget' },
-    SAND_AI_BUDGET_WINDOW_MISSING: { message: '匹配预算缺少执行额度记录。请管理员核对该已发布预算版本。', target: 'budget' },
+    SAND_AI_BUDGET_WINDOW_MISSING: { message: '匹配预算缺少执行额度记录。请管理员核对该已启用预算版本。', target: 'budget' },
     SAND_AI_BUDGET_CONFIGURATION_CONFLICT: { message: '同一范围存在冲突的生效预算版本。请管理员核对预算时段和版本，避免重复生效。', target: 'budget' },
     SAND_AI_BUDGET_RESERVATION_EXPIRED: { message: '原请求的预占已到期，需要核对原调用和占额。到期不证明未发送或无费用，不能自动释放或重发。', target: 'record' },
-    SAND_AI_BUDGET_PREPARED_REVALIDATION_REQUIRED: { message: '原请求在外发前尚未通过当前预算复核。请管理员核对原调用和冻结预占，保留原请求键。', target: 'record' },
+    SAND_AI_BUDGET_PREPARED_REVALIDATION_REQUIRED: { message: '原请求在外发前尚未通过当前预算复核。请管理员核对原调用和冻结预占，保留请求编号。', target: 'record' },
     SAND_AI_BUDGET_SCOPE_UNVERIFIED: { message: '调用的组织、应用、环境或能力归属未能核验。请管理员检查原调用身份与预算范围，不能改用后台身份代发。', target: 'record' },
     SAND_AI_BUDGET_SNAPSHOT_INCONSISTENT: { message: '预算占额记录未能通过一致性核验。请管理员核对原调用、预占和结算记录。', target: 'record' },
     SAND_AI_BUDGET_STATE_INVALID: { message: '原预算占额状态不允许本次处理。请管理员核对历史记录，不能把未知结果当作可释放额度。', target: 'record' },
@@ -164,7 +163,7 @@
     SAND_AI_BUDGET_RESERVATION_MISSING: { message: '原调用缺少匹配的预占记录。请管理员核对原请求，不补造预占或重新发送。', target: 'record' },
     SAND_AI_BUDGET_IDEMPOTENCY_CONFLICT: { message: '本次结算与原预占记录不一致。请管理员按原调用核对金额与币种，不重复结算。', target: 'record' },
     SAND_AI_SCOPE_SNAPSHOT_INVALID: { message: '冻结的最低成本路线与原调用记录不一致。请管理员核对原路线，不能更换模型重发原请求。', target: 'record' },
-    SAND_AI_IDEMPOTENCY_CONFLICT: { message: '原请求键已绑定另一份输入。请使用原调用身份只读找回，不能覆盖原键或改键重发。', target: 'record' }
+    SAND_AI_IDEMPOTENCY_CONFLICT: { message: '请求编号已绑定另一份输入。请使用原调用身份只读找回，不能覆盖原键或改键重发。', target: 'record' }
   }
   function guidanceFor(code: string | null): FailureGuidance | null {
     if (!code || !Object.prototype.hasOwnProperty.call(failureGuidanceByCode, code)) return null
@@ -248,7 +247,7 @@
       if (current !== generation) return
       models.value = result.data.filter(model => model.code !== '@lowest-cost')
       if (!models.value.some(model => model.code === modelCode.value)) modelCode.value = ''
-      if (!models.value.length) error.value = '当前凭证环境没有可用的已发布聊天模型。'
+      if (!models.value.length) error.value = '当前凭证环境没有可用的已启用聊天模型。'
     } catch (failure) {
       if (current === generation) {
         models.value = []; modelCode.value = ''; error.value = message(failure)
@@ -266,7 +265,7 @@
       max_output_tokens: maxOutputTokens.value
     }
     try { sessionStorage.setItem(storageKey, key) }
-    catch { error.value = '无法保存原请求键。为保证断线后可找回，本次未发送。'; return }
+    catch { error.value = '无法保存请求编号。为保证断线后可找回，本次未发送。'; return }
     pendingKey.value = key
     const current = ++generation
     busy.value = 'send'; error.value = ''; failureCode.value = null; clearPrivateResults()

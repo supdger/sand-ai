@@ -1,6 +1,6 @@
 <template>
   <ElCard shadow="never">
-    <template #header><div class="panel-head"><h3>试用已发布智能体</h3><p>选择智能体并提问。模型、资料、工具和回答要求均使用当前发布版本。</p></div></template>
+    <template #header><div class="panel-head"><h3>试用已启用智能体</h3><p>选择智能体并提问。模型、资料、工具和回答要求均使用当前启用版本。</p></div></template>
     <ElEmpty v-if="!environmentId" description="先选择应用环境" />
     <template v-else>
       <ElAlert v-if="error" type="error" :title="error" show-icon class="notice" @close="error = ''" />
@@ -13,16 +13,16 @@
       <ElForm label-width="105px" @submit.prevent>
         <RuntimeApiKeyField v-model="apiKey" :persist-in-session="false" placeholder="输入拥有智能体调用权限的应用凭证" />
         <ElFormItem label="智能体">
-          <ElSelect v-model="code" filterable :loading="agentsLoading" :disabled="sessionLocked" placeholder="选择已发布智能体" style="width: 100%">
+          <ElSelect v-model="code" filterable :loading="agentsLoading" :disabled="sessionLocked" placeholder="选择已启用智能体" style="width: 100%">
             <ElOption v-for="agent in agents" :key="agent.code" :label="`${agent.name} · 第 ${agent.active_version_no} 版`" :value="agent.code" />
           </ElSelect>
           <ElButton v-if="more" link :loading="agentsLoading" @click="loadAgents">加载更多</ElButton>
-          <p v-if="!agentsLoading && agents.length === 0" class="hint">先在“智能体配置”保存草稿并发布，再返回这里试用。</p>
+          <p v-if="!agentsLoading && agents.length === 0" class="hint">先在“智能体配置”保存草稿并启用，再返回这里试用。</p>
         </ElFormItem>
         <ElFormItem label="会话">
           <ElInput v-model="conversationId" maxlength="96" :disabled="sessionLocked" placeholder="同一会话继续提问；新会话使用新编号" />
           <ElButton link :disabled="sessionLocked" @click="startConversation">开始新会话</ElButton>
-          <p class="hint">会话只使用当前应用身份和当前发布版本允许的历史；不会跨渠道或其他调用者读取。</p>
+          <p class="hint">会话只使用当前应用身份和当前启用版本允许的历史；不会跨渠道或其他调用者读取。</p>
         </ElFormItem>
         <ElFormItem label="问题"><ElInput v-model="query" :disabled="sessionLocked" maxlength="500" show-word-limit placeholder="例如：资料中对退款期限有什么说明？" /></ElFormItem>
         <ElFormItem>
@@ -35,7 +35,7 @@
       </ElForm>
       <div v-if="pendingRequestKey" class="pending-actions">
         <ElAlert type="warning" :closable="false" title="上次提交结果尚未确认"
-          :description="pendingBody ? '原问题和会话已在本页固定。请按原请求号只读找回任务；结果未知期间不重新提交，也不换新请求号。' : '本页已刷新，原输入未保存在浏览器中。只能按原请求号找回任务，不能猜测输入或换新请求号。'" />
+          :description="pendingBody ? '原问题和会话已在本页固定。请按请求编号只读找回任务；结果未知期间不重新提交，也不换新请求号。' : '本页已刷新，原输入未保存在浏览器中。只能按请求编号找回任务，不能猜测输入或换新请求号。'" />
         <ElButton :disabled="busy || taskBusy || !apiKey.trim()" :loading="busy" @click="recover">找回原任务</ElButton>
       </div>
       <ElAlert v-else-if="sessionLocked && !busy && !taskBusy" type="info" :closable="false" class="notice"
@@ -454,7 +454,7 @@
       if (savedLast !== null && (!Number.isSafeInteger(savedId) || savedId === null || savedId <= 0))
         throw new Error('原任务编号无法读取')
       if (savedPending !== null && (!savedPending || !/^[\x21-\x7e]{1,512}$/.test(savedPending)))
-        throw new Error('原请求号无法读取')
+        throw new Error('请求编号无法读取')
       restoringRunScope = true
       conversationId.value = savedPendingConversation || savedConversation || newRuntimeRequestId('conversation')
       pendingRequestKey.value = savedPending ?? ''

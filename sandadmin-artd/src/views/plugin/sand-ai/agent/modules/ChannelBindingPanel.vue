@@ -2,7 +2,7 @@
   <ElCard shadow="never">
     <template #header>
       <div class="panel-head">
-        <div><h3>渠道绑定</h3><p>将机器人渠道连接到已发布智能体，消息由指定应用身份调用。每条新消息使用并保留当时的已发布版本。</p></div>
+        <div><h3>渠道绑定</h3><p>将机器人渠道连接到已启用智能体，消息由指定应用身份调用。每条新消息使用并保留当时的已启用版本。</p></div>
         <ElButton :disabled="!environment" :loading="loading" @click="refreshBindingPanel">刷新</ElButton>
       </div>
     </template>
@@ -14,7 +14,7 @@
       <ElAlert v-if="deliveryRetryJournalInvalid" type="warning" :closable="false" class="panel-alert"
         title="回信重试记录无法保存或读取" description="为避免重复回信，暂不能发起新的回信重试。请保留此浏览器的原请求记录并核对回信；记录异常不会按未发送处理。" />
       <ElAlert v-if="otherDeliveryRecoveryCount" type="warning" :closable="false" class="panel-alert"
-        title="存在尚未确认的回信重试" description="请切回原应用环境与渠道绑定，使用原管理员身份沿原请求号找回。切换页面或身份不会清除未确认请求，也不会自动重新发送。" />
+        title="存在尚未确认的回信重试" description="请切回原应用环境与渠道绑定，使用原管理员身份沿请求编号找回。切换页面或身份不会清除未确认请求，也不会自动重新发送。" />
       <ElAlert v-if="pendingFeishu || pendingWecom" type="warning" :closable="false" class="panel-alert"
         title="渠道配置仍有待确认保存" description="凭据已从本页清除，只保留原请求记录。请按原请求只读找回；未知期间不会再次保存或替换凭据。" />
       <ElAlert v-if="credentialJournalInvalid" type="warning" :closable="false" class="panel-alert"
@@ -79,11 +79,11 @@
         </div>
         <div v-if="currentDeliveryRecoveries.length" aria-label="未确认回信重试恢复" class="panel-alert">
           <ElAlert type="warning" :closable="false" show-icon title="回信重试提交结果尚未确认"
-            description="只按原请求号读取受理回执，不再次发送回信。未找到或无权读取时仍保留原请求锁；实际发送进度以刷新后的回信记录为准。" />
+            description="只按请求编号读取受理回执，不再次发送回信。未找到或无权读取时仍保留原请求锁；实际发送进度以刷新后的回信记录为准。" />
           <p v-for="item in currentDeliveryRecoveries" :key="item.key">
             {{ item.platform === 'wecom' ? '企业微信' : '飞书' }} · 原任务 #{{ item.task_id }}
             <ElButton link type="primary" :loading="deliveryRecoveringKey === item.key"
-              :disabled="Boolean(retryingTaskId) || Boolean(deliveryRecoveringKey)" @click="recoverDeliveryRetry(item)">沿原请求号找回</ElButton>
+              :disabled="Boolean(retryingTaskId) || Boolean(deliveryRecoveringKey)" @click="recoverDeliveryRetry(item)">沿请求编号找回</ElButton>
           </p>
           <ElAlert v-if="deliveryRecoveryError" type="error" :closable="false" :title="deliveryRecoveryError" />
         </div>
@@ -422,16 +422,16 @@
         <ElFormItem label="渠道名称"><ElInput v-model="form.name" maxlength="128" :disabled="writing || !!pendingBindingMutation" placeholder="例如企业微信客服" /></ElFormItem>
         <ElFormItem label="渠道代码"><ElInput v-model="form.code" maxlength="64" :disabled="writing || !!pendingBindingMutation || !!editingId" placeholder="例如 wecom_support" /></ElFormItem>
         <ElFormItem label="使用智能体">
-          <ElSelect v-model="form.agent_definition_id" filterable :disabled="writing || !!pendingBindingMutation" placeholder="选择已发布智能体" style="width: 100%">
+          <ElSelect v-model="form.agent_definition_id" filterable :disabled="writing || !!pendingBindingMutation" placeholder="选择已启用智能体" style="width: 100%">
             <ElOption v-if="form.agent_definition_id !== null && !selectedAgent" :value="form.agent_definition_id"
               :label="`原选择智能体 #${form.agent_definition_id}（未核对）`" disabled />
             <ElOption v-for="agent in agents" :key="agent.agent_definition_id" :label="`${agent.name} · ${agent.code} · 第${agent.active_version_no}版`" :value="agent.agent_definition_id" />
           </ElSelect>
           <ElButton v-if="agentMore" link :disabled="directoryLoading || writing || !!pendingBindingMutation" @click="loadAgents">加载更多智能体</ElButton>
-          <p v-if="form.agent_definition_id !== null && !selectedAgent" class="preview-note">此选择尚未在可用目录中核对。原绑定仍保留；可加载更多或重新读取目录，也可重新选择已发布智能体。核对后才能保存。</p>
+          <p v-if="form.agent_definition_id !== null && !selectedAgent" class="preview-note">此选择尚未在可用目录中核对。原绑定仍保留；可加载更多或重新读取目录，也可重新选择已启用智能体。核对后才能保存。</p>
         </ElFormItem>
         <ElFormItem label="调用身份">
-          <ElSelect v-model="form.workload_client_id" filterable :disabled="writing || !!pendingBindingMutation" placeholder="选择 SandIAM 服务调用身份" style="width: 100%">
+          <ElSelect v-model="form.workload_client_id" filterable :disabled="writing || !!pendingBindingMutation" placeholder="选择 SandIAM 调用密钥" style="width: 100%">
             <ElOption v-if="form.workload_client_id && !selectedClient" :value="form.workload_client_id"
               :label="`原选择调用身份 #${form.workload_client_id}（未核对）`" disabled />
             <ElOption v-for="client in clients" :key="client.id" :label="`${client.name} · ${client.code}`" :value="String(client.id)" />
@@ -441,9 +441,9 @@
         </ElFormItem>
         <ElFormItem><ElButton type="primary" :loading="writing" :disabled="!canSave" @click="save">保存绑定</ElButton></ElFormItem>
       </ElForm>
-      <ElAlert type="info" :closable="false" show-icon title="渠道只负责消息接入" description="适配器还需验证平台签名；资料访问和模型调用权限继续由 SandIAM 控制。" />
+      <ElAlert type="info" :closable="false" show-icon title="渠道只负责消息接入" description="服务商类型还需验证平台签名；资料访问和模型调用权限继续由 SandIAM 控制。" />
       <ElDialog v-model="feishuVisible" :title="`飞书配置 · ${feishuBinding?.name ?? ''}`" width="600px" @closed="closeFeishu">
-        <ElAlert type="info" :closable="false" show-icon title="凭据只写，保存后不回显" description="五项凭据每次完整替换。工作负载凭据须来自当前绑定的 SandIAM 调用身份；服务授权仍在 SandIAM 配置。" />
+        <ElAlert type="info" :closable="false" show-icon title="凭据只写，保存后不回显" description="五项凭据每次完整替换。工作负载凭据须来自当前绑定的 SandIAM 调用身份；允许使用仍在 SandIAM 配置。" />
         <p class="preview-note">回调路径：/api/sand-ai/v1/channels/{{ feishuBinding?.code }}/feishu/events</p>
         <ElAlert v-if="feishuError" type="error" :title="feishuError" show-icon class="panel-alert" />
         <ElAlert v-if="pendingFeishu" type="warning" :closable="false" show-icon title="上次保存结果未确认" description="原凭据已清除，只读找回原请求收据；确认前不接受另一组凭据，不再次提交保存。" class="panel-alert" />
@@ -811,7 +811,7 @@
           const errors = { ...previewCostErrors.value }
           for (const invocation of previewInvocations(message.task)) {
             delete costs[invocation.request_id]
-            errors[invocation.request_id] = '请按原请求号重新读取当前费用'
+            errors[invocation.request_id] = '请按请求编号重新读取当前费用'
           }
           previewCosts.value = costs
           previewCostErrors.value = errors
@@ -822,7 +822,7 @@
           return
         }
         const code = failure instanceof SandAiRuntimeError && /^[A-Z0-9_]+$/.test(failure.errorCode ?? '') ? `（${failure.errorCode}）` : ''
-        previewSourceError.value = `该来源当前不可读取，可能已撤销、清理或不在当前读取权限内。原消息已重新核对，可返回查看；费用请独立按原请求号读取，不需要重新发送消息。${code}`
+        previewSourceError.value = `该来源当前不可读取，可能已撤销、清理或不在当前读取权限内。原消息已重新核对，可返回查看；费用请独立按请求编号读取，不需要重新发送消息。${code}`
       }
     } finally {
       if (current === previewSourceEpoch) previewSourceLoading.value = false
@@ -2159,7 +2159,7 @@
       ElMessage.success('已找回原重试受理回执，当前发送状态以回信记录为准')
       await refreshRetryDelivery(reference)
     } catch (failure) {
-      if (stillCurrent()) deliveryRecoveryError.value = `${failure instanceof Error ? failure.message : '原重试回执尚未找回'}；仍保留原请求号，请勿再次重试。`
+      if (stillCurrent()) deliveryRecoveryError.value = `${failure instanceof Error ? failure.message : '原重试回执尚未找回'}；仍保留请求编号，请勿再次重试。`
     } finally {
       if (stillCurrent()) deliveryRecoveringKey.value = ''
     }
@@ -2179,8 +2179,8 @@
     try {
       try {
         await ElMessageBox.confirm(platform === 'wecom'
-          ? '只发送尚未确认的企业微信回信段；结果不明的回信不可重试。提交结果未知时只按原请求号找回，不重复发送。'
-          : '将使用原任务和同一条飞书消息标识重新发送。提交结果未知时只按原请求号找回，不重复发送。',
+          ? '只发送尚未确认的企业微信回信段；结果不明的回信不可重试。提交结果未知时只按请求编号找回，不重复发送。'
+          : '将使用原任务和同一条飞书消息标识重新发送。提交结果未知时只按请求编号找回，不重复发送。',
         '重试回信', { type: 'warning' })
       } catch { return }
       if (!stillCurrent()) return
@@ -2205,13 +2205,13 @@
         : await channelBindingApi.retryDelivery(reference.environment_id, reference.channel_binding_id, reference.task_id, reference.key)
       if (!stillCurrent()) return
       if (result.task_id !== reference.task_id || result.state !== 'pending')
-        throw new Error('重试受理回执与原任务不一致，请沿原请求号找回。')
+        throw new Error('重试受理回执与原任务不一致，请沿请求编号找回。')
       if (!await acknowledgeDeliveryRetry(reference, stillCurrent) || !stillCurrent()) return
       ElMessage.success('回信重试已受理，当前发送状态以回信记录为准')
       await refreshRetryDelivery(reference)
     } catch (failure) {
       if (stillCurrent()) {
-        const message = `${failure instanceof Error ? failure.message : '回信重试提交结果未确认'}；请沿原请求号找回，不要再次发送。`
+        const message = `${failure instanceof Error ? failure.message : '回信重试提交结果未确认'}；请沿请求编号找回，不要再次发送。`
         if (platform === 'wecom') wecomDeliveryError.value = message
         else deliveryError.value = message
       }

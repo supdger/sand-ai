@@ -1,5 +1,5 @@
 <template>
-  <div class="art-full-height">
+  <div class="sand-ai-page">
     <sa-search-bar
       v-model="searchForm"
       label-width="80px"
@@ -8,18 +8,18 @@
       @search="handleSearch"
     >
       <el-col :xs="24" :sm="12" :md="8" :lg="6">
-        <el-form-item label="action" prop="action">
-          <el-input v-model="searchForm.action" clearable placeholder="按 action" />
+        <el-form-item label="操作" prop="action">
+          <el-input v-model="searchForm.action" clearable placeholder="按操作筛选" />
         </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="12" :md="8" :lg="6">
         <el-form-item label="摘要" prop="name">
-          <el-input v-model="searchForm.name" clearable placeholder="summary / actor_ref" />
+          <el-input v-model="searchForm.name" clearable placeholder="按摘要或操作者筛选" />
         </el-form-item>
       </el-col>
     </sa-search-bar>
 
-    <ElCard class="art-table-card" shadow="never">
+    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
       <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData" />
 
       <ArtTable
@@ -36,10 +36,12 @@
 </template>
 
 <script setup lang="ts">
+  import '../components/sandAiPage.css'
   import { ref } from 'vue'
   import { useTable } from '@/hooks/core/useTable'
   import auditApi from '../api/audit'
-  import type { SandAiPageQuery } from '../api/types'
+  import { serviceActionLabel } from '../api/displayLabels'
+  import type { SandAiAuditLog, SandAiPageQuery } from '../api/types'
 
   const emptySearch = (): SandAiPageQuery => ({
     action: undefined,
@@ -65,13 +67,18 @@
       apiParams: {},
       columnsFactory: () => [
         { prop: 'id', label: 'ID', width: 80, align: 'center' },
-        { prop: 'actor_type', label: 'actor_type', width: 110 },
-        { prop: 'actor_ref', label: 'actor_ref', minWidth: 120 },
-        { prop: 'action', label: 'action', minWidth: 160 },
-        { prop: 'resource_type', label: 'resource_type', width: 130 },
-        { prop: 'resource_id', label: 'resource_id', width: 110 },
-        { prop: 'summary', label: 'summary', minWidth: 200, showOverflowTooltip: true },
-        { prop: 'create_time', label: 'create_time', width: 180 }
+        { prop: 'actor_type', label: '操作者类型', width: 110 },
+        { prop: 'actor_ref', label: '操作者', minWidth: 120 },
+        {
+          prop: 'action',
+          label: '操作',
+          minWidth: 160,
+          formatter: (row: SandAiAuditLog) => serviceActionLabel(row.action)
+        },
+        { prop: 'resource_type', label: '对象类型', width: 130 },
+        { prop: 'resource_id', label: '对象', width: 110 },
+        { prop: 'summary', label: '摘要', minWidth: 200, showOverflowTooltip: true },
+        { prop: 'create_time', label: '时间', width: 180 }
       ]
     }
   })

@@ -1951,6 +1951,10 @@
       "sha256": "028c2495a72aae8d593402ea8b348c0f80e58e5dde9ac6da871575da911bcaab"
     },
     {
+      "path": "app/Application/Onboarding/ServiceCatalogBootstrapService.php",
+      "sha256": "4f16138ef6e4604c993167cfabab65eaa37d8daf9fb194db1b2be5e58bb5c03d"
+    },
+    {
       "path": "app/Application/Onboarding/SolutionGuideCatalog.php",
       "sha256": "28c692d149c4bf1dcb20f170c2cecfbd48f16c60589561848caf61183d4c1a75"
     },

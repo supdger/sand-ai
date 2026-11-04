@@ -15,19 +15,19 @@
 
     <ElAlert v-if="targetError" type="error" :closable="false" :title="targetError" class="mb-3" />
     <ElAlert v-if="saveRecoveryError" type="warning" :closable="false" :title="saveRecoveryError" class="mb-3" />
-    <section v-if="pendingChanges.length" class="mb-3" aria-label="预算发布停用结果恢复">
-      <h3 class="mb-2 text-sm">待确认的发布或停用</h3>
-      <p class="text-sm text-gray-500">保留原预算版本，只读核对当前状态，不自动重发。未确认前暂停该版本的发布或停用。</p>
+    <section v-if="pendingChanges.length" class="mb-3" aria-label="预算启用停用结果恢复">
+      <h3 class="mb-2 text-sm">待确认的启用或停用</h3>
+      <p class="text-sm text-gray-500">保留原预算版本，只读核对当前状态，不自动重发。未确认前暂停该版本的启用或停用。</p>
       <div v-for="operation in pendingChanges" :key="operation.id" class="mb-2">
         <span>{{ scopeKinds.find(item => item.value === operation.scope_kind)?.label }} / {{ operation.scope_ref }} ·
-          版本 #{{ operation.id }} / {{ operation.revision }} · {{ operation.action === 'publish' ? '发布' : '停用' }}</span>
+          版本 #{{ operation.id }} / {{ operation.revision }} · {{ operation.action === 'publish' ? '启用' : '停用' }}</span>
         <ElButton text :loading="recoveringChangeId === operation.id" :disabled="writing || Boolean(recoveringChangeId)"
           @click="recoverPolicyChange(operation)">只读核对原版本</ElButton>
       </div>
     </section>
     <ElAlert v-if="changeRecoveryError" type="warning" :closable="false" :title="changeRecoveryError" class="mb-3" />
     <ElAlert v-if="confirmedCurrentPolicy && sameScope(confirmedCurrentPolicy)" type="info" :closable="false" class="mb-3"
-      :title="`保存结果已确认；最近读取的原版本 #${confirmedCurrentPolicy.id} / ${confirmedCurrentPolicy.revision} 当前为${confirmedCurrentPolicy.state === 'draft' ? '草稿' : confirmedCurrentPolicy.state === 'published' ? '已发布' : '已归档'}，额度 ${confirmedCurrentPolicy.limit_amount} ${confirmedCurrentPolicy.currency}。保存收据保留当时结果，当前版本按此正式读取显示。`" />
+      :title="`保存结果已确认；最近读取的原版本 #${confirmedCurrentPolicy.id} / ${confirmedCurrentPolicy.revision} 当前为${confirmedCurrentPolicy.state === 'draft' ? '草稿' : confirmedCurrentPolicy.state === 'published' ? '已启用' : '已归档'}，额度 ${confirmedCurrentPolicy.limit_amount} ${confirmedCurrentPolicy.currency}。保存收据保留当时结果，当前版本按此正式读取显示。`" />
     <section v-if="pendingSaves.length" class="mb-3" aria-label="预算草稿保存结果恢复">
       <h3 class="mb-2 text-sm">待确认的草稿保存</h3>
       <p class="text-sm text-gray-500">以下保存保留原请求号，只读找回，不会自动重发。仅对应草稿暂时停止再次保存；其他预算仍可编辑。</p>
@@ -58,7 +58,7 @@
       </ElFormItem>
       <ElFormItem v-if="scopeKind === 'organization' || scopeKind === 'application'" label="验证环境">
         <ElSelect v-model="referenceEnvironmentId" filterable clearable :disabled="writing || dialogOpen" placeholder="选择归属该范围的环境，用于官方核验">
-          <ElOption v-for="item in environments" :key="item.id" :label="`${item.name} (${item.code})`" :value="item.id" />
+          <ElOption v-for="item in environments" :key="item.id" :label="item.name" :value="item.id" />
         </ElSelect>
         <ElButton v-if="hasMoreEnvironments" text :loading="environmentLoading" @click="loadEnvironments()">加载更多环境</ElButton>
         <p class="text-sm text-gray-500">验证环境仅用于核验归属；预算覆盖整个组织或应用。</p>
@@ -114,7 +114,7 @@
         <ElTableColumn label="状态" width="110">
           <template #default="{ row }">
             <ElTag :type="row.state === 'published' ? 'success' : 'info'">
-              {{ row.state === 'published' ? '已发布' : row.state === 'draft' ? '草稿' : '已归档' }}
+              {{ row.state === 'published' ? '已启用' : row.state === 'draft' ? '草稿' : '已归档' }}
             </ElTag>
           </template>
         </ElTableColumn>
@@ -124,7 +124,7 @@
               link type="primary" :disabled="writing || hasPendingDraft(row) || hasPendingChange(row)" @click="editDraft(row)">编辑</ElButton>
             <ElButton v-if="row.state === 'draft' && supportedMissingUsagePolicy(row)"
               link type="primary"
-              :loading="publishingId === row.id" :disabled="writing || dialogOpen || hasPendingDraft(row) || hasPendingChange(row)" @click="publish(row)">发布</ElButton>
+              :loading="publishingId === row.id" :disabled="writing || dialogOpen || hasPendingDraft(row) || hasPendingChange(row)" @click="publish(row)">启用</ElButton>
             <span v-if="row.state === 'draft' && !supportedMissingUsagePolicy(row)">
               当前执行链暂不支持该策略
             </span>
@@ -164,7 +164,7 @@
       <ElForm label-width="115px" @submit.prevent>
         <ElFormItem v-if="needsWitness" label="验证环境">
           <ElSelect v-model="referenceEnvironmentId" filterable clearable :disabled="writing || Boolean(currentPendingSave)" placeholder="选择归属该范围的环境">
-            <ElOption v-for="item in environments" :key="item.id" :label="`${item.name} (${item.code})`" :value="item.id" />
+            <ElOption v-for="item in environments" :key="item.id" :label="item.name" :value="item.id" />
           </ElSelect>
           <ElButton v-if="hasMoreEnvironments" text :loading="environmentLoading" @click="loadEnvironments()">加载更多环境</ElButton>
           <ElAlert v-if="environmentError" type="error" :closable="false" :title="environmentError" />
@@ -205,12 +205,12 @@
             </ElRadioGroup>
           </ElFormItem>
           <ElAlert type="warning" :closable="false"
-            title="允许策略由现有专业重排执行链支持；其他能力仍要求未定价阻止、未知用量保留待核实，遇到不支持的策略会在外发前拒绝。可选择专业重排能力或模型范围，避免影响其他调用。允许未知费用不表示免费或结算完成，也不会借用之后发布的价格。" class="mb-3" />
+            title="允许策略由现有专业重排执行链支持；其他能力仍要求未定价阻止、未知用量保留待核实，遇到不支持的策略会在外发前拒绝。可选择专业重排能力或模型范围，避免影响其他调用。允许未知费用不表示免费或结算完成，也不会借用之后启用的价格。" class="mb-3" />
         </template>
         <ElAlert type="info" :closable="false"
           :title="draft.enforcement === 'hard'
-            ? '硬预算要求调用前可冻结价格与可靠用量上界，未定价阻止、未知用量保留待核实。无法证明上界的专业重排在发送前拒绝。时段最长 366 天，发布后不可编辑。'
-            : '软预算允许超额并记录。专业重排可以保留没有可靠上界的未知费用义务，真实量按调用前冻结价格结算；缺量或缺价格仍待核实。其他能力沿原可靠上界要求。时段最长 366 天，发布后不可编辑。'" />
+            ? '硬预算要求调用前可冻结价格与可靠用量上界，未定价阻止、未知用量保留待核实。无法证明上界的专业重排在发送前拒绝。时段最长 366 天，启用后不可编辑。'
+            : '软预算允许超额并记录。专业重排可以保留没有可靠上界的未知费用义务，真实量按调用前冻结价格结算；缺量或缺价格仍待核实。其他能力沿原可靠上界要求。时段最长 366 天，启用后不可编辑。'" />
       </ElForm>
       <ElAlert v-if="formError" type="error" :closable="false" :title="formError" class="mt-3" />
       <template #footer>
@@ -347,7 +347,7 @@
       return '该版本当前是否生效尚未确认，请刷新当前额度。以下为该版本记录，不能据此判断新调用是否可用。'
     const current = activeSummary.value
     if (!current || current.policy.id !== version.policy.id)
-      return '最近刷新未显示该版本正在生效；只有处于 UTC 生效时段的已发布预算才限制新预占。历史占额保留，新调用仍检查全部当前匹配预算。'
+      return '最近刷新未显示该版本正在生效；只有处于 UTC 生效时段的已启用预算才限制新预占。历史占额保留，新调用仍检查全部当前匹配预算。'
     if (current.window.available_amount.startsWith('-'))
       return version.policy.enforcement === 'hard'
         ? '最近刷新时该硬预算正在生效且占用已超额，会阻止额度不足的新预占；已发送调用仍按冻结事实结算。'
@@ -458,17 +458,17 @@
         }
         const changes: PendingPolicyChange[] = []
         if (value.changes !== undefined) {
-          if (!Array.isArray(value.changes)) throw new Error('本地发布或停用记录格式不一致，不能重新发送')
+          if (!Array.isArray(value.changes)) throw new Error('本地启用或停用记录格式不一致，不能重新发送')
           for (const item of value.changes) {
             if (!isRecord(item) || !isScopeKind(item.scope_kind) || typeof item.scope_ref !== 'string' || !item.scope_ref
               || typeof item.id !== 'number' || !Number.isSafeInteger(item.id) || item.id < 1
               || typeof item.revision !== 'number' || !Number.isSafeInteger(item.revision) || item.revision < 1
               || (item.action !== 'publish' && item.action !== 'archive') || changes.some(change => change.id === item.id))
-              throw new Error('本地发布或停用记录无效，不能重新发送')
+              throw new Error('本地启用或停用记录无效，不能重新发送')
             const expectedPolicy = item.expectedPolicy === undefined ? undefined : readStoredExpectation(item.expectedPolicy)
             if (expectedPolicy === null || (expectedPolicy && (item.action !== 'publish'
               || expectedPolicy.revision !== item.revision || expectedPolicy.scope_kind !== item.scope_kind
-              || expectedPolicy.scope_ref !== item.scope_ref))) throw new Error('本地确认策略与原发布目标不一致，不能重新发送')
+              || expectedPolicy.scope_ref !== item.scope_ref))) throw new Error('本地确认策略与原启用目标不一致，不能重新发送')
             changes.push({ id: item.id, revision: item.revision, scope_kind: item.scope_kind, scope_ref: item.scope_ref,
               action: item.action, ...(expectedPolicy ? { expectedPolicy } : {}) })
           }
@@ -500,12 +500,12 @@
         || current.scope_ref !== operation.scope_ref || !['draft', 'published', 'archived'].includes(current.state))
         throw new Error('当前版本与原操作归属不一致')
       if (operation.expectedPolicy && !matchesExpectation(current, operation.expectedPolicy))
-        throw new Error('当前配置与确认时的策略不同，不能确认原发布结果')
+        throw new Error('当前配置与确认时的策略不同，不能确认原启用结果')
       const confirmed = operation.action === 'publish' ? current.state !== 'draft' : current.state === 'archived'
       if (confirmed) persistPolicyChanges(pendingChanges.value.filter(item => item.id !== operation.id), actorId)
       changeRecoveryError.value = confirmed
-        ? `原版本 #${current.id} 当前为${current.state === 'archived' ? '已归档' : '已发布'}；本次仅确认当前配置事实，不能证明原操作由谁完成；未重新发送。`
-        : `原版本 #${current.id} 当前仍为${current.state === 'draft' ? '草稿' : '已发布'}，原${operation.action === 'publish' ? '发布' : '停用'}是否结束尚未确认；保留原记录，稍后只读核对，不重新发送。`
+        ? `原版本 #${current.id} 当前为${current.state === 'archived' ? '已归档' : '已启用'}；本次仅确认当前配置事实，不能证明原操作由谁完成；未重新发送。`
+        : `原版本 #${current.id} 当前仍为${current.state === 'draft' ? '草稿' : '已启用'}，原${operation.action === 'publish' ? '启用' : '停用'}是否结束尚未确认；保留原记录，稍后只读核对，不重新发送。`
       if (sameScope(operation)) { invalidatePolicyViews(); await loadPolicies(page.value); await loadActive(true) }
     } catch (cause) {
       if (live && adminId.value === actorId && generation === actorEpoch) changeRecoveryError.value = `${cause instanceof Error ? cause.message : '无法读取原版本'}；保留原操作记录，不重新发送。`
@@ -609,17 +609,17 @@
       else if (kind === 'capability' || kind === 'model') {
         const result = await budgetApi.references(nextPage)
         rows = kind === 'capability' ? result.capabilities.map(item => ({ ref: item.code, name: item.name }))
-          : result.models.data.map(item => ({ ref: String(item.id), name: `${item.name} (${item.code})` }))
+          : result.models.data.map(item => ({ ref: String(item.id), name: item.name }))
         count = kind === 'capability' ? rows.length : result.models.total
       } else if (kind === 'organization') {
         const result = await budgetApi.organizations(nextPage)
-        rows = result.data.map(item => ({ ref: String(item.id), name: `${item.name} (${item.code})` })); count = result.total
+        rows = result.data.map(item => ({ ref: String(item.id), name: item.name })); count = result.total
       } else if (kind === 'application') {
         const result = await iamApi.listApplications({ page: nextPage, limit: 100 })
-        rows = result.data.map(item => ({ ref: String(item.id), name: `${item.name} (${item.code})` })); count = result.total
+        rows = result.data.map(item => ({ ref: String(item.id), name: item.name })); count = result.total
       } else {
         const result = await iamApi.listEnvironments({ page: nextPage, limit: 100 })
-        rows = result.data.map(item => ({ ref: String(item.id), name: `${item.name} (${item.code})` })); count = result.total
+        rows = result.data.map(item => ({ ref: String(item.id), name: item.name })); count = result.total
       }
       if (!live || epoch !== targetEpoch || kind !== scopeKind.value) return
       targets.value = reset ? rows : [...targets.value, ...rows]
@@ -748,7 +748,7 @@
       || (action === 'publish' && (policy.state !== 'draft' || hasPendingDraft(policy) || !supportedMissingUsagePolicy(policy)))
       || (action === 'archive' && (!hasAuth('sand_ai:budget:publish') || policy.state !== 'published'))) return
     if (action === 'publish' && retainedDrafts.value[draftKey(policy)]) {
-      ElMessage.warning('该草稿有保留的编辑，请先打开编辑并保存，再发布'); return
+      ElMessage.warning('该草稿有保留的编辑，请先打开编辑并保存，再启用'); return
     }
     const actorId = adminId.value
     const generation = actorEpoch
@@ -765,10 +765,10 @@
     try {
       try {
         const message = action === 'publish'
-          ? `版本 ${policy.revision} 在 ${policy.period_start} 至 ${policy.period_end}（UTC）限制所选范围：${policy.limit_amount} ${policy.currency}。${policy.enforcement === 'hard' ? '超额阻止新调用' : '超额允许并记录'}；${policy.unpriced_policy === 'block' ? '未定价阻止' : '未定价专业重排允许，费用待核实'}；${policy.unmeasured_policy === 'hold' ? '未知用量保留待核实' : '专业重排业务可继续，费用仍待核实'}。允许策略仅由专业重排执行链支持，其他能力遇到不支持的策略会在外发前拒绝；全部匹配预算共同生效。发布后不能编辑。`
-          : `停用版本 ${policy.revision} 后，版本将归档，此预算不再限制新的调用；没有其他匹配预算时，新调用将没有该预算限额。历史额度、已预占及待核实占用保留，已发送调用继续按冻结事实结算，不释放历史占额或减少已发生费用。可新建并发布替代预算。`
-        await ElMessageBox.confirm(message, action === 'publish' ? '发布预算' : '停用预算', {
-          type: 'warning', confirmButtonText: action === 'publish' ? '确认发布' : '确认停用', cancelButtonText: '取消'
+          ? `版本 ${policy.revision} 在 ${policy.period_start} 至 ${policy.period_end}（UTC）限制所选范围：${policy.limit_amount} ${policy.currency}。${policy.enforcement === 'hard' ? '超额阻止新调用' : '超额允许并记录'}；${policy.unpriced_policy === 'block' ? '未定价阻止' : '未定价专业重排允许，费用待核实'}；${policy.unmeasured_policy === 'hold' ? '未知用量保留待核实' : '专业重排业务可继续，费用仍待核实'}。允许策略仅由专业重排执行链支持，其他能力遇到不支持的策略会在外发前拒绝；全部匹配预算共同生效。启用后不能编辑。`
+          : `停用版本 ${policy.revision} 后，版本将归档，此预算不再限制新的调用；没有其他匹配预算时，新调用将没有该预算限额。历史额度、已预占及待核实占用保留，已发送调用继续按冻结事实结算，不释放历史占额或减少已发生费用。可新建并启用替代预算。`
+        await ElMessageBox.confirm(message, action === 'publish' ? '启用预算' : '停用预算', {
+          type: 'warning', confirmButtonText: action === 'publish' ? '确认启用' : '确认停用', cancelButtonText: '取消'
         })
       } catch { return }
       if (!live || adminId.value !== actorId || generation !== actorEpoch || !sameScope(policy)) return
@@ -780,9 +780,9 @@
       if (saved.id !== policy.id || saved.revision !== policy.revision || saved.scope_kind !== policy.scope_kind
         || saved.scope_ref !== policy.scope_ref || saved.state !== (action === 'publish' ? 'published' : 'archived'))
         throw new Error('响应与原预算版本或目标状态不一致')
-      if (expectedPolicy && !matchesExpectation(saved, expectedPolicy)) throw new Error('发布响应与确认策略不一致')
+      if (expectedPolicy && !matchesExpectation(saved, expectedPolicy)) throw new Error('启用响应与确认策略不一致')
       persistPolicyChanges(pendingChanges.value.filter(item => item.id !== policy.id), actorId)
-      ElMessage.success(action === 'publish' ? '预算已发布' : '预算已停用并归档；历史额度、占额和已发生费用保留')
+      ElMessage.success(action === 'publish' ? '预算已启用' : '预算已停用并归档；历史额度、占额和已发生费用保留')
       if (sameScope(policy)) { await loadPolicies(page.value); await loadActive(true) }
     } catch (cause) {
       if (live && adminId.value === actorId && generation === actorEpoch) {

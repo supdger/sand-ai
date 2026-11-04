@@ -1,11 +1,11 @@
 <template>
   <ElCard shadow="never" class="ocr-setup">
     <template #header><h4>本地图片文字识别部署</h4></template>
-    <p class="muted">图片在当前宿主处理，无需服务地址、API Key 或机器路径。宿主运维须预先配置 OCR 引擎；保存草稿后明确验证，通过后发布、配置服务费，再绑定目标环境的能力路由。</p>
+    <p class="muted">图片在当前宿主处理，无需服务地址、API Key 或机器路径。宿主运维须预先配置 OCR 引擎；保存草稿后明确验证，通过后启用、配置服务费，再绑定目标环境的能力路由。</p>
     <PublishedOcrDeploymentPrice @selection="selectPublishedPrice" />
     <template v-if="priceTarget">
-      <p>当前价格上下文：{{ priceContext === 'existing' ? '所选已发布部署' : '本次发布部署' }} {{ priceTarget.deployment_id }} · 修订 {{ priceTarget.revision }} · 模型 {{ priceTarget.model.name }}。</p>
-      <p class="muted">价格归属服务商 {{ priceTarget.provider.name }} 与模型 {{ priceTarget.model.name }}，不表示目标环境已绑定该部署；目录读取也不替代原保存或发布收据。</p>
+      <p>当前价格上下文：{{ priceContext === 'existing' ? '所选已启用部署' : '本次启用部署' }} {{ priceTarget.deployment_id }} · 修订 {{ priceTarget.revision }} · 模型 {{ priceTarget.model.name }}。</p>
+      <p class="muted">价格归属服务商 {{ priceTarget.provider.name }} 与模型 {{ priceTarget.model.name }}，不表示目标环境已绑定该部署；目录读取也不替代原保存或启用收据。</p>
       <OcrPricingPanel :key="`${priceTarget.provider.id}:${priceTarget.model.id}`" :provider-id="priceTarget.provider.id" :model-id="priceTarget.model.id" />
     </template>
     <ElAlert v-if="message" :type="messageType" :title="message" :closable="false" />
@@ -21,22 +21,22 @@
         <ElFormItem v-if="!journal"><ElButton v-permission="'sand_ai:setup:deployment:save'" type="primary" :loading="busy === 'save'" :disabled="locked || !canSave" @click="save">保存 OCR 部署草稿</ElButton></ElFormItem>
       </template>
       <template v-if="draft">
-        <p>部署 {{ draft.deployment_id }} · 修订 {{ draft.revision }} · {{ draft.model.name }} · {{ published ? '已发布' : verification?.state ?? draft.state }}</p>
+        <p>部署 {{ draft.deployment_id }} · 修订 {{ draft.revision }} · {{ draft.model.name }} · {{ published ? '已启用' : verification?.state ?? draft.state }}</p>
         <ElFormItem label="处理位置"><span>本地运行</span></ElFormItem>
         <p class="muted">{{ usageNotice }}</p>
         <p v-if="verification?.failure" class="muted">{{ verification.failure.message }}</p>
         <ElSpace wrap>
           <ElButton v-permission="'sand_ai:setup:deployment:verify'" :loading="busy === 'verify'" :disabled="!canVerify" @click="verify">验证本地 OCR</ElButton>
           <ElButton v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy) || postFlight || pendingNotSubmitted" @click="readState">读取修订状态</ElButton>
-          <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'publish'" :disabled="!canPublish" @click="publish">发布此 OCR 修订</ElButton>
+          <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'publish'" :disabled="!canPublish" @click="publish">启用此 OCR 修订</ElButton>
         </ElSpace>
       </template>
     </ElForm>
     <p v-if="verification?.state === 'verification_ambiguous'" class="muted">原验证结果不确定，保留同一部署、修订和验证号，只读找回；不会重发验证或另建部署绕过未知结果。</p>
     <p v-if="journal?.phase === 'failed'" class="muted">请宿主运维修正本地引擎配置；原失败草稿保留。确认修正后，沿同一服务商、模型和部署保存新修订，再明确验证。</p>
     <ElButton v-if="canStartNew" v-permission="'sand_ai:setup:deployment:save'" :disabled="Boolean(busy) || postFlight" @click="saveSuccessor">{{ published ? '沿原服务商和模型保存后继部署草稿' : '沿原部署保存新修订草稿' }}</ElButton>
-    <ElButton v-if="published && draft" @click="priceContext = 'current'">查看本次发布部署的价格</ElButton>
-    <p v-if="published" class="muted">发布价格后，到能力配置选择图片文字识别、本地 OCR 驱动和此部署，再保存并发布环境能力档。未绑定或未计价时，硬预算请求会被拒绝；SandIAM 服务授权仍需单独配置。</p>
+    <ElButton v-if="published && draft" @click="priceContext = 'current'">查看本次启用部署的价格</ElButton>
+    <p v-if="published" class="muted">启用价格后，到能力配置选择图片文字识别、本地 OCR 驱动和此部署，再保存并启用环境能力档。未绑定或未计价时，硬预算请求会被拒绝；SandIAM 允许使用仍需单独配置。</p>
     <ElButton v-if="published" @click="router.push('/sand-ai/capability')">配置图片识别能力路由</ElButton>
   </ElCard>
 </template>

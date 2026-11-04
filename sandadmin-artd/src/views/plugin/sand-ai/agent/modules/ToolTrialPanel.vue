@@ -3,13 +3,13 @@
     <template #header>
       <div class="panel-head">
         <h3>外部资料工具试用</h3>
-        <p>使用已发布并绑定到当前 Bearer 所属环境的只读工具。MCP 工具也走这一受控运行入口；试用会记录实际外部请求次数。</p>
+        <p>使用已启用并绑定到当前 Bearer 所属环境的只读工具。MCP 工具也走这一受控运行入口；试用会记录实际外部请求次数。</p>
       </div>
     </template>
     <ElAlert v-if="recoveryNotice" type="warning" :closable="false" :title="recoveryNotice" class="notice" />
     <ElAlert v-if="catalogError" type="info" :closable="false" :title="catalogError" class="notice" />
     <ElForm label-width="110px" @submit.prevent>
-      <RuntimeApiKeyField v-model="apiKey" placeholder="需 sand_ai.tool.run 和 sand_ai.tool.read 授权" />
+      <RuntimeApiKeyField v-model="apiKey" placeholder="需允许使用“工具运行”和“工具结果读取”" />
       <ElFormItem v-if="environmentId" label="已绑定工具">
         <ElSelect :model-value="selectedTool" filterable clearable placeholder="选择工具，或在下方手动填写" :loading="catalogBusy" :disabled="draftLocked" @update:model-value="selectTool">
           <ElOption v-for="item in availableTools" :key="`${item.code}@${item.version}`"
@@ -20,7 +20,7 @@
         <ElButton :disabled="draftLocked" :loading="catalogBusy" @click="reloadAvailable">刷新工具目录</ElButton>
       </ElFormItem>
       <ElFormItem label="工具代码">
-        <ElInput v-model.trim="code" maxlength="64" :disabled="draftLocked" placeholder="已发布工具代码" />
+        <ElInput v-model.trim="code" maxlength="64" :disabled="draftLocked" placeholder="已启用工具代码" />
       </ElFormItem>
       <ElFormItem label="固定版本">
         <ElInputNumber v-model="version" :min="1" :max="2147483647" :step="1" :disabled="draftLocked" />
@@ -50,9 +50,9 @@
       </ElFormItem>
     </ElForm>
     <ElAlert v-if="pending || lookupKey.trim()" type="warning" :closable="false"
-      :title="pending && !pending.key ? '原运行尚未结束。使用当前 Bearer 读取原运行；未确认前不能提交新试用。' : '原请求尚待核对。使用当前 Bearer 按原请求键只读找回；找回不会重新调用工具。未确认前不能提交新试用。'" class="notice" />
+      :title="pending && !pending.key ? '原运行尚未结束。使用当前 Bearer 读取原运行；未确认前不能提交新试用。' : '原请求尚待核对。使用当前 Bearer 按请求编号只读找回；找回不会重新调用工具。未确认前不能提交新试用。'" class="notice" />
     <ElForm label-width="110px" @submit.prevent>
-      <ElFormItem label="原请求键">
+      <ElFormItem label="请求编号">
         <ElInput v-model.trim="lookupKey" :disabled="busy || !!pending || !!run || lookupRunId !== null" maxlength="128" placeholder="粘贴原试用的 Idempotency-Key" />
         <ElButton :disabled="recoveryMalformed || busy || !apiKey.trim() || !lookupKey.trim()" :loading="busy" @click="recoverByKey">按原请求找回</ElButton>
       </ElFormItem>
@@ -87,7 +87,7 @@
     </template>
     <h4>只读查询其他原运行</h4>
     <ElAlert type="info" :closable="false"
-      title="填写原工具代码、固定版本及原请求键或运行号。只读查询可在当前试用运行期间使用；查询结果不会替换当前试用及其恢复记录。" class="notice" />
+      title="填写原工具代码、固定版本及请求编号或运行号。只读查询可在当前试用运行期间使用；查询结果不会替换当前试用及其恢复记录。" class="notice" />
     <ElForm label-width="110px" @submit.prevent>
       <ElFormItem label="原工具代码">
         <ElInput v-model.trim="readerCode" :disabled="readerBusy" maxlength="64" placeholder="原运行使用的工具代码" />
@@ -95,7 +95,7 @@
       <ElFormItem label="原固定版本">
         <ElInputNumber v-model="readerVersion" :disabled="readerBusy" :min="1" :max="2147483647" :precision="0" />
       </ElFormItem>
-      <ElFormItem label="原请求键">
+      <ElFormItem label="请求编号">
         <ElInput v-model.trim="readerKey" :disabled="readerBusy" maxlength="128" placeholder="原 Idempotency-Key；已有运行号时可留空" />
       </ElFormItem>
       <ElFormItem label="原运行号">
@@ -132,8 +132,8 @@
         <ElDescriptions :column="1" border>
           <ElDescriptionsItem label="固定工具">{{ confirmation.toolCode }} · v{{ confirmation.toolVersion }}</ElDescriptionsItem>
           <ElDescriptionsItem label="环境 / 业务范围">{{ confirmation.environmentId }} / {{ confirmation.scope }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="只读发布快照">{{ confirmation.snapshot }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="原请求键">{{ confirmation.key }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="只读启用快照">{{ confirmation.snapshot }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="请求编号">{{ confirmation.key }}</ElDescriptionsItem>
         </ElDescriptions>
         <p>下方输入已固定。将调用外部工具并计量实际外部请求次数；MCP 可能产生多次协议请求。未计价、未核账保留未知，不代表零。当前工作负载仍须具有运行权限。</p>
         <ElInput type="textarea" :rows="7" readonly :model-value="confirmation.input" />
@@ -241,10 +241,10 @@ const toolFailureHints: Readonly<Record<string, string>> = {
   SAND_AI_TOOL_TIMEOUT: '外部工具请求超时。请先核对原运行和计量，再请管理员检查连接超时配置。',
   SAND_AI_TOOL_RATE_LIMITED: '外部工具拒绝了本次请求，原因是服务限流。请先核对原运行和计量，再请管理员检查服务限额。',
   SAND_AI_TOOL_UPSTREAM_UNAVAILABLE: '外部工具服务不可用。请管理员检查所绑定的连接与服务状态。',
-  SAND_AI_TOOL_UPSTREAM_REJECTED: '外部工具拒绝本次请求。请管理员核对连接认证与已发布工具配置。',
-  SAND_AI_TOOL_RESPONSE_TOO_LARGE: '外部工具结果超过已发布大小限制。请管理员核对工具结果上限与服务配置。',
+  SAND_AI_TOOL_UPSTREAM_REJECTED: '外部工具拒绝本次请求。请管理员核对连接认证与已启用工具配置。',
+  SAND_AI_TOOL_RESPONSE_TOO_LARGE: '外部工具结果超过已启用大小限制。请管理员核对工具结果上限与服务配置。',
   SAND_AI_TOOL_RESPONSE_INVALID: '外部工具未返回合法的标准 JSON。请管理员核对所绑定接口的结果格式。',
-  SAND_AI_TOOL_RESPONSE_SCHEMA_INVALID: '外部工具结果不符合已发布输出 Schema。请管理员核对服务与固定工具版本。',
+  SAND_AI_TOOL_RESPONSE_SCHEMA_INVALID: '外部工具结果不符合已启用输出 Schema。请管理员核对服务与固定工具版本。',
   SAND_AI_MCP_PROTOCOL_MISMATCH: 'MCP 服务未完成要求的稳定协议。请管理员在“外部工具配置”核对连接并重新发现工具。',
   SAND_AI_MCP_SESSION_INVALID: 'MCP 服务返回的会话标识无效。请管理员检查所绑定 MCP 服务的协议配置。',
   SAND_AI_MCP_SSE_UNSUPPORTED: 'MCP 服务返回了当前不支持的流式响应。请管理员核对服务的响应模式。',
@@ -254,15 +254,15 @@ const toolFailureHints: Readonly<Record<string, string>> = {
   SAND_AI_MCP_SERVER_MESSAGE_REJECTED: 'MCP 服务发送了不支持的主动消息。请管理员核对协议配置。',
   SAND_AI_MCP_CURSOR_INVALID: 'MCP 工具目录的分页标识无效。请管理员核对服务目录接口。',
   SAND_AI_MCP_CATALOG_LIMIT_EXCEEDED: 'MCP 工具目录超过受管安全限制。请管理员核对允许的工具范围。',
-  SAND_AI_MCP_SCHEMA_DRIFTED: 'MCP 工具定义在发布后发生变化。请在“外部工具配置”重新发现、核对并发布绑定新版本。',
-  SAND_AI_MCP_REGISTRY_DRIFTED: '本地只读注册定义在发布后发生变化。请管理员核对注册表并重新发布绑定固定版本。',
+  SAND_AI_MCP_SCHEMA_DRIFTED: 'MCP 工具定义在启用后发生变化。请在“外部工具配置”重新发现、核对并启用绑定新版本。',
+  SAND_AI_MCP_REGISTRY_DRIFTED: '本地只读注册定义在启用后发生变化。请管理员核对注册表并重新启用绑定固定版本。',
   SAND_AI_MCP_STRUCTURED_RESULT_REQUIRED: 'MCP 工具没有返回要求的结构化结果。请管理员核对工具输出 Schema 与服务实现。',
   SAND_AI_MCP_TOOL_NOT_DISPATCHED: '协议恢复未能确认业务工具派发。请保留原运行号并核对计量，不自行重新发送。',
   SAND_AI_MCP_UPSTREAM_REJECTED: 'MCP 服务拒绝了协议请求。请管理员核对连接认证与服务协议。'
 }
 function failureHint(code: string | null): string {
   const hint = code ? toolFailureHints[code] ?? hintForRuntimeErrorCode(code) : undefined
-  return hint ?? '未能确认具体原因。请保留原请求键与运行号，使用当前工作负载 Bearer 读取原状态；请管理员核对连接、权限及计量。'
+  return hint ?? '未能确认具体原因。请保留请求编号与运行号，使用当前工作负载 Bearer 读取原状态；请管理员核对连接、权限及计量。'
 }
 const runFailure = computed(() => {
   const value = run.value
@@ -306,7 +306,7 @@ async function readIndependent(): Promise<void> {
   if (toolVersion === undefined || !Number.isSafeInteger(toolVersion) || toolVersion < 1
     || toolVersion > 2147483647 || runId !== undefined && (!Number.isSafeInteger(runId) || runId < 1 || runId > 2147483647)
     || new TextEncoder().encode(key).length > 128 || /[\r\n]/.test(key)) {
-    readerError.value = '请核对原固定版本、运行号及原请求键格式。'
+    readerError.value = '请核对原固定版本、运行号及请求编号格式。'
     return
   }
   if (!key && runId === undefined) return
@@ -388,7 +388,7 @@ function remember(item: Recovery): boolean {
     return true
   } catch {
     storageBlocked.value = true
-    recoveryNotice.value = '无法可靠保存原请求。已阻止新的工具调用；请保留原请求键或运行号，只读找回原运行。'
+    recoveryNotice.value = '无法可靠保存原请求。已阻止新的工具调用；请保留请求编号或运行号，只读找回原运行。'
     return false
   }
 }
@@ -452,7 +452,7 @@ async function recoverByKey(): Promise<void> {
   if (recoveryMalformed.value || busy.value || !apiKey.value.trim() || !lookupKey.value.trim()) return
   const expected = originalForLookup()
   if (new TextEncoder().encode(expected.key).length > 128 || /[\r\n]/.test(expected.key)) {
-    error.value = '原请求键格式无效或超过 128 字节'; return
+    error.value = '请求编号格式无效或超过 128 字节'; return
   }
   const current = ++epoch
   busy.value = true
@@ -591,7 +591,7 @@ async function submit(): Promise<void> {
     acceptRun(result, expected, true)
   } catch (cause) {
     if (currentIntent()) error.value = confirmed ? requestFailure(cause)
-      : '当前授权下的固定工具版本或 Schema 未确认，尚未提交试用。请核对工具权限、发布版本和环境后重试。'
+      : '当前授权下的固定工具版本或 Schema 未确认，尚未提交试用。请核对工具权限、启用版本和环境后重试。'
   } finally { if (currentIntent()) busy.value = false }
 }
 async function refresh(): Promise<void> {

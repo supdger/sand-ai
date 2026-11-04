@@ -3,7 +3,7 @@
     <template #header>
       <div class="panel-head">
         <h3>受管外部工具配置</h3>
-        <p>依次创建连接、确认工具定义、发布并绑定环境。每一步都由管理员单独提交；试用入口只调用已绑定版本。</p>
+        <p>依次创建连接、确认工具定义、启用并绑定环境。每一步都由管理员单独提交；试用入口只调用已绑定版本。</p>
       </div>
     </template>
     <ElEmpty v-if="!environmentId" description="先选择应用环境" />
@@ -74,12 +74,12 @@
       <ElForm label-width="110px" @submit.prevent>
         <ElFormItem label="已有工具代码">
           <ElInput v-model.trim="workspaceCode" maxlength="64" :disabled="busy || mutationLocked || !!pending || !!draft"
-            placeholder="刷新后可按原工具代码找回草稿、发布及绑定状态" />
+            placeholder="刷新后可按原工具代码找回草稿、启用及绑定状态" />
           <ElButton :loading="busy" :disabled="busy || mutationLocked || !!pending || !connection || environmentMismatch || !workspaceCode.trim()"
             @click="loadWorkspace">读取服务端状态</ElButton>
         </ElFormItem>
         <ElAlert v-if="bindingConflict" type="warning" :closable="false"
-          title="当前发布版本已绑定到本环境的另一连接，不能用所选连接再次绑定。" class="notice" />
+          title="当前启用版本已绑定到本环境的另一连接，不能用所选连接再次绑定。" class="notice" />
         <ElFormItem label="工具类型">
           <ElRadioGroup v-model="adapter" :disabled="busy || mutationLocked || !!draft">
             <ElRadio value="mcp_streamable_http">受管 MCP</ElRadio>
@@ -116,7 +116,7 @@
           <ElFormItem label="用途说明"><ElInput v-model="toolForm.description" maxlength="1000" type="textarea" :rows="2" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
           <ElFormItem label="输入 Schema"><ElInput v-model="toolForm.inputSchema" type="textarea" :rows="5" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
           <ElFormItem label="输出 Schema"><ElInput v-model="toolForm.outputSchema" type="textarea" :rows="5" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
-          <p class="hint">输入、输出 Schema 必须是关闭额外字段的 JSON 对象；发布后版本内容不原地修改。</p>
+          <p class="hint">输入、输出 Schema 必须是关闭额外字段的 JSON 对象；启用后版本内容不原地修改。</p>
         </template>
         <ElFormItem label="结果复核"><ElSwitch v-model="reviewRequired" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
         <ElFormItem>
@@ -125,9 +125,9 @@
         </ElFormItem>
       </ElForm>
 
-      <h4>3. 发布并绑定</h4>
+      <h4>3. 启用并绑定</h4>
       <ElSpace wrap>
-        <ElButton type="primary" :loading="busy" :disabled="busy || mutationLocked || environmentMismatch || !draft || !!published" @click="publish">发布固定版本</ElButton>
+        <ElButton type="primary" :loading="busy" :disabled="busy || mutationLocked || environmentMismatch || !draft || !!published" @click="publish">启用固定版本</ElButton>
         <ElButton type="primary" :loading="busy" :disabled="busy || mutationLocked || environmentMismatch || bindingConflict || !connection || !published || !!bound" @click="bind">绑定到当前环境</ElButton>
         <ElTag v-if="bound" type="success">已绑定 · #{{ bound.binding_id }}</ElTag>
         <ElButton v-if="published && !revoked && hasAuth('sand_ai:tool:revoke')" type="danger"
@@ -135,7 +135,7 @@
         <ElTag v-if="revoked" type="info">{{ revoked.code }} 已撤销</ElTag>
         <ElButton v-if="(bound || revoked) && !pending && !busy && !writeFlight" @click="nextSetup">配置另一个工具</ElButton>
       </ElSpace>
-      <p class="hint">发布和绑定后，到“外部工具试用”页签以工作负载 Bearer 验证实际权限、来源与费用。</p>
+      <p class="hint">启用和绑定后，到“外部工具试用”页签以工作负载 Bearer 验证实际权限、来源与费用。</p>
     </template>
   </ElCard>
 </template>
@@ -432,7 +432,7 @@ function discoveryMetering(value: unknown): string {
 }
 
 function stepLabel(step: Step): string {
-  return ({ connection: '连接创建', discovery: 'MCP 发现', draft: '工具草稿', publish: '工具发布', bind: '环境绑定', revoke: '工具撤销' })[step]
+  return ({ connection: '连接创建', discovery: 'MCP 发现', draft: '工具草稿', publish: '工具启用', bind: '环境绑定', revoke: '工具撤销' })[step]
 }
 
 async function perform<T>(step: Step, payload: object, call: (key: string) => Promise<T>): Promise<T | null> {
@@ -830,7 +830,7 @@ async function revoke(): Promise<void> {
   const current = epoch
   const toolId = published.value.tool_id
   const environmentId = props.environmentId
-  try { await ElMessageBox.confirm(`确认撤销工具 ${published.value.code}？撤销后此工具代码不可复用。`, '撤销已发布工具',
+  try { await ElMessageBox.confirm(`确认撤销工具 ${published.value.code}？撤销后此工具代码不可复用。`, '撤销已启用工具',
     { confirmButtonText: '确认撤销', cancelButtonText: '取消', type: 'warning' }) }
   catch { return }
   if (current !== epoch) return

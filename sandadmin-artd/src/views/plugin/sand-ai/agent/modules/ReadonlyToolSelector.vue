@@ -1,7 +1,7 @@
 <template>
   <div class="readonly-tools">
     <ElSelect :model-value="selectedKeys" multiple :multiple-limit="2" filterable :disabled="disabled || !environmentId || !currentAdminId"
-      :loading="loading" placeholder="可选：最多两个已发布的只读工具版本" style="width: 100%" @update:model-value="select">
+      :loading="loading" placeholder="可选：最多两个已启用的只读工具版本" style="width: 100%" @update:model-value="select">
       <ElOption v-for="tool in catalog" :key="key(tool)" :value="key(tool)"
         :label="`${tool.name} · ${tool.code} 第 ${tool.version} 版`" />
       <ElOption v-for="tool in unavailable" :key="key(tool)" :value="key(tool)"
@@ -16,7 +16,7 @@
       <ElInput :model-value="tool.business_scope" :disabled="disabled" maxlength="128"
         placeholder="填写已获授权的业务范围，例如 public_docs" @update:model-value="scope(index, $event)" />
       <ElCollapse>
-        <ElCollapseItem title="查看已发布输入 Schema" :name="key(tool)">
+        <ElCollapseItem title="查看已启用输入 Schema" :name="key(tool)">
           <pre>{{ schema(tool) }}</pre>
         </ElCollapseItem>
       </ElCollapse>

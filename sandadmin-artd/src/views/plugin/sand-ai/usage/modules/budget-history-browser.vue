@@ -1,6 +1,6 @@
 <template>
   <ElDrawer v-model="open" title="读取已有预算" size="min(1050px, 96vw)" append-to-body destroy-on-close>
-    <p class="mb-3 text-sm">独立读取已登记范围的预算版本。当前草稿、原保存请求及发布／停用操作继续保留。各维度金额不能相加，未知金额不表示零。</p>
+    <p class="mb-3 text-sm">独立读取已登记范围的预算版本。当前草稿、原保存请求及启用／停用操作继续保留。各维度金额不能相加，未知金额不表示零。</p>
     <template v-if="canRead">
       <ElForm label-position="top" @submit.prevent>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -62,7 +62,7 @@
           <ElDescriptionsItem label="超额方式">{{ selectedPolicy.enforcement === 'hard' ? '硬限制' : '软限制' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="未定价策略">{{ selectedPolicy.unpriced_policy === 'block' ? '阻止调用' : '允许调用' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="未测得用量策略">{{ selectedPolicy.unmeasured_policy === 'hold' ? '保留占额' : '允许调用' }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="发布时间 UTC">{{ selectedPolicy.published_time ?? '未发布' }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="启用时间 UTC">{{ selectedPolicy.published_time ?? '未启用' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="创建时间 UTC">{{ selectedPolicy.create_time }}</ElDescriptionsItem>
           <ElDescriptionsItem label="更新时间 UTC">{{ selectedPolicy.update_time }}</ElDescriptionsItem>
         </ElDescriptions>
@@ -137,7 +137,7 @@
   let policyGeneration = 0
   let summaryGeneration = 0
   const scopeLabel = (kind: BudgetScopeKind) => scopeKinds.find(item => item.value === kind)?.label ?? kind
-  const stateLabel = (state: BudgetPolicy['state']) => ({ draft: '草稿', published: '已发布', archived: '已归档' })[state]
+  const stateLabel = (state: BudgetPolicy['state']) => ({ draft: '草稿', published: '已启用', archived: '已归档' })[state]
   function alertText(value: BudgetSummary): string {
     const labels = { normal: '正常', notice: '额度提醒', warning: '额度警告', exhausted: '额度耗尽' }
     return `正式窗口提醒：${labels[value.alert.level]}；阈值 ${value.alert.threshold_percent === null ? '未提供' : `${value.alert.threshold_percent}%`}。`
@@ -273,7 +273,7 @@
       if (result.active) {
         if (!result.summary) throw new Error('当前预算窗口事实不完整')
         assertSummary(result.summary, scope)
-        if (result.summary.policy.state !== 'published') throw new Error('当前预算未提供已发布版本事实')
+        if (result.summary.policy.state !== 'published') throw new Error('当前预算未提供已启用版本事实')
         activeSummary.value = result.summary
       }
       activeLoaded.value = true

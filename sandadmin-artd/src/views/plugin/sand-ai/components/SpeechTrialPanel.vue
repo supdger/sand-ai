@@ -1,28 +1,28 @@
 <template>
   <ElCard shadow="never" class="speech-trial">
     <template #header><h4>语音合成试用</h4></template>
-    <p class="muted">使用已获 SandIAM 语音合成及结果读取权限的应用凭证。按已发布能力配置选择模型，试用会产生实际费用。</p>
+    <p class="muted">使用已获 SandIAM 语音合成及结果读取权限的应用凭证。按已启用能力配置选择模型，试用会产生实际费用。</p>
     <p class="muted">当前读取作用域：管理员 {{ owner || '待确认' }} · {{ scopeLabel }}。管理员或环境变化后，请重新提供凭证并找回该作用域的原请求。</p>
     <ElForm label-width="110px" @submit.prevent>
-      <RuntimeApiKeyField v-model="apiKey" placeholder="需 sand_ai.audio.speech 和 sand_ai.audio.speech.read 授权" />
+      <RuntimeApiKeyField v-model="apiKey" placeholder="需允许使用“语音合成”和“语音合成结果读取”" />
       <ElFormItem label="朗读文字">
         <ElInput v-model="text" type="textarea" :rows="3" :maxlength="4096" show-word-limit :disabled="busy || postFlight !== null || (hasRecovery && run?.state !== 'prepared')" placeholder="输入要合成语音的文字" />
       </ElFormItem>
       <ElFormItem label="音色标识">
-        <ElInput v-model.trim="voice" maxlength="64" :disabled="busy || postFlight !== null || (hasRecovery && run?.state !== 'prepared')" placeholder="例如 alloy；以已发布服务商支持的标识为准" />
+        <ElInput v-model.trim="voice" maxlength="64" :disabled="busy || postFlight !== null || (hasRecovery && run?.state !== 'prepared')" placeholder="例如 alloy；以已启用服务商支持的标识为准" />
       </ElFormItem>
       <ElFormItem>
         <ElSpace wrap>
           <ElButton type="primary" :loading="busy" :disabled="!canSubmit" @click="submit">
             {{ hasRecovery ? '继续原请求（已确认准备中）' : '生成语音' }}
           </ElButton>
-          <ElButton v-if="recoveryKey" :loading="busy" :disabled="busy || postFlight !== null || !apiKey.trim()" @click="recover">按原请求键只读找回</ElButton>
+          <ElButton v-if="recoveryKey" :loading="busy" :disabled="busy || postFlight !== null || !apiKey.trim()" @click="recover">按请求编号只读找回</ElButton>
           <ElButton v-if="knownPublicId" :loading="busy" :disabled="busy || postFlight !== null || !apiKey.trim()" @click="refresh">读取原运行状态</ElButton>
           <ElButton v-if="run?.state === 'succeeded' && recoveryChecked && !busy && postFlight === null" @click="newTrial">开始新的试用</ElButton>
         </ElSpace>
       </ElFormItem>
     </ElForm>
-    <p v-if="recoveryKey" class="muted">原请求键：{{ recoveryKey }}<template v-if="knownPublicId"> · 原运行号：{{ knownPublicId }}</template></p>
+    <p v-if="recoveryKey" class="muted">请求编号：{{ recoveryKey }}<template v-if="knownPublicId"> · 原运行号：{{ knownPublicId }}</template></p>
     <ElAlert v-if="hasRecovery && !run" type="warning" :closable="false" title="原请求结果尚未确认。使用当前有效凭证只读找回；未找到或拒绝读取不会解除原请求锁，也不会重新合成。" />
     <ElAlert v-if="changedPending && run?.state === 'prepared'" type="warning" :closable="false" title="请恢复原文字和音色才能继续原请求；修改输入不会换请求键。只读找回使用当前有效凭证。" />
     <p v-if="run?.state === 'prepared'" class="muted">仅在只读核对原运行为准备中后，才可明确继续同一个请求；文字和音色须与原请求一致。</p>
@@ -42,9 +42,9 @@
     </template>
     <ElDivider />
     <h4>读取另一个已知语音请求</h4>
-    <p class="muted">填写已保存的原请求键，可补充已知运行号核对结果。读取只查询已有运行与费用，不改变上方试用请求。</p>
+    <p class="muted">填写已保存的请求编号，可补充已知运行号核对结果。读取只查询已有运行与费用，不改变上方试用请求。</p>
     <ElForm label-width="110px" @submit.prevent="readKnownRequest">
-      <ElFormItem label="原请求键">
+      <ElFormItem label="请求编号">
         <ElInput v-model="readerKey" maxlength="512" placeholder="原请求的 Idempotency-Key" />
       </ElFormItem>
       <ElFormItem label="已知运行号">
@@ -62,7 +62,7 @@
       <p>只读请求键：{{ readerTarget?.key }} · 运行号：{{ readerRun.public_id }}</p>
       <p>{{ stateLabel(readerRun.state) }} · {{ readerRun.input_characters }} 字 · 音色：{{ readerRun.voice }}</p>
       <p>计量费用：{{ readerRun.cost ? costLabel(readerRun.cost) : '尚无费用记录，金额未知' }}</p>
-      <p v-if="readerRun.state === 'ambiguous'" class="muted">服务商结果不明，请保留原请求键继续读取状态。</p>
+      <p v-if="readerRun.state === 'ambiguous'" class="muted">服务商结果不明，请保留请求编号继续读取状态。</p>
       <p v-if="readerRun.state === 'awaiting_usage'" class="muted">音频已保存，费用正在入账；完成前不提供下载。</p>
       <ElButton v-if="readerRun.state === 'succeeded'" :loading="readerAudioBusy" :disabled="readerBusy || readerAudioBusy || !apiKey.trim()" @click="loadKnownAudio">读取该运行音频</ElButton>
       <p v-if="readerAudioUrl" class="muted">该运行音频实际格式：{{ readerAudioFormat.toUpperCase() }}；下载名称：{{ readerAudioFilename }}</p>
@@ -188,7 +188,7 @@ function saveRecovery(value: Recovery): void {
     if (sessionStorage.getItem(scope.value) !== raw) throw new Error('恢复记录写入后读取不一致')
     storageError.value = ''
   } catch {
-    storageError.value = '无法保存并确认原请求恢复记录，发送已停止；请保留原请求键'
+    storageError.value = '无法保存并确认原请求恢复记录，发送已停止；请保留请求编号'
     throw new Error(storageError.value)
   }
 }
@@ -199,7 +199,7 @@ async function acceptRun(result: SpeechRun, original: Recovery): Promise<void> {
     || typeof result.voice !== 'string' || !Number.isSafeInteger(result.input_characters) || result.input_characters < 1
     || (original.characters !== undefined && original.characters !== result.input_characters)
     || (original.voiceDigest !== undefined && original.voiceDigest !== await digest(result.voice))) {
-    throw new Error('读取的语音运行与原记录不一致，请保留原请求键核对')
+    throw new Error('读取的语音运行与原记录不一致，请保留请求编号核对')
   }
 }
 async function submit(): Promise<void> {
@@ -264,7 +264,7 @@ function newTrial(): void {
   try {
     sessionStorage.removeItem(scope.value)
     if (sessionStorage.getItem(scope.value) !== null) throw new Error('原恢复记录仍存在')
-  } catch { storageError.value = '无法结束原恢复记录，请保留原请求键'; return }
+  } catch { storageError.value = '无法结束原恢复记录，请保留请求编号'; return }
   epoch++; recovery.value = null; loadingAudio.value = false; run.value = null; recoveryChecked.value = false; releaseAudio()
 }
 watch(apiKey, () => {
@@ -307,7 +307,7 @@ function validateReaderCost(cost: SpeechRun['cost']): void {
     || !(cost.price_revision_id === null || (Number.isSafeInteger(cost.price_revision_id) && cost.price_revision_id > 0))
     || !(cost.metered_amount === null || (typeof cost.metered_amount === 'string' && /^\d+(?:\.\d+)?$/.test(cost.metered_amount)))
     || !(cost.currency === null || (typeof cost.currency === 'string' && /^[A-Z]{3}$/.test(cost.currency)))) {
-    throw new Error('该运行的费用记录无法识别，请保留原请求键核对')
+    throw new Error('该运行的费用记录无法识别，请保留请求编号核对')
   }
 }
 async function readKnown(byPublicId: boolean): Promise<void> {
@@ -329,7 +329,7 @@ async function readKnown(byPublicId: boolean): Promise<void> {
     if (!isCurrent()) return
     readerTarget.value = { key: target.key, publicId: result.public_id }; readerRun.value = result
   } catch (cause) {
-    if (isCurrent()) readerError.value = cause instanceof Error ? cause.message : '已有语音请求读取失败；请保留原请求键'
+    if (isCurrent()) readerError.value = cause instanceof Error ? cause.message : '已有语音请求读取失败；请保留请求编号'
   } finally { if (isCurrent()) readerBusy.value = false }
 }
 async function readKnownRequest(): Promise<void> { await readKnown(false) }

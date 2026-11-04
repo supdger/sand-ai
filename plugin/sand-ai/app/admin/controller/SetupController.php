@@ -20,6 +20,7 @@ use app\Application\Onboarding\OpenAiCompatibleOnboardingClient;
 use app\Application\Onboarding\ProviderConnectionPolicy;
 use app\Application\Onboarding\ProviderGuideCatalog;
 use app\Application\Onboarding\RemoteModelIdentifier;
+use app\Application\Onboarding\ServiceCatalogBootstrapService;
 use app\Application\Onboarding\SolutionGuideCatalog;
 use app\Application\Onboarding\SystemHostResolver;
 use app\Application\Onboarding\VerifiedModelDraftService;
@@ -286,6 +287,33 @@ final class SetupController extends SandAiAdminController
         } catch (ApiProblem $problem) {
             throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), 400);
         }
+    }
+
+    /** Idempotent one-call registration of the base, Skill and audio service declarations. */
+    #[Permission('SandAI 系统准备（登记服务目录）', 'sand_ai:setup:service-catalog:register')]
+    public function bootstrap(Request $request): Response
+    {
+        if ($request->post() !== []) {
+            throw new ApiException('SAND_AI_VALIDATION_ERROR: setup bootstrap accepts an empty body', 400);
+        }
+        $result = (new ServiceCatalogBootstrapService())->bootstrap();
+        if ($result['ready'] === true) {
+            return $this->success([
+                'ready' => true,
+                'service_code' => $result['service_code'],
+                'groups' => $result['groups'],
+            ], '系统准备完成');
+        }
+
+        return json([
+            'code' => 400,
+            'message' => (string) $result['message'],
+            'data' => [
+                'ready' => false,
+                'reason' => $result['reason'],
+                'retryable' => $result['retryable'],
+            ],
+        ], JSON_UNESCAPED_UNICODE);
     }
 
     #[Permission('SandAI 首次开通状态', 'sand_ai:onboarding:read')]

@@ -11,7 +11,7 @@
       <p>结构化抽取：{{ extractionLabel }}</p>
       <p v-if="profile"
         >当前能力档：{{ profile.name }} · 修订 {{ profile.revision }} ·
-        {{ profile.state === 'published' ? '已发布' : '尚未发布' }}</p
+        {{ profile.state === 'published' ? '已启用' : '尚未启用' }}</p
       >
       <p v-if="missingPermissions.length"
         >缺少{{ missingPermissions.join('、') }}材料处理能力权限，请联系平台管理员。</p
@@ -31,7 +31,7 @@
         :closable="false"
       />
       <ElAlert v-if="pending" type="warning" :closable="false"
-        :title="`原${pending.action === 'save' ? '保存' : '发布'}结果待确认：环境 ${pending.environment_id}。只能读取原目标；完整配置匹配仅说明当前状态达到预期，不是原请求收据。`" />
+        :title="`原${pending.action === 'save' ? '保存' : '启用'}结果待确认：环境 ${pending.environment_id}。只能读取原目标；完整配置匹配仅说明当前状态达到预期，不是原请求收据。`" />
       <ElAlert v-if="journalError" :title="journalError" type="warning" :closable="false" />
       <ElForm label-width="150px" @submit.prevent>
         <ElFormItem label="材料内容发送位置">
@@ -47,7 +47,7 @@
         </ElFormItem>
       </ElForm>
       <p v-if="!ready"
-        >所选模型与发送位置的相容性将在保存和发布时由服务端核验。模型的聊天验证不证明材料抽取质量。</p
+        >所选模型与发送位置的相容性将在保存和启用时由服务端核验。模型的聊天验证不证明材料抽取质量。</p
       >
       <ElSpace wrap>
         <ElButton :disabled="!canSave" :loading="busy === 'save'" @click="save"
@@ -58,7 +58,7 @@
           :disabled="!canPublish"
           :loading="busy === 'publish'"
           @click="publish"
-          >发布材料处理能力</ElButton
+          >启用材料处理能力</ElButton
         >
         <ElButton :disabled="Boolean(busy) || writeFlight || !canRead" :loading="busy === 'read'" @click="reload"
           >{{ pending ? '读取原操作状态' : '重新读取状态' }}</ElButton
@@ -69,10 +69,10 @@
         <ElButton @click="emit('professional')">查看专业能力配置</ElButton>
       </ElSpace>
       <p v-if="ready"
-        >材料处理能力已发布，可以运行真实样本。样本仍需要该环境的 SandIAM
+        >材料处理能力已启用，可以运行真实样本。样本仍需要该环境的 SandIAM
         工作负载身份、已解析私有文件和真实材料快照。</p
       >
-      <p v-else>先保存并发布材料处理能力，再继续下方材料配置和真实样本。</p>
+      <p v-else>先保存并启用材料处理能力，再继续下方材料配置和真实样本。</p>
     </template>
   </div>
 </template>
@@ -111,7 +111,7 @@
       .filter((action) => !hasAuth(`sand_ai:setup:capability:${action}`))
       .map(
         (action) =>
-          ({ metadata: '读取能力目录', read: '读取', save: '保存', publish: '发布' })[action]
+          ({ metadata: '读取能力目录', read: '读取', save: '保存', publish: '启用' })[action]
       )
   )
   const profile = ref<SandAiCapabilityProfile | null>(null)
@@ -151,7 +151,7 @@
           .join('、')
       : props.deploymentId && props.extractionDeclared
         ? props.deploymentName
-        : '请先发布声明支持材料抽取的模型，或到专业配置核对历史模型。'
+        : '请先启用声明支持材料抽取的模型，或到专业配置核对历史模型。'
   )
   const registered = computed(() => {
     const parse = metadata.value?.capabilities.document_parse
@@ -457,12 +457,12 @@
         ? '缺少读取材料处理能力权限，请联系平台管理员。'
         : '无法读取完整能力状态，写操作保持锁定。请检查连接或权限后重新读取。'
     if (error instanceof HttpError && (error.code === 401 || error.code === 403))
-      return '缺少读取、保存或发布材料处理能力权限，请联系平台管理员。'
+      return '缺少读取、保存或启用材料处理能力权限，请联系平台管理员。'
     if (revisionConflict(error))
       return '能力档已被其他管理员修改。本地选择仍保留；请重新读取并核对最新路线后再保存。'
     if (rejected(error))
-      return '模型能力或发送策略不相容，请核对支持材料抽取的已发布模型及允许的发送位置。已有配置与本地选择仍保留。'
-    return '结果尚未确认，请重新读取状态后再继续。若仍无法确认，请在专业配置核查；不要重复保存或发布。'
+      return '模型能力或发送策略不相容，请核对支持材料抽取的已启用模型及允许的发送位置。已有配置与本地选择仍保留。'
+    return '结果尚未确认，请重新读取状态后再继续。若仍无法确认，请在专业配置核查；不要重复保存或启用。'
   }
   async function reload(): Promise<void> {
     if (busy.value || writeFlight.value || !canRead.value) return
@@ -492,14 +492,14 @@
       notice.value = saveConflict.value
         ? '已读取最新能力状态，本地发送位置选择仍保留。请比较路线后明确采用最新状态。'
         : pending.value
-        ? '原操作仍未确认。保留原环境与完整配置，仅可继续读取；不会重新保存或发布。'
+        ? '原操作仍未确认。保留原环境与完整配置，仅可继续读取；不会重新保存或启用。'
         : ready.value
-          ? '已从服务端读取当前材料能力已发布；这是当前配置事实，不是原操作收据。'
+          ? '已从服务端读取当前材料能力已启用；这是当前配置事实，不是原操作收据。'
           : profile.value
-            ? '已读取当前能力档；请核对材料模型和发送位置，再保存或发布。'
+            ? '已读取当前能力档；请核对材料模型和发送位置，再保存或启用。'
             : props.deploymentId && props.extractionDeclared
               ? '当前环境尚无材料能力配置。请选择材料内容发送位置，再保存能力草稿。'
-              : '当前环境尚无材料能力配置。请先在上方发布声明支持材料抽取的模型；已有模型可通过“查看专业能力配置”核对。'
+              : '当前环境尚无材料能力配置。请先在上方启用声明支持材料抽取的模型；已有模型可通过“查看专业能力配置”核对。'
     } catch (error) {
       if (!alive || current !== generation) return
       noticeType.value = 'warning'
@@ -581,8 +581,8 @@
       notice.value = pending.value
         ? '保存结果尚未确认，请重新读取状态；不会自动重发。'
         : ready.value
-          ? '已重新读取并确认材料处理能力已发布，可以运行真实样本。'
-          : '当前能力草稿与本次完整配置及下一修订一致，尚未发布；该读取不是原请求收据。'
+          ? '已重新读取并确认材料处理能力已启用，可以运行真实样本。'
+          : '当前能力草稿与本次完整配置及下一修订一致，尚未启用；该读取不是原请求收据。'
     } catch (error) {
       if (!alive || current !== generation) return
       if (phase === 'write' && revisionConflict(error) && pending.value) {
@@ -615,7 +615,7 @@
       if (fingerprint(latestProfile) !== fingerprint(target)) {
         applyRead(latestProfile, environmentId)
         noticeType.value = 'warning'
-        notice.value = '能力档已发生变化，已重新读取。请核对后再发布。'
+        notice.value = '能力档已发生变化，已重新读取。请核对后再启用。'
         return
       }
       persistIntent({
@@ -647,8 +647,8 @@
       applyRead(readProfileResponse(result, environmentId), environmentId)
       noticeType.value = ready.value ? 'success' : 'warning'
       notice.value = ready.value
-        ? '当前原目标修订已发布且完整配置一致，可以运行真实样本；此为当前配置事实。'
-        : '发布结果尚未确认，请重新读取状态；不会自动重发。'
+        ? '当前原目标修订已启用且完整配置一致，可以运行真实样本；此为当前配置事实。'
+        : '启用结果尚未确认，请重新读取状态；不会自动重发。'
     } catch (error) {
       if (!alive || current !== generation) return
       if (phase === 'write' && revisionConflict(error) && pending.value) {

@@ -22,18 +22,18 @@
             >重新读取设置</ElButton
           >
           <ElButton v-if="loaded && !routes.length" @click="emit('configure')"
-            >配置并发布模型与能力路由</ElButton
+            >配置并启用模型与能力路由</ElButton
           >
         </ElSpace>
         <p v-if="loaded && !routes.length">
-          此环境还没有已发布的聊天能力路由。先发布模型连接，并在能力配置中发布目标环境的聊天路由，再回来读取。
+          此环境还没有已启用的聊天能力路由。先启用模型连接，并在能力配置中启用目标环境的聊天路由，再回来读取。
         </p>
         <ElForm v-if="loaded && routes.length" label-width="180px" @submit.prevent>
-          <ElFormItem label="已发布模型路线">
+          <ElFormItem label="已启用模型路线">
             <ElSelect
               v-model="model"
               :disabled="Boolean(busy)"
-              placeholder="选择本环境当前已发布的模型"
+              placeholder="选择本环境当前已启用的模型"
               @change="selectModel"
             >
               <ElOption
@@ -82,7 +82,7 @@
               </ElCollapseItem>
             </ElCollapse>
             <p v-if="!hasExecutionDriver">
-              该路线没有可执行的分词或本地规划驱动，无法设置或启用。请选择受支持的已发布路线，或联系管理员核查模型能力。
+              该路线没有可执行的分词或本地规划驱动，无法设置或启用。请选择受支持的已启用路线，或联系管理员核查模型能力。
             </p>
             <ElSpace
               v-if="!hasExecutionDriver && selection.registration"
@@ -95,7 +95,7 @@
                 @click="changeState(false)"
                 >撤销会议执行</ElButton
               >
-              <span v-if="!canPublish">没有撤销权限，请联系具有模型发布权限的管理员。</span>
+              <span v-if="!canPublish">没有撤销权限，请联系具有模型启用权限的管理员。</span>
             </ElSpace>
             <template v-if="hasExecutionDriver">
               <p>
@@ -220,7 +220,7 @@
                 >
               </ElSpace>
               <p v-if="!canPublish" class="muted">
-                没有启用或撤销权限，请联系具有模型发布权限的管理员。
+                没有启用或撤销权限，请联系具有模型启用权限的管理员。
               </p>
               <p v-else-if="dirty || confirmed" class="muted">
                 表单有待保存的核定内容。先保存停用设置，再启用；不会直接启用未保存的内容。
@@ -409,7 +409,7 @@
     const messages: Record<string, string> = {
       SAND_AI_MEETING_EXECUTION_CONFLICT: '设置或模型路由已变化，请重新读取并核对最新版本。',
       SAND_AI_CONFIGURATION_NOT_PUBLISHED:
-        '当前环境没有可用的已发布路线，请先完成模型与能力路由发布。',
+        '当前环境没有可用的已启用路线，请先完成模型与能力路由启用。',
       SAND_AI_MEETING_TOKENIZER_UNSUPPORTED:
         '此路线没有可执行的分词计数驱动，请重新读取后选择受支持的路线。',
       SAND_AI_MEETING_WORKER_UNAVAILABLE:

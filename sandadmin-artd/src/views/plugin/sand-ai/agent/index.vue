@@ -1,12 +1,12 @@
 <template>
-  <div class="art-full-height">
+  <div class="sand-ai-page">
     <ExpertSelectionHelp />
     <ElCard shadow="never" class="environment-card">
       <div class="environment-row">
-        <div><h2>智能体与渠道</h2><p>先选择应用环境，保存并发布智能体，再试用原版本、查看工具节点与费用。需要临时组合时使用“按次组合试用”。</p></div>
+        <div><h2>智能体配置</h2><p>先选择应用环境，保存并启用智能体，再试用原版本、查看工具节点与费用。需要临时组合时使用“按次组合试用”。</p></div>
         <ElSelect v-model="environmentId" filterable clearable placeholder="选择应用环境" style="width: 300px">
           <ElOption v-for="environment in environments" :key="environment.id"
-            :label="`${environment.name} · ${environment.code}`" :value="environment.id" />
+            :label="environment.name" :value="environment.id" />
         </ElSelect>
         <ElButton :loading="environmentLoading" @click="loadEnvironments(true)">刷新环境</ElButton>
         <ElButton v-if="environmentMore" :loading="environmentLoading" @click="loadEnvironments(false)">更多环境</ElButton>
@@ -14,13 +14,13 @@
       <ElAlert v-if="environmentError" type="error" title="无法读取 SandIAM 应用环境，请检查列表权限" :closable="false" />
     </ElCard>
     <ElAlert type="info" :closable="false" title="按用途进入"
-      description="常用助手：配置模型、已发布知识库与回答要求 → 保存草稿并发布 → 发布版本试用。临时组合：读取凭证可用模型 → 按次组合试用。需要外部资料时可选择已发布的只读工具；工具执行仍需当前凭证获准。业务审批由消费应用处理。" />
+      description="常用助手：配置模型、已启用知识库与回答要求 → 保存草稿并启用 → 启用版本试用。临时组合：读取凭证可用模型 → 按次组合试用。需要外部资料时可选择已启用的只读工具；工具执行仍需当前凭证获准。业务审批由消费应用处理。" />
     <ElTabs v-model="tab" class="agent-tabs">
       <ElTabPane label="AI 工作流" name="workflow"><CompositionWorkflowPanel :key="userStore.info.id" :environment-id="environmentId" /></ElTabPane>
       <ElTabPane label="智能体配置" name="definition"><AgentDefinitionPanel :key="userStore.info.id" :environment-id="environmentId" /></ElTabPane>
       <ElTabPane label="渠道绑定" name="channel"><ChannelBindingPanel :key="userStore.info.id" :environment="selectedEnvironment" /></ElTabPane>
       <ElTabPane label="外部工具配置" name="toolSetup"><ToolSetupPanel :key="userStore.info.id" :environment-id="environmentId" /></ElTabPane>
-      <ElTabPane label="发布版本试用" name="published"><PublishedAgentRunPanel :key="userStore.info.id" :environment-id="environmentId" /></ElTabPane>
+      <ElTabPane label="启用版本试用" name="published"><PublishedAgentRunPanel :key="userStore.info.id" :environment-id="environmentId" /></ElTabPane>
       <ElTabPane label="外部工具试用" name="tool"><ToolTrialPanel :key="userStore.info.id" :environment-id="environmentId" /></ElTabPane>
       <ElTabPane label="按次组合试用" name="run"><AdHocAgentRunPanel :key="userStore.info.id" :environment-id="environmentId" /></ElTabPane>
     </ElTabs>
@@ -28,6 +28,7 @@
 </template>
 
 <script setup lang="ts">
+  import '../components/sandAiPage.css'
   import ExpertSelectionHelp from '../components/ExpertSelectionHelp.vue'
   import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
   import { useUserStore } from '@/store/modules/user'
@@ -64,6 +65,7 @@
       environmentPage = targetPage
       environmentMore.value = targetPage * 100 < result.total
       if (environmentId.value && !environments.value.some(item => item.id === environmentId.value)) environmentId.value = null
+      if (!environmentId.value && environments.value.length === 1 && !environmentMore.value) environmentId.value = environments.value[0].id
     } catch {
       if (current === environmentEpoch) environmentError.value = true
     } finally {
