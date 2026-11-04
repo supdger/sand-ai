@@ -257,7 +257,7 @@
           <ElDescriptionsItem label="能力">{{
             capabilityLabel(selected.capability_code)
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="服务动作">{{ selected.service_action }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="能力权限">{{ selected.service_action }}</ElDescriptionsItem>
           <ElDescriptionsItem label="调用开始（UTC）" :span="2">{{
             selected.call_started_at
           }}</ElDescriptionsItem>
@@ -294,7 +294,7 @@
         </ElDescriptions>
         <p class="mt-3 text-sm text-gray-500">
           此处只读既有费用事实，不重新发起验证。管理员验证计量与应用环境业务计量分开；
-          费用记录不证明模型验证或发布成功，计量金额也不证明现金已支付或已退款。
+          费用记录不证明模型验证或启用成功，计量金额也不证明现金已支付或已退款。
         </p>
       </template>
     </ElDrawer>

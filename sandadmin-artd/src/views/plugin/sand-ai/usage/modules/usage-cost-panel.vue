@@ -15,7 +15,7 @@
           <el-select v-model="searchForm.environment_id" clearable filterable class="!w-full"
             :loading="scopeLoading" placeholder="全部可读取环境">
             <el-option v-for="environment in allowedScope?.environments ?? []" :key="environment.id"
-              :value="environment.id" :label="`${environment.name || environment.code}（${environment.id}）`" />
+              :value="environment.id" :label="environment.name || environment.code" />
           </el-select>
         </el-form-item>
       </el-col>
@@ -31,11 +31,11 @@
         </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="12" :md="8" :lg="6">
-        <el-form-item label="服务动作" prop="service_action">
+        <el-form-item label="能力权限" prop="service_action">
           <el-input
             v-model="searchForm.service_action"
             clearable
-            placeholder="如 sand_ai.chat.complete"
+            placeholder="按能力权限筛选"
           />
         </el-form-item>
       </el-col>
@@ -84,7 +84,7 @@
       </el-col>
     </sa-search-bar>
 
-    <p class="mb-3 text-sm text-gray-500">服务：SandAI（sand_ai）。服务动作是该服务内的调用类型；环境留空时显示当前管理员正式可读取环境范围的小计，不代表组织或应用全部历史费用；停用环境按正式历史读取权限纳入。</p>
+    <p class="mb-3 text-sm text-gray-500">服务：SandAI（sand_ai）。能力权限是该服务内的调用类型；环境留空时显示当前管理员正式可读取环境范围的小计，不代表组织或应用全部历史费用；停用环境按正式历史读取权限纳入。</p>
     <ElAlert v-if="scopeError" :title="scopeError" type="error" :closable="false" class="mb-3" />
     <ElButton v-if="scopeError" size="small" @click="loadScopes">重试读取允许环境</ElButton>
     <ElCard v-if="canEvents || canSummary" class="mb-3" shadow="never">
@@ -271,7 +271,7 @@
           <ElSelect v-model="summaryDimension" class="w-44">
             <ElOption label="应用" value="by_application" />
             <ElOption label="服务" value="by_service" />
-            <ElOption label="服务动作" value="by_service_action" />
+            <ElOption label="能力权限" value="by_service_action" />
             <ElOption label="能力" value="by_capability" />
             <ElOption label="模型" value="by_model" />
             <ElOption label="服务商" value="by_provider" />
@@ -749,7 +749,7 @@
           minWidth: 160,
           formatter: (row: SandAiUsage) => sourceLabel(row.source_kind)
         },
-        { prop: 'service_action', label: '服务动作', minWidth: 190 },
+        { prop: 'service_action', label: '能力权限', minWidth: 190 },
         { prop: 'capability_code', label: '能力', width: 130 },
         {
           prop: 'provider_id',

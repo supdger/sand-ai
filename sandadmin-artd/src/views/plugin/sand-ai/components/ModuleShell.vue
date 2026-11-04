@@ -1,6 +1,6 @@
 <template>
-  <div class="art-full-height">
-    <ElCard class="art-table-card" shadow="never">
+  <div class="sand-ai-page">
+    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
       <div class="module-shell">
         <div class="module-shell__header">
           <h2 class="module-shell__title">{{ title }}</h2>
@@ -15,6 +15,7 @@
 </template>
 
 <script setup lang="ts">
+  import './sandAiPage.css'
   defineProps<{
     title: string
     description?: string

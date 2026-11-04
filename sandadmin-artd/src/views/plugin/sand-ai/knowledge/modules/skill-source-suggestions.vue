@@ -1,7 +1,7 @@
 <template>
   <ElCollapse>
     <ElCollapseItem title="从获授权来源提炼方法建议" name="suggestions">
-      <p>先选择固定知识版本并填写消费后端提供的资料复用确认。生成单独计费，建议必须人工采用为草稿，再进行案例评测与发布。</p>
+      <p>先选择固定知识版本并填写消费后端提供的资料复用确认。生成单独计费，建议必须人工采用为草稿，再进行案例评测与启用。</p>
       <ElForm label-width="120px" @submit.prevent>
         <ElFormItem label="固定知识版本">
           <ElSelect v-model="sourceId" :disabled="busy || blocked" placeholder="选择当前范围开放的版本">
@@ -13,7 +13,7 @@
           <ElInput v-model="query" type="textarea" maxlength="500" show-word-limit :disabled="busy || blocked" />
         </ElFormItem>
         <ElFormItem label="聊天模型代码">
-          <ElInput v-model="model" placeholder="管理员已发布的正式模型代码" :disabled="busy || blocked" />
+          <ElInput v-model="model" placeholder="管理员已启用的正式模型代码" :disabled="busy || blocked" />
         </ElFormItem>
         <ElFormItem label="复用确认引用">
           <ElInput v-model="reuseDeclaration" type="textarea"
@@ -68,7 +68,7 @@
               清理建议内容
             </ElButton>
           </ElSpace>
-          <p>采用只保存草稿，不判定案例、不发布。请检查下方名称、指令、输入与输出结构，并保持原固定知识版本。</p>
+          <p>采用只保存草稿，不判定案例、不启用。请检查下方名称、指令、输入与输出结构，并保持原固定知识版本。</p>
         </template>
       </template>
     </ElCollapseItem>
@@ -126,7 +126,7 @@
   }
   function statusLabel(state: string): string {
     return ({ generating: '原请求正在生成，尚无人工可采用结果', pending_review: '建议待人工审阅',
-      adopted: '建议已采用为草稿，仍须案例评测和发布', failed: '原请求失败，费用事实保留',
+      adopted: '建议已采用为草稿，仍须案例评测和启用', failed: '原请求失败，费用事实保留',
       content_purged: '建议内容已清理，不能再采用' } as Record<string, string>)[state] ?? state
   }
   function accountingLabel(state: string): string {

@@ -6,7 +6,7 @@
     <ElForm v-if="ready && !pending" label-position="top" @submit.prevent="save">
       <ElFormItem label="分析模式"><ElInput :model-value="legalModes[draft.code]" disabled /></ElFormItem>
       <ElFormItem label="名称"><ElInput v-model.trim="draft.name" :disabled="busy" maxlength="160" /></ElFormItem>
-      <ElFormItem label="版本"><ElInput v-model.trim="draft.version" :disabled="busy || !!profile" maxlength="32" placeholder="例如 1.0.1；已发布版本须另建新版本" /></ElFormItem>
+      <ElFormItem label="版本"><ElInput v-model.trim="draft.version" :disabled="busy || !!profile" maxlength="32" placeholder="例如 1.0.1；已启用版本须另建新版本" /></ElFormItem>
       <ElFormItem label="输出语言"><ElSelect v-model="draft.output_language" :disabled="busy"><ElOption label="简体中文" value="zh-CN" /><ElOption label="English" value="en" /></ElSelect></ElFormItem>
       <ElFormItem label="输入字符上限"><ElInputNumber v-model="draft.max_prompt_characters" :disabled="busy" :min="1000" :max="200000" :precision="0" /></ElFormItem>
       <ElFormItem label="输出字符上限"><ElInputNumber v-model="draft.max_output_characters" :disabled="busy" :min="1000" :max="500000" :precision="0" /></ElFormItem>

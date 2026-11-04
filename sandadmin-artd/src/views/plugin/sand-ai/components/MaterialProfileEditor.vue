@@ -1,7 +1,7 @@
 <template>
   <section class="material-editor">
     <h3>材料整理配置</h3>
-    <p class="muted">配置归属所选 SandIAM 环境。保存后仍需运行真实样本并发布，应用才能调用。</p>
+    <p class="muted">配置归属所选 SandIAM 环境。保存后仍需运行真实样本并启用，应用才能调用。</p>
     <ElAlert v-if="message" :title="message" :type="messageType" :closable="false" show-icon class="notice" />
     <ElAlert v-if="operationFlight" title="原配置操作仍在提交中，切换环境或登录身份不会取消已发出的请求。提交结束后按原目标只读找回。" type="info" :closable="false" class="notice" />
     <template v-if="environmentId">
@@ -13,7 +13,7 @@
         <p class="muted">此读取只证明固定版本的当前状态，不是原操作回执。未找到、拒绝读取或状态不符时保留原目标，不再次发送撤销。</p>
       </section>
       <ElAlert v-if="intentStorageError" type="warning" :closable="false" class="notice"
-        title="原配置操作记录无法确认，暂不保存、发布或撤销。请恢复会话存储后重读原目标。" />
+        title="原配置操作记录无法确认，暂不保存、启用或撤销。请恢复会话存储后重读原目标。" />
       <section v-if="draftSaveIntent" class="notice">
         <p>原保存目标：{{ draftSaveIntent.code }} · {{ draftSaveIntent.profile_version }}；
           保存前修订 {{ draftSaveIntent.expected_revision ?? '无（新建）' }}。</p>
@@ -25,11 +25,11 @@
         <p class="muted">只核对原版本当前修订及内容摘要，不是原请求回执。未找到、内容不符或读取失败均保留原保存目标，不会再次保存。</p>
       </section>
       <section v-if="publicationIntent" class="notice">
-        <p>原发布目标：{{ publicationIntent.code }} · {{ publicationIntent.version }} · 修订 {{ publicationIntent.revision }} · 样本 #{{ publicationIntent.sample_run_id }}。</p>
-        <ElButton :loading="publicationReading" :disabled="publicationReading || busy || operationFlight" @click="readOriginalPublication">读取原发布目标</ElButton>
+        <p>原启用目标：{{ publicationIntent.code }} · {{ publicationIntent.version }} · 修订 {{ publicationIntent.revision }} · 样本 #{{ publicationIntent.sample_run_id }}。</p>
+        <ElButton :loading="publicationReading" :disabled="publicationReading || busy || operationFlight" @click="readOriginalPublication">读取原启用目标</ElButton>
         <p v-if="publicationObserved">原版本当前状态：{{ stateLabel(publicationObserved.state) }} · 修订 {{ publicationObserved.revision }}。</p>
-        <ElButton v-if="originalPublicationConfirmed" :disabled="publicationReading || busy || operationFlight" @click="confirmOriginalPublication">确认原配置已发布</ElButton>
-        <p class="muted">仅核对原代码、版本、修订和样本；未找到、草稿或读取失败不证明原发布未发生，不会自动再次发布。</p>
+        <ElButton v-if="originalPublicationConfirmed" :disabled="publicationReading || busy || operationFlight" @click="confirmOriginalPublication">确认原配置已启用</ElButton>
+        <p class="muted">仅核对原代码、版本、修订和样本；未找到、草稿或读取失败不证明原启用未发生，不会自动再次启用。</p>
       </section>
       <ElButton v-if="intentStorageError" :disabled="busy || operationFlight || publicationReading" @click="loadOriginalIntents">重读原操作记录</ElButton>
       <ElSpace wrap class="toolbar">
@@ -45,7 +45,7 @@
       </ElSpace>
       <ElAlert v-if="versionOrigin" type="info" :closable="false"
         :title="`已复制 ${versionOrigin.code} · ${versionOrigin.version} 的配置，请核对新版本号并保存草稿。`"
-        description="新版本需要自己的成功样本，保存后可在本页继续试用与发布。" />
+        description="新版本需要自己的成功样本，保存后可在本页继续试用与启用。" />
       <ElAlert v-else-if="state !== 'draft'" type="info" :closable="false"
         :title="`${stateLabel(state)}版本已固定。需要调整时，选择「复制为新版本」。`" />
       <ElForm label-width="120px" class="form" @submit.prevent>
@@ -81,7 +81,7 @@
             </ElSelect>
             <ElButton :disabled="busy || operationFlight || samplesBusy" @click="loadSamples">刷新样本</ElButton>
           </ElSpace>
-          <span class="muted">由已授权应用运行当前草稿修订的样本。这里仅列出最近完成的候选，发布时仍会核对成果、授权归属和计量。</span>
+          <span class="muted">由已授权应用运行当前草稿修订的样本。这里仅列出最近完成的候选，启用时仍会核对成果、授权归属和计量。</span>
           <span v-if="hasUnsavedChanges" class="muted">当前编辑内容尚未保存。保存后请重新运行样本。</span>
         </ElFormItem>
         <ElFormItem>
@@ -90,16 +90,16 @@
             <ElButton type="primary" v-permission="'sand_ai:setup:material-profile:save'" :loading="busy"
               :disabled="locked || !canSave" @click="save">保存草稿</ElButton>
             <ElButton v-if="state === 'draft' && revision !== null" v-permission="'sand_ai:setup:material-profile:publish'"
-              type="success" :disabled="busy || operationFlight || !canPublish" @click="publish">核验样本并发布</ElButton>
+              type="success" :disabled="busy || operationFlight || !canPublish" @click="publish">核验样本并启用</ElButton>
             <ElButton v-if="state === 'published'" v-permission="'sand_ai:setup:material-profile:revoke'"
-              type="danger" plain :disabled="busy || operationFlight || !!publicationIntent || !!revocationIntent || !!draftSaveIntent || intentStorageError" @click="revoke">撤销发布</ElButton>
+              type="danger" plain :disabled="busy || operationFlight || !!publicationIntent || !!revocationIntent || !!draftSaveIntent || intentStorageError" @click="revoke">撤销启用</ElButton>
           </ElSpace>
         </ElFormItem>
         <ElAlert v-if="validationMessage" :title="validationMessage"
           type="warning" :closable="false" />
       </ElForm>
       <p class="muted">整理成果包含文档分类与标题、实体、事件、冲突、待核实项及扩展字段；每项可回到材料来源。
-        保存的代码、版本和修订决定本次样本使用哪份配置；已发布版本供应用按代码和版本调用。</p>
+        保存的代码、版本和修订决定本次样本使用哪份配置；已启用版本供应用按代码和版本调用。</p>
       <MaterialSampleRunner
         v-if="runnerTarget && typeof environmentId === 'number'"
         :environment-id="environmentId"
@@ -311,7 +311,7 @@ async function confirmOriginalDraftSave(): Promise<void> {
     draftSaveFingerprint.value = null
     intentStorageError.value = false
     applySavedDraft(observed)
-    message.value = '已确认原目标当前配置已保存；草稿仍需运行该修订的样本后发布。'
+    message.value = '已确认原目标当前配置已保存；草稿仍需运行该修订的样本后启用。'
     messageType.value = 'success'
     await loadList()
     if (state.value === 'draft') await loadSamples()
@@ -333,12 +333,12 @@ async function readOriginalPublication(): Promise<void> {
       || !Number.isSafeInteger(profile.id) || profile.id < 1 || !Number.isSafeInteger(profile.revision) || profile.revision < 1) throw new Error('原配置身份未能确认')
     publicationObserved.value = { state: profile.state, revision: profile.revision, sample_run_id: profile.sample_run_id }
     message.value = originalPublicationConfirmed.value
-      ? '原修订及原样本对应的配置当前已发布，请明确确认后继续。'
-      : '已读取原版本的当前状态；与原修订或原样本不一致时保留原发布目标，不会重复发布。'
+      ? '原修订及原样本对应的配置当前已启用，请明确确认后继续。'
+      : '已读取原版本的当前状态；与原修订或原样本不一致时保留原启用目标，不会重复启用。'
     messageType.value = 'warning'
   } catch {
     if (current === publicationReadGeneration && identity === originalIntentEpoch && publicationIntent.value === intent) {
-      message.value = '无法确认原发布目标。保留原环境、代码、版本、修订和样本，读取失败不会释放原操作。'
+      message.value = '无法确认原启用目标。保留原环境、代码、版本、修订和样本，读取失败不会释放原操作。'
       messageType.value = 'warning'
     }
   } finally { if (current === publicationReadGeneration && identity === originalIntentEpoch) publicationReading.value = false }
@@ -349,8 +349,8 @@ async function confirmOriginalPublication(): Promise<void> {
   if (!intent || !originalPublicationConfirmed.value || busy.value || publicationReading.value) return
   const current = generation
   try {
-    await ElMessageBox.confirm(`确认原环境 ${intent.environment_id} 中 ${intent.code} · ${intent.version} 的修订 ${intent.revision}，样本 #${intent.sample_run_id} 当前已经发布？`,
-      '确认原发布目标', { confirmButtonText: '确认已发布', cancelButtonText: '保留原目标', type: 'warning' })
+    await ElMessageBox.confirm(`确认原环境 ${intent.environment_id} 中 ${intent.code} · ${intent.version} 的修订 ${intent.revision}，样本 #${intent.sample_run_id} 当前已经启用？`,
+      '确认原启用目标', { confirmButtonText: '确认已启用', cancelButtonText: '保留原目标', type: 'warning' })
   } catch { return }
   if (current !== generation || publicationIntent.value !== intent || !originalPublicationConfirmed.value
     || intent.admin_id !== Number(userStore.info.id) || intent.environment_id !== props.environmentId) return
@@ -360,7 +360,7 @@ async function confirmOriginalPublication(): Promise<void> {
     publicationObserved.value = null
     intentStorageError.value = false
     selected.value = `${intent.code}@${intent.version}`
-    message.value = '已确认原配置当前已发布；可继续读取该版本或选择其他配置。'
+    message.value = '已确认原配置当前已启用；可继续读取该版本或选择其他配置。'
     messageType.value = 'success'
     await loadList()
   } catch { intentStorageError.value = true }
@@ -495,7 +495,7 @@ function currentDraftSnapshot(): string {
 }
 
 function stateLabel(value: MaterialProfile['state']): string {
-  return { draft: '草稿', tested: '已试用', published: '已发布', revoked: '已撤销' }[value]
+  return { draft: '草稿', tested: '已试用', published: '已启用', revoked: '已撤销' }[value]
 }
 
 function createNextVersion(): void {
@@ -781,7 +781,7 @@ async function save(): Promise<void> {
     draftSaveFingerprint.value = null
     applySavedDraft(result.profile)
     saved = true
-    message.value = '草稿已保存。请在下方用应用身份运行样本，完成后刷新成功样本并人工发布。'
+    message.value = '草稿已保存。请在下方用应用身份运行样本，完成后刷新成功样本并人工启用。'
     messageType.value = 'success'
   } catch {
     if (current === generation && identity === originalIntentEpoch) {
@@ -810,9 +810,9 @@ async function publish(): Promise<void> {
   const beforeConfirmation = generation
   try {
     await ElMessageBox.confirm(
-      `确认用样本运行 #${runId} 核验并发布「${name.value} · ${version}」？`,
-      '发布材料整理配置',
-      { type: 'warning', confirmButtonText: '核验并发布', cancelButtonText: '取消' }
+      `确认用样本运行 #${runId} 核验并启用「${name.value} · ${version}」？`,
+      '启用材料整理配置',
+      { type: 'warning', confirmButtonText: '核验并启用', cancelButtonText: '取消' }
     )
   } catch {
     return
@@ -829,7 +829,7 @@ async function publish(): Promise<void> {
     publicationObserved.value = null
   } catch {
     intentStorageError.value = true
-    message.value = '原发布目标无法持久保存，本次尚未发送发布。'
+    message.value = '原启用目标无法持久保存，本次尚未发送启用。'
     messageType.value = 'warning'
     return
   }
@@ -840,18 +840,18 @@ async function publish(): Promise<void> {
     const result = await materialApi.publish(environmentId, code, version, profileRevision, runId)
     if (result.profile.environment_id !== environmentId || result.profile.code !== code || result.profile.version !== version
       || result.profile.revision !== profileRevision || result.profile.sample_run_id !== runId || result.profile.state !== 'published') {
-      throw new Error('原发布响应与冻结目标不一致')
+      throw new Error('原启用响应与冻结目标不一致')
     }
     if (current !== generation) return
     resolveMaterialPublicationIntent(intent)
     publicationIntent.value = null
     publicationObserved.value = null
     state.value = result.profile.state
-    message.value = '样本成果与计量已核验，配置已发布。'
+    message.value = '样本成果与计量已核验，配置已启用。'
     messageType.value = 'success'
   } catch {
     if (current === generation) {
-      message.value = '原发布结果未确认。请读取上方冻结的原版本、修订与样本；不会以当前草稿状态判断未发布或自动再次提交。'
+      message.value = '原启用结果未确认。请读取上方冻结的原版本、修订与样本；不会以当前草稿状态判断未启用或自动再次提交。'
       messageType.value = 'error'
     }
   } finally {

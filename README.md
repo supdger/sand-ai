@@ -103,7 +103,7 @@ SandAI 通过一个 SandPackage ZIP 安装，包含 PHP/Webman 后端、Vue 管�
 
 ### 宿主基础依赖
 
-需要已有的 SandAdmin `>=0.2.3` PostgreSQL 宿主。安装前由宿主管理员通过根 Composer 的正式依赖管理确认 Sand Core 稳定版 `>=0.2.4`、SandPackage 稳定版 `>=0.2.7`；业务插件最低依赖为 SandIAM `>=0.8.4`，随包提供的 `0.8.4` ZIP 与摘要用于确认工件身份。
+需要已有的 SandAdmin `>=0.2.3` PostgreSQL 宿主。安装前由宿主管理员通过根 Composer 的正式依赖管理确认 Sand Core 稳定版 `>=0.2.4`、SandPackage 稳定版 `>=0.2.7`；业务插件最低依赖为 SandIAM `>=0.8.4`，随包提供的 `0.8.5` ZIP 与摘要用于确认工件身份。
 
 SandPackage `0.2.7` 沿用自动安装 IAM 后的加载续接和 CLI 重载修复，并统一完整插件 ZIP 的压缩容量上限为 16 MiB，见[公开发行](https://github.com/supdger/sand-package/releases/tag/0.2.7)。完整候选包超过旧的 5 MiB 上限，安装和恢复须先满足新的 SandPackage 最低条件。这三个产品的版本号分别判断，SandAdmin 的最低宿主声明保持不变。
 
@@ -199,7 +199,7 @@ SandAI 在转写前探测完整的私有音频文件，按向上取整到毫秒�
 
 ### 隔离宿主的输入
 
-为隔离宿主准备时，向包维护者取得确切的 SandAI ZIP 及其可信登记摘要，向宿主运维取得已有的 PostgreSQL 数据库和宿主 URL。当前 [config.json](config.json) 以 `version` 与 `sha256` 标识捆绑的 SandIAM `0.8.4` 工件身份，对应[稳定版 v0.8.4 ZIP](https://github.com/supdger/sand-iam/releases/download/v0.8.4/sand-iam-0.8.4.zip)；这些值只标识一个确切的安装工件，SandAI 要求 SandIAM `>=0.8.4` 且不设上限。请使用匹配的可信依赖捆绑、具备下述能力的稳定 SandPackage 安装器 `>=0.2.7`，以及已核对兼容性的宿主版本。上述任一输入缺失时，在安装前停止。
+为隔离宿主准备时，向包维护者取得确切的 SandAI ZIP 及其可信登记摘要，向宿主运维取得已有的 PostgreSQL 数据库和宿主 URL。当前 [config.json](config.json) 以 `version` 与 `sha256` 标识捆绑的 SandIAM `0.8.5` 工件身份，对应[稳定版 v0.8.5 ZIP](https://github.com/supdger/sand-iam/releases/download/v0.8.5/sand-iam-0.8.5.zip)；这些值只标识一个确切的安装工件，SandAI 要求 SandIAM `>=0.8.4` 且不设上限。请使用匹配的可信依赖捆绑、具备下述能力的稳定 SandPackage 安装器 `>=0.2.7`，以及已核对兼容性的宿主版本。上述任一输入缺失时，在安装前停止。
 
 历史构包与安装证据：
 
@@ -221,7 +221,7 @@ SandPackage 用 `plugin.sandadmin.app.version`（当前冻结运行源报告 `0.
 
 SandAI 另外用 Composer `InstalledVersions` 实现自己的加载守卫：已安装的 Core 必须是稳定版 `>=0.2.4`，已安装的 Package 必须是稳定版 `>=0.2.7`。该加载闸门不是安装器在执行 SQL 前的版本预检。缺失、未知、预发行或版本不足只阻止 SandAI 的路由与 worker 登记，其他插件不受影响。该源码实现未经运行时验证，也没有新增包清单的兼容性字段。最低声明与已知开发基线都不构成当前候选或更高宿主版本的兼容性验收。
 
-捆绑的 SandIAM `0.8.4` 工件仍绑定在 `config.json` 声明的 SHA-256 上，其工件身份不设兼容性上限；SandAI 要求已安装的 SandIAM `>=0.8.4`。早期 SandPackage 安装器把已安装插件版本与捆绑版本做完全相等比较，会拒绝更高的已安装 SandIAM；SandPackage `0.2.13` 把该检查改为 `InstallLogic::installedDependencyMeetsMinimum()` 的最低版本比较，`0.2.14` 修正了大数值字段的比较，因此更高的已安装 SandIAM 现在可以通过，无需降级或重装。捆绑 ZIP 的版本与 SHA-256 仍与已声明的工件身份完全比对。早期的宿主与包结果仅作历史记录。
+捆绑的 SandIAM `0.8.5` 工件仍绑定在 `config.json` 声明的 SHA-256 上，其工件身份不设兼容性上限；SandAI 要求已安装的 SandIAM `>=0.8.4`。早期 SandPackage 安装器把已安装插件版本与捆绑版本做完全相等比较，会拒绝更高的已安装 SandIAM；SandPackage `0.2.13` 把该检查改为 `InstallLogic::installedDependencyMeetsMinimum()` 的最低版本比较，`0.2.14` 修正了大数值字段的比较，因此更高的已安装 SandIAM 现在可以通过，无需降级或重装。捆绑 ZIP 的版本与 SHA-256 仍与已声明的工件身份完全比对。早期的宿主与包结果仅作历史记录。
 
 SandPackage 只检查确切声明的版本，不接受兼容区间。保留的仅源码 `0.7.6` 捆绑是历史升级输入，已从当前安装 ZIP 中排除，不满足当前候选；请先通过 SandIAM 自身的安装器升级，再安装当前 SandAI 候选。
 

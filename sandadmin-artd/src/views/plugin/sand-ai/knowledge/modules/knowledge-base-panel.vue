@@ -4,21 +4,21 @@
       <div class="heading">
         <div>
           <h2>知识库管理</h2>
-          <p>选择已解析的私有文件建立草稿，确认来源就绪后发布。应用访问权限在下方单独开放。</p>
+          <p>选择已解析的私有文件建立草稿，确认来源就绪后启用。应用访问权限在下方单独开放。</p>
         </div>
         <ElButton :loading="loadingEnvironments" @click="loadEnvironments(true)">刷新环境</ElButton>
       </div>
     </template>
     <details class="notice">
       <summary>旧 TXT 来源块过大时，保留历史并建立新知识库</summary>
-      <p>先选择资料所属环境，在下方“准备知识来源”重新上传原 TXT，提交新文件的解析；结果不明时按原请求找回，不重复解析。成功后点击“选用来源”，按新文件号核对来源选择，并使用新的知识库代码建立草稿、发布，再在下方为新版本准备索引。</p>
-      <p>旧发布版本仍引用原文件和原解析。不要用旧文件重新解析、替换旧知识库或解除旧来源引用来恢复大块；停用旧知识库也不会释放已发布来源。新来源和索引不会自动迁移应用开放关系。</p>
+      <p>先选择资料所属环境，在下方“准备知识来源”重新上传原 TXT，提交新文件的解析；结果不明时按原请求找回，不重复解析。成功后点击“选用来源”，按新文件号核对来源选择，并使用新的知识库代码建立草稿、启用，再在下方为新版本准备索引。</p>
+      <p>旧启用版本仍引用原文件和原解析。不要用旧文件重新解析、替换旧知识库或解除旧来源引用来恢复大块；停用旧知识库也不会释放已启用来源。新来源和索引不会自动迁移应用开放关系。</p>
     </details>
     <ElForm label-width="110px" @submit.prevent>
       <ElFormItem label="资料所属环境">
         <ElSelect v-model="environmentId" filterable clearable :disabled="lifecycleBusy" placeholder="选择 SandIAM 环境" style="width: 420px">
           <ElOption v-for="item in environments" :key="item.id"
-            :label="`${item.name} (${item.code})`" :value="item.id" />
+            :label="item.name" :value="item.id" />
         </ElSelect>
         <ElButton v-if="environments.length < environmentTotal" text
           :loading="loadingEnvironments" @click="loadEnvironments(false)">更多环境</ElButton>
@@ -76,15 +76,15 @@
         <ElButton v-if="canSendOriginalDraft()" :disabled="writing || lifecycleBusy || !!pendingPublish" @click="sendOriginalDraft">保存原号后提交本页未发送草稿</ElButton>
       </ElFormItem>
     </ElForm>
-    <ElAlert v-if="pendingPublish" type="warning" :title="rejectedPublish ? '本次已确认未发布' : '原知识发布结果尚未确认'"
-      :description="rejectedPublish ? '草稿快照已变化，正式原请求拒绝回执已找回。请刷新草稿并重新确认。' : '原请求号和快照保留。未找到或无权限不证明原请求没有生效；先只读找回，不再次发布。'" :closable="false" class="notice" />
+    <ElAlert v-if="pendingPublish" type="warning" :title="rejectedPublish ? '本次已确认未启用' : '原知识启用结果尚未确认'"
+      :description="rejectedPublish ? '草稿快照已变化，正式原请求拒绝回执已找回。请刷新草稿并重新确认。' : '原请求号和快照保留。未找到或无权限不证明原请求没有生效；先只读找回，不再次启用。'" :closable="false" class="notice" />
     <ElForm v-if="pendingPublish" label-width="110px" @submit.prevent>
       <ElFormItem label="原知识库号">{{ pendingPublish.knowledgeBaseId }}</ElFormItem>
-      <ElFormItem label="原发布请求号"><ElInput :model-value="pendingPublish.key" readonly /></ElFormItem>
+      <ElFormItem label="原启用请求号"><ElInput :model-value="pendingPublish.key" readonly /></ElFormItem>
       <ElFormItem label="原草稿快照"><ElInput :model-value="pendingPublish.snapshot" readonly /></ElFormItem>
       <ElFormItem><ElSpace wrap>
-        <ElButton :disabled="writing || lifecycleBusy" @click="recoverPublish">只读找回原发布结果</ElButton>
-        <ElButton v-if="canSendOriginalPublish()" :disabled="writing || lifecycleBusy" @click="sendOriginalPublish">保存原号后提交本页未发送发布</ElButton>
+        <ElButton :disabled="writing || lifecycleBusy" @click="recoverPublish">只读找回原启用结果</ElButton>
+        <ElButton v-if="canSendOriginalPublish()" :disabled="writing || lifecycleBusy" @click="sendOriginalPublish">保存原号后提交本页未发送启用</ElButton>
         <ElButton v-if="rejectedPublish" :disabled="writing || lifecycleBusy" @click="refreshRejectedDraft">刷新草稿并重新确认</ElButton>
       </ElSpace></ElFormItem>
     </ElForm>
@@ -118,15 +118,15 @@
       <ElTableColumn label="状态" width="100">
         <template #default="{ row }">
           <ElTag :type="row.state === 'disabled' ? 'info' : row.state === 'published' ? 'success' : 'warning'">
-            {{ row.state === 'disabled' ? '已停用' : row.state === 'published' ? '已发布' : '草稿' }}
+            {{ row.state === 'disabled' ? '已停用' : row.state === 'published' ? '已启用' : '草稿' }}
           </ElTag>
         </template>
       </ElTableColumn>
       <ElTableColumn label="版本" width="140">
         <template #default="{ row }">
           <span v-if="row.draft_version_no">草稿 {{ row.draft_version_no }}</span>
-          <span v-else-if="row.active_version_no">已发布 {{ row.active_version_no }}</span>
-          <span v-else>未发布</span>
+          <span v-else-if="row.active_version_no">已启用 {{ row.active_version_no }}</span>
+          <span v-else>未启用</span>
         </template>
       </ElTableColumn>
       <ElTableColumn label="来源状态" width="130">
@@ -139,7 +139,7 @@
       <ElTableColumn label="操作" width="400">
         <template #default="{ row }">
           <ElButton v-if="row.state !== 'disabled' && row.draft_version_id && row.source_state === 'ready'" link type="primary"
-            :disabled="writing || lifecycleBusy || draftLocked || !!pendingPublish || !row.draft_snapshot_sha256" @click="publish(row)">发布草稿</ElButton>
+            :disabled="writing || lifecycleBusy || draftLocked || !!pendingPublish || !row.draft_snapshot_sha256" @click="publish(row)">启用草稿</ElButton>
           <ElButton v-if="row.state !== 'disabled' && row.draft_version_id" link
             :disabled="writing || lifecycleBusy || draftLocked || !!pendingPublish" @click="replace(row)">重建草稿</ElButton>
           <ElButton v-if="hasDisablePermission && row.state !== 'disabled'" link type="danger"
@@ -438,7 +438,7 @@ function restoreDraft(): void {
     replacingId.value = original.knowledgeBaseId
   } catch {
     draftRecoveryBlocked.value = true
-    error.value = '原草稿请求记录无法读取，已保留记录并停止新草稿或发布；请核对原请求，不要更换请求号。'
+    error.value = '原草稿请求记录无法读取，已保留记录并停止新草稿或启用；请核对原请求，不要更换请求号。'
   }
 }
 function canSendOriginalDraft(): boolean {
@@ -479,7 +479,7 @@ async function finishDraft(original: DraftRecovery, readOnly = false): Promise<v
       ? await knowledgeBaseApi.draftByRequestKey(original.body, original.key, String(actor), original.knowledgeBaseId)
       : await knowledgeBaseApi.createDraft(original.body, original.key, original.knowledgeBaseId)
     if (!isCurrent()) return
-    notice.value = `原草稿请求已确认：知识库 #${result.knowledge_base.id} · 版本 ${result.version.version} · ${result.version.source_count} 个来源块（当前状态：${result.version.state}）。原关联与当前状态已核对，请刷新当前列表核对来源及活动版本后再发布。`
+    notice.value = `原草稿请求已确认：知识库 #${result.knowledge_base.id} · 版本 ${result.version.version} · ${result.version.source_count} 个来源块（当前状态：${result.version.state}）。原关联与当前状态已核对，请刷新当前列表核对来源及活动版本后再启用。`
     try {
       const raw = sessionStorage.getItem(storage)
       const saved = raw === null ? null : readSavedDraft(JSON.parse(raw), original.body.environment_id)
@@ -522,7 +522,7 @@ function restorePublish(): void {
       || typeof item.key !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{7,95}$/.test(item.key)
       || typeof item.snapshot !== 'string' || !/^[a-f0-9]{64}$/.test(item.snapshot)) return
     pendingPublish.value = { environmentId: item.environmentId as number, knowledgeBaseId: item.knowledgeBaseId, key: item.key, snapshot: item.snapshot }
-  } catch { error.value = '无法读取原发布请求，请允许会话存储后刷新，不要重新发布。' }
+  } catch { error.value = '无法读取原启用请求，请允许会话存储后刷新，不要重新启用。' }
 }
 async function recoverPublish(): Promise<void> {
   const original = pendingPublish.value
@@ -549,9 +549,9 @@ async function refreshRejectedDraft(): Promise<void> {
     sessionStorage.removeItem(storage)
     pendingPublish.value = null; rejectedPublish.value = null
     bases.value = result.data; basePage.value = 1; baseTotal.value = result.total
-    notice.value = '原请求已确认未发布。当前草稿已重新读取，请检查版本及来源状态，再明确点击发布草稿。'
+    notice.value = '原请求已确认未启用。当前草稿已重新读取，请检查版本及来源状态，再明确点击启用草稿。'
   } catch (cause) {
-    if (isCurrent()) error.value = `${message(cause)}。原拒绝回执仍保留，尚未开始新发布。`
+    if (isCurrent()) error.value = `${message(cause)}。原拒绝回执仍保留，尚未开始新启用。`
   } finally {
     if (isCurrent()) writingFlag.value = false
   }
@@ -573,8 +573,8 @@ async function sendOriginalPublish(): Promise<void> {
   try {
     const bytes = JSON.stringify(original)
     sessionStorage.setItem(storage, bytes)
-    if (sessionStorage.getItem(storage) !== bytes) throw new Error('原发布记录保存未确认')
-  } catch { error.value = '原发布仍未发送，保存原号读回失败；请允许会话存储后重试。'; return }
+    if (sessionStorage.getItem(storage) !== bytes) throw new Error('原启用记录保存未确认')
+  } catch { error.value = '原启用仍未发送，保存原号读回失败；请允许会话存储后重试。'; return }
   await finishPublish(original, false)
 }
 async function finishPublish(original: PublishRecovery, readOnly: boolean): Promise<void> {
@@ -595,20 +595,20 @@ async function finishPublish(original: PublishRecovery, readOnly: boolean): Prom
     if (!isCurrent()) return
     if (isRejectedPublish(result)) {
       rejectedPublish.value = original
-      notice.value = '本次未发布：原请求的草稿快照已变化。原请求号和拒绝回执保留，请明确刷新草稿并重新确认。'
+      notice.value = '本次未启用：原请求的草稿快照已变化。原请求号和拒绝回执保留，请明确刷新草稿并重新确认。'
       return
     }
     // An already archived version still proves the original publication; it is not the current active version.
-    notice.value = `原发布结果已确认：知识库 #${result.knowledge_base.id} · 版本 ${result.version.version} · ${result.version.source_count} 个来源块（${result.version.state === 'published' ? '已发布' : '当前状态：' + result.version.state}）。应用访问与索引状态请在下方继续配置。`
+    notice.value = `原启用结果已确认：知识库 #${result.knowledge_base.id} · 版本 ${result.version.version} · ${result.version.source_count} 个来源块（${result.version.state === 'published' ? '已启用' : '当前状态：' + result.version.state}）。应用访问与索引状态请在下方继续配置。`
     try {
-      if (sessionStorage.getItem(storage) !== JSON.stringify(original)) throw new Error('原发布记录已变化')
+      if (sessionStorage.getItem(storage) !== JSON.stringify(original)) throw new Error('原启用记录已变化')
       sessionStorage.removeItem(storage)
-      if (sessionStorage.getItem(storage) !== null) throw new Error('原发布记录尚未清除')
+      if (sessionStorage.getItem(storage) !== null) throw new Error('原启用记录尚未清除')
       pendingPublish.value = null; notSubmittedPublish.value = null
-    } catch { error.value = '原发布已确认，但记录清除未确认，原号保留以便只读找回。'; return }
+    } catch { error.value = '原启用已确认，但记录清除未确认，原号保留以便只读找回。'; return }
     await loadBases(1)
   } catch (cause) {
-    if (isCurrent()) error.value = `${message(cause)}。原发布请求号与快照已保留，请只读找回。`
+    if (isCurrent()) error.value = `${message(cause)}。原启用请求号与快照已保留，请只读找回。`
   } finally {
     if (flight !== null && writeFlight.value === flight) writeFlight.value = null
     if (isCurrent()) writingFlag.value = false
@@ -619,7 +619,7 @@ async function publish(row: KnowledgeBaseRow): Promise<void> {
   const storage = publishStorageKey()
   const snapshot = row.draft_snapshot_sha256
   if (!storage || typeof snapshot !== 'string' || !/^[a-f0-9]{64}$/.test(snapshot)) {
-    error.value = '当前草稿快照尚未核实，请刷新知识库后再发布。'
+    error.value = '当前草稿快照尚未核实，请刷新知识库后再启用。'
     return
   }
   const original: PublishRecovery = { environmentId: environmentId.value, knowledgeBaseId: row.id, key: newRuntimeRequestId('knowledge-publish'), snapshot }
@@ -628,10 +628,10 @@ async function publish(row: KnowledgeBaseRow): Promise<void> {
   try {
     const bytes = JSON.stringify(original)
     sessionStorage.setItem(storage, bytes)
-    if (sessionStorage.getItem(storage) !== bytes) throw new Error('原发布记录保存未确认')
+    if (sessionStorage.getItem(storage) !== bytes) throw new Error('原启用记录保存未确认')
     pendingPublish.value = original
     rejectedPublish.value = null
-  } catch { error.value = '无法保存原发布请求号，未发送发布请求；请允许会话存储后重试。'; return }
+  } catch { error.value = '无法保存原启用请求号，未发送启用请求；请允许会话存储后重试。'; return }
   await finishPublish(original, false)
 }
 function lifecycleLabel(action: LifecycleAction): string {
@@ -780,7 +780,7 @@ async function changeLifecycle(row: KnowledgeBaseRow, action: LifecycleAction): 
           ? `停用“${target.name}”后将停止提供检索服务，已有向量会保留。是否停用？`
           : action === 'purge'
             ? `将永久清理“${target.name}”的向量索引数据，此操作不可撤销。若仍有构建或检索正在执行，清理会被阻止。是否继续？`
-            : `解除“${target.name}”的来源引用前，须先撤销所有应用发布并清理向量。操作会删除该知识库的知识问答会话及轮次，并释放来源引用；原始文件须由原所有者另行删除才能清除正文。此操作不可撤销。是否继续？`,
+            : `解除“${target.name}”的来源引用前，须先撤销所有应用启用并清理向量。操作会删除该知识库的知识问答会话及轮次，并释放来源引用；原始文件须由原所有者另行删除才能清除正文。此操作不可撤销。是否继续？`,
         action === 'disable' ? '停用知识库' : action === 'purge' ? '清理向量索引' : '解除来源引用',
         { type: 'warning', confirmButtonText: action === 'disable' ? '确认停用' : action === 'purge' ? '确认清理' : '确认解除', cancelButtonText: '取消' }
       )

@@ -4,11 +4,11 @@
     <p class="muted">用于知识检索候选排序。保存不会调用服务；验证会发送固定的非敏感示例并可能产生费用，记录在平台验证用量。软预算的未定费用调用遵循已配置策略，返回真实用量后结算；硬预算无法证明费用上限时会拒绝发送。</p>
     <ElAlert v-if="message" :title="message" :type="messageType" :closable="false" class="notice" />
     <ElAlert v-if="saveRecoveryKey" type="warning" :closable="false" :title="`原保存请求 ${saveRecoveryKey} 结果尚未确认。凭据已清除，请只读找回原保存结果；此处不会创建新草稿。`" />
-    <p v-if="publicationIntent" class="muted">原发布目标：部署 {{ publicationIntent.deployment_id }} · 修订 {{ publicationIntent.revision }}</p>
+    <p v-if="publicationIntent" class="muted">原启用目标：部署 {{ publicationIntent.deployment_id }} · 修订 {{ publicationIntent.revision }}</p>
     <p v-if="intent" class="muted">原验证请求号：{{ intent.key }} · 部署 {{ intent.deployment_id }} · 修订 {{ intent.revision }}</p>
-    <ElAlert v-if="recoveryBlocked" type="warning" :closable="false" :title="publicationNeedsRead ? '原发布结果尚未确认。只读找回原部署与修订；不会重新发布。' : saveRecoveryKey ? '原保存结果尚未确认。凭据已清除，只读找回原请求；不会重新保存。' : '原验证结果尚未确认。保留原号，只读找回；不会重新发送验证。'" />
-    <ElButton v-permission="'sand_ai:setup:deployment:read'" v-if="recoveryBlocked" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="restore">{{ publicationNeedsRead ? '找回原发布状态' : saveRecoveryKey ? '找回原保存结果' : '找回原验证状态' }}</ElButton>
-    <p class="muted">保存、验证与发布需对应后台权限；缺少操作按钮时，请联系管理员配置权限。此处不会自动开通服务或授权。</p>
+    <ElAlert v-if="recoveryBlocked" type="warning" :closable="false" :title="publicationNeedsRead ? '原启用结果尚未确认。只读找回原部署与修订；不会重新启用。' : saveRecoveryKey ? '原保存结果尚未确认。凭据已清除，只读找回原请求；不会重新保存。' : '原验证结果尚未确认。保留原号，只读找回；不会重新发送验证。'" />
+    <ElButton v-permission="'sand_ai:setup:deployment:read'" v-if="recoveryBlocked" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="restore">{{ publicationNeedsRead ? '找回原启用状态' : saveRecoveryKey ? '找回原保存结果' : '找回原验证状态' }}</ElButton>
+    <p class="muted">保存、验证与启用需对应后台权限；缺少操作按钮时，请联系管理员配置权限。此处不会自动开通服务或授权。</p>
     <ElForm label-width="110px" @submit.prevent>
       <ElFormItem label="专业重排服务"><ElSelect v-model="driver" :disabled="locked"><ElOption label="Cohere 专业重排" value="cohere_rerank" /><ElOption label="Jina 专业重排" value="jina_rerank" /></ElSelect></ElFormItem>
       <ElFormItem label="服务商名称"><ElInput v-model.trim="providerName" maxlength="160" :disabled="locked" /></ElFormItem>
@@ -23,13 +23,13 @@
         <ElSpace wrap>
           <ElButton v-permission="'sand_ai:setup:deployment:verify'" :loading="busy === 'verify'" :disabled="Boolean(busy) || recoveryBlocked || attempted || !processingLocation || state?.state !== 'draft' || Boolean(state?.failure)" @click="verify">验证专业重排连接</ElButton>
           <ElButton v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="read">读取配置与修订状态</ElButton>
-          <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'publish'" :disabled="Boolean(busy) || recoveryBlocked || publicationNeedsRead || state?.state !== 'tested' || !state.validation_evidence" @click="publish">发布专业重排部署</ElButton>
+          <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'publish'" :disabled="Boolean(busy) || recoveryBlocked || publicationNeedsRead || state?.state !== 'tested' || !state.validation_evidence" @click="publish">启用专业重排部署</ElButton>
         </ElSpace>
         <p v-if="state?.validation_evidence" class="muted">本次验证计量：{{ state.validation_evidence.rerank_quantity ?? '服务商未提供' }} {{ state.validation_evidence.rerank_meter_code === 'rerank_search_units' ? '搜索单位' : '重排 Token' }}；Token 拆分不适用于专业重排。</p>
         <p v-if="state?.state === 'tested'" class="muted">仅证明一次专业重排响应与来源映射有效；排序质量、实际业务与服务商账单仍需验收。</p>
-        <p v-if="publicationNeedsRead" class="muted">发布结果未确认，请读取原部署状态；读取不会重新发布。</p>
+        <p v-if="publicationNeedsRead" class="muted">启用结果未确认，请读取原部署状态；读取不会重新启用。</p>
         <template v-if="draft.state === 'published' && state?.state === 'published' && !recoveryBlocked">
-          <p>此部署已发布。请在目标环境选择“专业重排”能力路由并发布能力档，再到应用知识检索显式选择专业重排。SandIAM 授权需单独配置。</p>
+          <p>此部署已启用。请在目标环境选择“专业重排”能力路由并启用能力档，再到应用知识检索显式选择专业重排。SandIAM 授权需单独配置。</p>
           <ElButton @click="router.push('/sand-ai/capability')">配置专业重排能力路由</ElButton>
           <ElButton @click="router.push('/sand-ai/knowledge')">进入知识管理</ElButton>
         </template>
@@ -79,7 +79,7 @@ const message = ref('')
 const messageType = ref<'success' | 'warning' | 'error'>('warning')
 let generation = 0
 let active = true
-const labels = { draft: '草稿', verifying: '验证中', tested: '已验证', verification_ambiguous: '验证结果未确认', published: '已发布' }
+const labels = { draft: '草稿', verifying: '验证中', tested: '已验证', verification_ambiguous: '验证结果未确认', published: '已启用' }
 const stateLabel = computed(() => state.value ? labels[state.value.state] : '草稿')
 const recoveryBlocked = computed(() => pending.value || storageError.value || Boolean(saveRecoveryKey.value) || publicationNeedsRead.value || publicationFlight.value || verifyFlight.value !== null || saveFlight.value !== null)
 const locked = computed(() => Boolean(busy.value || saveAttempt.value || draft.value || recoveryBlocked.value))
@@ -194,7 +194,7 @@ async function restore(): Promise<void> {
     if (publication) {
       publicationIntent.value = publication; publicationNeedsRead.value = true; attempted.value = true; busy.value = 'read'
       await exact(publication, current)
-      if (current === generation) notice(publicationNeedsRead.value ? '原发布结果尚未确认，请继续只读找回原部署与修订；不会重新发布。' : '原部署与修订已确认发布，请继续配置目标环境的能力路由。', publicationNeedsRead.value ? 'warning' : 'success')
+      if (current === generation) notice(publicationNeedsRead.value ? '原启用结果尚未确认，请继续只读找回原部署与修订；不会重新启用。' : '原部署与修订已确认启用，请继续配置目标环境的能力路由。', publicationNeedsRead.value ? 'warning' : 'success')
       return
     }
     if (publicationNeedsRead.value) throw new Error('Original publication disappeared')
@@ -211,7 +211,7 @@ async function restore(): Promise<void> {
       if (current !== generation || saveRecoveryKey.value !== key) return
       sessionStorage.removeItem(saveNamespace()); saveRecoveryKey.value = ''; expectedSave.value = null; saveAttempt.value = null; storageError.value = false
       attempted.value = state.value?.state !== 'draft' || Boolean(state.value?.failure)
-      notice('原请求的已提交保存记录与固定修订已找回；当前验证或发布状态另行读取。请明确选择后续操作，不会自动调用。', 'success')
+      notice('原请求的已提交保存记录与固定修订已找回；当前验证或启用状态另行读取。请明确选择后续操作，不会自动调用。', 'success')
       return
     }
     const original = stored()
@@ -219,7 +219,7 @@ async function restore(): Promise<void> {
     intent.value = original; pending.value = true; attempted.value = true; storageError.value = false; busy.value = 'read'
     await exact(original, current)
     if (current === generation) notice(pending.value ? '原验证仍未确认，请保留原号继续只读核查。' : '原验证已读回，可按当前修订状态继续。', pending.value ? 'warning' : 'success')
-  } catch (error) { if (current === generation) { clearDenied(error); storageError.value = true; notice(publicationNeedsRead.value ? '原发布记录读取失败或尚无回执。保留原部署与修订，只读找回，不会重新发布。' : '原记录读取失败或尚无回执。保留原号，不会换号发送。') } }
+  } catch (error) { if (current === generation) { clearDenied(error); storageError.value = true; notice(publicationNeedsRead.value ? '原启用记录读取失败或尚无回执。保留原部署与修订，只读找回，不会重新启用。' : '原记录读取失败或尚无回执。保留原号，不会换号发送。') } }
   finally { if (current === generation) busy.value = '' }
 }
 async function save(): Promise<void> {
@@ -315,7 +315,7 @@ async function verify(): Promise<void> {
     if (result.deployment_id !== target.deployment_id || result.revision !== target.revision || result.state !== 'tested' || !result.validation_evidence) throw new Error('Original result differs')
     state.value = result; resolve(original); await exact(target, current)
     if (current !== generation) return
-    notice('固定样本的专业重排向量结构验证通过，可发布此修订。', 'success')
+    notice('固定样本的专业重排向量结构验证通过，可启用此修订。', 'success')
   } catch (error) { if (current === generation) { clearDenied(error); if (error instanceof HttpError && [401, 403].includes(error.code)) { notice('当前权限拒绝读取，旧结果和凭据已清除；原请求号保留，不会重发。'); return } try { await exact(target, current) } catch (readError) { clearDenied(readError) /* Keep original intent locked. */ } notice(pending.value ? '原验证结果未确认，请用原号只读找回；不会重发。' : '原状态已读回，请按当前修订状态继续。') } }
   finally {
     if (verifyFlight.value === flight) {
@@ -337,7 +337,7 @@ async function publish(): Promise<void> {
     if (!saved || !samePublication(saved, original)) throw new Error('Original publication unavailable')
     publicationIntent.value = original; publicationNeedsRead.value = true
   } catch {
-    storageError.value = true; notice('无法保留原发布目标，本次尚未发送。恢复会话记录后再继续。'); return
+    storageError.value = true; notice('无法保留原启用目标，本次尚未发送。恢复会话记录后再继续。'); return
   }
   busy.value = 'publish'; publicationFlight.value = true
   try {
@@ -347,8 +347,8 @@ async function publish(): Promise<void> {
     const confirmed = await exact(target, current)
     if (current !== generation) return
     if (!confirmed || publicationNeedsRead.value || confirmed.detail.state !== 'published' || confirmed.verification.state !== 'published' || !confirmed.verification.validation_evidence) throw new Error('Publication unconfirmed')
-    notice('专业重排部署已发布，请继续配置目标环境的能力路由。', 'success')
-  } catch (error) { if (current === generation) { clearDenied(error); publicationNeedsRead.value = true; notice('发布结果未确认，请只读核对原部署与修订状态；不会重新发布。') } }
+    notice('专业重排部署已启用，请继续配置目标环境的能力路由。', 'success')
+  } catch (error) { if (current === generation) { clearDenied(error); publicationNeedsRead.value = true; notice('启用结果未确认，请只读核对原部署与修订状态；不会重新启用。') } }
   finally {
     publicationFlight.value = false
     if (current === generation) busy.value = ''

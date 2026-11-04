@@ -225,6 +225,9 @@ Route::group('/app/sand-ai/admin/setup/service-catalog', function (): void {
     Route::get('/audio/preflight', [SetupController::class, 'audioServiceCatalogPreflight']);
     Route::post('/audio/register', [SetupController::class, 'audioServiceCatalogRegister']);
 })->middleware([CheckLogin::class, CheckAuth::class]);
+Route::group('/app/sand-ai/admin/setup', function (): void {
+    Route::post('/bootstrap', [SetupController::class, 'bootstrap']);
+})->middleware([CheckLogin::class, CheckAuth::class]);
 Route::group('/app/sand-ai/admin/setup/meeting-execution', function (): void {
     Route::get('/read', [\plugin\SandAi\app\admin\controller\MeetingExecutionController::class, 'read']);
     Route::post('/register', [\plugin\SandAi\app\admin\controller\MeetingExecutionController::class, 'register']);

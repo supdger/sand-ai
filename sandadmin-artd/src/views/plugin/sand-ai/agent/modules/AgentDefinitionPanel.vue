@@ -4,7 +4,7 @@
       <div class="panel-head">
         <div>
           <h3>智能体配置</h3>
-          <p>选择资料和模型，说明回答要求，再保存并发布。应用和渠道使用同一份配置。</p>
+          <p>选择资料和模型，说明回答要求，再保存并启用。应用和渠道使用同一份配置。</p>
         </div>
         <ElButton :disabled="!environmentId" :loading="loading" @click="load(1)">刷新</ElButton>
       </div>
@@ -18,7 +18,7 @@
         title="其他环境或身份存在未确认变更" description="请切回原应用环境，使用原管理员身份沿原请求号找回；页面刷新与身份切换不会删除原请求锁。" />
       <section v-if="currentRecoveries.length" class="notice" aria-label="智能体变更恢复">
         <ElAlert type="warning" :closable="false" title="智能体变更提交结果尚未确认"
-          description="保存、发布、停用和回退使用同一智能体变更锁。只沿原请求号读取受理回执；未找到或无权读取时仍保留锁，不重新提交。当前配置以找回后重新读取的结果为准。" />
+          description="保存、启用、停用和回退使用同一智能体变更锁。只沿原请求号读取受理回执；未找到或无权读取时仍保留锁，不重新提交。当前配置以找回后重新读取的结果为准。" />
         <p v-for="item in currentRecoveries" :key="item.key">
           {{ item.code }} · {{ operationLabel(item.operation) }}{{ item.rollback_version ? ` · 第 ${item.rollback_version} 版` : '' }}
           <ElButton link type="primary" :loading="operationRecoveringKey === item.key" :disabled="writing || Boolean(operationRecoveringKey)" @click="recoverOperation(item)">沿原请求号找回</ElButton>
@@ -28,10 +28,10 @@
       <ElTable v-loading="loading" :data="rows" row-key="agent_definition_id" empty-text="还没有智能体配置">
         <ElTableColumn label="名称" prop="name" min-width="170" />
         <ElTableColumn label="代码" prop="code" min-width="150" />
-        <ElTableColumn label="已发布版本" min-width="125">
-          <template #default="{ row }">{{ row.active_version_no ? `第 ${row.active_version_no} 版` : '未发布' }}</template>
+        <ElTableColumn label="已启用版本" min-width="125">
+          <template #default="{ row }">{{ row.active_version_no ? `第 ${row.active_version_no} 版` : '未启用' }}</template>
         </ElTableColumn>
-        <ElTableColumn label="待发布草稿" min-width="125">
+        <ElTableColumn label="待启用草稿" min-width="125">
           <template #default="{ row }">{{ row.draft_version_no ? `第 ${row.draft_version_no} 版` : '—' }}</template>
         </ElTableColumn>
         <ElTableColumn label="状态" width="100">
@@ -41,7 +41,7 @@
           <template #default="{ row }">
             <ElButton link type="primary" :disabled="writing" @click="edit(row)">编辑草稿</ElButton>
             <ElButton link type="primary" :disabled="writing" @click="openVersions(row)">版本与回退</ElButton>
-            <ElButton v-if="row.draft_version_id" link type="success" :disabled="writing || Boolean(operationRecoveringKey) || operationBlocked(row.code)" @click="publish(row)">发布</ElButton>
+            <ElButton v-if="row.draft_version_id" link type="success" :disabled="writing || Boolean(operationRecoveringKey) || operationBlocked(row.code)" @click="publish(row)">启用</ElButton>
             <ElButton v-if="row.status === 1 && row.active_version_id" link type="danger" :disabled="writing || Boolean(operationRecoveringKey) || operationBlocked(row.code)" @click="disable(row)">停用</ElButton>
           </template>
         </ElTableColumn>
@@ -50,10 +50,10 @@
         :current-page="page" :page-size="20" :total="total" @current-change="load" />
       <ElDivider />
       <ElSteps :active="guideStep" finish-status="success" simple class="guide">
-        <ElStep title="选择资料与模型" /><ElStep title="配置回答要求" /><ElStep title="保存并发布" />
+        <ElStep title="选择资料与模型" /><ElStep title="配置回答要求" /><ElStep title="保存并启用" />
       </ElSteps>
       <ElAlert type="info" :closable="false" class="panel-alert" title="从一个用途开始"
-        description="资料来自当前环境已发布的知识库，模型来自环境能力配置。保存草稿不会改变应用正在使用的版本；发布后到“发布版本试用”发送问题、查看来源和费用。" />
+        description="资料来自当前环境已启用的知识库，模型来自环境能力配置。保存草稿不会改变应用正在使用的版本；启用后到“启用版本试用”发送问题、查看来源和费用。" />
       <ElSpace wrap class="guide">
         <span>回答要求示例：</span>
         <ElButton :disabled="writing || editingLoading" @click="usePreset('answer')">资料问答</ElButton>
@@ -65,17 +65,17 @@
         <ElFormItem label="代码"><ElInput v-model="form.code" maxlength="64" :disabled="writing || !!editingId" placeholder="例如 support" /></ElFormItem>
         <ElFormItem label="使用模型">
           <ElSelect v-model="form.model" filterable allow-create default-first-option :loading="modelsLoading"
-            :disabled="writing" placeholder="选择当前环境已发布的聊天模型" style="width: 100%">
+            :disabled="writing" placeholder="选择当前环境已启用的聊天模型" style="width: 100%">
             <ElOption v-for="model in models" :key="model.code" :label="`${model.name} · ${model.code}`" :value="model.code" />
           </ElSelect>
           <div class="knowledge-actions">
             <ElButton link type="primary" :loading="modelsLoading" @click="loadModels">刷新模型</ElButton>
           </div>
-          <p v-if="modelsError" class="knowledge-note">{{ modelsError }}。草稿仍可手动填写模型代码，发布需当前环境存在可用路由。</p>
+          <p v-if="modelsError" class="knowledge-note">{{ modelsError }}。草稿仍可手动填写模型代码，启用需当前环境存在可用路由。</p>
         </ElFormItem>
         <ElFormItem label="参考知识库">
           <ElSelect v-model="form.knowledge_base_code" filterable allow-create default-first-option clearable
-            :loading="knowledgeLoading" :disabled="writing" placeholder="选择当前环境已发布的知识别名" style="width: 100%">
+            :loading="knowledgeLoading" :disabled="writing" placeholder="选择当前环境已启用的知识别名" style="width: 100%">
             <ElOption v-for="item in knowledge" :key="item.id" :value="item.code"
               :label="`${item.owner_name} · ${item.code}（第 ${item.version_no} 版）`" />
           </ElSelect>
@@ -84,12 +84,12 @@
             <ElButton v-if="knowledgeMore" link type="primary" :loading="knowledgeLoading" @click="loadKnowledge(false)">更多</ElButton>
           </div>
           <p v-if="knowledgeError" class="knowledge-note">{{ knowledgeError }}。有权确认别名时可手动输入。</p>
-          <p v-else class="knowledge-note">发布前须绑定当前环境已开放的知识库；发布时服务端会再次核验。</p>
+          <p v-else class="knowledge-note">启用前须绑定当前环境已开放的知识库；启用时服务端会再次核验。</p>
         </ElFormItem>
         <ElFormItem label="回答要求"><ElInput v-model="form.instructions" type="textarea" :rows="5" maxlength="16000" show-word-limit :disabled="writing" placeholder="说明用途、回答边界和引用要求" /></ElFormItem>
         <ElFormItem label="使用工具">
           <ElCheckbox :model-value="form.tools.includes('retrieval.search')" disabled>私有资料检索</ElCheckbox>
-          <span class="hint">发布智能体必须使用此工具，仅检索当前调用者获授权的资料</span>
+          <span class="hint">启用智能体必须使用此工具，仅检索当前调用者获授权的资料</span>
         </ElFormItem>
         <ElAlert v-if="unsupportedTools.length" type="warning" :closable="false" class="panel-alert"
           title="此草稿包含当前页面不支持的工具" :description="`已保留 ${unsupportedTools.join('、')}，请核对运行版本后再编辑。`" />
@@ -100,8 +100,8 @@
             <ElOption v-for="turns in contextTurnOptions" :key="turns" :value="turns"
               :label="turns === 0 ? '0 轮（不带历史）' : `最近 ${turns} 轮`" />
           </ElSelect>
-          <p class="knowledge-note">已发布智能体和渠道回答最多参考最近 0–4 轮对话，默认 2 轮；0 表示不带历史。已发布试用仅采用同一身份、同一发布版本与同一会话中已成功且无需复核的回答；渠道另按送达状态核对。</p>
-          <p class="knowledge-note">轮数随智能体版本固定。修改后需保存草稿并发布新版本，才会影响后续新任务。</p>
+          <p class="knowledge-note">已启用智能体和渠道回答最多参考最近 0–4 轮对话，默认 2 轮；0 表示不带历史。已启用试用仅采用同一身份、同一启用版本与同一会话中已成功且无需复核的回答；渠道另按送达状态核对。</p>
+          <p class="knowledge-note">轮数随智能体版本固定。修改后需保存草稿并启用新版本，才会影响后续新任务。</p>
         </ElFormItem>
         <ElFormItem label="输出上限"><ElInputNumber v-model="form.max_output_tokens" :min="1" :max="form.readonly_tools.length ? 512 : 2048" :disabled="writing" /><span class="hint">{{ form.readonly_tools.length ? '本组合每轮最多 512；留空为 512' : '留空使用能力默认值' }}</span></ElFormItem>
         <ElDescriptions :column="1" border class="preview">
@@ -109,16 +109,16 @@
           <ElDescriptionsItem label="回答要求">{{ form.instructions.trim() || '请填写回答边界和引用要求' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="历史上下文">{{ form.context_turn_limit === 0 ? '不带历史对话' : `最多参考最近 ${form.context_turn_limit} 轮有效、无需复核的回答` }}</ElDescriptionsItem>
         </ElDescriptions>
-        <p class="knowledge-note">以上组合随发布版本固定。只读工具的精确版本、业务范围和 Schema 会一起固定；模型、知识库、工具或回答要求变化后需保存并发布新版本。</p>
+        <p class="knowledge-note">以上组合随启用版本固定。只读工具的精确版本、业务范围和 Schema 会一起固定；模型、知识库、工具或回答要求变化后需保存并启用新版本。</p>
         <ElFormItem><ElButton type="primary" :loading="writing" :disabled="!canSave" @click="save">保存草稿</ElButton></ElFormItem>
       </ElForm>
       <ElDialog v-model="versionsVisible" title="配置版本与回退" width="760px">
         <ElAlert type="info" :closable="false" title="回退配置版本"
-          description="回退恢复此智能体当时的定义配置。模型代码与知识库别名仍按执行时当前可用路由及发布内容解析，不还原历史知识库正文。旧任务保留原实际快照；版本改变后，旧版本任务可能因当前版本限制无法读取。" />
+          description="回退恢复此智能体当时的定义配置。模型代码与知识库别名仍按执行时当前可用路由及启用内容解析，不还原历史知识库正文。旧任务保留原实际快照；版本改变后，旧版本任务可能因当前版本限制无法读取。" />
         <ElAlert v-if="versionError" type="error" :title="versionError" show-icon />
         <ElTable v-loading="versionsLoading" :data="versions" row-key="version_no">
           <ElTableColumn label="版本" width="90"><template #default="{ row }">第 {{ row.version_no }} 版</template></ElTableColumn>
-          <ElTableColumn label="状态" width="110"><template #default="{ row }">{{ row.is_active ? '当前发布' : row.state === 'published' ? '已发布历史' : '草稿' }}</template></ElTableColumn>
+          <ElTableColumn label="状态" width="110"><template #default="{ row }">{{ row.is_active ? '当前启用' : row.state === 'published' ? '已启用历史' : '草稿' }}</template></ElTableColumn>
           <ElTableColumn label="模型 / 知识库" min-width="190"><template #default="{ row }">{{ row.config.model }} / {{ row.config.knowledge_base_code || '未绑定' }}</template></ElTableColumn>
           <ElTableColumn label="只读工具" min-width="180"><template #default="{ row }">{{ toolVersionsLabel(row.config.readonly_tools) }}</template></ElTableColumn>
           <ElTableColumn label="操作" width="130"><template #default="{ row }"><ElButton link type="warning" :disabled="writing || Boolean(operationRecoveringKey) || operationBlocked(versionOwner?.code ?? '') || row.is_active || row.state !== 'published' || versionOwner?.status !== 1" @click="rollback(row)">回退到此配置</ElButton></template></ElTableColumn>
@@ -315,7 +315,7 @@
     } finally { if (current === formEpoch) editingLoading.value = false }
   }
   function operationLabel(operation: AgentDefinitionOperation): string {
-    return { draft: '保存草稿', publish: '发布', disable: '停用', rollback: '回退配置' }[operation]
+    return { draft: '保存草稿', publish: '启用', disable: '停用', rollback: '回退配置' }[operation]
   }
   function validOperationReference(raw: unknown): raw is OperationReference {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false
@@ -426,15 +426,15 @@
       const result = await agentDefinitionApi.operationByRequestKey(reference.environment_id, reference.operation, reference.code, reference.key)
       if (!stillCurrent()) return
       if ('operation_state' in result) {
-        if (!rejectedPublishMatches(result, reference)) throw new Error('发布拒绝回执与原智能体或已确认快照不一致，仍保留原请求锁')
+        if (!rejectedPublishMatches(result, reference)) throw new Error('启用拒绝回执与原智能体或已确认快照不一致，仍保留原请求锁')
         if (!await acknowledgeOperation(reference, stillCurrent) || !stillCurrent()) return
-        error.value = '原草稿在确认后发生变化，本次没有发布。请重新读取当前配置，并确认新的草稿版本后再发布。'
-        ElMessage.warning('原发布已明确拒绝，未发布；请重新确认当前草稿')
+        error.value = '原草稿在确认后发生变化，本次没有启用。请重新读取当前配置，并确认新的草稿版本后再启用。'
+        ElMessage.warning('原启用已明确拒绝，未启用；请重新确认当前草稿')
         await readBackOperation(reference, stillCurrent)
-        if (stillCurrent()) error.value = '原草稿在确认后发生变化，本次没有发布。当前配置已重新读取，请重新确认草稿版本后再发布。'
+        if (stillCurrent()) error.value = '原草稿在确认后发生变化，本次没有启用。当前配置已重新读取，请重新确认草稿版本后再启用。'
         return
       }
-      if (result.idempotent_replay !== true || !receiptMatches(result, reference)) throw new Error('原操作回执与原智能体、版本或发布快照不一致，仍保留原请求锁')
+      if (result.idempotent_replay !== true || !receiptMatches(result, reference)) throw new Error('原操作回执与原智能体、版本或启用快照不一致，仍保留原请求锁')
       if (!await acknowledgeOperation(reference, stillCurrent) || !stillCurrent()) return
       ElMessage.success('已找回原变更回执，当前配置正在重新读取')
       await readBackOperation(reference, stillCurrent)
@@ -449,7 +449,7 @@
   }
   async function completeOperation(reference: OperationReference, result: AgentDefinitionOperationReceipt, stillCurrent: () => boolean): Promise<void> {
     if (!stillCurrent()) return
-    if (!receiptMatches(result, reference)) throw new Error('操作回执与原智能体、版本或发布快照不一致，请沿原请求号找回')
+    if (!receiptMatches(result, reference)) throw new Error('操作回执与原智能体、版本或启用快照不一致，请沿原请求号找回')
     if (!await acknowledgeOperation(reference, stillCurrent) || !stillCurrent()) return
     ElMessage.success(`${operationLabel(reference.operation)}已确认，当前配置正在重新读取`)
     await readBackOperation(reference, stillCurrent)
@@ -491,11 +491,11 @@
       const drafts = history.data.filter(version => version.state === 'draft')
       const draft = drafts[0]
       if (drafts.length !== 1 || !draft || draft.version_no !== row.draft_version_no || !/^[a-f0-9]{64}$/.test(draft.snapshot_sha256)) {
-        error.value = '未能确认唯一的当前草稿或发布快照，请刷新列表、重新读取配置后再发布。'
+        error.value = '未能确认唯一的当前草稿或启用快照，请刷新列表、重新读取配置后再启用。'
         return
       }
       const expectedSha = draft.snapshot_sha256
-      try { await ElMessageBox.confirm(`发布「${row.name}」第 ${draft.version_no} 版草稿（模型 ${draft.config.model}，快照 ${expectedSha.slice(0, 12)}）。应用和渠道将使用此配置，旧版本结果将不可用。确认期间草稿变化会拒绝发布，请刷新并重新确认。`, '发布已确认的智能体草稿', { type: 'warning', confirmButtonText: '发布此版草稿' }) }
+      try { await ElMessageBox.confirm(`启用「${row.name}」第 ${draft.version_no} 版草稿（模型 ${draft.config.model}，快照 ${expectedSha.slice(0, 12)}）。应用和渠道将使用此配置，旧版本结果将不可用。确认期间草稿变化会拒绝启用，请刷新并重新确认。`, '启用已确认的智能体草稿', { type: 'warning', confirmButtonText: '启用此版草稿' }) }
       catch { return }
       if (!stillCurrent()) return
       const reference = await startOperation('publish', row.code, row.agent_definition_id, null, expectedSha, stillCurrent)
@@ -504,8 +504,8 @@
       const result = await agentDefinitionApi.publish(environmentId, row.agent_definition_id, reference.key, expectedSha)
       await completeOperation(reference, result, stillCurrent)
     } catch (failure) { if (stillCurrent()) error.value = dispatched
-      ? `${failure instanceof Error ? failure.message : '发布结果未确认'}；请沿原请求号找回。若草稿冲突，请重新读取当前配置并确认，不能自动改版发布。`
-      : `${failure instanceof Error ? failure.message : '草稿读取失败'}；本次未提交发布，请刷新列表、重新读取配置后确认。` }
+      ? `${failure instanceof Error ? failure.message : '启用结果未确认'}；请沿原请求号找回。若草稿冲突，请重新读取当前配置并确认，不能自动改版启用。`
+      : `${failure instanceof Error ? failure.message : '草稿读取失败'}；本次未提交启用，请刷新列表、重新读取配置后确认。` }
     finally { if (managementFlight.value === flight) managementFlight.value = null }
   }
   async function disable(row: AgentDefinitionRow): Promise<void> {
@@ -564,7 +564,7 @@
     managementFlight.value = flight
     versionError.value = ''
     try {
-      try { await ElMessageBox.confirm(`将「${owner.name}」恢复为第 ${version.version_no} 版定义配置；知识库别名仍使用当前发布内容。`, '回退配置版本', { type: 'warning' }) }
+      try { await ElMessageBox.confirm(`将「${owner.name}」恢复为第 ${version.version_no} 版定义配置；知识库别名仍使用当前启用内容。`, '回退配置版本', { type: 'warning' }) }
       catch { return }
       if (!stillCurrent()) return
       const reference = await startOperation('rollback', owner.code, owner.agent_definition_id, version.version_no, null, stillCurrent)

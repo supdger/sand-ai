@@ -1,11 +1,11 @@
 <template>
   <ElCard shadow="never" class="sample-runner">
     <template #header>
-      <h4>{{ profileState === 'published' ? '试用已发布配置' : '运行当前草稿样本' }}</h4>
+      <h4>{{ profileState === 'published' ? '试用已启用配置' : '运行当前草稿样本' }}</h4>
     </template>
     <p class="muted">
       使用该环境应用自己的 SandIAM 运行身份。可在本页用同一身份上传并解析私有材料；
-      试用不会自动发布配置。
+      试用不会自动启用配置。
     </p>
     <ElAlert v-if="materialTaskActionInFlight()" type="info" :closable="false" class="notice"
       title="原任务或样本操作仍在提交，暂不能发送新样本。切换身份或配置不会取消已发出的请求。" />
@@ -48,7 +48,7 @@
           <ElButton type="primary" :loading="busy" :disabled="disabled || busy || !canSubmit || !!submitted || !!recoveryKey" @click="submit">
             {{
               profileState === 'published'
-                  ? '运行已发布配置'
+                  ? '运行已启用配置'
                   : '运行样本'
             }}
           </ElButton>
@@ -65,8 +65,8 @@
       :title="`样本运行 #${submitted.runId} 已提交${submitted.replayed ? '（复用已有运行）' : ''}`"
       :description="
         profileState === 'published'
-          ? '本页会自动刷新进度、成果与费用；本次试用使用已发布配置。'
-          : '本页会自动刷新进度和成果；成功并完成计量后，可刷新成功样本并发布。'
+          ? '本页会自动刷新进度、成果与费用；本次试用使用已启用配置。'
+          : '本页会自动刷新进度和成果；成功并完成计量后，可刷新成功样本并启用。'
       "
     />
     <ElButton v-if="submitted?.taskId" link type="primary" @click="goTask(submitted.taskId)">

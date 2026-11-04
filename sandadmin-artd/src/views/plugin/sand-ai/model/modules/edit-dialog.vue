@@ -10,35 +10,41 @@
     <ElAlert v-if="pending" type="warning" :closable="false"
       :title="`原${pending.operation === 'save' ? '新增' : '更新'}保存待确认：${pending.code}${pending.id !== null ? ' · ID ' + pending.id : ''}`"
       description="只读取原保存回执，不再次发送；原回执表示当时保存结果，当前配置由列表另行读取。" />
-    <el-input v-if="pending" :model-value="pending.key" readonly aria-label="原保存请求号" />
+    <el-input v-if="pending" :model-value="pending.key" readonly aria-label="原保存请求编号" />
     <ElButton v-if="pending || journalError" :loading="reading" :disabled="submitting || reading" @click="recoverOperation">读取原保存回执</ElButton>
     <ElButton v-if="canSendUnsubmitted" :disabled="submitting || reading" @click="handleSubmit">保留原号首次提交</ElButton>
     <ElAlert v-if="errorMessage" type="warning" :closable="false" :title="errorMessage" />
     <ElButton v-if="!pending && !journalError && !configurationLoaded" :loading="loadingExisting"
       :disabled="submitting || reading" @click="loadExisting">重新读取当前配置</ElButton>
     <el-form ref="formRef" :model="formData" :rules="rules" :disabled="formBlocked" label-width="110px">
-      <el-form-item label="编码" prop="code">
-        <el-input
-          v-model="formData.code"
-          placeholder="小写字母/数字/_/-"
-          :disabled="dialogType === 'edit'"
-        />
+      <el-form-item v-if="formData.code" label="编码">
+        <span>编码：{{ formData.code }}（自动生成）</span>
       </el-form-item>
       <el-form-item label="名称" prop="name">
         <el-input v-model="formData.name" />
       </el-form-item>
       <el-form-item label="类型" prop="type">
         <el-select v-model="formData.type" style="width: 100%">
-          <el-option label="chat" value="chat" />
-          <el-option label="embedding" value="embedding" />
-          <el-option label="专业重排" value="rerank" />
+          <el-option label="对话" value="chat" />
+          <el-option label="向量检索" value="embedding" />
+          <el-option label="结果重排" value="rerank" />
           <el-option label="图片文字识别" value="image_ocr" />
           <el-option label="录音转写" value="audio_transcription" />
           <el-option label="语音合成" value="audio_speech" />
         </el-select>
       </el-form-item>
-      <el-form-item label="能力" prop="capabilitiesText">
-        <el-input v-model="formData.capabilitiesText" :placeholder="formData.type === 'image_ocr' ? '图片文字识别只填写 image_ocr' : formData.type === 'rerank' ? '专业重排只填写 rerank' : '逗号分隔，如 chat,tool_call'" />
+      <el-form-item label="能力" prop="capabilities">
+        <el-select
+          v-model="formData.capabilities"
+          multiple
+          filterable
+          allow-create
+          default-first-option
+          style="width: 100%"
+          placeholder="选择能力；未列出的能力可直接输入"
+        >
+          <el-option v-for="(label, value) in capabilityLabels" :key="value" :label="label" :value="value" />
+        </el-select>
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-radio-group v-model="formData.status">
@@ -64,6 +70,8 @@
     resolveCatalogConfigurationIntent, matchesCatalogConfigurationReceipt, type CatalogConfigurationIntent
   } from '../../api/catalogConfigurationIntent'
   import modelApi from '../../api/model'
+  import { capabilityLabels } from '../../api/displayLabels'
+  import { generateCatalogCode } from '../../api/catalogCode'
   import type { DataStatus, ModelType, SandAiModel, SandAiModelWrite } from '../../api/types'
 
   type FormModel = {
@@ -71,7 +79,7 @@
     code: string
     name: string
     type: ModelType
-    capabilitiesText: string
+    capabilities: string[]
     status: DataStatus
   }
 
@@ -116,34 +124,22 @@
     code: '',
     name: '',
     type: 'chat',
-    capabilitiesText: '',
+    capabilities: [],
     status: 1
   })
 
   const rules: FormRules<FormModel> = {
-    code: [
-      { required: true, message: '请输入编码', trigger: 'blur' },
-      {
-        pattern: /^[a-z0-9][a-z0-9_-]{1,63}$/,
-        message: '编码需为小写字母数字开头，仅含 a-z 0-9 _ -',
-        trigger: 'blur'
-      }
-    ],
     name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
     type: [{ required: true, message: '请选择类型', trigger: 'change' }],
-    capabilitiesText: [{
-      validator: (_rule, value: unknown, callback) => {
-        if (typeof value !== 'string') {
-          callback(new Error('请用逗号分隔填写模型能力'))
-          return
-        }
-        const capabilities = parseCapabilities(value)
+    capabilities: [{
+      validator: (_rule, _value: unknown, callback) => {
+        const capabilities = formData.capabilities
         if (formData.type === 'image_ocr' && (capabilities.length !== 1 || capabilities[0] !== 'image_ocr')) {
-          callback(new Error('图片文字识别模型的能力只能填写 image_ocr'))
+          callback(new Error('图片文字识别模型的能力只能选择图片文字识别'))
           return
         }
         if (formData.type === 'rerank' && (capabilities.length !== 1 || capabilities[0] !== 'rerank')) {
-          callback(new Error('专业重排模型的能力只能填写 rerank，请修改后再保存'))
+          callback(new Error('结果重排模型的能力只能选择结果重排，请修改后再保存'))
           return
         }
         callback()
@@ -152,8 +148,8 @@
     }]
   }
 
-  function parseCapabilities(value: string): string[] {
-    return Array.from(new Set(value.split(',').map(item => item.trim()).filter(Boolean)))
+  function parseCapabilities(value: readonly string[]): string[] {
+    return Array.from(new Set(value.map(item => item.trim()).filter(Boolean)))
   }
 
   function restoreIntent(): void {
@@ -171,7 +167,7 @@
   function clearPrivateForm(): void {
     unsubmitted.value = null
     formData.id = undefined; formData.code = ''; formData.name = ''
-    formData.type = 'chat'; formData.capabilitiesText = ''; formData.status = 1
+    formData.type = 'chat'; formData.capabilities = []; formData.status = 1
     configurationLoaded.value = false
     formRef.value?.clearValidate()
   }
@@ -185,7 +181,11 @@
     loadingExisting.value = false
     restoreIntent()
     if (!visible.value || !owner || pending.value || journalError.value) return
-    if (props.dialogType === 'add') { configurationLoaded.value = true; return }
+    if (props.dialogType === 'add') {
+      if (!formData.code) formData.code = generateCatalogCode('model_')
+      configurationLoaded.value = true
+      return
+    }
     const id = props.data.id
     if (typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1) {
       errorMessage.value = '原编辑目标无法确认，请重新从列表选择'
@@ -202,7 +202,7 @@
         || !row.capabilities.every(item => typeof item === 'string') || (row.status !== 1 && row.status !== 2))
         throw new Error('无法读取完整模型配置，暂不能编辑')
       formData.id = row.id; formData.code = row.code; formData.name = row.name
-      formData.type = row.type; formData.capabilitiesText = row.capabilities.join(','); formData.status = row.status
+      formData.type = row.type; formData.capabilities = [...row.capabilities]; formData.status = row.status
       configurationLoaded.value = true
     } catch {
       if (ownsRead()) errorMessage.value = '无法读取当前目标配置。请检查读取权限或连接后重新读取；不会提交占位配置。'
@@ -277,7 +277,7 @@
       if (operation === 'update' && (typeof targetId !== 'number' || !Number.isSafeInteger(targetId) || targetId < 1))
         throw new Error('原编辑目标无法确认')
       const payload: SandAiModelWrite = { name: formData.name, type: formData.type,
-        capabilities: parseCapabilities(formData.capabilitiesText), status: formData.status }
+        capabilities: parseCapabilities(formData.capabilities), status: formData.status }
       const original: CatalogConfigurationIntent = unsent ?? { version: 1, admin_id: owner, kind: 'model', operation,
         code, id: typeof targetId === 'number' ? targetId : null, key: crypto.randomUUID() }
       pending.value = original

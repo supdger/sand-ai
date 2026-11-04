@@ -1,11 +1,11 @@
 <template>
-  <div class="art-full-height">
-    <ElCard class="art-table-card" shadow="never">
+  <div class="sand-ai-page">
+    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
       <div class="cap-header">
         <div>
-          <h2 class="cap-title">{{ materialConfigurationPage ? '材料整理配置' : '能力配置' }}</h2>
+          <h2 class="cap-title">{{ materialConfigurationPage ? '材料配置' : '能力配置' }}</h2>
           <p class="cap-desc">
-            为指定应用环境选择解析工具、模型和材料处理位置。仅配置本地文本解析时无需 API Key；AI 抽取仍需已发布模型。
+            为指定应用环境选择解析工具、模型和材料处理位置。仅配置本地文本解析时无需 API Key；AI 抽取仍需已启用模型。
           </p>
         </div>
         
@@ -29,7 +29,7 @@
             <ElOption
               v-for="item in applications"
               :key="item.id"
-              :label="`${item.name} (${item.code})`"
+              :label="item.name"
               :value="item.id"
             />
           </ElSelect>
@@ -48,7 +48,7 @@
             <ElOption
               v-for="item in environments"
               :key="item.id"
-              :label="`${item.name} (${item.code})`"
+              :label="item.name"
               :value="item.id"
             />
           </ElSelect>
@@ -66,9 +66,12 @@
       <ElButton v-if="iamListError === 'applications'" :loading="loadingApps" @click="loadApps">重新读取应用</ElButton>
       <ElButton v-if="iamListError === 'environments'" :loading="loadingEnvs" @click="onApplicationChange">重新读取环境</ElButton>
 
-      <ElAlert v-if="pending" type="warning" :closable="false"
-        :title="`原${pending.action === 'save' ? '保存' : '发布'}结果待确认：应用 ${pending.application_id}／环境 ${pending.environment_id}。仅重新读取原目标，不会重发；当前配置匹配也不代表取得原请求回执。`" />
-      <ElButton v-if="pending || journalError" :disabled="Boolean(busy) || writeInFlight" @click="restoreIntent(); loadEntryContext()">读取原操作状态</ElButton>
+      <details v-if="pending || journalError" class="cap-alert cap-recover">
+        <summary>原{{ pending?.action === 'publish' ? '启用' : '保存' }}结果待确认（查看详情）</summary>
+        <ElAlert v-if="pending" type="warning" :closable="false"
+          :title="`原${pending.action === 'save' ? '保存' : '启用'}结果待确认：应用 ${pending.application_id}／环境 ${pending.environment_id}。仅重新读取原目标，不会重发；当前配置匹配也不代表取得原请求回执。`" />
+        <ElButton :disabled="Boolean(busy) || writeInFlight" @click="restoreIntent(); loadEntryContext()">读取原操作状态</ElButton>
+      </details>
       <MaterialProfileEditor v-if="materialConfigurationPage" :environment-id="environmentId" />
       <template v-if="environmentId">
         <ElAlert v-if="revisionConflict" type="warning" :closable="false"
@@ -79,10 +82,10 @@
         <p v-if="revisionConflict && profileLoaded" class="cap-muted">
           服务端修订：{{ profile?.revision ?? '尚无配置' }}；
           名称：{{ profile?.name ?? '尚无配置' }}；
-          路线：{{ profile?.routes?.map(route => `${route.capability_code} / ${route.route_kind} / ${route.deployment_id ?? route.driver_code ?? '未设置'}`).join('、') || '无' }}。
+          默认模型：{{ profile?.routes?.map(route => `${capabilityLabel(route.capability_code)} / ${routeKindLabel(route.route_kind)} / ${route.deployment_id ?? route.driver_code ?? '未设置'}`).join('、') || '无' }}。
         </p>
         <ElAlert v-if="unsafeExistingConfig" type="warning" :closable="false"
-          title="既有路线未提供可安全保留的空配置，或含停用路线。当前配置只读，请联系管理员核查读取接口或历史配置；此页不会覆盖保存。" />
+          title="既有默认模型未提供可安全保留的空配置，或含已停用项。当前配置只读，请联系管理员核查读取接口或历史配置；此页不会覆盖保存。" />
         <ElForm :disabled="editBlocked" label-width="120px" class="cap-form" @submit.prevent>
           <ElFormItem label="配置名称">
             <ElInput v-model="form.name" style="width: 360px" placeholder="如 default-capability" />
@@ -98,7 +101,7 @@
               <ElOption
                 v-for="(tpl, code) in metadata?.templates ?? {}"
                 :key="code"
-                :label="`${tpl.name} (${code})`"
+                :label="tpl.name"
                 :value="code"
               />
             </ElSelect>
@@ -112,11 +115,10 @@
           </ElFormItem>
           <ElFormItem v-if="profile" label="当前版本">
             <ElSpace wrap>
-              <ElTag>revision={{ profile.revision }}</ElTag>
+              <ElTag>第 {{ profile.revision }} 版</ElTag>
               <ElTag :type="profile.state === 'published' ? 'success' : 'warning'">
-                {{ profile.state }}
+                {{ configurationStateLabel(profile.state) }}
               </ElTag>
-              <span class="cap-muted">id={{ profile.id }}</span>
             </ElSpace>
           </ElFormItem>
         </ElForm>
@@ -124,14 +126,14 @@
         <div class="cap-routes-toolbar">
           <h3 class="cap-section-title">能力与处理工具</h3>
           <ElSpace wrap class="cap-route-actions">
-            <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="prepareLocalTextRoute">添加本地文本解析</ElButton>
-            <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="prepareMaterialRoutes">补齐材料整理路由</ElButton>
-            <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="addRoute">添加路由</ElButton>
+            <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="prepareLocalTextRoute">添加文档读取</ElButton>
+            <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="prepareMaterialRoutes">补齐材料整理默认模型</ElButton>
+            <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="addRoute">添加默认模型</ElButton>
           </ElSpace>
         </div>
 
-        <p class="cap-muted">首次只需本地文本解析时，点击“添加本地文本解析”，保存并发布即可。该工具支持 TXT、文本型 PDF、DOCX 等；扫描件 OCR 和材料 AI 抽取需另行配置。</p>
-        <ElTable :data="form.routes" border empty-text="暂无路由">
+        <p class="cap-muted">首次只需文档读取时，点击“添加文档读取”，保存并启用即可。该工具支持 TXT、文本型 PDF、DOCX 等，不调用模型；扫描件 OCR 和材料 AI 抽取需另行配置。</p>
+        <ElTable :data="form.routes" border empty-text="暂无默认模型">
           <ElTableColumn label="能力" min-width="160">
             <template #default="{ row }">
               <ElSelect
@@ -143,18 +145,20 @@
                 <ElOption
                   v-for="code in capabilityCodes"
                   :key="code"
-                  :label="code === 'rerank' ? '专业重排' : code"
+                  :label="capabilityLabel(code)"
                   :value="code"
                 />
               </ElSelect>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="route_kind" label="处理方式" width="150" />
+          <ElTableColumn label="处理方式" width="150">
+            <template #default="{ row }">{{ routeKindLabel(row.route_kind) }}</template>
+          </ElTableColumn>
           <ElTableColumn label="模型部署" min-width="300">
             <template #default="{ row }">
               <ElSelect v-if="usesDeployment(row)" v-model="row.deployment_id"
                 :disabled="editBlocked" filterable remote clearable :remote-method="(query: string) => searchDeployments(query, row)"
-                :loading="deploymentsLoading" placeholder="选择已发布部署" class="cap-deployment"
+                :loading="deploymentsLoading" placeholder="选择已启用部署" class="cap-deployment"
                 @visible-change="(visible: boolean) => visible && searchDeployments('', row)">
                 <ElOption v-for="item in deploymentOptions" :key="item.id"
                   :label="item.display_name" :value="item.id"
@@ -163,7 +167,7 @@
                   :label="`现有部署 #${row.deployment_id}（请核对）`" :value="row.deployment_id" />
               </ElSelect>
               <span v-else class="cap-muted">—</span>
-              <p v-if="isLocalOcr(row) && !row.deployment_id" class="cap-muted">未绑定部署时费用保持未计价，硬预算请求会被拒绝。可先保存，配置并发布部署价格后再绑定。</p>
+              <p v-if="isLocalOcr(row) && !row.deployment_id" class="cap-muted">未绑定部署时费用保持未计价，硬预算请求会被拒绝。可先保存，配置并启用部署价格后再绑定。</p>
             </template>
           </ElTableColumn>
           <ElTableColumn label="解析工具" min-width="180">
@@ -179,7 +183,7 @@
                 <ElOption
                   v-for="code in driverCodes(row.capability_code)"
                   :key="code"
-                  :label="code"
+                  :label="driverLabel(code)"
                   :value="code"
                 />
               </ElSelect>
@@ -215,7 +219,7 @@
             :loading="busy === 'publish'"
             @click="handlePublish"
           >
-            发布配置档
+            启用配置档
           </ElButton>
           <ElButton :disabled="Boolean(busy)" :loading="busy === 'load'" @click="reloadProfile">重新加载</ElButton>
         </ElSpace>
@@ -230,6 +234,7 @@
 </template>
 
 <script setup lang="ts">
+  import '../components/sandAiPage.css'
   import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
   import { useUserStore } from '@/store/modules/user'
   import { readCapabilityProfileIntent, retainCapabilityProfileIntent, resolveCapabilityProfileIntent, type CapabilityProfileIntent } from '../api/capabilityProfileIntent'
@@ -247,6 +252,7 @@
     type SandAiCapabilityRoute,
     type SandAiDataEgressPolicy
   } from '../api/capability'
+  import { capabilityLabel, configurationStateLabel, driverLabel } from '../api/displayLabels'
   import onboardingApi, { type PublishedDeployment } from '../api/onboarding'
   import MaterialProfileEditor from '../components/MaterialProfileEditor.vue'
   import LegalAnalysisPanel from '../components/LegalAnalysisPanel.vue'
@@ -432,7 +438,15 @@
     if (phase === 'write' && isRevisionConflict(error))
       return '配置已被其他管理员修改。本地表单仍保留；请重新加载并比较最新版本。'
     if (phase === 'write' && definitelyRejected(error)) return '操作被拒绝，请核对权限、模型能力和发送策略，再重新读取状态。'
-    return '结果尚未确认。请重新读取状态核对同一配置；不会自动重发，请不要重复保存或发布。'
+    return '结果尚未确认。请重新读取状态核对同一配置；不会自动重发，请不要重复保存或启用。'
+  }
+  const routeKindLabels: Readonly<Record<string, string>> = {
+    model_deployment: '模型服务',
+    parse_driver: '本地解析工具',
+    audio_driver: '音频引擎'
+  }
+  function routeKindLabel(kind: string): string {
+    return routeKindLabels[kind] ?? kind
   }
   function routeKindOf(capabilityCode: string): SandAiCapabilityRoute['route_kind'] {
     const meta = metadata.value?.capabilities[capabilityCode]
@@ -467,10 +481,10 @@
       if (current !== deploymentGeneration || epoch !== identityEpoch) return
       deploymentOptions.value = page.data.filter(item => item.model_type === modelType && item.publication_status === 'published')
       if (page.total > page.per_page && !query.trim()) {
-        ElMessage.info('已发布部署超过 100 项，请输入模型或服务商名称搜索')
+        ElMessage.info('已启用部署超过 100 项，请输入模型或服务商名称搜索')
       }
     } catch {
-      if (current === deploymentGeneration && epoch === identityEpoch) errorMessage.value = '读取已发布部署失败，请检查后台权限'
+      if (current === deploymentGeneration && epoch === identityEpoch) errorMessage.value = '读取已启用部署失败，请检查后台权限'
     } finally {
       if (current === deploymentGeneration && epoch === identityEpoch) deploymentsLoading.value = false
     }
@@ -525,7 +539,7 @@
     }
     form.routes.push({ capability_code: 'document_parse', route_kind: 'parse_driver',
       deployment_id: undefined, driver_code: 'native_document_parse', priority: 100 })
-    ElMessage.info('已添加本地文本解析；请保存并发布能力配置')
+    ElMessage.info('已添加本地文本解析；请保存并启用能力配置')
   }
 
   function removeRoute(index: number): void {
@@ -537,7 +551,7 @@
       && route.route_kind === 'model_deployment' && Number.isInteger(route.deployment_id)
       && (route.deployment_id ?? 0) > 0)
     if (!chat?.deployment_id) {
-      ElMessage.warning('请先给 chat 路由选择已发布的聊天模型部署')
+      ElMessage.warning('请先给 chat 路由选择已启用的聊天模型部署')
       return
     }
     if (!form.routes.some(route => route.capability_code === 'structured_extraction')) {
@@ -558,7 +572,7 @@
         priority: 100
       })
     }
-    ElMessage.info('已补齐本地文档解析和结构化抽取路由；请核对外发策略，再保存并发布配置档')
+    ElMessage.info('已补齐本地文档解析和结构化抽取路由；请核对外发策略，再保存并启用配置档')
   }
 
   function applyTemplate(code: string | number | boolean | undefined): void {
@@ -581,6 +595,10 @@
       const rows = await iamApi.activeApplications()
       if (current !== applicationGeneration) return
       applications.value = rows
+      if (!applicationId.value && rows.length === 1) {
+        applicationId.value = rows[0].id
+        void onApplicationChange()
+      }
     } catch (error) {
       if (current === applicationGeneration) {
         applications.value = []
@@ -622,6 +640,10 @@
       const rows = await iamApi.activeEnvironments(selectedApplication)
       if (current !== environmentGeneration || selectedApplication !== applicationId.value) return
       environments.value = rows
+      if (!environmentId.value && rows.length === 1) {
+        environmentId.value = rows[0].id
+        onEnvironmentChange()
+      }
     } catch (error) {
       if (current === environmentGeneration && selectedApplication === applicationId.value) {
         iamListError.value = 'environments'
@@ -766,7 +788,7 @@
       }))
     }
     if (!sameConfiguration(target, displayedPayload)) {
-      ElMessage.warning('表单有未保存的修改。请先保存草稿，再核对已保存修订后发布。')
+      ElMessage.warning('表单有未保存的修改。请先保存草稿，再核对已保存修订后启用。')
       return
     }
     const current = ++profileGeneration
@@ -784,8 +806,8 @@
     try {
       try {
         await ElMessageBox.confirm(
-          `确认发布应用 ${targetApplication}、环境 ${targetEnvironment} 的能力档 ${target.id} · 修订 ${target.revision}（草稿）？名称：${payload.name}；模板：${payload.template_code || '未指定'}；材料发送策略：${payload.data_egress_policy}；路线：${payload.routes.map(route => `${route.capability_code} / ${route.route_kind} / ${route.deployment_id ?? route.driver_code ?? '未设置'} / 优先顺序 ${route.priority}`).join('、')}。发布仅使用这份已保存配置。`,
-          '确认发布能力配置', { type: 'warning', confirmButtonText: '发布此修订', cancelButtonText: '取消' }
+          `确认启用应用 ${targetApplication}、环境 ${targetEnvironment} 的能力档 ${target.id} · 修订 ${target.revision}（草稿）？名称：${payload.name}；模板：${payload.template_code || '未指定'}；材料发送策略：${payload.data_egress_policy}；路线：${payload.routes.map(route => `${route.capability_code} / ${route.route_kind} / ${route.deployment_id ?? route.driver_code ?? '未设置'} / 优先顺序 ${route.priority}`).join('、')}。启用仅使用这份已保存配置。`,
+          '确认启用能力配置', { type: 'warning', confirmButtonText: '启用此修订', cancelButtonText: '取消' }
         )
       } catch {
         if (ownsOperation()) profileLoaded.value = true
@@ -794,7 +816,7 @@
       if (!ownsOperation()) return
       if (JSON.stringify(form) !== formSnapshot || JSON.stringify(profile.value) !== baseline) {
         profileLoaded.value = true
-        errorMessage.value = '确认期间配置或表单已变化，尚未发布。请重新核对已保存修订。'
+        errorMessage.value = '确认期间配置或表单已变化，尚未启用。请重新核对已保存修订。'
         return
       }
       const preflight = await capabilityApi.readProfile(targetEnvironment)
@@ -802,7 +824,7 @@
       const latest = readProfileResponse(preflight, targetEnvironment)
       if (JSON.stringify(form) !== formSnapshot || JSON.stringify(profile.value) !== baseline || JSON.stringify(latest) !== baseline) {
         applyProfileRead(latest)
-        errorMessage.value = '配置已经变化，已重新读取。请核对后再发布。'
+        errorMessage.value = '配置已经变化，已重新读取。请核对后再启用。'
         return
       }
       persistIntent({ version: 1, admin_id: owner, application_id: targetApplication, environment_id: targetEnvironment, action: 'publish', payload, previousRevision: target.revision, id: target.id, revision: target.revision })
@@ -815,8 +837,8 @@
       const reread = await capabilityApi.readProfile(targetEnvironment)
       if (!ownsOperation()) return
       applyProfileRead(readProfileResponse(reread, targetEnvironment), true)
-      if (pending.value) errorMessage.value = '发布结果尚未确认，请重新读取状态；不会重发。'
-      else ElMessage.success('已重新读取并确认能力配置档发布')
+      if (pending.value) errorMessage.value = '启用结果尚未确认，请重新读取状态；不会重发。'
+      else ElMessage.success('已重新读取并确认能力配置档启用')
     } catch (error) {
       if (!ownsOperation()) return
       if (phase === 'write' && definitelyRejected(error)) {
@@ -1004,6 +1026,21 @@
 
   .cap-alert {
     margin-bottom: 12px;
+  }
+
+  .cap-recover > summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--el-color-warning-dark-2);
+    list-style: none;
+  }
+
+  .cap-recover > summary::before {
+    content: '▸ ';
+  }
+
+  .cap-recover[open] > summary::before {
+    content: '▾ ';
   }
 
   .cap-routes-toolbar {

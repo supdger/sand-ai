@@ -1,99 +1,118 @@
 <template>
-  <div class="art-full-height">
-    <ElCard shadow="never">
+  <div class="sand-ai-page">
+    <ElCard class="sand-ai-page-card" shadow="never">
       <div class="heading">
         <div>
-          <h2>开始使用 SandAI</h2>
-          <p>应用可直接选用已授权的聊天模型，无需模型 API Key。管理员需要新增能力时，再选择应用和环境，配置本地解析或连接模型服务。</p>
+          <h2>首次开通</h2>
+          <p>跟着下面几步完成开通：选择工作目标、连接模型服务商、验证并启用模型。应用可直接选用已授权的聊天模型，无需模型 API Key。</p>
         </div>
         <ElSpace wrap>
-          <ElButton type="primary" @click="openCapabilityConfiguration">先配置本地解析能力</ElButton>
+          <ElButton type="primary" @click="openCapabilityConfiguration">先配置文档读取能力</ElButton>
           <ElButton @click="router.push('/sand-ai/provider')">服务商配置</ElButton>
         </ElSpace>
       </div>
 
-      <p class="muted">本地解析可读取 TXT、文本型 PDF、DOCX 等，不调用模型。材料 AI 抽取与样本验证仍需要已发布模型和 SandIAM 服务授权；业务应用调用时无需持有模型 API Key。</p>
+      <p class="muted">文档读取可读取 TXT、文本型 PDF、DOCX 等，不调用模型、不产生模型费用。材料 AI 抽取与样本验证仍需要已启用模型并允许使用；业务应用调用时无需持有模型 API Key。</p>
+      <p v-if="bootstrapNotice" class="muted bootstrap-notice">
+        {{ bootstrapNotice.message }}
+        <ElButton v-if="bootstrapNotice.retryable" link type="primary" :loading="bootstrapBusy" @click="retryBootstrap">重试</ElButton>
+      </p>
       <ElAlert v-if="navigationNotice" :title="navigationNotice" type="warning" :closable="false" class="notice" />
       <ElAlert v-if="message" :type="messageType" :title="message" show-icon :closable="false" class="notice" />
       <details class="section">
         <summary>使用已授权聊天能力（无需模型 API Key）</summary>
-        <p class="muted">填写应用提供的 SandIAM 短期运行身份，读取当前凭证可用的模型并明确选择。后台登录及本页应用、环境选择不会代替调用授权；没有可用模型时，请管理员发布所需能力路线并在 SandIAM 配置授权。</p>
+        <p class="muted">填写应用提供的调用密钥（由管理员在身份与授权插件中生成），即可读取该应用可用的模型并试用。没有可用模型时，请管理员先启用所需能力并允许该应用使用。</p>
         <ChatRouteTrialPanel :environment-id="environmentId || undefined" />
       </details>
-      <section class="section">
-        <h3>准备 SandIAM 服务目录</h3>
-        <p class="muted">先确认身份服务可用，再由管理员登记 SandAI 所需的服务动作。登记不会创建应用、凭证或授权。</p>
-        <ElAlert v-if="catalogMessage" :type="catalogMessageType" :title="catalogMessage" show-icon :closable="false" class="catalog-notice" />
-        <p v-if="catalogPreflight?.port_available" class="muted">
-          已读取 SandIAM 服务目录状态。登记仅补齐缺失项，已有登记可安全重复提交。
-        </p>
-        <p v-if="catalogPreflight?.action_codes.length" class="muted">
-          {{ catalogPreflight.service_code }} 服务动作（{{ catalogPreflight.action_codes.length }} 项）：{{ catalogPreflight.action_codes.join('、') }}
-        </p>
-        <ElSpace v-if="catalogDisabled" wrap>
-          <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 平台服务</ElButton>
-          <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 服务动作</ElButton>
-        </ElSpace>
-        <ElSpace wrap>
-          <ElButton :loading="catalogBusy === 'checking'" :disabled="Boolean(catalogBusy)" @click="loadCatalog">检查 SandIAM 连接</ElButton>
-          <ElButton type="primary" :loading="catalogBusy === 'registering'" :disabled="Boolean(catalogBusy) || !canRegisterCatalog(catalogPreflight) || catalogDisabled || catalogRegistered" @click="registerCatalog">
-            {{ catalogRegistered ? '本次已登记' : '登记 SandAI 服务动作' }}
-          </ElButton>
-        </ElSpace>
-      </section>
-      <section class="section">
-        <h3>个人 Skill 服务授权准备</h3>
-        <p class="muted">Skill 的运行、读取、管理、测试和发布服务动作单独登记。登记后，还需在 SandIAM 为应用和客户端配置授权；此操作不会授予任何调用权限。</p>
-        <ElAlert v-if="skillCatalogMessage" :type="skillCatalogMessageType" :title="skillCatalogMessage" show-icon :closable="false" class="catalog-notice" />
-        <p v-if="skillCatalogPreflight?.action_codes.length" class="muted">
-          {{ skillCatalogPreflight.service_code }} 服务动作（{{ skillCatalogPreflight.action_codes.length }} 项）：{{ skillCatalogPreflight.action_codes.join('、') }}
-        </p>
-        <ElSpace v-if="skillCatalogDisabled" wrap>
-          <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 平台服务</ElButton>
-          <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 服务动作</ElButton>
-        </ElSpace>
-        <ElSpace wrap>
-          <ElButton :loading="skillCatalogBusy === 'checking'" :disabled="Boolean(skillCatalogBusy)" @click="loadSkillCatalog">检查 Skill 服务动作</ElButton>
-          <ElButton type="primary" :loading="skillCatalogBusy === 'registering'" :disabled="Boolean(skillCatalogBusy) || !canRegisterCatalog(skillCatalogPreflight) || skillCatalogDisabled || skillCatalogRegistered" @click="registerSkillCatalog">
-            {{ skillCatalogRegistered ? '本次已登记' : '登记 Skill 服务动作' }}
-          </ElButton>
-        </ElSpace>
-      </section>
-      <section class="section">
-        <h3>音频服务授权准备</h3>
-        <p class="muted">音频转写、片段复核和语音合成动作在这里显式登记。登记后，还需在 SandIAM 为应用和客户端配置授权；此操作不会授予任何调用权限。</p>
-        <ElAlert v-if="audioCatalogMessage" :type="audioCatalogMessageType" :title="audioCatalogMessage" show-icon :closable="false" class="catalog-notice" />
-        <p v-if="audioCatalogPreflight?.action_codes.length" class="muted">
-          {{ audioCatalogPreflight.service_code }} 服务动作（{{ audioCatalogPreflight.action_codes.length }} 项）：{{ audioCatalogPreflight.action_codes.join('、') }}
-        </p>
-        <ElSpace v-if="audioCatalogDisabled" wrap>
-          <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 平台服务</ElButton>
-          <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 服务动作</ElButton>
-        </ElSpace>
-        <ElSpace wrap>
-          <ElButton :loading="audioCatalogBusy === 'checking'" :disabled="Boolean(audioCatalogBusy)" @click="loadAudioCatalog">检查音频服务动作</ElButton>
-          <ElButton type="primary" :loading="audioCatalogBusy === 'registering'" :disabled="Boolean(audioCatalogBusy) || !canRegisterCatalog(audioCatalogPreflight) || audioCatalogDisabled || audioCatalogRegistered" @click="registerAudioCatalog">
-            {{ audioCatalogRegistered ? '本次已登记' : '登记音频服务动作' }}
-          </ElButton>
-        </ElSpace>
-        <h4>转写引擎</h4>
-        <p v-if="audioRuntime" class="muted">
-          应用接口已安装；本地引擎：{{ audioAdapterState('local') }}，外部引擎：{{ audioAdapterState('external') }}。
-          {{ audioRuntime.readiness_note }}
-        </p>
-        <p v-if="audioRuntimeError" class="muted">{{ audioRuntimeError }}</p>
-        <ElButton :loading="audioRuntimeBusy" @click="loadAudioRuntime">检查引擎配置</ElButton>
-        <TranscriptionDeploymentSetup
-          :audio-runtime="audioRuntime"
-          :audio-runtime-busy="audioRuntimeBusy"
-          :audio-runtime-error="audioRuntimeError"
-          @refresh-runtime="loadAudioRuntime"
-        />
-        <SpeechDeploymentSetup />
-        <SpeechTrialPanel :environment-id="environmentId || null" />
-        <EmbeddingDeploymentSetup />
-        <OcrDeploymentSetup />
-      </section>
+      <details class="section">
+        <summary>高级 · 授权项检查（通常已由系统自动完成，一般无需操作）</summary>
+        <section class="section">
+          <h3>能力权限检查</h3>
+          <p class="muted">安装时已自动登记 SandAI 所需的全部能力权限。如下方检查发现缺失，可点“补齐”；补齐不会创建应用、调用密钥或允许使用。</p>
+          <ElAlert v-if="catalogMessage" :type="catalogMessageType" :title="catalogMessage" show-icon :closable="false" class="catalog-notice" />
+          <p v-if="catalogPreflight?.port_available" class="muted">
+            已读取授权服务状态。补齐仅补缺失项，重复检查是安全的。
+          </p>
+          <p v-if="catalogPreflight?.action_codes.length" class="muted">
+            能力权限共 {{ catalogPreflight.action_codes.length }} 项。
+            <details class="tech-details">
+              <summary>技术详情</summary>
+              <p class="muted">{{ catalogPreflight.service_code }}：{{ catalogPreflight.action_codes.join('、') }}</p>
+            </details>
+          </p>
+          <ElSpace v-if="catalogDisabled" wrap>
+            <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
+            <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
+          </ElSpace>
+          <ElSpace wrap>
+            <ElButton :loading="catalogBusy === 'checking'" :disabled="Boolean(catalogBusy)" @click="loadCatalog">检查授权服务连接</ElButton>
+            <ElButton type="primary" :loading="catalogBusy === 'registering'" :disabled="Boolean(catalogBusy) || !canRegisterCatalog(catalogPreflight) || catalogDisabled || catalogRegistered" @click="registerCatalog">
+              {{ catalogRegistered ? '本次已补齐' : '补齐能力权限' }}
+            </ElButton>
+          </ElSpace>
+        </section>
+        <section class="section">
+          <h3>技能模板授权检查</h3>
+          <p class="muted">技能模板的使用、读取、管理、测试和启用权限单独登记。登记后，还需在 SandIAM 为具体应用允许使用；此操作不会自动允许任何调用。</p>
+          <ElAlert v-if="skillCatalogMessage" :type="skillCatalogMessageType" :title="skillCatalogMessage" show-icon :closable="false" class="catalog-notice" />
+          <p v-if="skillCatalogPreflight?.action_codes.length" class="muted">
+            技能模板权限共 {{ skillCatalogPreflight.action_codes.length }} 项。
+            <details class="tech-details">
+              <summary>技术详情</summary>
+              <p class="muted">{{ skillCatalogPreflight.service_code }}：{{ skillCatalogPreflight.action_codes.join('、') }}</p>
+            </details>
+          </p>
+          <ElSpace v-if="skillCatalogDisabled" wrap>
+            <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
+            <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
+          </ElSpace>
+          <ElSpace wrap>
+            <ElButton :loading="skillCatalogBusy === 'checking'" :disabled="Boolean(skillCatalogBusy)" @click="loadSkillCatalog">检查技能模板权限</ElButton>
+            <ElButton type="primary" :loading="skillCatalogBusy === 'registering'" :disabled="Boolean(skillCatalogBusy) || !canRegisterCatalog(skillCatalogPreflight) || skillCatalogDisabled || skillCatalogRegistered" @click="registerSkillCatalog">
+              {{ skillCatalogRegistered ? '本次已补齐' : '补齐技能模板权限' }}
+            </ElButton>
+          </ElSpace>
+        </section>
+        <section class="section">
+          <h3>音频能力授权检查</h3>
+          <p class="muted">音频转写、片段复核和语音合成的权限单独登记。登记后，还需在 SandIAM 为具体应用允许使用；此操作不会自动允许任何调用。</p>
+          <ElAlert v-if="audioCatalogMessage" :type="audioCatalogMessageType" :title="audioCatalogMessage" show-icon :closable="false" class="catalog-notice" />
+          <p v-if="audioCatalogPreflight?.action_codes.length" class="muted">
+            音频权限共 {{ audioCatalogPreflight.action_codes.length }} 项。
+            <details class="tech-details">
+              <summary>技术详情</summary>
+              <p class="muted">{{ audioCatalogPreflight.service_code }}：{{ audioCatalogPreflight.action_codes.join('、') }}</p>
+            </details>
+          </p>
+          <ElSpace v-if="audioCatalogDisabled" wrap>
+            <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
+            <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
+          </ElSpace>
+          <ElSpace wrap>
+            <ElButton :loading="audioCatalogBusy === 'checking'" :disabled="Boolean(audioCatalogBusy)" @click="loadAudioCatalog">检查音频权限</ElButton>
+            <ElButton type="primary" :loading="audioCatalogBusy === 'registering'" :disabled="Boolean(audioCatalogBusy) || !canRegisterCatalog(audioCatalogPreflight) || audioCatalogDisabled || audioCatalogRegistered" @click="registerAudioCatalog">
+              {{ audioCatalogRegistered ? '本次已补齐' : '补齐音频权限' }}
+            </ElButton>
+          </ElSpace>
+          <h4>转写引擎</h4>
+          <p v-if="audioRuntime" class="muted">
+            应用接口已安装；本地引擎：{{ audioAdapterState('local') }}，外部引擎：{{ audioAdapterState('external') }}。
+            {{ audioRuntime.readiness_note }}
+          </p>
+          <p v-if="audioRuntimeError" class="muted">{{ audioRuntimeError }}</p>
+          <ElButton :loading="audioRuntimeBusy" @click="loadAudioRuntime">检查引擎配置</ElButton>
+          <TranscriptionDeploymentSetup
+            :audio-runtime="audioRuntime"
+            :audio-runtime-busy="audioRuntimeBusy"
+            :audio-runtime-error="audioRuntimeError"
+            @refresh-runtime="loadAudioRuntime"
+          />
+          <SpeechDeploymentSetup />
+          <SpeechTrialPanel :environment-id="environmentId || null" />
+          <EmbeddingDeploymentSetup />
+          <OcrDeploymentSetup />
+        </section>
+      </details>
       <ElSkeleton v-if="loading" :rows="5" animated />
       <ElResult v-else-if="!guide" icon="error" title="无法读取首次配置引导" :sub-title="guideError || '请稍后重试。'">
         <template #extra><ElButton @click="load">重试</ElButton></template>
@@ -102,7 +121,7 @@
         <ElSteps :active="step" finish-status="success" class="steps">
           <ElStep title="选择场景" />
           <ElStep title="连接服务商" />
-          <ElStep title="验证并发布模型" />
+          <ElStep title="验证并启用模型" />
           <ElStep :title="`配置${guide.display_name}服务`" />
         </ElSteps>
 
@@ -119,7 +138,7 @@
           <ol><li v-for="item in guide.setup_steps" :key="item">{{ item }}</li></ol>
           <p>完成后：{{ guide.outcome }}</p>
           <p class="muted">{{ guide.readiness_note }}</p>
-          <p class="muted">切换工作目标只调整本页引导，已保存的模型与环境配置会保留；各项配置仍需明确保存和发布。</p>
+          <p class="muted">切换工作目标只调整本页引导，已保存的模型与环境配置会保留；各项配置仍需明确保存和启用。</p>
           <template v-if="iamError">
             <p class="muted">应用或环境暂时无法读取。模型连接可以继续，业务环境请稍后在能力配置中选择。</p>
             <ElButton v-if="!applicationId" :loading="loadingIam" @click="loadApplications">重新读取应用</ElButton>
@@ -137,15 +156,15 @@
               </ElSelect>
             </ElFormItem>
           </ElForm>
-          <p class="muted">选择应用和环境仅用于确认目标，不会自动绑定或发布业务能力。</p>
+          <p class="muted">选择应用和环境仅用于确认目标，不会自动绑定或启用业务能力。</p>
         </section>
 
         <section class="section">
-          <ElAlert v-if="journey" type="info" :closable="false" :title="`原开通目标：应用 ${journey.application_id ?? '未选'}，环境 ${journey.environment_id ?? '未选'}；${journey.deployment_id ? `部署 ${journey.deployment_id} · 修订 ${journey.revision}` : '保存回执待找回'}。此目标不代表环境绑定或服务授权。`" />
+          <ElAlert v-if="journey" type="info" :closable="false" :title="`原开通目标：应用 ${journey.application_id ?? '未选'}，环境 ${journey.environment_id ?? '未选'}；${journey.deployment_id ? `部署 ${journey.deployment_id} · 修订 ${journey.revision}` : '保存回执待找回'}。此目标不代表环境绑定或允许使用。`" />
           <ElAlert v-if="connectionSubmitting" type="info" :closable="false" title="原连接操作仍在处理。切换登录状态不会解除在途锁；请等待原操作结束，再读取状态或配置。" />
-          <ElAlert v-else-if="journeyLocked" type="warning" :closable="false" title="原开通状态尚未确认，已锁定新增保存、验证、发布和换目标。请只读找回原开通状态。" />
+          <ElAlert v-else-if="journeyLocked" type="warning" :closable="false" title="原开通状态尚未确认，已锁定新增保存、验证、启用和换目标。请只读找回原开通状态。" />
           <h3>2. 服务商连接</h3>
-          <p class="muted">此处供管理员新增模型连接。应用选用已有授权能力时，可直接使用上方聊天入口；其他能力沿“能力配置”选择已发布部署，不需要再次输入服务商 Key。</p>
+          <p class="muted">此处供管理员新增模型连接。应用选用已有授权能力时，可直接使用上方聊天入口；其他能力沿“能力配置”选择已启用部署，不需要再次输入服务商 Key。</p>
           <ElSelect v-model="selectedProviderCode" class="narrow provider-select" placeholder="选择服务商" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
             <ElOption v-for="item in providerGuides" :key="item.provider_code || item.adapter" :label="item.name" :value="item.provider_code || item.adapter" />
           </ElSelect>
@@ -207,17 +226,17 @@
               <ElCheckbox v-model="materialExtraction" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
                 将此聊天模型作为材料结构化抽取候选
               </ElCheckbox>
-              <span class="muted">聊天验证不证明材料抽取质量；材料配置须运行真实样本并核验后才可发布。</span>
+              <span class="muted">聊天验证不证明材料抽取质量；材料配置须运行真实样本并核验后才可启用。</span>
             </ElFormItem>
             <ElFormItem label="输出上限">
               <ElInputNumber v-model="maxOutputTokens" :min="1" :max="131072" :step="1" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
             </ElFormItem>
-            <ElFormItem label="方法包输出">
-              <ElSelect v-model="skillOutputStrategy" aria-label="方法包输出策略" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
+            <ElFormItem label="技能模板输出">
+              <ElSelect v-model="skillOutputStrategy" aria-label="技能模板输出策略" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
                 <ElOption v-for="(label, value) in skillStrategyLabels" :key="value" :label="label" :value="value" />
               </ElSelect>
-              <span class="muted">默认要求完整 JSON。JSON 对象需模型服务支持 json_object 协议，JSON Schema 需支持 OpenAI json_schema 协议；选择后仍须通过方法包案例评测。</span>
-              <span class="muted">仅新建方法包版本采用此配置，已冻结版本和历史调用保持原策略。</span>
+              <span class="muted">默认要求完整 JSON。JSON 对象需模型服务支持 json_object 协议，JSON Schema 需支持 OpenAI json_schema 协议；选择后仍须通过技能模板案例评测。</span>
+              <span class="muted">仅新建技能模板版本采用此配置，已冻结版本和历史调用保持原策略。</span>
             </ElFormItem>
             <ElFormItem label="推理额度">
               <ElSelect v-model="reasoningEffort" aria-label="推理额度" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
@@ -227,7 +246,7 @@
                 <ElOption label="最大" value="max" />
               </ElSelect>
               <span class="muted">控制模型用于推理的额度。仅在模型服务明确支持时选择低、高或最大；默认不指定，具体效果以该模型说明为准。</span>
-              <span class="muted">保存请求和修订会锁定所选额度。修改配置后须重新保存、验证和发布。</span>
+              <span class="muted">保存请求和修订会锁定所选额度。修改配置后须重新保存、验证和启用。</span>
             </ElFormItem>
             <ElFormItem>
               <ElButton type="primary" :loading="busy === 'save'" :disabled="Boolean(busy || draft || verificationRecoveryPending || verificationStorageError || journeyLocked) || (!saveAttempt && !canSave)" @click="saveDraft">保存模型草稿</ElButton>
@@ -239,10 +258,10 @@
 
         <section class="section">
           <h3>已保存模型配置（只读）</h3>
-          <p class="muted">按已发布模型名称选择部署与修订，读取原保存值。此处不重新验证、保存、发布或绑定环境。</p>
+          <p class="muted">按已启用模型名称选择部署与修订，读取原保存值。此处不重新验证、保存、启用或绑定环境。</p>
           <ElForm label-width="110px" class="narrow" @submit.prevent>
             <ElFormItem label="名称筛选"><ElInput v-model.trim="inspectionSearchName" placeholder="可选，输入模型或服务商名称后读取部署列表" :disabled="inspectionLoading || inspectionReading" /></ElFormItem>
-            <ElFormItem label="已发布模型">
+            <ElFormItem label="已启用模型">
               <ElSelect v-model="inspectionDeploymentId" filterable placeholder="先读取部署列表，再选择名称与修订" :loading="inspectionLoading" :disabled="inspectionLoading || inspectionReading" @change="chooseInspectionDeployment">
                 <ElOption v-for="item in inspectionDeployments" :key="item.id" :label="`${item.display_name} · 修订 ${item.deployment_revision}`" :value="item.id" />
               </ElSelect>
@@ -253,37 +272,37 @@
             </ElFormItem>
             <ElCollapse>
               <ElCollapseItem title="按保存回执编号读取历史修订（专家备用）" name="inspection-reference">
-                <p class="muted">已发布列表展示当前修订。读取历史修订时，使用原保存回执中的部署号与修订号；不会猜测或创建配置。</p>
+                <p class="muted">已启用列表展示当前修订。读取历史修订时，使用原保存回执中的部署号与修订号；不会猜测或创建配置。</p>
                 <ElFormItem label="部署号"><ElInputNumber v-model="inspectionTargetId" :min="1" :precision="0" :disabled="inspectionReading" aria-label="已有部署号" /></ElFormItem>
                 <ElFormItem label="修订号"><ElInputNumber v-model="inspectionTargetRevision" :min="1" :precision="0" :disabled="inspectionReading" aria-label="已有修订号" /></ElFormItem>
               </ElCollapseItem>
             </ElCollapse>
           </ElForm>
           <template v-if="inspectedRevision">
-            <p>部署 {{ inspectedRevision.deployment_id }} · 修订 {{ inspectedRevision.revision }} · {{ inspectedRevision.state === 'published' ? '已发布（只读）' : '保存值（只读）' }}</p>
+            <p>部署 {{ inspectedRevision.deployment_id }} · 修订 {{ inspectedRevision.revision }} · {{ inspectedRevision.state === 'published' ? '已启用（只读）' : '保存值（只读）' }}</p>
             <p>{{ inspectedRevision.provider.name }} · {{ inspectedRevision.model.name }} · {{ inspectedRevision.deployment.remote_model }}</p>
             <p>输出上限：{{ inspectedRevision.deployment.config.max_output_tokens }}</p>
-            <p>方法包输出：{{ inspectedRevision.deployment.config.skill_output_strategy ? skillStrategyLabels[inspectedRevision.deployment.config.skill_output_strategy] : '未指定（新方法包采用标准输出，历史版本保持原策略）' }}</p>
+            <p>技能模板输出：{{ inspectedRevision.deployment.config.skill_output_strategy ? skillStrategyLabels[inspectedRevision.deployment.config.skill_output_strategy] : '未指定（新技能模板采用标准输出，历史版本保持原策略）' }}</p>
             <p class="muted">显示值来自指定修订的冻结配置。未指定策略的旧修订保持缺字段；新建配置的默认选择不会写回这里。</p>
           </template>
         </section>
 
         <section class="section">
-          <h3>3. 验证并发布模型连接</h3>
+          <h3>3. 验证并启用模型连接</h3>
           <p v-if="draft">部署 {{ draft.deployment_id }} · 修订 {{ draft.revision }} · {{ verificationStateLabel }}</p>
           <p v-if="verificationRequest" class="muted">原验证请求号：{{ verificationRequest.key }} · 部署 {{ verificationRequest.deployment_id }} · 修订 {{ verificationRequest.revision }}。此号用于找回本次验证，与费用明细中的尝试 ID 不同。</p>
-          <ElAlert v-if="verificationRecoveryPending" type="warning" :closable="false" title="原验证结果尚未确认。本页保留原请求号，暂时锁定新保存、验证和重新配置；只读找回不会再次调用模型。" />
+          <ElAlert v-if="verificationRecoveryPending" type="warning" :closable="false" title="原验证结果尚未确认。本页保留请求编号，暂时锁定新保存、验证和重新配置；只读找回不会再次调用模型。" />
           <ElAlert v-if="verificationStorageError" type="warning" :closable="false" title="无法确认本机会话中的原验证记录，暂时不能发起新验证。请保留原部署与修订号，由管理员核查；不会换请求号重发。" />
           <ElButton v-if="verificationRecoveryPending || verificationStorageError || journeyLocked" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="restoreVerificationRequest">找回原验证状态</ElButton>
           <p v-if="draft" class="muted">当前修订的推理额度：{{ savedReasoningEffortLabel }}。此值来自服务器保存的修订配置。</p>
-          <p v-if="draft" class="muted">当前修订的方法包输出：{{ draft.deployment.config.skill_output_strategy ? skillStrategyLabels[draft.deployment.config.skill_output_strategy] : '未指定（新方法包采用标准 JSON，历史版本保持原策略）' }}。</p>
+          <p v-if="draft" class="muted">当前修订的技能模板输出：{{ draft.deployment.config.skill_output_strategy ? skillStrategyLabels[draft.deployment.config.skill_output_strategy] : '未指定（新技能模板采用标准 JSON，历史版本保持原策略）' }}。</p>
           <p v-else class="muted">请先保存模型草稿。验证会发送极小样本，可能产生服务商费用。</p>
-          <ElAlert v-if="publicationConfirmationRequired" type="warning" :closable="false" title="发布结果或当前修订尚未确认。请先读取当前部署修订并核对；读取不会验证或发布模型，也不代表原发布没有执行。" />
-          <ElButton v-if="journey?.phase === 'publish_unknown'" :loading="busy === 'read' || busy === 'publish'" :disabled="Boolean(busy) || originalPublicationConfirming || journeyRecoveryPending || verificationRecoveryPending || verificationStorageError" @click="confirmOriginalPublication">读取原目标发布状态</ElButton>
+          <ElAlert v-if="publicationConfirmationRequired" type="warning" :closable="false" title="启用结果或当前修订尚未确认。请先读取当前部署修订并核对；读取不会验证或启用模型，也不代表原启用没有执行。" />
+          <ElButton v-if="journey?.phase === 'publish_unknown'" :loading="busy === 'read' || busy === 'publish'" :disabled="Boolean(busy) || originalPublicationConfirming || journeyRecoveryPending || verificationRecoveryPending || verificationStorageError" @click="confirmOriginalPublication">读取原目标启用状态</ElButton>
           <ElButton v-if="publicationConfirmationRequired" :loading="busy === 'read'" :disabled="Boolean(busy) || verificationRecoveryPending || verificationStorageError || journeyStorageError || journeyRecoveryPending" @click="readCurrentPublicationRevision">读取并确认当前修订</ElButton>
           <div v-if="publicationConfirmationRequired && publicationPreview" class="muted">
             <p>当前部署 {{ publicationPreview.draft.deployment_id }} · 修订 {{ publicationPreview.draft.revision }} · {{ verificationLabel(publicationPreview.verification.state) }}。服务商：{{ publicationPreview.draft.provider.name }}；模型：{{ publicationPreview.draft.model.name }}（{{ publicationPreview.draft.deployment.remote_model }}）。</p>
-            <p>输出上限 {{ publicationPreview.draft.deployment.config.max_output_tokens }}；推理额度 {{ publicationPreview.draft.deployment.config.reasoning_effort || '由模型服务决定' }}；方法包输出 {{ publicationPreview.draft.deployment.config.skill_output_strategy ? skillStrategyLabels[publicationPreview.draft.deployment.config.skill_output_strategy] : '标准输出（默认）' }}。</p>
+            <p>输出上限 {{ publicationPreview.draft.deployment.config.max_output_tokens }}；推理额度 {{ publicationPreview.draft.deployment.config.reasoning_effort || '由模型服务决定' }}；技能模板输出 {{ publicationPreview.draft.deployment.config.skill_output_strategy ? skillStrategyLabels[publicationPreview.draft.deployment.config.skill_output_strategy] : '标准输出（默认）' }}。</p>
             <ElButton :disabled="Boolean(busy) || verificationRecoveryPending || verificationStorageError || journeyLocked" @click="confirmCurrentPublicationRevision">确认使用此修订</ElButton>
           </div>
           <ElForm v-if="draft" label-width="110px" class="narrow" @submit.prevent>
@@ -298,7 +317,7 @@
               <ElSpace wrap>
                 <ElButton :loading="busy === 'verify'" :disabled="!canVerify" @click="verifyDraft">验证聊天模型</ElButton>
                 <ElButton :loading="busy === 'read'" :disabled="Boolean(busy)" @click="readVerification">读取当前修订配置与状态</ElButton>
-                <ElButton type="primary" :loading="busy === 'publish'" :disabled="Boolean(busy) || publicationConfirmationRequired || verificationRecoveryPending || verificationStorageError || journeyLocked || verification?.state !== 'tested' || !verification.validation_evidence" @click="publish">发布模型连接</ElButton>
+                <ElButton type="primary" :loading="busy === 'publish'" :disabled="Boolean(busy) || publicationConfirmationRequired || verificationRecoveryPending || verificationStorageError || journeyLocked || verification?.state !== 'tested' || !verification.validation_evidence" @click="publish">启用模型连接</ElButton>
                 <ElButton v-if="canReconfigure" :disabled="Boolean(busy)" @click="reconfigureConnection">重新配置连接</ElButton>
               </ElSpace>
             </ElFormItem>
@@ -323,10 +342,10 @@
               title="原绑定结果尚未确认"
               :description="`原目标：应用 ${bindingIntent.application_id}，环境 ${bindingIntent.environment_id}，部署 ${bindingIntent.deployment_id} · 修订 ${bindingIntent.revision}。`" />
             <ElButton :loading="bindingReading" :disabled="bindingSubmitting || bindingReading || Boolean(busy)" @click="readOriginalBinding">读取原绑定目标</ElButton>
-            <p class="muted">仅核对原目标当前的已发布默认聊天配置。这不是服务器原操作回执；未找到、读取失败或目标不匹配不证明原绑定未发生，不会重新发送绑定。</p>
+            <p class="muted">仅核对原目标当前的已启用默认聊天配置。这不是服务器原操作回执；未找到、读取失败或目标不匹配不证明原绑定未发生，不会重新发送绑定。</p>
           </section>
           <p v-if="bindingNotice" class="muted">{{ bindingNotice }}</p>
-          <ElAlert v-if="published && !publicationConfirmationRequired" type="success" :closable="false" title="模型连接已发布。请选择目标环境并绑定默认聊天能力，应用才能调用。" />
+          <ElAlert v-if="published && !publicationConfirmationRequired" type="success" :closable="false" title="模型连接已启用。请选择目标环境并绑定默认聊天能力，应用才能调用。" />
           <ElSpace v-if="published && !publicationConfirmationRequired" wrap>
             <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'bind'"
               :disabled="Boolean(busy) || journeyLocked || !environmentId || boundEnvironmentId === environmentId" @click="bindDefaultChat">
@@ -334,9 +353,9 @@
             </ElButton>
             <span v-if="!environmentId" class="muted">先在工作目标中选择 SandIAM 应用和环境。</span>
           </ElSpace>
-          <p v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" class="muted">聊天能力已绑定；所选工作目标仍需按对应配置入口继续准备、试用并发布。</p>
+          <p v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" class="muted">聊天能力已绑定；所选工作目标仍需按对应配置入口继续准备、试用并启用。</p>
           <ElSpace v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" wrap>
-            <ElButton type="primary" :disabled="Boolean(busy)" @click="openChatTrial">试用已发布聊天能力</ElButton>
+            <ElButton type="primary" :disabled="Boolean(busy)" @click="openChatTrial">试用已启用聊天能力</ElButton>
             <span class="muted">后台管理员负责配置；应用调用使用 SandIAM 工作负载 Bearer，调用环境由凭证决定。进入“聊天路线试用”后填写该凭证，无需填写服务商 API Key。</span>
           </ElSpace>
         </section>
@@ -348,7 +367,7 @@
         <section v-if="selectedScene === 'meeting_recording_organization'" class="section">
           <h3>4. {{ guide.display_name }}服务</h3>
           <p>{{ guide.module_explanation }}</p>
-          <p class="muted">先配置并发布转写能力与聊天路线，再核定会议执行设置。模型验证不证明转写准确率或会议摘要完整性。</p>
+          <p class="muted">先配置并启用转写能力与聊天路线，再核定会议执行设置。模型验证不证明转写准确率或会议摘要完整性。</p>
           <ElButton @click="openCapabilityConfiguration">配置会议所需能力</ElButton>
           <MeetingExecutionSetup
             :environment-id="environmentId"
@@ -361,7 +380,7 @@
         <section v-else-if="selectedScene === 'material_organization'" class="section">
           <h3>4. {{ guide.display_name }}服务</h3>
           <p>{{ guide.module_explanation }}</p>
-          <p class="muted">先保存环境配置草稿；后续仍需运行真实样本并发布服务。</p>
+          <p class="muted">先保存环境配置草稿；后续仍需运行真实样本并启用服务。</p>
           <MaterialCapabilitySetup
             :key="environmentId || 'no-environment'"
             :environment-id="environmentId"
@@ -382,11 +401,11 @@
           <p class="muted">{{ guide.readiness_note }}</p>
           <p v-if="!environmentId" class="muted">先在工作目标中选择应用和环境，再在对应模块明确配置使用范围。</p>
           <ElSpace wrap>
-            <ElButton @click="openCapabilityConfiguration">配置并发布所需能力</ElButton>
+            <ElButton @click="openCapabilityConfiguration">配置并启用所需能力</ElButton>
             <ElButton v-if="guide.technical.module_codes.includes('knowledge_base')" @click="router.push('/sand-ai/knowledge')">准备知识材料</ElButton>
             <ElButton v-if="guide.technical.module_codes.includes('agent')" @click="router.push('/sand-ai/agent')">配置知识问答智能体</ElButton>
           </ElSpace>
-          <p class="muted">模型连接发布与环境能力发布是各自的操作。知识材料、智能体和渠道仍按对应模块的实际状态与授权使用，不会因选择目标自动开通。</p>
+          <p class="muted">模型连接启用与环境能力启用是各自的操作。知识材料、智能体和渠道仍按对应模块的实际状态与授权使用，不会因选择目标自动开通。</p>
         </section>
       </template>
     </ElCard>
@@ -394,6 +413,7 @@
 </template>
 
 <script setup lang="ts">
+import '../components/sandAiPage.css'
 import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
@@ -414,6 +434,9 @@ import SpeechDeploymentSetup from '../components/SpeechDeploymentSetup.vue'
 import SpeechTrialPanel from '../components/SpeechTrialPanel.vue'
 import EmbeddingDeploymentSetup from '../components/EmbeddingDeploymentSetup.vue'
 import ChatRouteTrialPanel from '../components/ChatRouteTrialPanel.vue'
+import { useSetupBootstrap } from '../composables/useSetupBootstrap'
+
+const { notice: bootstrapNotice, busy: bootstrapBusy, ensure: ensureBootstrap, retry: retryBootstrap } = useSetupBootstrap()
 
 const skillCatalogActionCodes = [
   'sand_ai.skill.run',
@@ -693,13 +716,13 @@ async function restoreJourney(): Promise<void> {
     journeyRecoveryPending.value = false
     journeyStorageError.value = false
     notice(journey.value?.phase === 'publish_unknown'
-      ? '原发布结果仍未确认。保留原部署与修订，只读找回不会重新发布；未找到或状态未发布均不表示原请求未执行。'
-      : `已找回原部署 ${saved.deployment_id} 的修订 ${saved.revision}，请按实际状态继续。原应用/环境仅为配置目标，不代表服务授权。`, journeyLocked.value ? 'warning' : 'success')
+      ? '原启用结果仍未确认。保留原部署与修订，只读找回不会重新启用；未找到或状态未启用均不表示原请求未执行。'
+      : `已找回原部署 ${saved.deployment_id} 的修订 ${saved.revision}，请按实际状态继续。原应用/环境仅为配置目标，不代表允许使用。`, journeyLocked.value ? 'warning' : 'success')
     void restoreJourneyScope(target, current)
   } catch (error) {
     if (current === epoch) {
       journeyStorageError.value = true
-      notice(accessFailureNotice(error) || '原首次开通记录尚未确认。请继续只读找回原请求或修订；不能新建请求、放弃原目标或重复发布。', 'warning')
+      notice(accessFailureNotice(error) || '原首次开通记录尚未确认。请继续只读找回原请求或修订；不能新建请求、放弃原目标或重复启用。', 'warning')
     }
   } finally { if (current === epoch) busy.value = '' }
 }
@@ -850,8 +873,8 @@ const savedReasoningEffortLabel = computed(() => {
 })
 function verificationLabel(state: Verification['state']): string {
   const labels = {
-    draft: '待验证', verifying: '验证中', tested: '已验证，待发布',
-    verification_ambiguous: '验证结果未确认', published: '已发布'
+    draft: '待验证', verifying: '验证中', tested: '已验证，待启用',
+    verification_ambiguous: '验证结果未确认', published: '已启用'
   }
   return labels[state]
 }
@@ -917,7 +940,7 @@ async function reconfigureConnection(): Promise<void> {
   const target = draft.value
   try {
     await ElMessageBox.confirm(
-      `服务器会保留部署 ${target.deployment_id} 的修订 ${target.revision} 草稿。继续后请重新填写 Key 和聊天模型；新的连接仍需保存、验证和发布。`,
+      `服务器会保留部署 ${target.deployment_id} 的修订 ${target.revision} 草稿。继续后请重新填写 Key 和聊天模型；新的连接仍需保存、验证和启用。`,
       '重新配置连接',
       { type: 'warning', confirmButtonText: '重新填写', cancelButtonText: '保留当前草稿' }
     )
@@ -944,7 +967,7 @@ async function reconfigureConnection(): Promise<void> {
   reasoningEffort.value = ''
   skillOutputStrategy.value = 'neuron_json_extract_v1'
   connectionNotice.value = `原部署 ${target.deployment_id} 的修订 ${target.revision} 仍保留在服务器。请在服务商连接中填写新的 Key 或模型标识。`
-  notice('可以重新填写服务商连接。新连接不会自动发布或绑定环境。', 'warning')
+  notice('可以重新填写服务商连接。新连接不会自动启用或绑定环境。', 'warning')
   await nextTick()
   apiKeyInput.value?.focus()
 }
@@ -1138,7 +1161,7 @@ async function registerCatalog(): Promise<void> {
   const confirmedGeneration = catalogGeneration
   try {
     await ElMessageBox.confirm(
-      `将向 SandIAM 登记 SandAI 的 ${catalogPreflight.value?.action_codes.length ?? 0} 个服务动作。此操作不会为应用或客户端创建授权。`,
+      `将向 SandIAM 登记 SandAI 的 ${catalogPreflight.value?.action_codes.length ?? 0} 个能力权限。此操作不会为应用或客户端创建授权。`,
       '登记服务目录',
       { type: 'warning', confirmButtonText: '确认登记' }
     )
@@ -1158,7 +1181,7 @@ async function registerCatalog(): Promise<void> {
       throw new Error('Unexpected service catalog registration result')
     }
     catalogRegistered.value = true
-    catalogMessage.value = 'SandAI 服务动作已登记。请到 SandIAM 为目标应用和工作负载客户端配置授权。'
+    catalogMessage.value = 'SandAI 能力权限已登记。请到 SandIAM 为目标应用和工作负载客户端配置授权。'
     catalogMessageType.value = 'success'
   } catch (error) {
     if (generation === catalogGeneration) {
@@ -1192,7 +1215,7 @@ async function loadSkillCatalog(): Promise<void> {
   } catch {
     if (generation === skillCatalogGeneration) {
       skillCatalogPreflight.value = null
-      skillCatalogMessage.value = '无法检查 Skill 服务动作，请确认后台权限与 SandIAM 状态。'
+      skillCatalogMessage.value = '无法检查 Skill 能力权限，请确认后台权限与 SandIAM 状态。'
       skillCatalogMessageType.value = 'warning'
     }
   } finally {
@@ -1205,8 +1228,8 @@ async function registerSkillCatalog(): Promise<void> {
   const confirmedGeneration = skillCatalogGeneration
   try {
     await ElMessageBox.confirm(
-      '将登记 Skill 的运行、读取、管理、测试和发布五项服务动作。此操作不会创建应用或授予客户端调用权限。',
-      '登记个人 Skill 服务动作',
+      '将登记 Skill 的运行、读取、管理、测试和启用五项能力权限。此操作不会创建应用或授予客户端调用权限。',
+      '登记个人 Skill 能力权限',
       { type: 'warning', confirmButtonText: '确认登记' }
     )
   } catch {
@@ -1226,7 +1249,7 @@ async function registerSkillCatalog(): Promise<void> {
       throw new Error('Unexpected Skill service catalog registration result')
     }
     skillCatalogRegistered.value = true
-    skillCatalogMessage.value = 'Skill 服务动作已登记。请到 SandIAM 为目标应用和客户端配置授权。'
+    skillCatalogMessage.value = 'Skill 能力权限已登记。请到 SandIAM 为目标应用和客户端配置授权。'
     skillCatalogMessageType.value = 'success'
   } catch (error) {
     if (generation === skillCatalogGeneration) {
@@ -1261,7 +1284,7 @@ async function loadAudioCatalog(): Promise<void> {
   } catch {
     if (generation === audioCatalogGeneration) {
       audioCatalogPreflight.value = null
-      audioCatalogMessage.value = '无法检查音频服务动作，请确认后台权限与 SandIAM 状态。'
+      audioCatalogMessage.value = '无法检查音频能力权限，请确认后台权限与 SandIAM 状态。'
       audioCatalogMessageType.value = 'warning'
     }
   } finally {
@@ -1298,7 +1321,7 @@ async function registerAudioCatalog(): Promise<void> {
   try {
     await ElMessageBox.confirm(
       '将登记音频转写、片段复核、语音合成和结果读取动作。此操作不会创建应用或授予客户端调用权限。',
-      '登记音频服务动作',
+      '登记音频能力权限',
       { type: 'warning', confirmButtonText: '确认登记' }
     )
   } catch {
@@ -1318,7 +1341,7 @@ async function registerAudioCatalog(): Promise<void> {
       throw new Error('Unexpected audio service catalog registration result')
     }
     audioCatalogRegistered.value = true
-    audioCatalogMessage.value = '音频服务动作已登记。请到 SandIAM 为目标应用和客户端配置授权。'
+    audioCatalogMessage.value = '音频能力权限已登记。请到 SandIAM 为目标应用和客户端配置授权。'
     audioCatalogMessageType.value = 'success'
   } catch (error) {
     if (generation === audioCatalogGeneration) {
@@ -1530,8 +1553,8 @@ async function loadInspectionDeployments(): Promise<void> {
     if (generation !== inspectionGeneration) return
     if (!Array.isArray(result.data) || result.data.some(item => !Number.isSafeInteger(item.id) || item.id < 1 || !Number.isSafeInteger(item.deployment_revision) || item.deployment_revision < 1 || typeof item.display_name !== 'string' || item.model_type !== 'chat' || item.publication_status !== 'published')) throw new Error('部署列表无效')
     inspectionDeployments.value = result.data
-    if (!result.data.length) notice('没有匹配的已发布聊天模型。可调整名称筛选；历史修订可用原保存回执编号读取。', 'warning')
-    else if (result.total > result.per_page) notice('已发布模型超过当前页，请输入名称筛选后读取部署列表。', 'warning')
+    if (!result.data.length) notice('没有匹配的已启用聊天模型。可调整名称筛选；历史修订可用原保存回执编号读取。', 'warning')
+    else if (result.total > result.per_page) notice('已启用模型超过当前页，请输入名称筛选后读取部署列表。', 'warning')
   } catch (error) {
     if (generation === inspectionGeneration) notice(accessFailureNotice(error) || '部署列表读取失败。请检查当前管理权限后重试。', 'warning')
   } finally {
@@ -1575,7 +1598,7 @@ function readInspectionRoute(): void {
   const revision = route.query.revision
   if (id === undefined && revision === undefined) return
   if (typeof id !== 'string' || typeof revision !== 'string' || !/^[1-9][0-9]*$/.test(id) || !/^[1-9][0-9]*$/.test(revision) || !Number.isSafeInteger(Number(id)) || !Number.isSafeInteger(Number(revision))) {
-    notice('部署修订链接无效。请从原保存回执或已发布模型列表读取。', 'warning')
+    notice('部署修订链接无效。请从原保存回执或已启用模型列表读取。', 'warning')
     return
   }
   inspectionTargetId.value = Number(id)
@@ -1702,15 +1725,15 @@ async function readVerification(): Promise<void> {
         applyVerification({ ...state, state: 'published' })
       }
     }
-    if (verificationRecoveryPending.value) notice('原验证尚无明确终态。请继续用原请求号只读找回；不会换号验证或重新配置。', 'warning')
+    if (verificationRecoveryPending.value) notice('原验证尚无明确终态。请继续用请求编号只读找回；不会换号验证或重新配置。', 'warning')
     else if (verificationFailure.value) notice('已读取原验证的失败状态，请查看下方恢复提示。', 'warning')
     else if (state.state === 'verifying') notice('验证仍在进行。稍后读取同一修订状态。', 'warning')
-    else if (state.state === 'verification_ambiguous') notice('验证结果无法确定，可能已产生服务商费用。请保留部署、修订和原请求号，联系管理员核查；不会自动重试。', 'warning')
+    else if (state.state === 'verification_ambiguous') notice('验证结果无法确定，可能已产生服务商费用。请保留部署、修订和请求编号，联系管理员核查；不会自动重试。', 'warning')
     else if (state.state === 'draft' && (verificationRejected.value || verificationAttempted.value || hasVerificationFailure.value)) notice('已读取当前修订状态，请查看下方恢复提示。', 'warning')
     else if (state.validation_evidence?.usage_measured === false) notice('模型已验证；服务商未返回 Token 用量，费用暂不可确认。', 'warning')
     else notice(`当前修订状态：${verificationStateLabel.value}`, 'success')
   } catch (error) {
-    if (ownsRead()) notice(accessFailureNotice(error) || '无法确认原验证尝试。未找到或读取失败不表示未发送；请保留原请求号并继续只读核查。', 'warning')
+    if (ownsRead()) notice(accessFailureNotice(error) || '无法确认原验证尝试。未找到或读取失败不表示未发送；请保留请求编号并继续只读核查。', 'warning')
   } finally {
     if (ownsRead()) busy.value = ''
   }
@@ -1785,7 +1808,7 @@ async function verifyDraft(): Promise<void> {
       resolveVerificationRequest(request)
       notice(result.validation_evidence?.usage_measured === false
         ? '聊天模型验证通过；服务商未返回 Token 用量，运行费用暂不可确认。'
-        : '聊天模型验证通过。发布后仍需配置所选目标的业务能力。',
+        : '聊天模型验证通过。启用后仍需配置所选目标的业务能力。',
       result.validation_evidence?.usage_measured === false ? 'warning' : 'success')
     } catch (error) {
       if (current === epoch && matchesDraft(target)) {
@@ -1821,9 +1844,9 @@ async function readCurrentPublicationRevision(): Promise<void> {
     if (state.deployment_id !== saved.deployment_id || state.revision !== saved.revision || state.state !== saved.state
       || !['draft', 'verifying', 'tested', 'published', 'verification_ambiguous'].includes(state.state)) throw new Error('当前修订状态不一致')
     publicationPreview.value = { draft: saved, verification: state }
-    notice('已读取当前修订。请核对上方模型、配置和状态后明确确认；本页不会自动验证或发布。', 'warning')
+    notice('已读取当前修订。请核对上方模型、配置和状态后明确确认；本页不会自动验证或启用。', 'warning')
   } catch (error) {
-    if (current === epoch && matchesDraft(target)) notice(accessFailureNotice(error) || '当前部署修订读取未确认，请重试读取；保留原目标，不会自动发布或解除原验证锁。', 'warning')
+    if (current === epoch && matchesDraft(target)) notice(accessFailureNotice(error) || '当前部署修订读取未确认，请重试读取；保留原目标，不会自动启用或解除原验证锁。', 'warning')
   } finally {
     if (current === epoch && matchesDraft(target)) busy.value = ''
   }
@@ -1835,7 +1858,7 @@ async function confirmCurrentPublicationRevision(): Promise<void> {
   const current = epoch
   try {
     await ElMessageBox.confirm(
-      `确认切换到部署 ${preview.draft.deployment_id} 的修订 ${preview.draft.revision}，模型 ${preview.draft.model.name}（${preview.draft.deployment.remote_model}）？这只更新本页操作目标，不会验证或发布。`,
+      `确认切换到部署 ${preview.draft.deployment_id} 的修订 ${preview.draft.revision}，模型 ${preview.draft.model.name}（${preview.draft.deployment.remote_model}）？这只更新本页操作目标，不会验证或启用。`,
       '确认当前修订', { confirmButtonText: '确认此修订', cancelButtonText: '保留原目标', type: 'warning' }
     )
   } catch { return }
@@ -1855,7 +1878,7 @@ async function confirmCurrentPublicationRevision(): Promise<void> {
   boundEnvironmentId.value = null
   publicationConfirmationRequired.value = false
   publicationPreview.value = null
-  notice(published.value ? '已确认当前修订已经发布；可按实际状态继续绑定环境。' : '已确认当前修订。请按其实际状态选择验证、发布或重新配置；不会自动执行。', 'success')
+  notice(published.value ? '已确认当前修订已经启用；可按实际状态继续绑定环境。' : '已确认当前修订。请按其实际状态选择验证、启用或重新配置；不会自动执行。', 'success')
 }
 
 async function confirmOriginalPublication(): Promise<void> {
@@ -1886,18 +1909,18 @@ async function confirmOriginalPublication(): Promise<void> {
     publicationConfirmationRequired.value = true
     publicationPreview.value = null
     if (saved.state !== 'published' || (state.state !== 'published' && !verifiedPublished)) {
-      notice(`原部署 ${stored.deployment_id} · 修订 ${stored.revision} 当前为${verificationLabel(saved.state)}。原发布结果仍未确认；当前状态不能证明原发布未发生，保留原目标，不再次提交发布。`, 'warning')
+      notice(`原部署 ${stored.deployment_id} · 修订 ${stored.revision} 当前为${verificationLabel(saved.state)}。原启用结果仍未确认；当前状态不能证明原启用未发生，保留原目标，不再次提交启用。`, 'warning')
       return
     }
     persistJourney(savedJourney(stored, saved))
     journeyStorageError.value = false
     publicationConfirmationRequired.value = false
-    notice(`已只读确认原部署 ${stored.deployment_id} · 修订 ${stored.revision} 当前已发布。这是固定修订的当前状态，不是原发布操作回执；目标环境仍需显式绑定。`, 'success')
+    notice(`已只读确认原部署 ${stored.deployment_id} · 修订 ${stored.revision} 当前已启用。这是固定修订的当前状态，不是原启用操作回执；目标环境仍需显式绑定。`, 'success')
   } catch (error) {
     if (current === epoch) {
       publicationConfirmationRequired.value = true
       publicationPreview.value = null
-      notice(accessFailureNotice(error) || '原目标发布状态尚未确认。未找到、读取失败或目标不符不能证明原发布未发生；保留原目标，仅只读找回，不再次提交发布。', 'warning')
+      notice(accessFailureNotice(error) || '原目标启用状态尚未确认。未找到、读取失败或目标不符不能证明原启用未发生；保留原目标，仅只读找回，不再次提交启用。', 'warning')
     }
   } finally {
     if (current === epoch) { busy.value = ''; originalPublicationConfirming.value = false }
@@ -1919,15 +1942,15 @@ async function publish(): Promise<void> {
   try {
     try {
       await ElMessageBox.confirm(
-        `确认发布部署 ${target.deployment_id} · 修订 ${target.revision}？服务商：${target.provider.name}；模型：${target.model.name}（${target.deployment.remote_model}）；验证状态：${verificationLabel(verification.value.state)}；输出上限：${target.deployment.config.max_output_tokens}；推理额度：${target.deployment.config.reasoning_effort || '由模型服务决定'}；方法包输出：${target.deployment.config.skill_output_strategy ? skillStrategyLabels[target.deployment.config.skill_output_strategy] : '标准输出（默认）'}。当前应用 ${selectedApplication || '未选'}、环境 ${selectedEnvironment || '未选'}；发布不会自动绑定环境。`,
-        '确认发布模型修订', { type: 'warning', confirmButtonText: '发布此修订', cancelButtonText: '取消' }
+        `确认启用部署 ${target.deployment_id} · 修订 ${target.revision}？服务商：${target.provider.name}；模型：${target.model.name}（${target.deployment.remote_model}）；验证状态：${verificationLabel(verification.value.state)}；输出上限：${target.deployment.config.max_output_tokens}；推理额度：${target.deployment.config.reasoning_effort || '由模型服务决定'}；技能模板输出：${target.deployment.config.skill_output_strategy ? skillStrategyLabels[target.deployment.config.skill_output_strategy] : '标准输出（默认）'}。当前应用 ${selectedApplication || '未选'}、环境 ${selectedEnvironment || '未选'}；启用不会自动绑定环境。`,
+        '确认启用模型修订', { type: 'warning', confirmButtonText: '启用此修订', cancelButtonText: '取消' }
       )
     } catch { return }
     if (current !== epoch) return
     if (draft.value !== target || JSON.stringify(draft.value) !== targetSnapshot
       || JSON.stringify(verification.value) !== verificationSnapshot || JSON.stringify(journey.value) !== originalJourney
       || applicationId.value !== selectedApplication || environmentId.value !== selectedEnvironment) {
-      notice('确认期间模型修订、配置、验证状态或目标环境已变化，尚未发布。请重新读取并核对原目标。', 'warning')
+      notice('确认期间模型修订、配置、验证状态或目标环境已变化，尚未启用。请重新读取并核对原目标。', 'warning')
       return
     }
     try {
@@ -1935,17 +1958,17 @@ async function publish(): Promise<void> {
       if (!stored || stored.phase !== 'saved') throw new Error('Original journey unavailable')
       assertJourneyDraft(target, stored)
       persistJourney({ ...stored, phase: 'publish_unknown' })
-    } catch { journeyStorageError.value = true; notice('无法保留原发布目标，本次发布尚未发送。请先只读找回原状态。', 'warning'); return }
+    } catch { journeyStorageError.value = true; notice('无法保留原启用目标，本次启用尚未发送。请先只读找回原状态。', 'warning'); return }
     busy.value = 'publish'
     try {
       const result = await onboardingApi.publish(target.deployment_id, target.revision)
       if (current !== epoch || !matchesDraft(target)) return
-      if (result.deployment_id !== target.deployment_id || result.state !== 'published') throw new Error('发布结果不一致')
+      if (result.deployment_id !== target.deployment_id || result.state !== 'published') throw new Error('启用结果不一致')
       const saved = await onboardingApi.readDraft(target.deployment_id, target.revision)
       const state = await onboardingApi.readVerification(target.deployment_id, target.revision)
       if (current !== epoch || !matchesDraft(target)) return
       if (saved.deployment_id !== target.deployment_id || saved.revision !== target.revision || saved.state !== 'published'
-        || state.deployment_id !== target.deployment_id || state.revision !== target.revision || state.state !== 'published') throw new Error('发布修订未确认')
+        || state.deployment_id !== target.deployment_id || state.revision !== target.revision || state.state !== 'published') throw new Error('启用修订未确认')
       hydrateDraftConfiguration(saved)
       draft.value = saved
       applyVerification(state)
@@ -1953,14 +1976,14 @@ async function publish(): Promise<void> {
       persistJourney(savedJourney(journey.value, saved))
       publicationConfirmationRequired.value = false
       publicationPreview.value = null
-      notice('模型连接已发布。请选择目标环境并显式绑定聊天能力。', 'success')
+      notice('模型连接已启用。请选择目标环境并显式绑定聊天能力。', 'success')
     } catch (error) {
       if (current === epoch && matchesDraft(target)) {
         publicationConfirmationRequired.value = true
         publicationPreview.value = null
         published.value = false
         boundEnvironmentId.value = null
-        notice(accessFailureNotice(error) || '原发布结果尚未确认。请只读找回原部署与修订；可预览当前修订，但原结果未知时不能切换目标或重新发布。', 'warning')
+        notice(accessFailureNotice(error) || '原启用结果尚未确认。请只读找回原部署与修订；可预览当前修订，但原结果未知时不能切换目标或重新启用。', 'warning')
       }
     } finally {
       if (current === epoch) busy.value = ''
@@ -1996,7 +2019,7 @@ async function readOriginalBinding(): Promise<void> {
     const before = await onboardingApi.readDraft(target.deployment_id)
     if (!stillOriginal()) return
     if (before.deployment_id !== target.deployment_id || before.revision !== target.revision || before.state !== 'published') {
-      bindingNotice.value = '原部署当前修订或发布状态不匹配。保留原目标，请到专业配置核对；不会重新绑定。'
+      bindingNotice.value = '原部署当前修订或启用状态不匹配。保留原目标，请到专业配置核对；不会重新绑定。'
       return
     }
     const result = await capabilityApi.readProfile(target.environment_id)
@@ -2006,7 +2029,7 @@ async function readOriginalBinding(): Promise<void> {
     if (!profile || profile.environment_id !== target.environment_id || profile.state !== 'published'
       || profile.status !== 1 || !Array.isArray(routes)
       || routes.some(item => !Number.isSafeInteger(item.priority) || !Number.isSafeInteger(item.status))) {
-      bindingNotice.value = '尚未确认原环境的已发布配置。保留原目标，请稍后读取；当前状态不能证明原绑定未发生。'
+      bindingNotice.value = '尚未确认原环境的已启用配置。保留原目标，请稍后读取；当前状态不能证明原绑定未发生。'
       return
     }
     const defaultChat = [...routes].sort((left, right) => left.priority - right.priority)
@@ -2066,7 +2089,7 @@ async function bindDefaultChat(): Promise<void> {
     const saved = await onboardingApi.readDraft(deploymentId)
     if (!ownsTarget()) return
     if (!samePublishedDeployment(saved)) {
-      bindingNotice.value = '原部署修订、配置或发布状态已变化，尚未发送绑定。请重新读取并核对原修订。'
+      bindingNotice.value = '原部署修订、配置或启用状态已变化，尚未发送绑定。请重新读取并核对原修订。'
       return
     }
     const before = await capabilityApi.readProfile(selectedEnvironment)
@@ -2080,7 +2103,7 @@ async function bindDefaultChat(): Promise<void> {
       : '当前环境尚无能力档'
     try {
       await ElMessageBox.confirm(
-        `确认将应用 ${selectedApplication}、环境 ${selectedEnvironment} 的默认聊天绑定到部署 ${deploymentId} · 修订 ${revision}？模型：${selectedDraft.model.name}（${selectedDraft.deployment.remote_model}）；验证状态：${verificationLabel(verification.value?.state ?? 'draft')}；输出上限：${selectedDraft.deployment.config.max_output_tokens}；推理额度：${selectedDraft.deployment.config.reasoning_effort || '由模型服务决定'}；方法包输出：${selectedDraft.deployment.config.skill_output_strategy ? skillStrategyLabels[selectedDraft.deployment.config.skill_output_strategy] : '标准输出（默认）'}。${previousDescription}。本操作采用首次开通默认聊天配置、允许已批准云端处理；不会覆盖不同的已发布能力档。`,
+        `确认将应用 ${selectedApplication}、环境 ${selectedEnvironment} 的默认聊天绑定到部署 ${deploymentId} · 修订 ${revision}？模型：${selectedDraft.model.name}（${selectedDraft.deployment.remote_model}）；验证状态：${verificationLabel(verification.value?.state ?? 'draft')}；输出上限：${selectedDraft.deployment.config.max_output_tokens}；推理额度：${selectedDraft.deployment.config.reasoning_effort || '由模型服务决定'}；技能模板输出：${selectedDraft.deployment.config.skill_output_strategy ? skillStrategyLabels[selectedDraft.deployment.config.skill_output_strategy] : '标准输出（默认）'}。${previousDescription}。本操作采用首次开通默认聊天配置、允许已批准云端处理；不会覆盖不同的已启用能力档。`,
         '确认默认聊天绑定', { type: 'warning', confirmButtonText: '绑定此修订和环境', cancelButtonText: '保留原目标' }
       )
     } catch { return }
@@ -2180,7 +2203,7 @@ onActivated(() => {
   if (configurationEntryLoaded && route.query.configuration_return === 'material_guide' && !busy.value && !bindingSubmitting.value)
     void loadApplications()
 })
-onMounted(() => { loadOriginalBindingIntent(); void restoreJourney(); void load(); void loadCatalog(); void loadSkillCatalog(); void loadAudioCatalog(); void loadAudioRuntime(); readInspectionRoute() })
+onMounted(() => { ensureBootstrap(); loadOriginalBindingIntent(); void restoreJourney(); void load(); void loadCatalog(); void loadSkillCatalog(); void loadAudioCatalog(); void loadAudioRuntime(); readInspectionRoute() })
 onBeforeUnmount(() => { live = false; inspectionGeneration++; epoch++; guideGeneration++; catalogGeneration++; skillCatalogGeneration++; audioCatalogGeneration++; audioRuntimeGeneration++; clearKey() })
 </script>
 
@@ -2190,6 +2213,8 @@ onBeforeUnmount(() => { live = false; inspectionGeneration++; epoch++; guideGene
 .heading p, .muted { color: var(--el-text-color-secondary); }
 .notice, .steps { margin: 20px 0; }
 .catalog-notice { margin: 12px 0; }
+.bootstrap-notice { margin: 12px 0; color: var(--el-color-warning); }
+.tech-details { margin: 6px 0; }
 .section { border-top: 1px solid var(--el-border-color-light); padding: 20px 0; }
 .section h3 { margin: 0 0 12px; }
 .narrow { max-width: 650px; }

@@ -1,5 +1,5 @@
 <template>
-  <div class="art-full-height usage-page">
+  <div class="sand-ai-page usage-page">
     <div v-if="canReadHistory" class="mb-3">
       <ElButton @click="historyOpen = true">查看账单历史与原调用费用</ElButton>
     </div>
@@ -48,6 +48,7 @@
 </template>
 
 <script setup lang="ts">
+  import '../components/sandAiPage.css'
   import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
   import { onBeforeRouteLeave } from 'vue-router'
   import { ElMessageBox } from 'element-plus'
@@ -139,6 +140,5 @@
   .usage-tabs :deep(.el-tabs__content) {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
   }
 </style>

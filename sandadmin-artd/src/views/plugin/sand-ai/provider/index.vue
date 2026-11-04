@@ -1,8 +1,8 @@
 <template>
-  <div class="art-full-height">
+  <div class="sand-ai-page">
     <CodeNameStatusSearch v-model="searchForm" @search="handleSearch" @reset="handleReset" />
 
-    <ElCard class="art-table-card" shadow="never">
+    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
       <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData">
         <template #left>
           <ElSpace wrap>
@@ -66,6 +66,7 @@
 </template>
 
 <script setup lang="ts">
+  import '../components/sandAiPage.css'
   import { ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { useTable } from '@/hooks/core/useTable'
@@ -104,10 +105,9 @@
       apiParams: {},
       columnsFactory: () => [
         { prop: 'id', label: 'ID', width: 80, align: 'center' },
-        { prop: 'code', label: '编码', minWidth: 140 },
         { prop: 'name', label: '名称', minWidth: 160 },
-        { prop: 'adapter', label: '适配器', minWidth: 160 },
-        { prop: 'timeout_ms', label: '超时(ms)', width: 110, align: 'center' },
+        { prop: 'adapter', label: '服务商类型', minWidth: 160 },
+        { prop: 'timeout_ms', label: '超时（毫秒）', width: 110, align: 'center' },
         { prop: 'has_encrypted_config', label: '密钥', width: 100, useSlot: true },
         { prop: 'status', label: '状态', width: 100, useSlot: true },
         { prop: 'update_time', label: '更新时间', width: 180 },

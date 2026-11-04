@@ -4,7 +4,7 @@
       <div class="panel-header">
         <div>
           <h2>知识库共享</h2>
-          <p>将已发布的知识库开放给指定应用环境。应用还需在 SandIAM 获得知识库查询权限。</p>
+          <p>将已启用的知识库开放给指定应用环境。应用还需在 SandIAM 获得知识库查询权限。</p>
         </div>
         <ElButton :loading="environmentLoading" @click="loadEnvironments(true)">刷新环境</ElButton>
       </div>
@@ -56,7 +56,7 @@
           clearable
           :loading="baseLoading"
           :disabled="typeof ownerEnvironmentId !== 'number' || writing"
-          placeholder="选择已发布且来源已核实的知识库"
+          placeholder="选择已启用且来源已核实的知识库"
         >
           <ElOption
             v-for="base in publishableBases"
@@ -93,7 +93,7 @@
           :disabled="writing"
           placeholder="例如 legal_reference"
         />
-        <span class="form-hint">同一消费环境内唯一；发布后不能改指向其他知识库。</span>
+        <span class="form-hint">同一消费环境内唯一；启用后不能改指向其他知识库。</span>
       </ElFormItem>
       <ElFormItem>
         <ElButton type="primary" :loading="writing" :disabled="!canPublish" @click="publish">
@@ -106,7 +106,7 @@
     <div class="list-header">
       <div>
         <h3>检索试用</h3>
-        <p class="form-hint">直接检查这个已发布版本的来源摘录；应用正式调用仍需 SandIAM 授权。</p>
+        <p class="form-hint">直接检查这个已启用版本的来源摘录；应用正式调用仍需 SandIAM 授权。</p>
       </div>
     </div>
     <ElForm label-width="110px" @submit.prevent>
@@ -395,7 +395,7 @@
 
   function environmentLabel(environment: SandIamEnvironmentReference): string {
     const app = applications.value.find(item => item.id === environment.application_id)
-    return `${app?.name ?? `应用 ${environment.application_id}`} · ${environment.name} (${environment.code})`
+    return `${app?.name ?? `应用 ${environment.application_id}`} · ${environment.name}`
   }
 
   function environmentName(id: number): string {

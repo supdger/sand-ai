@@ -4,13 +4,13 @@
       <div class="skill-header">
         <div>
           <h2>环境 Skill · 管理员配置</h2>
-          <p>选定已开放资料和聊天能力，创建固定版本；测试成功后由管理员手动发布。</p>
+          <p>选定已开放资料和聊天能力，创建固定版本；测试成功后由管理员手动启用。</p>
         </div>
         <ElButton :loading="environmentLoading" @click="loadEnvironments(true)">刷新环境</ElButton>
       </div>
     </template>
 
-    <p class="skill-hint">个人或团队的方法包使用“应用方法包 · 消费范围”入口及授权消费应用身份。本面板管理环境配置，不代表已认证的个人归属。</p>
+    <p class="skill-hint">个人或团队的技能模板使用“应用技能模板 · 消费范围”入口及授权消费应用身份。本面板管理环境配置，不代表已认证的个人归属。</p>
     <ElAlert v-if="error" type="error" :title="error" show-icon closable @close="error = ''" />
     <ElAlert v-if="pending || managementRecoveryBlocked" type="warning" :closable="false"
       title="原管理请求尚待确认，不能更换内容、操作或请求号。只读找回原回执，不重新提交或更换请求号。">
@@ -40,7 +40,7 @@
         <ElSelect v-model="environmentId" filterable clearable placeholder="选择 Skill 所属环境"
           :disabled="Boolean(busy)" style="width: 380px" @change="changeEnvironment">
           <ElOption v-for="environment in environments" :key="environment.id"
-            :value="environment.id" :label="`${environment.name} (${environment.code})`" />
+            :value="environment.id" :label="environment.name" />
         </ElSelect>
         <ElButton v-if="environments.length < environmentTotal" text :loading="environmentLoading"
           @click="loadEnvironments()">加载更多环境</ElButton>
@@ -60,7 +60,7 @@
         </ElTableColumn>
         <ElTableColumn label="版本" width="160">
           <template #default="{ row }">
-            草稿 {{ row.draft_version ?? '—' }} / 已发布 {{ row.active_version ?? '—' }}
+            草稿 {{ row.draft_version ?? '—' }} / 已启用 {{ row.active_version ?? '—' }}
           </template>
         </ElTableColumn>
         <ElTableColumn label="操作" width="100">
@@ -75,7 +75,7 @@
 
       <div class="skill-section-title"><h3>创建草稿</h3></div>
       <ElAlert v-if="sources.length === 0" type="info" :closable="false"
-        title="请先在上方“知识库共享”中，将已发布资料开放给这个消费环境。" />
+        title="请先在上方“知识库共享”中，将已启用资料开放给这个消费环境。" />
       <ElForm label-width="110px" @submit.prevent>
         <ElFormItem label="名称">
           <ElInput v-model.trim="form.name" maxlength="100" style="max-width: 420px" placeholder="例如：个人法律资料问答" />
@@ -135,7 +135,7 @@
         <template v-if="draftVersion">
           <div class="skill-section-title"><h3>第 {{ draftVersion.version }} 版案例评测</h3></div>
           <ElAlert v-if="!canPublishCases" type="info" :closable="false"
-            title="发布前需要至少一个有效案例，且每个案例的最新人工判定均为通过。" />
+            title="启用前需要至少一个有效案例，且每个案例的最新人工判定均为通过。" />
           <ElTable :data="cases" row-key="id" empty-text="尚无案例">
             <ElTableColumn label="序号" prop="case_no" width="75" />
             <ElTableColumn label="案例" prop="name" min-width="150" />
@@ -178,7 +178,7 @@
             </ElButton>
             <ElButton type="success" :loading="busy === 'publish'"
               :disabled="Boolean(busy) || !canPublishCases" @click="publish">
-              手动发布此版本
+              手动启用此版本
             </ElButton>
           </div>
           <pre v-if="testResult" class="skill-result">{{ JSON.stringify(testResult, null, 2) }}</pre>
@@ -219,10 +219,10 @@
         </template>
         <section v-if="detail.skill.state === 'published' && detail.skill.active_version" class="skill-runtime">
           <div class="skill-section-title">
-            <h3>按应用身份运行已发布版本 {{ detail.skill.active_version }}</h3>
+            <h3>按应用身份运行已启用版本 {{ detail.skill.active_version }}</h3>
           </div>
           <p class="skill-hint">
-            使用 SandIAM 签发的应用凭证，实际调用已发布版本；需要 Skill 运行与所引用知识的服务授权。
+            使用 SandIAM 签发的应用凭证，实际调用已启用版本；需要 Skill 运行与所引用知识的允许使用。
             运行会调用模型并独立计费。
           </p>
           <ElForm label-width="110px" @submit.prevent>
@@ -234,7 +234,7 @@
             <ElFormItem>
               <ElButton type="primary" :loading="runtimeBusy"
                 :disabled="runtimeBusy || runtimeRecoveryBlocked || !runtimeApiKey.trim() || !runtimeStorageScope || Boolean(pendingRuntimeRequestId)"
-                @click="runPublished">运行已发布版本</ElButton>
+                @click="runPublished">运行已启用版本</ElButton>
             </ElFormItem>
           </ElForm>
           <ElButton v-if="runtimeRecoveryBlocked" :disabled="runtimeBusy" @click="restorePendingRun">重读原调用记录</ElButton>
@@ -390,7 +390,7 @@
   )
 
   function stateLabel(state: string): string {
-    return ({ draft: '草稿', published: '已发布', revoked: '已撤销' } as Record<string, string>)[state] ?? state
+    return ({ draft: '草稿', published: '已启用', revoked: '已撤销' } as Record<string, string>)[state] ?? state
   }
 
   function showMoney(amount: string | null, currency: string | null): string {
@@ -668,7 +668,7 @@
       if (value.operation === 'publish' || value.operation === 'revoke') {
         if (typeof value.skillId !== 'number' || !Number.isSafeInteger(value.skillId) || value.skillId < 1
           || (value.operation === 'publish' && (typeof value.version !== 'number' || !Number.isSafeInteger(value.version) || value.version < 1)))
-          throw new Error('原发布或撤销目标无效')
+          throw new Error('原启用或撤销目标无效')
         saved.skillId = value.skillId
         if (typeof value.version === 'number') saved.version = value.version
       }
@@ -1278,9 +1278,9 @@
         if (current !== generation || actor !== userStore.info.id || environmentId.value !== environment
           || detail.value?.skill.id !== skill.id || draftVersion.value?.id !== version.id
           || !canPublishCases.value || publicationIntent() !== originalIntent)
-          throw new Error('原发布版本或案例判定已变化，请重新读取并明确确认；本次不发送')
+          throw new Error('原启用版本或案例判定已变化，请重新读取并明确确认；本次不发送')
       }
-      try { await ElMessageBox.confirm(`发布 ${skill.code} 第 ${version.version} 版；具备 SandIAM 授权的应用才可运行此固定版本。`, '发布 Skill') }
+      try { await ElMessageBox.confirm(`启用 ${skill.code} 第 ${version.version} 版；具备 SandIAM 授权的应用才可运行此固定版本。`, '启用 Skill') }
       catch { return }
       if (current !== generation || environmentId.value !== environment || detail.value?.skill.id !== skill.id
         || draftVersion.value?.id !== version.id || !canPublishCases.value || busyState.value) return
@@ -1294,9 +1294,9 @@
         if (current !== generation) return
         if (result.skill_id !== skill.id || result.code !== skill.code || result.version_id !== version.id
           || result.version !== version.version || result.state !== 'published')
-          throw new Error('发布结果与原固定版本不一致，原请求号仍保留')
+          throw new Error('启用结果与原固定版本不一致，原请求号仍保留')
         settlePending()
-        ElMessage.success(`第 ${result.version} 版已发布`)
+        ElMessage.success(`第 ${result.version} 版已启用`)
         busyState.value = ''
         await loadSkills(1, flight)
         if (current !== generation) return

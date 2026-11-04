@@ -5,7 +5,7 @@
     <PublicationPanel :key="userStore.info.id" />
     <ConsumerSkillPanel :key="userStore.info.id" />
     <ElAlert type="info" :closable="false"
-      title="下方为旧环境 Skill 配置。个人、团队或组织消费范围的方法包，请使用上方“应用方法包”入口。" />
+      title="下方为旧环境技能模板配置。个人、团队或组织消费范围的技能模板，请使用上方“应用技能模板”入口。" />
     <SkillPanel :key="userStore.info.id" />
     <ElCard class="art-table-card" shadow="never">
       <div class="know-header">
@@ -23,7 +23,7 @@
           v-model="apiKey"
           placeholder="当前应用的 SandIAM 短期运行身份"
         />
-        <p class="know-footnote">需 sand_ai.retrieval.search 服务授权；来源文件仍按当前应用的访问权限核验。</p>
+        <p class="know-footnote">需允许使用“私有来源检索”；来源文件仍按当前应用的访问权限核验。</p>
         <ElFormItem label="查询">
           <ElSpace wrap>
             <ElInput
@@ -70,7 +70,7 @@
         @selection-change="onSelectionChange"
       />
       <p v-if="searchedQuery" class="know-footnote">
-        query={{ searchedQuery }} · hits={{ matches.length }}
+        查询“{{ searchedQuery }}” · 命中 {{ matches.length }} 条
       </p>
     </ElCard>
   </div>
@@ -108,17 +108,17 @@
 
   const columns: ColumnOption<SandAiRetrievalMatch>[] = [
     { type: 'selection', width: 48 },
-    { prop: 'source_block_id', label: 'block', width: 90, align: 'center' },
-    { prop: 'file_id', label: 'file', width: 90 },
-    { prop: 'locator_type', label: 'locator_type', width: 120 },
+    { prop: 'source_block_id', label: '来源块', width: 90, align: 'center' },
+    { prop: 'file_id', label: '文件', width: 90 },
+    { prop: 'locator_type', label: '定位方式', width: 120 },
     {
       prop: 'locator',
-      label: 'locator',
+      label: '位置',
       minWidth: 160,
       formatter: (row) => JSON.stringify(row.locator)
     },
-    { prop: 'score', label: 'score', width: 100 },
-    { prop: 'excerpt', label: 'excerpt', minWidth: 280 },
+    { prop: 'score', label: '相关度', width: 100 },
+    { prop: 'excerpt', label: '摘录', minWidth: 280 },
     {
       prop: 'source_block_id',
       label: '操作',

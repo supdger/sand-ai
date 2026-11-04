@@ -1,11 +1,11 @@
 <template>
   <section class="rerank-price">
     <h4>此模型的专业重排价格</h4>
-    <p>计量单位：{{ unitLabel }}。按实际服务商费率填写币种与 UTC 生效时间；保存草稿不会发布价格。金额未计价与实际账单未核对会分别保留。</p>
+    <p>计量单位：{{ unitLabel }}。按实际服务商费率填写币种与 UTC 生效时间；保存草稿不会启用价格。金额未计价与实际账单未核对会分别保留。</p>
     <ElAlert v-if="notice" :title="notice" :closable="false" type="warning" />
     <ElButton v-permission="'sand_ai:pricing:index'" :loading="busy === 'read'" :disabled="!!busy" @click="read">读取价格目录 / 找回原操作</ElButton>
     <ElSelect v-model="selectedId" :disabled="!!busy || !!pending" clearable placeholder="选择已有价格版本" @change="selectPrice">
-      <ElOption v-for="item in prices" :key="item.id" :value="item.id" :label="`${item.name} · 版本 ${item.revision} · ${item.state === 'published' ? '已发布' : '草稿'}`" />
+      <ElOption v-for="item in prices" :key="item.id" :value="item.id" :label="`${item.name} · 版本 ${item.revision} · ${item.state === 'published' ? '已启用' : '草稿'}`" />
     </ElSelect>
     <ElForm label-width="120px" :disabled="!!busy || !!pending || storageBlocked || !!selected" @submit.prevent>
       <ElFormItem label="计量单位"><ElSelect :model-value="meterFor(props.driver)" disabled><ElOption :label="unitLabel" :value="meterFor(props.driver)" /></ElSelect></ElFormItem>
@@ -18,13 +18,13 @@
     </ElForm>
     <ElSpace wrap>
       <ElButton v-permission="'sand_ai:pricing:save'" :loading="busy === 'save'" :disabled="!!busy || !!pending || storageBlocked || !!selected || !canSave" @click="save">保存新的价格草稿</ElButton>
-      <ElButton v-permission="'sand_ai:pricing:publish'" :loading="busy === 'publish'" :disabled="!!busy || !!pending || storageBlocked || selected?.state !== 'draft'" @click="publish">发布所选价格版本</ElButton>
+      <ElButton v-permission="'sand_ai:pricing:publish'" :loading="busy === 'publish'" :disabled="!!busy || !!pending || storageBlocked || selected?.state !== 'draft'" @click="publish">启用所选价格版本</ElButton>
       <ElButton :disabled="!!busy || !!pending || !selected" @click="selectedId = undefined; selectPrice()">填写新的价格草稿</ElButton>
     </ElSpace>
-    <p v-if="selected">版本 {{ selected.revision }} · {{ selected.currency }} {{ selected.rates[0].unit_price }} / {{ selected.rates[0].per_quantity }} {{ unitLabel }} · {{ selected.state === 'published' ? '已发布' : '尚未发布' }}</p>
-    <p v-if="originalReceipt">原{{ originalKind === 'save' ? '保存' : '发布' }}回执：价格 {{ originalReceipt.id }} · 版本 {{ originalReceipt.revision }} · {{ originalReceipt.state === 'published' ? '已发布' : '草稿' }}。这是当时的回执，当前状态以目录读取为准。</p>
-    <p v-if="mutationFlight">原价格请求仍在处理中，本页暂不能提交另一保存或发布操作。</p>
-    <p v-if="pending">原操作结果尚未确认，只允许原请求只读找回；不会自动补存或重新发布。</p>
+    <p v-if="selected">版本 {{ selected.revision }} · {{ selected.currency }} {{ selected.rates[0].unit_price }} / {{ selected.rates[0].per_quantity }} {{ unitLabel }} · {{ selected.state === 'published' ? '已启用' : '尚未启用' }}</p>
+    <p v-if="originalReceipt">原{{ originalKind === 'save' ? '保存' : '启用' }}回执：价格 {{ originalReceipt.id }} · 版本 {{ originalReceipt.revision }} · {{ originalReceipt.state === 'published' ? '已启用' : '草稿' }}。这是当时的回执，当前状态以目录读取为准。</p>
+    <p v-if="mutationFlight">原价格请求仍在处理中，本页暂不能提交另一保存或启用操作。</p>
+    <p v-if="pending">原操作结果尚未确认，只允许原请求只读找回；不会自动补存或重新启用。</p>
   </section>
 </template>
 <script setup lang="ts">
@@ -87,7 +87,7 @@ async function read(): Promise<void> {
     restoreMarker()
     const original = pending.value
     if (original) {
-      if (!original.request_key || original.target_id === undefined) { notice.value = '旧操作没有原请求收据证明。目录仅供核查，不能证明原保存或发布已完成；写操作保持锁定。'; return }
+      if (!original.request_key || original.target_id === undefined) { notice.value = '旧操作没有原请求收据证明。目录仅供核查，不能证明原保存或启用已完成；写操作保持锁定。'; return }
       const reference: PriceOperationReference = { kind: original.kind, provider_id: original.provider_id, model_id: original.model_id, capability_code: 'rerank', target_id: original.target_id, request_key: original.request_key, input_sha256: original.fingerprint }
       const result = await pricing.readOperation(reference, driver, owner.actor)
       if (current !== generation || !identity.current(owner)) return
@@ -99,7 +99,7 @@ async function read(): Promise<void> {
     const result = await pricing.list(props.providerId, props.modelId, driver)
     if (current !== generation || !identity.current(owner)) return
     prices.value = result; storageBlocked.value = false
-    notice.value = originalReceipt.value ? '原操作收据已确认；已另行读取当前价格目录，旧调用仍沿调用时冻结版本计价。' : '已读取此服务商及模型的价格版本；不会自动发布。'
+    notice.value = originalReceipt.value ? '原操作收据已确认；已另行读取当前价格目录，旧调用仍沿调用时冻结版本计价。' : '已读取此服务商及模型的价格版本；不会自动启用。'
   } catch { if (current === generation && identity.current(owner)) notice.value = '价格目录或原操作未确认，请继续只读找回。' }
   finally { if (current === generation && identity.current(owner)) currentBusy.value = '' }
 }

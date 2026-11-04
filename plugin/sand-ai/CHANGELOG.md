@@ -1,3 +1,6 @@
+## 0.3.2 (release)
+
+- Admin UX phase-1: fixed admin page scroll clipping via a shared `sand-ai-page` layout class; cleaned user-facing copy and internal identifiers (display labels, catalog codes); collapsed machine-oriented steps in setup flows; regrouped admin navigation into grouped sections; added an idempotent setup/bootstrap endpoint backed by the SandIAM service catalog.
 ## 0.3.1 (release)
 
 - Packaging fix only, no payload change: the release ZIP now carries `dependencies/sand-iam-0.8.4.zip` injected at build time from the locked public artifact (`tools/build-package.php --iam-bundle=`); the 0.3.0 public asset was missing the dependency bundle. `release-payload.json` and `host-payload.json` regenerated against the delivered tree.
@@ -12,6 +15,10 @@
 - Persist original upload request associations and provide scoped read-only recovery; preserve unknown uploads and reject changed input under the same key.
 
 # 更新日志
+
+## 0.3.2
+
+- 管理端 UX 一期：共享 `sand-ai-page` 布局类修复管理页滚动裁切；清理用户可见文案与内部标识（显示名、目录编码）；折叠设置流程中的机器步骤；管理导航重组为分组结构；新增基于 SandIAM 服务目录的幂等 setup/bootstrap 兜底端点。
 
 ## 0.3.1
 

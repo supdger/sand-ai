@@ -30,7 +30,7 @@
       <ElButton :disabled="pending || recoveryBusy" @click="journal.reload">查看本管理员原请求记录</ElButton>
       <ElAlert v-if="journal.storageError.value" :title="journal.storageError.value" type="warning" :closable="false" />
       <p v-for="entry in journal.entries.value" :key="entry.request_key" class="my-2">
-        {{ entry.operation === 'import' ? '账单导入' : entry.operation === 'sync' ? '官方同步' : '人工审核' }} · 服务商 {{ entry.provider_id }}<span v-if="entry.billing_line_id"> · 行 {{ entry.billing_line_id }}</span> · 原请求号 {{ entry.request_key }}
+        {{ entry.operation === 'import' ? '账单导入' : entry.operation === 'sync' ? '官方同步' : '人工审核' }} · 服务商 {{ entry.provider_id }}<span v-if="entry.billing_line_id"> · 行 {{ entry.billing_line_id }}</span> · 请求编号 {{ entry.request_key }}
         <ElButton :disabled="pending || recoveryBusy" @click="openOriginal(entry)">查询并打开原操作</ElButton>
         <ElButton v-if="rejectedEntry?.request_key === entry.request_key" :disabled="pending || recoveryBusy" @click="confirmOriginalRejection(entry)">确认正式拒绝并结束原记录</ElButton>
       </p>
@@ -263,9 +263,9 @@
       } else if (response.state === 'rejected') {
         rejectedEntry.value = entry
         rejectedCode.value = response.rejection.error_code
-        recoveryNotice.value = `原请求已正式拒绝（${response.rejection.error_code}）。明确确认拒绝后再修正输入；原请求号仍保留。`
+        recoveryNotice.value = `原请求已正式拒绝（${response.rejection.error_code}）。明确确认拒绝后再修正输入；请求编号仍保留。`
       }
-      else recoveryNotice.value = '原请求结果仍未知，不代表尚未提交。请保留原请求号，只读查询原请求结果；结果确认前不能重新填写输入、再次导入或更换请求号。'
+      else recoveryNotice.value = '原请求结果仍未知，不代表尚未提交。请保留请求编号，只读查询原请求结果；结果确认前不能重新填写输入、再次导入或更换请求号。'
       if (entry.operation === 'import') { importOpen.value = true; return }
       if (entry.operation === 'sync') { syncOpen.value = true; return }
       const providerBatches = await billingApi.index(entry.provider_id)

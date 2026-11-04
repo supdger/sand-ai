@@ -810,6 +810,32 @@ OCR 价格 revision／rate／金额／currency 保持 NULL、`unpriced`，不能
 
 法律来源的每个 `sources[]` 项和工作流 `legal_sources[]` 项可选传 `declared_effect_status`，取 `effective|amended|repealed|unknown`，缺省 `unknown`。该字段是消费者声明，随来源版本冻结；只读快照也回传它，不表示 SandAI 已核实法源效力。模型输入显式注明这一边界。法律分析成果的 `source_versions[]` 增加该字段，并由服务端确定性生成 `source_warnings:[{source_ref,source_version,declared_effect_status,warning_code,source_block_ids}]`：`amended` 对应 `declared_amendment_check_required`，`repealed` 对应 `declared_repealed_source`，`unknown` 对应 `effect_status_unverified`，`effective` 不产生该项。风险提示来源于冻结输入，不受模型是否提及影响；即使声明 `effective`，其 `authority_state` 仍为 `consumer_declared`，正式效力需业务方核验。
 
+### 5.3.2 系统准备：一次登记 SandIAM 服务目录（P4）
+
+`POST /app/sand-ai/admin/setup/bootstrap`，请求体为空（`{}` 或不带 body；携带任何字段返回 `400`，`SAND_AI_VALIDATION_ERROR`）。要求后台登录并拥有 `sand_ai:setup:service-catalog:register`，不新增权限码。端点幂等，不接受 GET：每次调用先用 `preflight` 判断 SandIAM 目录端口，可用时依次执行基础、Skill、音频三组登记，等价于顺序调用既有三个 `POST .../register`。三组登记在 SandIAM 内仅补缺，不覆盖已有行；重复及并发调用结果一致，不重复插入。该端点只登记服务与动作声明，不创建组织、应用、环境、客户端、凭证或 grant，也不恢复已停用的服务或动作。
+
+成功（HTTP 200，`code=200`）：
+
+```json
+{"code":200,"message":"系统准备完成","data":{"ready":true,"service_code":"sand_ai","groups":{"base":18,"skill":5,"audio":4}}}
+```
+
+`groups` 为各组声明的动作数量。失败也是 HTTP 200，`code=400`，`data.ready=false`，以 `data.reason` 区分：
+
+| `reason` | `message` | `retryable` |
+| --- | --- | --- |
+| `sandiam_unavailable` | 需要先安装身份与授权插件（SandIAM） | `false` |
+| `sandiam_disabled` | SandIAM 中的 SandAI 服务或动作已被停用，请先在 SandIAM 中启用后重试 | `false` |
+| `catalog_error` | 系统准备未完成：服务目录登记失败，请稍后重试 | `true` |
+
+```json
+{"code":400,"message":"需要先安装身份与授权插件（SandIAM）","data":{"ready":false,"reason":"sandiam_unavailable","retryable":false}}
+```
+
+SandIAM 缺失时不调用任何登记。已停用时只提示，不恢复；若停用的是后一组动作，前面已登记的组保留（登记本身幂等）。`message` 为中文且不含内部异常文本，可直接展示。未登录、无权限由既有后台中间件返回，不属于本端点响应。
+
+管理端应在首页首次加载时调用一次，`data.ready=true` 后本会话不再调用；`reason=catalog_error` 显示“系统准备未完成 [重试]”并允许重试；`sandiam_unavailable` 与 `sandiam_disabled` 不自动重试，只提示管理员先安装或启用 SandIAM。
+
 ### 5.4 环境级材料整理配置目标契约（3.3，待实现）
 
 材料后台配置响应沿宿主数值壳：仅 `MaterialProfileController` 捕获的 `SAND_AI_SCHEMA_UNSUPPORTED`／`SAND_AI_VALIDATION_ERROR` 明确输入错误使用 HTTP 200、业务 `code:400`，`message` 保留原错误码前缀和原说明。其它错误保持原路径，不泛化为输入错误。此处仅 `/app/sand-ai/admin/setup/material-analysis/profiles/*` 管理端响应，不改变公共 `/api/sand-ai/v1/*` 的实际 HTTP 状态和错误码契约。

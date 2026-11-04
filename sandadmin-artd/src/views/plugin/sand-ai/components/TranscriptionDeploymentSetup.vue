@@ -7,7 +7,7 @@
     <ElAlert v-if="journal" type="info" :closable="false" :title="`原保存请求 ${journal.save_key} · 原方式 ${journal.mode === 'local' ? '本机转写' : '外部服务'} · ${journal.deployment_id ? `部署 ${journal.deployment_id} / 修订 ${journal.revision}` : '保存结果待确认'} · ${phaseLabel}`" />
     <p v-if="journal?.verification_key" class="muted">原验证请求号：{{ journal.verification_key }}</p>
     <ElAlert v-if="pendingNotSubmitted" type="warning" :closable="false" title="本页确认原操作尚未发送。原配置仅留在内存中，恢复存储后可明确继续原操作；刷新或切换身份后只能按原号只读找回。" />
-    <ElButton v-if="pendingNotSubmitted" v-permission="unsubmittedPermission" :disabled="Boolean(busy) || postFlight" @click="retryUnsubmitted">保存原记录并继续原{{ journal?.phase === 'save_pending' ? '保存' : journal?.phase === 'verification_pending' ? '验证（可能收费）' : '发布' }}</ElButton>
+    <ElButton v-if="pendingNotSubmitted" v-permission="unsubmittedPermission" :disabled="Boolean(busy) || postFlight" @click="retryUnsubmitted">保存原记录并继续原{{ journal?.phase === 'save_pending' ? '保存' : journal?.phase === 'verification_pending' ? '验证（可能收费）' : '启用' }}</ElButton>
     <ElButton v-if="recoveryRequired || (journal && !draft)" v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy) || postFlight || pendingNotSubmitted" @click="readState">只读找回原配置与状态</ElButton>
     <p class="muted">{{ usageNotice }}</p>
     <ElForm label-width="110px" @submit.prevent>
@@ -53,7 +53,7 @@
       </ElFormItem>
       <p v-if="!draft && !isLocal" class="muted">服务地址须为 HTTPS；部署配置由服务端固定为空对象。验证样本不会作为业务录音保存。</p>
       <template v-if="draft">
-        <p>部署 {{ draft.deployment_id }} · 修订 {{ draft.revision }} · 模型 {{ draft.deployment.remote_model }} · {{ published ? '已发布' : verification?.state ?? draft.state }}</p>
+        <p>部署 {{ draft.deployment_id }} · 修订 {{ draft.revision }} · 模型 {{ draft.deployment.remote_model }} · {{ published ? '已启用' : verification?.state ?? draft.state }}</p>
         <p v-if="verification?.failure" class="muted">{{ verification.failure.message }}</p>
         <ElFormItem label="处理位置">
           <span v-if="isLocal">本地运行</span>
@@ -67,14 +67,14 @@
           <ElSpace wrap>
             <ElButton v-permission="'sand_ai:setup:deployment:verify'" :loading="busy === 'verify'" :disabled="!canVerify" @click="verify">验证录音转写</ElButton>
             <ElButton v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy) || postFlight || pendingNotSubmitted" @click="readState">读取修订状态</ElButton>
-            <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'publish'" :disabled="!canPublish" @click="publish">发布转写部署</ElButton>
+            <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'publish'" :disabled="!canPublish" @click="publish">启用转写部署</ElButton>
           </ElSpace>
         </ElFormItem>
       </template>
     </ElForm>
     <p v-if="verification?.state === 'verification_ambiguous'" class="muted">原验证结果不确定。保留原方式、部署、修订和原验证号，只读核查；不会重发或另建部署绕过未知结果。</p>
     <ElButton v-if="canStartNew" :disabled="Boolean(busy) || postFlight" @click="startNewDraft">新建转写部署草稿</ElButton>
-    <p v-if="published" class="muted">{{ isLocal ? '在目标环境新增录音转写路由，选择此部署与本机转写驱动，再保存并发布能力配置。SandIAM 客户端授权需单独配置。' : '部署已发布。请到能力配置选择此部署和录音转写驱动，再发布目标环境的能力档；SandIAM 客户端授权仍需单独配置。' }}</p>
+    <p v-if="published" class="muted">{{ isLocal ? '在目标环境新增录音转写路由，选择此部署与本机转写驱动，再保存并启用能力配置。SandIAM 客户端授权需单独配置。' : '部署已启用。请到能力配置选择此部署和录音转写驱动，再启用目标环境的能力档；SandIAM 客户端授权仍需单独配置。' }}</p>
     <p v-if="published && isLocal" class="muted">本机转写不会自动变更应用的数据发送许可。仅本地或仅私有的录音不能用于云端会议摘要；需要云端摘要时，调用方须明确允许云端处理文字。</p>
     <ElButton v-if="published" @click="router.push('/sand-ai/capability')">配置转写能力路由</ElButton>
   </ElCard>

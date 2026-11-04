@@ -1,8 +1,8 @@
 <template>
   <ElCard class="consumer-skill-card" shadow="never">
     <template #header>
-      <h2>应用方法包 · 消费范围</h2>
-      <p>使用消费后端取得的工作负载凭证，查看和管理该消费范围的方法包。后台登录不提供消费身份。</p>
+      <h2>应用技能模板 · 消费范围</h2>
+      <p>使用消费后端取得的工作负载凭证，查看和管理该消费范围的技能模板。后台登录不提供消费身份。</p>
     </template>
     <ElAlert
       type="info"
@@ -53,25 +53,25 @@
         <template v-if="managementPending?.recovery_target">
           <ElFormItem v-if="managementPending.recovery_target.operation === 'source_adopt'" label="原建议号">#{{ managementPending.recovery_target.source_suggestion_id }}</ElFormItem>
           <template v-else>
-            <ElFormItem label="原方法包">{{ managementPending.recovery_target.code }}</ElFormItem>
+            <ElFormItem label="原技能模板">{{ managementPending.recovery_target.code }}</ElFormItem>
             <ElFormItem v-if="'version' in managementPending.recovery_target" label="原固定版本">{{ managementPending.recovery_target.version }}</ElFormItem>
             <ElFormItem v-if="'case_id' in managementPending.recovery_target" label="原案例">#{{ managementPending.recovery_target.case_id }}</ElFormItem>
           </template>
         </template>
         <template v-else-if="managementPending?.lifecycle">
           <ElFormItem v-if="managementPending.lifecycle.operation === 'purge-suggestion'" label="原建议号">#{{ managementPending.lifecycle.suggestion_id }}</ElFormItem>
-          <ElFormItem v-else label="原方法包">{{ managementPending.lifecycle.code }}<span v-if="managementPending.lifecycle.operation === 'publish'"> · 固定版本 {{ managementPending.lifecycle.version }}</span></ElFormItem>
+          <ElFormItem v-else label="原技能模板">{{ managementPending.lifecycle.code }}<span v-if="managementPending.lifecycle.operation === 'publish'"> · 固定版本 {{ managementPending.lifecycle.version }}</span></ElFormItem>
         </template>
         <template v-else>
           <p>旧记录未保存完整目标，请填写原目标，只读核对服务端原记录。不会以当前列表状态或返回摘要补造遗失的原意图。</p>
           <ElFormItem v-if="managementPending?.operation === 'adopt'" label="原建议号"><ElInputNumber v-model="legacyManagementSuggestionId" :min="1" :disabled="busy" /></ElFormItem>
           <template v-else>
-            <ElFormItem label="原方法包代码"><ElInput v-model="legacyManagementCode" :disabled="busy" /></ElFormItem>
+            <ElFormItem label="原技能模板代码"><ElInput v-model="legacyManagementCode" :disabled="busy" /></ElFormItem>
             <ElFormItem v-if="managementPending?.operation !== 'revoke'" label="原固定版本"><ElInputNumber v-model="legacyManagementVersion" :min="1" :disabled="busy" /></ElFormItem>
             <ElFormItem v-if="managementPending?.operation === 'review' || managementPending?.operation === 'retire'" label="原案例号"><ElInputNumber v-model="legacyManagementCaseId" :min="1" :disabled="busy" /></ElFormItem>
           </template>
         </template>
-        <p>这里只读取原操作回执，不再发布、回退、撤销、评审、停用或采用。不存在、拒绝或网络错误均保留原号；原回执不表示当前活动版本或案例判定仍未变化。</p>
+        <p>这里只读取原操作回执，不再启用、回退、撤销、评审、停用或采用。不存在、拒绝或网络错误均保留原号；原回执不表示当前活动版本或案例判定仍未变化。</p>
         <ElButton :disabled="busy || !ready || !workloadIdentity" @click="resumeManagement">只读找回原管理回执</ElButton>
       </ElForm>
       <ElAlert v-if="managementPending?.operation === 'purge-suggestion'" type="warning" :closable="false"
@@ -82,13 +82,13 @@
         <ElFormItem v-if="managementPending?.receipt?.operation === 'case'" label="原固定目标">
           {{ managementPending.receipt.code }} · 版本 {{ managementPending.receipt.version }}
         </ElFormItem>
-        <ElFormItem v-else-if="managementPending?.draft_code" label="原方法包">{{ managementPending.draft_code }}</ElFormItem>
+        <ElFormItem v-else-if="managementPending?.draft_code" label="原技能模板">{{ managementPending.draft_code }}</ElFormItem>
         <p v-if="managementPending?.operation === 'draft' || managementPending?.receipt">读取原保存结果不会再次发送保存请求。未找到、无权、状态变化或网络错误时仍保留原请求号。</p>
         <p v-else>旧案例记录缺少固定目标，暂不能只读确认。请保留原请求记录，不重填私有内容再次 POST 或换号。</p>
         <ElButton :disabled="busy || !ready || !workloadIdentity || (managementPending?.operation !== 'draft' && !managementPending?.receipt)" @click="recoverSavedManagement">找回原保存结果</ElButton>
       </ElForm>
-      <ElTable :data="rows" row-key="id" :empty-text="page > 1 ? '本页没有更多方法包，可返回上一页' : '这个消费范围尚无方法包'">
-        <ElTableColumn label="方法包" prop="name" /><ElTableColumn label="代码" prop="code" />
+      <ElTable :data="rows" row-key="id" :empty-text="page > 1 ? '本页没有更多技能模板，可返回上一页' : '这个消费范围尚无技能模板'">
+        <ElTableColumn label="技能模板" prop="name" /><ElTableColumn label="代码" prop="code" />
         <ElTableColumn label="状态"
           ><template #default="{ row }">{{ stateLabel(row.state) }}</template></ElTableColumn
         >
@@ -119,13 +119,13 @@
       <h3>保存新草稿版本</h3>
       <p>
         已保存版本不可原地改写。修改已有草稿会保存为下一版，旧版和评测记录保留只读；
-        新版需要重新建立案例、测试和判定。保存不会测试或发布。
+        新版需要重新建立案例、测试和判定。保存不会测试或启用。
       </p>
       <ElAlert
         v-if="draftTargetBlocked"
         type="info"
         :closable="false"
-        title="这个代码已有草稿或已撤销。已有草稿请先查看版本，选择“修改此草稿并保存为新版本”；已撤销方法包不能修改。"
+        title="这个代码已有草稿或已撤销。已有草稿请先查看版本，选择“修改此草稿并保存为新版本”；已撤销技能模板不能修改。"
       />
       <p v-if="draftReplacement">
         修改版本
@@ -134,7 +134,7 @@
       <ElForm label-width="110px" @submit.prevent>
         <ElFormItem label="名称"><ElInput v-model="draft.name" maxlength="100" /></ElFormItem>
         <ElFormItem label="代码"
-          ><ElInput v-model="draft.code" placeholder="新方法包可留空；创建下一版使用已有代码"
+          ><ElInput v-model="draft.code" placeholder="新技能模板可留空；创建下一版使用已有代码"
         /></ElFormItem>
         <ElFormItem label="用途"
           ><ElInput v-model="draft.description" maxlength="1000"
@@ -218,7 +218,7 @@
           }}</ElButton
         >
         <p v-if="version.state === 'abandoned'">
-          这个草稿已被新版本替换。内容、案例与既有评测保留只读，不用于测试或发布。
+          这个草稿已被新版本替换。内容、案例与既有评测保留只读，不用于测试或启用。
         </p>
         <h3>版本 {{ version.version }} 案例与最新判定</h3>
         <ElButton :disabled="busy" text @click="loadCases">刷新本版本案例</ElButton>
@@ -292,7 +292,7 @@
             >运行固定版本 {{ version.version }}（计费）</ElButton
           >
           <ElButton v-if="editable" :disabled="busy || !publishable" @click="publish"
-            >明确发布本版本</ElButton
+            >明确启用本版本</ElButton
           >
           <ElButton v-if="runnable" :disabled="busy" @click="rollback">设为活动版本</ElButton>
           <ElButton
@@ -300,11 +300,11 @@
             type="danger"
             :disabled="busy"
             @click="revoke"
-            >撤销方法包</ElButton
+            >撤销技能模板</ElButton
           >
         </ElSpace>
         <p v-if="editable && !publishable">
-          发布需要至少一个有效案例，全部有效案例的最新判定通过；最终仍由服务端检查。
+          启用需要至少一个有效案例，全部有效案例的最新判定通过；最终仍由服务端检查。
         </p>
       </template>
     </template>
@@ -406,7 +406,7 @@
     <h3>原调用费用</h3>
     <p>
       用原请求键读取当前范围内的测试或运行费用，无需先找回成果。
-      发布、版本废弃或撤销后仍可读取；需要独立费用权限，未知金额不代表免费。
+      启用、版本废弃或撤销后仍可读取；需要独立费用权限，未知金额不代表免费。
     </p>
     <ElForm label-width="110px" @submit.prevent>
       <ElFormItem label="原 Skill 代码"><ElInput v-model="costLocator.code" /></ElFormItem>
@@ -629,7 +629,7 @@
       (
         {
           draft: '草稿',
-          published: '已发布',
+          published: '已启用',
           revoked: '已撤销',
           abandoned: '已被替换'
         } as Record<string, string>
@@ -782,7 +782,7 @@
       && typeof value.suggestion_id === 'number' && Number.isSafeInteger(value.suggestion_id) && value.suggestion_id > 0)
       return { operation: 'purge-suggestion', suggestion_id: value.suggestion_id }
     if (!('code' in value) || typeof value.code !== 'string' || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(value.code))
-      throw new Error('原方法包目标记录无效')
+      throw new Error('原技能模板目标记录无效')
     if (value.operation === 'revoke') return { operation: 'revoke', code: value.code }
     if (value.operation === 'publish' && 'version' in value && typeof value.version === 'number'
       && Number.isSafeInteger(value.version) && value.version > 0)
@@ -808,11 +808,11 @@
     const positive = (item: unknown): item is number => typeof item === 'number' && Number.isSafeInteger(item) && item > 0
     if (target.operation === 'source_adopt' && positive(target.source_suggestion_id)) {
       if (target.code !== undefined && (typeof target.code !== 'string' || !/^[a-z0-9][a-z0-9_-]{1,63}$/.test(target.code)))
-        throw new Error('原采用方法包代码无效')
+        throw new Error('原采用技能模板代码无效')
       return { operation: 'source_adopt', source_suggestion_id: target.source_suggestion_id,
         ...(typeof target.code === 'string' ? { code: target.code } : {}) }
     }
-    if (typeof target.code !== 'string' || !/^[a-z0-9][a-z0-9_-]{1,63}$/.test(target.code)) throw new Error('原方法包代码无效')
+    if (typeof target.code !== 'string' || !/^[a-z0-9][a-z0-9_-]{1,63}$/.test(target.code)) throw new Error('原技能模板代码无效')
     if (target.operation === 'revoke') return { operation: 'revoke', code: target.code }
     if (!positive(target.version)) throw new Error('原固定版本无效')
     if (target.operation === 'publish' || target.operation === 'rollback')
@@ -829,7 +829,7 @@
     throw new Error('原操作目标记录无效')
   }
   function managementLabel(operation?: string): string {
-    return ({ publish: '发布固定版本', rollback: '回退活动版本', revoke: '撤销方法包', review: '评审原案例',
+    return ({ publish: '启用固定版本', rollback: '回退活动版本', revoke: '撤销技能模板', review: '评审原案例',
       retire: '停用原案例', adopt: '采用来源建议', source_adopt: '采用来源建议', 'purge-suggestion': '清理提炼内容' } as Record<string, string>)[operation ?? ''] ?? '原管理操作'
   }
   function storedInputHash(value: unknown): string {
@@ -1090,7 +1090,7 @@
           preferred ??
           value.versions.find((item) => item.id === value.skill.active_version_id)?.version ??
           value.versions[0]?.version
-        if (!selected) throw new Error('方法包没有可读取版本')
+        if (!selected) throw new Error('技能模板没有可读取版本')
         const history = await api.cases(c.token, c.declaration, code, selected)
         return { value, selected, history }
       },
@@ -1204,7 +1204,7 @@
     const flight = Symbol('consumer-skill-intent')
     operationFlight.value = flight
     try {
-      if (!(await confirm('按所选固定知识版本提炼方法建议？本次会独立调用模型并计费；生成后须人工采用，不自动发布。'))) return
+      if (!(await confirm('按所选固定知识版本提炼方法建议？本次会独立调用模型并计费；生成后须人工采用，不自动启用。'))) return
       await act(async (c) => {
         const key = await keyFor(c, 'suggest', source)
         assertCurrent(c)
@@ -1257,7 +1257,7 @@
       if (!selectedIds.length || selectedIds.some(id => !Number.isSafeInteger(id) || id < 1) || new Set(selectedIds).size !== selectedIds.length) {
         error.value = '请选用有效且不重复的原建议编号'; return
       }
-      if (!(await confirm('确认已人工审阅所选建议及下方草稿？采用仅保存草稿，仍需案例测试、明确判定及发布。'))) return
+      if (!(await confirm('确认已人工审阅所选建议及下方草稿？采用仅保存草稿，仍需案例测试、明确判定及启用。'))) return
       await act((c) => performManagementOperation(c, 'adopt', { id, selected: selectedIds, draft: body },
         { operation: 'source_adopt', source_suggestion_id: id, ...(body.code ? { code: body.code } : {}) },
         { selected: selectedIds, draft: body }, key => api.adoptSuggestion(c.token, c.declaration, id, selectedIds, body, key)), saved => {
@@ -1598,7 +1598,7 @@
       )
         return
       if (detail.value?.skill.code !== target.code || selectedVersion.value !== target.version) {
-        error.value = '请先选择原方法包及原固定版本，再以原键和原输入恢复失败意图'
+        error.value = '请先选择原技能模板及原固定版本，再以原键和原输入恢复失败意图'
         return
       }
       let body: Record<string, unknown>
@@ -1767,9 +1767,9 @@
         assertCurrent(originalContext)
         if (!publishable.value || detail.value?.skill.code !== code || selectedVersion.value !== v
           || publicationIntent() !== originalIntent)
-          throw new Error('原发布版本或案例判定已变化，请重新读取并明确确认；本次不发送')
+          throw new Error('原启用版本或案例判定已变化，请重新读取并明确确认；本次不发送')
       }
-      if (!(await confirm(`明确发布 ${code} 固定版本 ${v}？案例判定不会替代业务复核。`))) return
+      if (!(await confirm(`明确启用 ${code} 固定版本 ${v}？案例判定不会替代业务复核。`))) return
       confirmIntent()
       await act(
         async (c) =>
@@ -1782,7 +1782,7 @@
         flight
       )
     } catch (cause) {
-      error.value = cause instanceof Error ? cause.message : '无法确认原发布目标'
+      error.value = cause instanceof Error ? cause.message : '无法确认原启用目标'
     } finally {
       if (operationFlight.value === flight) operationFlight.value = null
     }
@@ -1836,7 +1836,7 @@
       if (!detail.value || !runnable.value || busyState.value) return
       const code = detail.value.skill.code
       const v = selectedVersion.value
-      if (!(await confirm(`将已发布固定版本 ${v} 设为活动版本？其他固定版本保持原生命周期。`))) return
+      if (!(await confirm(`将已启用固定版本 ${v} 设为活动版本？其他固定版本保持原生命周期。`))) return
       await act(
         async (c) =>
           performManagementOperation(c, 'rollback', [code, v], { operation: 'rollback', code, version: v }, {},

@@ -7,8 +7,8 @@
       class="mb-3"
     />
     <ElDescriptions :column="effectiveColumns" border>
-      <ElDescriptionsItem label="请求号" :span="2">{{ cost.request_id }}</ElDescriptionsItem>
-      <ElDescriptionsItem label="服务动作" :span="2">{{
+      <ElDescriptionsItem label="请求编号" :span="2">{{ cost.request_id }}</ElDescriptionsItem>
+      <ElDescriptionsItem label="能力权限" :span="2">{{
         cost.service_action ?? '未确认'
       }}</ElDescriptionsItem>
       <ElDescriptionsItem label="能力">{{ cost.capability }}</ElDescriptionsItem>
@@ -99,7 +99,7 @@
         class="mb-3"
       >
         <ElDescriptionsItem label="标识类型">{{
-          identity.kind === 'request_id' ? '服务商请求 ID' : '服务商响应 ID'
+          identity.kind === 'request_id' ? '服务商请求编号' : '服务商响应编号'
         }}</ElDescriptionsItem>
         <ElDescriptionsItem label="接收来源">{{
           providerIdentitySourceLabels[identity.source]
@@ -344,7 +344,7 @@
       case 'discrepancy':
         return '账单核对已记录差异，当前响应未提供具体原因。请结合匹配账单金额、计量金额和差额核对原账单，不能将匹配金额视为已核对金额。'
       case 'not_applicable':
-        return '本次响应没有适用的账单核对结果，账单金额未确认。请先按原请求号核对派发及计量状态，不能为查询费用重新发起调用。'
+        return '本次响应没有适用的账单核对结果，账单金额未确认。请先按请求编号核对派发及计量状态，不能为查询费用重新发起调用。'
       default:
         return ''
     }
@@ -362,11 +362,11 @@
   const usageNotice = computed(() => {
     switch (props.cost.usage.state) {
       case 'ambiguous':
-        return '派发结果尚不确定，费用未知。请按原请求号重新查询，勿为查询费用重新发起调用。'
+        return '派发结果尚不确定，费用未知。请按请求编号重新查询，勿为查询费用重新发起调用。'
       case 'missing_event':
         return '调用已派发但缺少计量事件。请联系管理员检查记录；当前不能判断费用或节省。'
       case 'pending':
-        return '调用尚在派发中。稍后按原请求号重新查询费用。'
+        return '调用尚在派发中。稍后按请求编号重新查询费用。'
       case 'unmeasured':
         return '服务商未提供有效用量，计量数量与金额未知。请查看后续账单核对结果。'
       case 'not_dispatched':

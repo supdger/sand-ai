@@ -1,10 +1,10 @@
 <template>
   <ElCard shadow="never">
-    <template #header><div class="panel-head"><h3>按次组合试用</h3><p>临时选择模型和回答要求，使用当前应用有权访问的私有资料。本次运行独立处理，可沿原游标恢复实时读取。常用组合可在“智能体配置”保存发布。</p></div></template>
+    <template #header><div class="panel-head"><h3>按次组合试用</h3><p>临时选择模型和回答要求，使用当前应用有权访问的私有资料。本次运行独立处理，可沿原游标恢复实时读取。常用组合可在“智能体配置”保存启用。</p></div></template>
     <ElAlert v-if="error" type="error" :title="error" class="notice" show-icon @close="error = ''" />
     <ElAlert v-if="continuationNotice" type="warning" :closable="false" class="notice" title="原任务续跑" :description="continuationNotice" />
     <ElForm label-width="105px" @submit.prevent>
-      <RuntimeApiKeyField v-model="apiKey" :persist-in-session="false" placeholder="输入 SandIAM 授权的应用调用凭证" />
+      <RuntimeApiKeyField v-model="apiKey" :persist-in-session="false" placeholder="输入 SandIAM 授权的应用调用密钥" />
       <ElFormItem label="使用模型">
         <ElSelect v-model="form.model" :loading="modelsLoading" :disabled="submitting || taskBusy || !!pendingRequestKey || !canStartNew" filterable
           placeholder="先读取此凭证可用的聊天模型" style="width: 100%">
@@ -12,7 +12,7 @@
         </ElSelect>
         <ElButton link type="primary" :loading="modelsLoading" :disabled="!apiKey.trim() || submitting || taskBusy || !!pendingRequestKey || !canStartNew" @click="loadModels">读取可用模型</ElButton>
         <p v-if="modelsError" class="hint">{{ modelsError }}</p>
-        <p v-else-if="modelsLoaded && models.length === 0" class="hint">此凭证暂无可用聊天模型。请先发布环境能力配置，并在 SandIAM 检查服务授权。</p>
+        <p v-else-if="modelsLoaded && models.length === 0" class="hint">此凭证暂无可用聊天模型。请先启用环境能力配置，并在 SandIAM 检查允许使用。</p>
       </ElFormItem>
       <ElFormItem label="回答要求"><ElInput v-model="form.instructions" type="textarea" :rows="4" maxlength="16000" show-word-limit
         :disabled="submitting || taskBusy || !!pendingRequestKey || !canStartNew" placeholder="例如：依据检索资料回答；逐项保留来源，资料不足时明确说明。" /></ElFormItem>
@@ -24,13 +24,13 @@
     </ElForm>
     <div v-if="pendingRequestKey" class="pending-actions">
       <ElAlert type="warning" :closable="false" title="上次提交结果尚未确认"
-        description="请用当前有效凭证沿原请求号只读找回。结果未确认前不重新提交、不生成新请求号；页面刷新仅保留原请求号，不保存凭证或问题正文。" />
-      <ElButton :loading="recovering" :disabled="!canReadOriginal || submitting || taskBusy || !apiKey.trim()" @click="recoverPending">沿原请求号找回</ElButton>
+        description="请用当前有效凭证沿请求编号只读找回。结果未确认前不重新提交、不生成新请求号；页面刷新仅保留请求编号，不保存凭证或问题正文。" />
+      <ElButton :loading="recovering" :disabled="!canReadOriginal || submitting || taskBusy || !apiKey.trim()" @click="recoverPending">沿请求编号找回</ElButton>
     </div>
     <ElAlert v-if="originalTaskId && !task" type="warning" :closable="false" class="notice"
       title="原任务尚未重新读取" description="当前回答和费用已清除，请用有效授权刷新原任务确认状态。未确认前不能开始另一任务。" />
     <ElButton v-if="originalTaskId && !task" :loading="taskBusy" :disabled="!canReadOriginal || !apiKey.trim() || submitting" @click="readOriginalTask">刷新原任务 #{{ originalTaskId }}</ElButton>
-    <ElAlert v-if="!canReadOriginal" type="warning" :closable="false" class="notice" title="原请求属于另一环境" description="请切回原环境，并使用原调用身份读取；原请求号和任务编号保留，不在当前环境重新提交。" />
+    <ElAlert v-if="!canReadOriginal" type="warning" :closable="false" class="notice" title="原请求属于另一环境" description="请切回原环境，并使用原调用身份读取；请求编号和任务编号保留，不在当前环境重新提交。" />
     <ElButton v-if="task && canStartNew && !pendingRequestKey" :disabled="submitting || taskBusy" @click="startNew">明确开始另一任务</ElButton>
     <template v-if="task">
       <ElSpace wrap class="task-actions">
@@ -108,7 +108,7 @@
       else sessionStorage.setItem(storageKey.value, JSON.stringify({ request_key: pendingRequestKey.value,
         task_id: originalTaskId.value, environment_id: originalEnvironment.value }))
       return true
-    } catch { error.value = '浏览器未能保存原请求号，请保持本页并确认原任务；本次不会发送新请求。'; return false }
+    } catch { error.value = '浏览器未能保存请求编号，请保持本页并确认原任务；本次不会发送新请求。'; return false }
   }
   function restoreReference(): void {
     recoveryRecordInvalid.value = false
@@ -181,7 +181,7 @@
       cost.value = null
       await refresh()
     } catch (failure) {
-      if (current === epoch) error.value = failure instanceof Error ? failure.message : '提交结果未确认，请沿原请求号只读找回，暂勿重新提交'
+      if (current === epoch) error.value = failure instanceof Error ? failure.message : '提交结果未确认，请沿请求编号只读找回，暂勿重新提交'
     } finally { if (current === epoch) submitting.value = false }
   }
   function sourceDenied(): void { reset(); error.value = '当前工具或来源读取授权已失效，旧回答、来源和费用已清除。' }

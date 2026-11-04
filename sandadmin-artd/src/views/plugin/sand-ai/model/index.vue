@@ -1,8 +1,8 @@
 <template>
-  <div class="art-full-height">
+  <div class="sand-ai-page">
     <CodeNameStatusSearch v-model="searchForm" @search="handleSearch" @reset="handleReset" />
 
-    <ElCard class="art-table-card" shadow="never">
+    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
       <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData">
         <template #left>
           <ElSpace wrap>
@@ -28,7 +28,7 @@
         @pagination:current-change="handleCurrentChange"
       >
         <template #capabilities="{ row }">
-          <span>{{ (row.capabilities ?? []).join(', ') }}</span>
+          <span>{{ (row.capabilities ?? []).map(capabilityLabel).join('、') }}</span>
         </template>
         <template #status="{ row }">
           <StatusTag :status="row.status" />
@@ -66,10 +66,12 @@
 </template>
 
 <script setup lang="ts">
+  import '../components/sandAiPage.css'
   import { ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { useTable } from '@/hooks/core/useTable'
   import modelApi from '../api/model'
+  import { capabilityLabel, modelTypeLabel } from '../api/displayLabels'
   import type { SandAiModel, SandAiPageQuery } from '../api/types'
   import CodeNameStatusSearch from '../components/CodeNameStatusSearch.vue'
   import StatusTag from '../components/StatusTag.vue'
@@ -106,9 +108,13 @@
       apiParams: {},
       columnsFactory: () => [
         { prop: 'id', label: 'ID', width: 80, align: 'center' },
-        { prop: 'code', label: '编码', minWidth: 140 },
         { prop: 'name', label: '名称', minWidth: 160 },
-        { prop: 'type', label: '类型', width: 110 },
+        {
+          prop: 'type',
+          label: '类型',
+          width: 110,
+          formatter: (row: SandAiModel) => modelTypeLabel(row.type)
+        },
         { prop: 'capabilities', label: '能力', minWidth: 160, useSlot: true },
         { prop: 'status', label: '状态', width: 100, useSlot: true },
         { prop: 'update_time', label: '更新时间', width: 180 },
