@@ -1,3 +1,7 @@
+## 0.4.1 (release)
+
+- Packaging fix only, no payload change: the SandIAM dependency pin moves to the 0.9.1 artifact (sand-iam-0.9.1.zip, sha256 619f56a6) carrying the access-matrix one-click grant 503 fix (per-action audit request ids + chained idempotency cause). SandAI business payload identical to 0.4.0.
+
 ## 0.4.0 (release)
 
 - UX-P2: provider preset cards and test-connection endpoint with plain-language results (P6); merged home/onboarding wizard with one-click default deployment orchestration (P7); administrator trial channel — backend session issues a short-lived SandIAM runtime identity so admins can try chat/file upload without pasting API keys, one-shot 330s credential with zero persistence (P8). SandIAM pin moves to the 0.9.0 artifact (home access-matrix grid + terminology pass).
