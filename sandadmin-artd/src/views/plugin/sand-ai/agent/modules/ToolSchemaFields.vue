@@ -79,7 +79,7 @@ function placeholder(schema: ToolSchema): string {
   if (schema.format === 'date') return '日期，例如 2026-10-09（YYYY-MM-DD）'
   if (schema.format === 'date-time') return '带时区的日期时间，例如 2026-10-09T09:30:00+08:00'
   return schema.type === 'array' ? '填写 JSON 数组，例如 []'
-    : schema.type === 'object' ? '填写符合下方约束的 JSON 对象'
+    : schema.type === 'object' ? '填写符合下方约束的参数（JSON 格式）'
       : schema.type === 'integer' ? '填写整数' : schema.type === 'number' ? '填写数值' : '填写文字'
 }
 function constraint(schema: ToolSchema): string {

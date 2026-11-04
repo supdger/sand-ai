@@ -22,6 +22,7 @@
       <ElForm label-width="110px" class="file-cred" @submit.prevent>
         <RuntimeApiKeyField
           v-model="apiKey"
+          :trial-actions="['sand_ai.file.read', 'sand_ai.file.write', 'sand_ai.document_parse', 'sand_ai.task.read', 'sand_ai.task.retry', 'sand_ai.audio.transcription']"
           placeholder="当前应用的调用密钥（需允许使用文件读写）"
         />
         <ElFormItem label="按编号查询">
@@ -452,7 +453,7 @@
     { prop: 'id', label: '编号', width: 80, align: 'center' },
     { prop: 'original_name', label: '文件名', minWidth: 160 },
     { prop: 'extension', label: '扩展名', width: 90 },
-    { prop: 'media_type', label: 'MIME', minWidth: 140 },
+    { prop: 'media_type', label: '文件格式', minWidth: 140 },
     { prop: 'size_bytes', label: '大小', width: 100 },
     { prop: 'state', label: '文件状态', width: 110, formatter: (row: SandAiFile) => fileStateLabel(row.state) },
     { prop: 'cleanup', label: '清理状态', width: 120, formatter: (row: SandAiFile) => h(ElButton, { size: 'small', link: true, disabled: Boolean(busy.value), onClick: () => showCleanup(row.id) }, () => row.cleanup ? cleanupStateLabel(row.cleanup.state) : '查看清理状态') },

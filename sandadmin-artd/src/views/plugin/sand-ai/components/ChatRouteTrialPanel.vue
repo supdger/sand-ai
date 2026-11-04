@@ -6,14 +6,19 @@
       需允许使用“模型目录读取”“AI 对话”；结果找回和费用读取分别需要“调用状态读取”“调用费用读取”。
     </p>
     <ElForm label-width="120px" @submit.prevent="submit">
-      <RuntimeApiKeyField v-model="bearer" :persist-in-session="false" placeholder="填写 SandIAM 签发的调用密钥（仅本页面）" />
+      <RuntimeApiKeyField
+        v-model="bearer"
+        :persist-in-session="false"
+        :trial-actions="['sand_ai.model.read', 'sand_ai.chat.complete', 'sand_ai.invocation.read', 'sand_ai.usage.read']"
+        placeholder="填写 SandIAM 签发的调用密钥（仅本页面）"
+      />
       <ElFormItem label="已启用模型">
         <ElButton :disabled="!bearer.trim() || Boolean(busy)" :loading="busy === 'models'" @click="loadModels">
           读取当前凭证的模型
         </ElButton>
       </ElFormItem>
       <ElFormItem label="选择方式">
-        <ElRadioGroup v-model="mode" :disabled="locked">
+        <ElRadioGroup v-model="mode" :disabled="locked" aria-label="试用方式">
           <ElRadio value="fixed">固定模型</ElRadio>
           <ElRadio value="lowest">按最低成本</ElRadio>
         </ElRadioGroup>
@@ -25,7 +30,7 @@
       </ElFormItem>
       <ElAlert v-if="mode === 'lowest'" type="info" :closable="false"
         title="仅比较当前凭证环境已启用的聊天路线。服务端核对容量、有效价格与同币种预算；币种不同或没有合资格路线时拒绝调用。目录没有价格字段，发送前本页无法取得预算上界；调用后可读取本次冻结的预算上界记录。" />
-      <ElFormItem label="最大输出 token">
+      <ElFormItem label="最大输出长度">
         <ElInputNumber v-model="maxOutputTokens" :min="1" :max="131072" :precision="0" :disabled="locked" />
       </ElFormItem>
       <ElFormItem label="消息">
@@ -143,9 +148,9 @@
     SAND_AI_BUDGET_CURRENCY_MISMATCH: { message: '调用价格与匹配预算的币种不一致，不能相加或自动换算。请管理员核对预算币种。', target: 'budget' },
     SAND_AI_LOW_COST_CURRENCY_MISMATCH: { message: '合资格最低成本候选使用不同币种，服务端无法直接比较。请管理员核对已启用路线的价格币种。', target: 'route' },
     SAND_AI_LOW_COST_ROUTE_UNAVAILABLE: { message: '没有同时满足启用状态、容量、有效价格和当前预算的聊天路线。请管理员逐项核对；最低成本选择不会绕过硬预算。', target: 'route-and-budget' },
-    SAND_AI_LOW_COST_ROUTE_CHANGED: { message: '所选最低成本路线、冻结请求或价格版本在准备期间发生变化。请管理员核对启用路线和原调用记录；保留请求编号，只读找回，不能更换模型或改键重发。', target: 'route' },
+    SAND_AI_LOW_COST_ROUTE_CHANGED: { message: '所选最低成本路线、冻结请求或价格版本在准备期间发生变化。请管理员核对启用路线和原调用记录；保留请求编号，按原请求找回，不能更换模型或改键重发。', target: 'route' },
     SAND_AI_CONFIGURATION_NOT_PUBLISHED: { message: '当前凭证环境没有可用的已启用能力配置。保存草稿后还需正式启用才能用于调用。', target: 'route' },
-    SAND_AI_BUDGET_OUTPUT_BOUND_REQUIRED: { message: '预算或最低成本选择需要明确的最大输出上限。请核对原请求的最大输出 token 设置。', target: 'record' },
+    SAND_AI_BUDGET_OUTPUT_BOUND_REQUIRED: { message: '预算或最低成本选择需要明确的最大输出上限。请核对原请求的最大输出长度设置。', target: 'record' },
     SAND_AI_BUDGET_INPUT_PROOF_REQUIRED: { message: '模型输入上界缺少可验证依据。请管理员核对启用模型的容量和输入计量配置。', target: 'route' },
     SAND_AI_BUDGET_INPUT_BOUND_EXCEEDED: { message: '原请求输入超过所选路线的已验证容量。请管理员核对请求与模型容量，不能靠少算输入放行。', target: 'route' },
     SAND_AI_BUDGET_CAPACITY_UNVERIFIED: { message: '已启用路线的模型容量或实际请求未能通过预算核验。请管理员核对启用版本、容量依据和请求上限。', target: 'route' },

@@ -28,7 +28,7 @@
         @pagination:current-change="handleCurrentChange"
       >
         <template #capabilities="{ row }">
-          <span>{{ (row.capabilities ?? []).map(capabilityLabel).join('、') }}</span>
+          <span>{{ (row.capabilities ?? []).map(capabilityLabel).join('、') || '—' }}</span>
         </template>
         <template #status="{ row }">
           <StatusTag :status="row.status" />

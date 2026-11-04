@@ -9,7 +9,7 @@
           <ElOption v-for="item in available" :key="item.id" :label="`${item.code} · ${item.consumer_environment_id}`" :value="item.code" />
         </ElSelect>
       </ElFormItem>
-      <ElFormItem label="聊天模型"><ElInput v-model="model" maxlength="128" placeholder="填写已启用的聊天模型 code" style="width: 360px" /></ElFormItem>
+      <ElFormItem label="聊天模型"><ElInput v-model="model" maxlength="128" placeholder="填写已启用的聊天模型编码" style="width: 360px" /></ElFormItem>
       <ElFormItem>
         <ElButton :disabled="!ready || busy" :loading="busy" @click="loadList()">找回会话</ElButton>
         <ElButton type="primary" :disabled="!ready || busy || storageBlocked || legacyCreate || !!createKey" :loading="busy" @click="create">

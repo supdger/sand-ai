@@ -9,10 +9,10 @@
   >
     <ElAlert v-if="pending" type="warning" :closable="false"
       :title="`原${pending.operation === 'save' ? '新增' : '更新'}保存待确认：${pending.code}${pending.id !== null ? `（编号 ${pending.id}）` : ''}`"
-      description="只读取原保存回执，不再次发送；原回执表示当时保存结果，当前配置由列表另行读取。" />
+      description="只查询原保存结果，不再次发送；原结果表示当时的保存情况，当前配置由列表另行读取。" />
     <el-input v-if="pending" :model-value="pending.key" readonly aria-label="原保存请求编号" />
-    <ElButton v-if="pending || journalError" :loading="reading" :disabled="submitting || reading" @click="recoverOperation">读取原保存回执</ElButton>
-    <ElButton v-if="canSendUnsubmitted" :disabled="submitting || reading" @click="handleSubmit">保留原号首次提交</ElButton>
+    <ElButton v-if="pending || journalError" :loading="reading" :disabled="submitting || reading" @click="recoverOperation">查看原保存结果</ElButton>
+    <ElButton v-if="canSendUnsubmitted" :disabled="submitting || reading" @click="handleSubmit">按原请求编号首次提交</ElButton>
     <ElAlert v-if="errorMessage" type="warning" :closable="false" :title="errorMessage" />
     <ElButton v-if="!pending && !journalError && !configurationLoaded" :loading="loadingExisting"
       :disabled="submitting || reading" @click="loadExisting">重新读取当前配置</ElButton>
@@ -47,7 +47,7 @@
         </el-select>
       </el-form-item>
       <el-form-item label="状态" prop="status">
-        <el-radio-group v-model="formData.status">
+        <el-radio-group v-model="formData.status" aria-label="模型状态">
           <el-radio :value="1">启用</el-radio>
           <el-radio :value="2">停用</el-radio>
         </el-radio-group>
@@ -230,10 +230,10 @@
     const receipt = await modelApi.readOperation(original)
     if (!ownsRead()) return
     if (!matchesCatalogConfigurationReceipt(original, receipt))
-      throw new Error('尚未取得匹配原管理员、动作、编码、目标和请求号的保存回执')
+      throw new Error('尚未取得匹配原管理员、动作、编码、目标和请求号的保存结果')
     resolveCatalogConfigurationIntent(original)
     pending.value = null; unsubmitted.value = null; journalError.value = false
-    ElMessage.success('原模型保存回执已确认；列表将重新读取当前配置')
+    ElMessage.success('已保存模型，列表已刷新')
     emit('success')
     handleClose()
   }
@@ -250,7 +250,7 @@
     try { await confirmOriginal(original, current, credential) }
     catch {
       if (live && current === epoch && credential === userStore.accessToken && original.admin_id === adminId.value)
-        errorMessage.value = '原保存回执仍未确认。未找到、无权读取或网络异常不能视为未提交；保留原请求号，仅只读找回，不再次发送。'
+        errorMessage.value = '原保存结果仍未确认。未找到、无权读取或网络异常不能视为未提交；保留原请求编号，仅可找回，不再次发送。'
     } finally { if (live && current === epoch) reading.value = false }
   }
 
@@ -295,11 +295,11 @@
     } catch {
       if (!ownsWrite()) return
       if (sent) {
-        errorMessage.value = '保存结果尚未确认。原目标和请求号已保留，请读取原保存回执；不会重新发送或创建替代请求。'
+        errorMessage.value = '保存结果尚未确认。原目标和请求编号已保留，请查看原保存结果；不会重新发送或创建替代请求。'
       } else {
         restoreIntent()
         errorMessage.value = pending.value || journalError.value
-          ? '原请求记录无法安全确认，本次未发送。请保留此页；修复会话存储后，可保留原号首次提交；离页或身份改变后仅只读找回。'
+          ? '原请求记录无法安全确认，本次未发送。请保留此页；修复会话存储后，可按原请求编号首次提交；离页或身份改变后仅可找回。'
           : '本次未发送，请检查表单格式与会话存储后再保存。'
       }
     } finally { submitting.value = false }

@@ -117,7 +117,12 @@
         按上方筛选条件汇总不可变计量事件。资源、运行、版本和绑定按实际编号分组；缺少关联证据的事件显示为未归属。
         各维度是同批事件的不同投影，不将运行总额与其子调用相加。
       </p>
-      <form class="summary-range mt-3" @submit.prevent="loadSummary">
+      <p v-if="summaryHeadline" class="mt-3 mb-0 text-base summary-headline" role="status">
+        {{ summaryHeadline }}
+      </p>
+      <details class="summary-advanced mt-3">
+        <summary>自定义汇总条件（点击展开）</summary>
+        <form class="summary-range mt-3" @submit.prevent="loadSummary">
         <fieldset class="summary-range-modes">
           <legend class="text-sm">汇总时间</legend>
           <label
@@ -184,10 +189,11 @@
         >
           导出 CSV
         </ElButton>
-      </form>
-      <p class="mt-2 mb-0 text-sm text-gray-500">
-        CSV 导出当前已显示汇总的环境、筛选和时间范围，包含各币种及全部维度；保留未知金额和截断标记。
-      </p>
+        </form>
+        <p class="mt-2 mb-0 text-sm text-gray-500">
+          CSV 导出当前已显示汇总的环境、筛选和时间范围，包含各币种及全部维度；保留未知金额和截断标记。
+        </p>
+      </details>
       <p v-if="exportStatus" class="mt-2 mb-0 text-sm" role="status">{{ exportStatus }}</p>
       <ElAlert
         v-if="exportError"
@@ -667,6 +673,18 @@
       ? `${row.failed_events} 次 · ${unknown}`
       : `${row.failed_events} 次 · ${row.failed_known_amount}（已知部分；${unknown}）`
   }
+  const currencyMark = (currency: string | null): string =>
+    currency === 'CNY' ? '¥' : currency === 'USD' ? '$' : currency !== null ? `${currency} ` : ''
+  const summaryHeadline = computed(() => {
+    const current = summary.value
+    if (!current) return ''
+    const label = rangeMode.value === 'recent' ? '近 30 天' : '当前筛选'
+    const rows = current.overall.rows
+    const amounts = rows.filter((row) => row.metered_amount !== null && row.currency !== null)
+    if (rows.length === 0) return `${label}合计：暂无计量费用`
+    if (amounts.length === 0) return `${label}合计：金额未知`
+    return `${label}合计：${amounts.map((row) => `${currencyMark(row.currency)}${row.metered_amount}`).join('＋')}`
+  })
   const businessFailedAmount = (row: SandAiUsageSummaryRow): string => {
     if (row.business_failed_unknown_amount_events === 0) {
       return `${row.business_failed_events} 次 · ${row.business_failed_metered_amount ?? '未知'}`
@@ -1187,6 +1205,7 @@
     rankCurrency.value = 'all'
     rankSearch.value = ''
     invalidateSummary()
+    summaryAutoLoaded = false
     ++scopeGeneration
     allowedScope.value = null
     scopeLoading.value = false
@@ -1194,7 +1213,10 @@
     const owner = identity.capture()
     void nextTick(() => {
       if (!identity.current(owner)) return
-      if (canSummary.value) void loadScopes()
+      if (canSummary.value) {
+        void loadScopes()
+        maybeAutoLoadSummary()
+      }
       if (canEvents.value) void getData()
     })
   }, { flush: 'sync' })
@@ -1208,11 +1230,21 @@
     },
     { flush: 'sync' }
   )
+  let summaryAutoLoaded = false
+  function maybeAutoLoadSummary(): void {
+    if (summaryAutoLoaded || !canSummary.value) return
+    if (identity.capture() === null) return
+    summaryAutoLoaded = true
+    void loadSummary()
+  }
   watch(
     canSummary,
     (allowed) => {
       if (!allowed) { invalidateSummary(); ++scopeGeneration; allowedScope.value = null; scopeLoading.value = false }
-      else void loadScopes()
+      else {
+        void loadScopes()
+        maybeAutoLoadSummary()
+      }
     },
     { flush: 'sync', immediate: true }
   )
@@ -1409,6 +1441,17 @@
   /* This table lives in scrolling content, rather than a fixed-height table card. */
   .usage-events-table {
     height: auto !important;
+  }
+
+  .summary-headline {
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+  }
+
+  .summary-advanced > summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
   }
 
   .summary-range-modes {

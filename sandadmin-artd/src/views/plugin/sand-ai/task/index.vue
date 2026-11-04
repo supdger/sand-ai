@@ -11,7 +11,11 @@
       </div>
 
       <ElForm label-width="110px" class="task-cred" @submit.prevent>
-        <RuntimeApiKeyField v-model="apiKey" placeholder="当前应用的调用密钥" />
+        <RuntimeApiKeyField
+          v-model="apiKey"
+          :trial-actions="['sand_ai.task.read', 'sand_ai.task.cancel', 'sand_ai.task.retry', 'sand_ai.audio.transcription', 'sand_ai.audio.review', 'sand_ai.chat.complete', 'sand_ai.workflow.read', 'sand_ai.model.read', 'sand_ai.invocation.read', 'sand_ai.usage.read']"
+          placeholder="当前应用的调用密钥"
+        />
         <p class="task-footnote">查询、取消、重试分别需要允许使用“任务结果读取”“任务取消”“任务重试”；读取或重试还会核验原任务对应的服务权限。</p>
         <ElFormItem label="按编号查询">
           <ElSpace wrap>
@@ -24,22 +28,22 @@
       <ElDivider content-position="left">找回会议摘要</ElDivider>
       <details v-if="pendingSummary" class="task-alert task-recover">
         <summary>{{ pendingSummary.summaryTaskId ? '原摘要任务尚待核对' : '上次摘要提交结果尚未确认' }}（查看详情）</summary>
-        <p class="task-footnote">原摘要音频 #{{ pendingSummary.audioTaskId }} · 冻结复核版本 {{ pendingSummary.reviewRevision ?? '未记录（仅按原号找回）' }}</p>
+        <p class="task-footnote">原摘要音频 #{{ pendingSummary.audioTaskId }} · 冻结复核版本 {{ pendingSummary.reviewRevision ?? '未记录（仅按请求编号找回）' }}</p>
         <ElAlert type="warning" :closable="false" class="task-alert"
-          :title="pendingSummary.summaryTaskId ? `原摘要任务 #${pendingSummary.summaryTaskId} 尚待核对。读取原任务，不会新建摘要或重复调用。` : '上次摘要提交结果尚未确认。请保留请求编号只读找回；未确认前不能新建摘要。'" />
+          :title="pendingSummary.summaryTaskId ? `原摘要任务 #${pendingSummary.summaryTaskId} 尚待核对。读取原任务，不会新建摘要或重复调用。` : '上次摘要提交结果尚未确认。请保留请求编号找回；未确认前不能新建摘要。'" />
       </details>
       <ElForm label-width="110px" class="task-cred" @submit.prevent>
-        <ElFormItem label="原音频任务号">
+        <ElFormItem label="原音频任务编号">
           <ElInputNumber v-model="summaryLookupAudioId" :min="1" :controls="false" :disabled="Boolean(busy) || !!pendingSummary" />
         </ElFormItem>
-        <ElFormItem label="原摘要请求键">
+        <ElFormItem label="原摘要请求编号">
           <ElInput v-model.trim="summaryLookupKey" :disabled="Boolean(busy) || !!pendingSummary" maxlength="512"
             placeholder="原生成摘要时的请求编号；找回使用当前调用密钥" />
         </ElFormItem>
         <ElFormItem>
           <ElSpace wrap>
             <ElButton :loading="busy === 'summary-recovery'" :disabled="Boolean(busy) || !apiKey.trim() || !summaryLookupAudioId || !summaryLookupKey.trim()"
-              @click="recoverMeetingSummary">按原请求只读找回</ElButton>
+              @click="recoverMeetingSummary">按原请求找回</ElButton>
             <ElButton v-if="pendingSummary?.summaryTaskId" :disabled="Boolean(busy) || !apiKey.trim()"
               @click="refreshOne(pendingSummary.summaryTaskId)">读取原摘要任务</ElButton>
           </ElSpace>
@@ -99,11 +103,11 @@
       <details v-if="mutationInFlight || newCallsBlocked" class="task-alert task-recover">
         <summary>原操作尚待确认，当前不能新建调用（查看详情）</summary>
         <ElAlert type="warning" :closable="false" class="task-alert"
-          title="原操作尚待确认；可继续只读历史、成果、来源和费用，当前不能新建调用">
-          <p v-if="mutationInFlight">原任务 #{{ mutationInFlight.taskId }} · {{ materialActionLabel(mutationInFlight.kind) }}进行中。只读请求完成不会解除原操作锁。</p>
+          title="原操作尚待确认；可继续查看历史、成果、来源和费用，当前不能新建调用">
+          <p v-if="mutationInFlight">原任务 #{{ mutationInFlight.taskId }} · {{ materialActionLabel(mutationInFlight.kind) }}进行中。查看请求完成不会解除原操作锁。</p>
           <ElSpace wrap>
-            <ElButton v-for="id in pendingMaterialTaskIds" :key="id" :disabled="busy === 'read'" @click="refreshOne(id)">只读原任务 #{{ id }}</ElButton>
-            <ElButton v-if="mutationInFlight && !pendingMaterialTaskIds.includes(mutationInFlight.taskId)" :disabled="busy === 'read'" @click="refreshOne(mutationInFlight.taskId)">只读原任务 #{{ mutationInFlight.taskId }}</ElButton>
+            <ElButton v-for="id in pendingMaterialTaskIds" :key="id" :disabled="busy === 'read'" @click="refreshOne(id)">查看原任务 #{{ id }}</ElButton>
+            <ElButton v-if="mutationInFlight && !pendingMaterialTaskIds.includes(mutationInFlight.taskId)" :disabled="busy === 'read'" @click="refreshOne(mutationInFlight.taskId)">查看原任务 #{{ mutationInFlight.taskId }}</ElButton>
           </ElSpace>
         </ElAlert>
       </details>
@@ -118,13 +122,13 @@
       <details v-if="authorizationIntents.length || authorizationStorageBlocked" class="task-alert task-recover" aria-label="原任务授权续接恢复">
         <summary>原授权续接请求尚待确认（查看详情）</summary>
         <ElAlert type="warning" :closable="false" title="原授权续接请求尚待确认"
-          description="原任务和请求号已保留，不自动更新授权或再次派发。请使用原任务所属应用的当前有效凭证先读取原任务；读取状态变化不会确认此请求。按原号继续时，已应用的意图只返回原任务，未应用的意图仍会重新核验当前授权。" />
+          description="原任务和请求编号已保留，不自动更新授权或再次派发。请使用原任务所属应用的当前有效凭证先读取原任务；读取状态变化不会确认此请求。按请求编号继续时，已应用的意图只返回原任务，未应用的意图仍会重新核验当前授权。" />
         <p v-for="intent in authorizationIntents" :key="intent.key">
           原任务 #{{ intent.taskId }} · 原续接请求 {{ intent.key }}
-          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(intent.taskId)">只读原任务</ElButton>
+          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(intent.taskId)">查看原任务</ElButton>
           <ElButton :loading="busy === 'authorization-continue' && mutationInFlight?.taskId === intent.taskId"
             :disabled="Boolean(busy) || mutationInFlight !== null || materialStorageUnconfirmed || pendingMaterialTaskIds.length > 0 || authorizationStorageBlocked || !apiKey.trim()"
-            @click="continueTaskAuthorization(intent.taskId, true)">按原号确认并继续</ElButton>
+            @click="continueTaskAuthorization(intent.taskId, true)">按请求编号确认并继续</ElButton>
         </p>
         <p v-if="authorizationStorageBlocked" class="task-footnote">原续接记录无法安全读取或保存，暂不发送续接。请保留当前会话；恢复会话存储后重新读取原记录。</p>
         <ElButton v-if="authorizationStorageBlocked" :disabled="Boolean(busy)" @click="restoreAuthorizationIntents">重新读取原续接记录</ElButton>
@@ -133,21 +137,21 @@
       <details v-if="meetingCorrectionIntents.length || meetingCorrectionStorageBlocked" class="task-alert task-recover" aria-label="原会议节点纠正请求">
         <summary>原会议节点纠正请求尚待确认（查看详情）</summary>
         <ElAlert type="warning" :closable="false" title="原会议节点纠正请求尚待确认"
-          description="保留原任务、失败节点和请求号。只读任务不会解除此记录；按原号继续时，已受理的请求只找回原任务，未受理的请求可能调用模型并计费。" />
+          description="保留原任务、失败节点和请求编号。查看任务不会解除此记录；按请求编号继续时，已受理的请求只找回原任务，未受理的请求可能调用模型并计费。" />
         <p v-for="intent in meetingCorrectionIntents" :key="intent.key">
           原任务 #{{ intent.taskId }} · 节点 {{ intent.body.node_code }} · 请求 {{ intent.key }}
-          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(intent.taskId)">只读原任务</ElButton>
+          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(intent.taskId)">查看原任务</ElButton>
           <ElButton :disabled="Boolean(busy) || mutationInFlight !== null || meetingCorrectionStorageBlocked || ocrRetryStorageBlocked || ocrRetryPending.length > 0 || materialStorageUnconfirmed || pendingMaterialTaskIds.length > 0 || authorizationStorageBlocked || authorizationIntents.length > 0 || !apiKey.trim()"
-            @click="correctMeetingOutput(intent.taskId, intent.key)">按原号确认并继续</ElButton>
+            @click="correctMeetingOutput(intent.taskId, intent.key)">按请求编号确认并继续</ElButton>
         </p>
-        <p v-if="meetingCorrectionStorageBlocked">原纠正记录无法安全确认，暂不发送。请保留原会话和请求号。</p>
+        <p v-if="meetingCorrectionStorageBlocked">原纠正记录无法安全确认，暂不发送。请保留原会话和请求编号。</p>
         <ElButton v-if="meetingCorrectionStorageBlocked" :disabled="Boolean(busy)" @click="restoreMeetingCorrectionIntents">重新读取原纠正记录</ElButton>
       </details>
 
       <details v-if="ocrRetryPending.length || ocrRetryStorageBlocked" class="task-alert task-recover" aria-label="原 OCR 恢复请求">
         <summary>原 OCR 恢复请求待确认（查看详情）</summary>
-        <ElAlert type="warning" :closable="false" title="原 OCR 恢复请求待确认" description="保留原任务和请求号，只读找回；不会重发恢复或重新解析文件。" />
-        <ElButton v-for="intent in ocrRetryPending" :key="`read:${intent.task_id}`" :disabled="Boolean(busy) || Boolean(ocrRetryFlight) || !apiKey.trim()" @click="refreshOne(intent.task_id)">只读找回原任务 #{{ intent.task_id }}</ElButton>
+        <ElAlert type="warning" :closable="false" title="原 OCR 恢复请求待确认" description="保留原任务和请求编号，找回；不会重发恢复或重新解析文件。" />
+        <ElButton v-for="intent in ocrRetryPending" :key="`read:${intent.task_id}`" :disabled="Boolean(busy) || Boolean(ocrRetryFlight) || !apiKey.trim()" @click="refreshOne(intent.task_id)">找回原任务 #{{ intent.task_id }}</ElButton>
         <template v-for="intent in ocrRetryPending" :key="`release:${intent.task_id}`">
           <ElButton v-if="canReleaseOcrRetry(intent)" :disabled="Boolean(busy) || Boolean(ocrRetryFlight)" @click="releaseOcrRetryIntent(intent)">{{ intent.phase === 'rejected' || rejectedOcrRetryKeys.has(intent.key) ? '解除已明确拒绝的恢复意图' : '解除确认未发送的恢复意图' }}</ElButton>
         </template>
@@ -156,12 +160,12 @@
       <div v-if="activeTask" class="task-detail">
         <section v-if="activeTask.authorization_continuation?.required" class="task-alert" aria-label="原任务授权暂停">
           <ElAlert type="warning" :closable="false" title="原任务执行授权需要明确续接"
-            description="原任务授权已暂停或过期。使用当前有效应用凭证明确继续时，服务端重新核验同一任务、来源和调用范围；页面不会自动续签。已完成节点、原来源版本和费用保留，结果待确认的节点仍只能找回原回执。" />
+            description="原任务授权已暂停或过期。使用当前有效应用凭证明确继续时，服务端重新核验同一任务、来源和调用范围；页面不会自动续签。已完成节点、原来源版本和费用保留，结果待确认的节点仍只能找回原结果。" />
           <p class="task-footnote">{{ authorizationReason(activeTask) }}</p>
           <ElButton type="primary" :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim() || !activeTask.authorization_continuation.available"
             :loading="busy === 'authorization-continue' && mutationInFlight?.taskId === activeTask.id"
             @click="continueTaskAuthorization(activeTask.id)">使用当前授权继续原任务</ElButton>
-          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(activeTask.id)">只读刷新原任务</ElButton>
+          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(activeTask.id)">查看原任务</ElButton>
         </section>
         <section v-if="activeTask.task_type === 'file_parse' && activeTask.ocr_before_dispatch_retry" class="task-alert" aria-label="OCR 发送前失败恢复">
           <p v-if="activeTask.ocr_before_dispatch_retry.consumed">原任务的一次 OCR 恢复机会已使用；后续状态请读取原任务确认。</p>
@@ -203,7 +207,7 @@
             <summary>原材料任务操作尚待确认（查看详情）</summary>
             <ElAlert type="warning" :closable="false" title="原材料任务操作尚待确认" class="task-alert">
               <p>原任务 #{{ activeTask.id }} · {{ materialActionLabel(materialActions.get(activeTask.id)?.kind) }}结果未确认。
-                请只读原任务；本任务暂不能再次取消、重试或恢复回执。</p>
+                请查看原任务；本任务暂不能再次取消、重试或恢复结果。</p>
               <ElButton :disabled="Boolean(busy)" @click="refreshOne(activeTask.id)">读取原任务结果</ElButton>
             </ElAlert>
           </details>
@@ -212,12 +216,12 @@
             description="取消后的原任务不能作为失败任务重试。原调用结果未知时，请继续读取原任务核对。" class="task-alert" />
           <section v-if="activeTask.receipt_only_recovery?.target === 'cross_file_review'" class="task-review">
             <p>原跨文件复核可用恢复机会：{{ activeTask.receipt_only_recovery.attempt_count }} /
-              {{ activeTask.receipt_only_recovery.max_attempts }} 已使用。恢复只使用已有回执，不发起新模型调用。</p>
+              {{ activeTask.receipt_only_recovery.max_attempts }} 已使用。恢复只使用已有结果，不发起新模型调用。</p>
             <ElButton :loading="mutationInFlight?.kind === 'receipt' && mutationInFlight.taskId === activeTask.id"
               :disabled="Boolean(busy) || newCallsBlocked || materialChunkUnconfirmed || !activeTask.receipt_only_recovery.available || materialActions.has(activeTask.id)"
               @click="recoverMaterialReceipt(activeTask.id)">仅恢复原跨文件复核结果</ElButton>
             <p v-if="!activeTask.receipt_only_recovery.available" class="task-footnote">
-              当前回执不可恢复。请读取原任务核对，不要重新提交材料或更换恢复请求。
+              当前结果不可恢复。请读取原任务核对，不要重新提交材料或更换恢复请求。
             </p>
           </section>
           <ElAlert
@@ -234,8 +238,8 @@
               <summary>原分块调用结果待确认（查看详情）</summary>
               <ElAlert type="warning" :closable="false" class="task-alert"
                 title="原分块调用结果待确认"
-                description="请只读刷新原任务找回调用结果；不要重新提交材料或更换请求号。已完成分段保留，当前不能重试或恢复跨文件回执。">
-                <ElButton :disabled="Boolean(busy)" @click="refreshOne(activeTask.id)">只读刷新原任务</ElButton>
+                description="请查看原任务找回调用结果；不要重新提交材料或更换请求编号。已完成分段保留，当前不能重试或恢复跨文件结果。">
+                <ElButton :disabled="Boolean(busy)" @click="refreshOne(activeTask.id)">查看原任务</ElButton>
               </ElAlert>
             </details>
             <ArtTable
@@ -375,9 +379,9 @@
               <ElAlert v-if="activePendingReview" type="warning" :closable="false"
                 title="原复核保存结果尚未确认">
                 <p>原片段 #{{ activePendingReview.index }}，原版本 {{ activePendingReview.revision }}。
-                  请按请求编号只读找回；无需原正文，本任务暂不能提交另一份复核。</p>
+                  请按请求编号找回；无需原正文，本任务暂不能提交另一份复核。</p>
                 <ElButton :loading="busy === 'review-recovery'" :disabled="Boolean(busy) || materialTaskActionInFlight() || !apiKey.trim()"
-                  @click="recoverAudioReview(activeTask.id)">只读找回本次复核</ElButton>
+                  @click="recoverAudioReview(activeTask.id)">找回本次复核</ElButton>
               </ElAlert>
             <section v-if="audioReview?.taskId === activeTask.id" class="task-review">
               <p class="task-footnote">
@@ -482,7 +486,7 @@
               </ElFormItem>
             </ElForm>
             <p v-if="activeTask.state === 'succeeded' && summaryReviewBlock(activeTask.id)" class="task-footnote">{{ summaryReviewBlock(activeTask.id) }}</p>
-            <p v-if="summaryStorageBlocked" class="task-footnote">摘要原号的会话存储暂不可确认，当前不能新建摘要；请恢复会话存储后重新进入页面。</p>
+            <p v-if="summaryStorageBlocked" class="task-footnote">摘要请求编号的会话存储暂不可确认，当前不能新建摘要；请恢复会话存储后重新进入页面。</p>
             <p v-if="activeTask.state === 'succeeded'" class="task-footnote">
               摘要使用{{ audioReview?.taskId === activeTask.id ? `复核版本 ${audioReview.revision}` : '原始转写' }}，
               并产生独立计费任务；原音频须允许经批准的云端处理，当前身份还须具备聊天与音频允许使用。
@@ -510,7 +514,7 @@
         </section>
         <section v-if="activeTask.meeting_output_correction" class="task-alert" aria-label="会议失败节点纠正">
           <p v-if="meetingCorrectionExpectation(activeTask)">节点 {{ activeTask.meeting_output_correction.node_code }} 的结果{{ activeTask.meeting_output_correction.reason === 'missing_sources' ? '缺少必填来源引用' : '包含重复来源引用' }}，未被接受。问题位置：{{ meetingCorrectionLocation(activeTask.meeting_output_correction.reason_path) }}。可明确纠正该失败节点并继续原摘要；这会新建一次付费尝试，已成功节点、旧结果和费用保留。</p>
-          <p v-else>当前没有可明确纠正的失败节点。结果未知、执行中或其他失败只读原任务，不重新调用。</p>
+          <p v-else>当前没有可明确纠正的失败节点。结果未知、执行中或其他失败查看原任务，不重新调用。</p>
           <ElButton v-if="meetingCorrectionExpectation(activeTask)" type="primary"
             :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim()"
             :loading="busy === 'meeting-correction'" @click="correctMeetingOutput(activeTask.id)">纠正失败节点并继续</ElButton>
@@ -837,8 +841,8 @@
       if (sessionStorage.getItem(ocrRetryStorageKey()) !== body) throw new Error('Original OCR intent not released')
       ocrRetryPending.value = next; ocrRetryStorageBlocked.value = false
       unsentOcrRetryKeys.delete(original.key); rejectedOcrRetryKeys.delete(original.key)
-      ocrRetryNotice.value = '明确未发送或未受理的本地意图已解除。请先只读原任务，再明确决定是否恢复；不会自动提交。'
-    } catch { ocrRetryStorageBlocked.value = true; ocrRetryNotice.value = '原意图或存储未能精确确认，暂不解除；请保留原任务和请求号。' }
+      ocrRetryNotice.value = '明确未发送或未受理的本地意图已解除。请先查看原任务，再明确决定是否恢复；不会自动提交。'
+    } catch { ocrRetryStorageBlocked.value = true; ocrRetryNotice.value = '原意图或存储未能精确确认，暂不解除；请保留原任务和请求编号。' }
   }
   function definiteOcrRetryRejection(error: unknown): error is SandAiRuntimeError {
     return error instanceof SandAiRuntimeError && error.httpStatus === 400 && error.businessCode === 400
@@ -850,7 +854,7 @@
     const rejected: OcrRetryIntent = { ...original, phase: 'rejected', rejection_code: error.errorCode }
     try { persistOcrRetryIntents(ocrRetryPending.value.map(item => item.key === original.key ? rejected : item)) }
     catch { ocrRetryStorageBlocked.value = true }
-    ocrRetryNotice.value = '服务端已明确拒绝且未受理本次恢复。可解除此意图后只读原任务；不会自动重发。'
+    ocrRetryNotice.value = '服务端已明确拒绝且未受理本次恢复。可解除此意图后查看原任务；不会自动重发。'
   }
   function canRetryOcrBeforeDispatch(task: SandAiTask): boolean {
     const recovery = task.ocr_before_dispatch_retry
@@ -873,12 +877,12 @@
       || recovery.consumed !== true || recovery.available !== false || recovery.previous_attempt_count !== original.expected_attempt_count
       || recovery.retry_attempt_limit !== original.retry_attempt_limit || task.max_attempts !== original.retry_attempt_limit
       || !Number.isSafeInteger(task.attempt_count) || task.attempt_count < original.expected_attempt_count || task.attempt_count > original.retry_attempt_limit) {
-      ocrRetryNotice.value = '原恢复结果仍未确认。请继续只读同一任务，不再次发送。'; return
+      ocrRetryNotice.value = '原恢复结果仍未确认。请继续查看同一任务，不再次发送。'; return
     }
     try {
       persistOcrRetryIntents(ocrRetryPending.value.filter(item => item.task_id !== original.task_id))
       ocrRetryNotice.value = '服务端确认原任务的一次恢复机会已接受；当前任务状态以原任务读取为准。'
-    } catch { ocrRetryStorageBlocked.value = true; ocrRetryNotice.value = '原恢复已被服务端接受，但本页记录未能安全解除；请保留原任务只读核对。' }
+    } catch { ocrRetryStorageBlocked.value = true; ocrRetryNotice.value = '原恢复已被服务端接受，但本页记录未能安全解除；请保留原任务查看核对。' }
   }
   async function retryOcrBeforeDispatch(taskId: number): Promise<void> {
     if (busy.value || newCallsBlocked.value || !apiKey.value.trim()) return
@@ -902,7 +906,7 @@
         expected_attempt_count: fresh.attempt_count, retry_attempt_limit: projection.retry_attempt_limit, key: crypto.randomUUID(), phase: 'prepared', rejection_code: null }
       unsentOcrRetryKeys.add(original.key)
       try { persistOcrRetryIntents([...ocrRetryPending.value, original]) }
-      catch { ocrRetryPending.value = [...ocrRetryPending.value.filter(item => item.task_id !== taskId), original]; ocrRetryStorageBlocked.value = true; ocrRetryNotice.value = '请求编号未能安全保存，本次未发送。恢复存储后可明确解除未发送意图，再只读原任务；不会自动提交。'; return }
+      catch { ocrRetryPending.value = [...ocrRetryPending.value.filter(item => item.task_id !== taskId), original]; ocrRetryStorageBlocked.value = true; ocrRetryNotice.value = '请求编号未能安全保存，本次未发送。恢复存储后可明确解除未发送意图，再查看原任务；不会自动提交。'; return }
       if (!current() || generation !== viewGeneration) return
       const sent: OcrRetryIntent = { ...original, phase: 'sent' }
       try { persistOcrRetryIntents(ocrRetryPending.value.map(item => item.key === original.key ? sent : item)) }
@@ -921,7 +925,7 @@
       reconcileOcrRetry(result)
       if (generation === viewGeneration && activeTask.value?.id === taskId && matchesOcrRetryTarget(result, original)) upsertTask(result)
     } catch (error) {
-      if (current()) { ocrRetryNotice.value = submitted ? '原恢复结果未确认，请只读原任务找回；不会重新发送或创建新解析。' : '本次恢复未发送，请先读取原任务确认身份、来源与恢复条件。'; if (!clearOnAccessDenied(error)) lastError.value = toUiError(error) }
+      if (current()) { ocrRetryNotice.value = submitted ? '原恢复结果未确认，请查看原任务找回；不会重新发送或创建新解析。' : '本次恢复未发送，请先读取原任务确认身份、来源与恢复条件。'; if (!clearOnAccessDenied(error)) lastError.value = toUiError(error) }
     } finally {
       finishMaterialTaskActionFlight(token)
       if (ocrRetryFlight.value === token) ocrRetryFlight.value = null
@@ -968,7 +972,7 @@
       return true
     } catch {
       authorizationStorageBlocked.value = true
-      ElMessage.warning('续接请求记录未能确认，暂不发送新的续接；请保留原任务和请求号')
+      ElMessage.warning('续接请求记录未能确认，暂不发送新的续接；请保留原任务和请求编号')
       return false
     }
   }
@@ -978,7 +982,7 @@
   }
   function authorizationReason(task: SandAiTask): string {
     const reason = task.authorization_continuation?.reason
-    if (reason === 'lease_active') return '原执行租约尚未结束，请只读刷新原任务；当前不能发起新的续接。'
+    if (reason === 'lease_active') return '原执行租约尚未结束，请查看原任务；当前不能发起新的续接。'
     if (reason === 'source_unavailable') return '原来源或任务状态暂不支持续接，请核对原任务并保留已有成果与费用。'
     return '可继续仅表示任务结构允许此操作，不代表当前身份已获准；继续时仍需重新核验 SandIAM 授权，剩余调用可能产生费用。'
   }
@@ -1122,7 +1126,7 @@
       if (!expectation) return
       try {
         await ElMessageBox.confirm(`继续原任务 #${taskId} 的节点 ${expectation.node_code}？只纠正已明确失败的节点，随后继续原摘要计划；成功节点、旧结果和已计量费用均保留。此操作可能再次调用模型并产生费用，不退款、不从头生成。${intent ? '使用请求编号；已受理时只找回原任务，不重复派发。' : ''}`,
-          '纠正失败节点并继续', { type: 'warning', confirmButtonText: intent ? '按原号确认并继续' : '确认纠正并继续', cancelButtonText: '取消' })
+          '纠正失败节点并继续', { type: 'warning', confirmButtonText: intent ? '按请求编号确认并继续' : '确认纠正并继续', cancelButtonText: '取消' })
       } catch { return }
       if (!currentMutation(flight) || generation !== viewGeneration || activeTask.value?.id !== taskId) return
       if (!intent) {
@@ -1130,7 +1134,7 @@
         const fresh = await taskApi.read(flight.credential, taskId)
         if (!currentMutation(flight) || generation !== viewGeneration || activeTask.value?.id !== taskId) return
         if (fresh.id !== taskId || fresh.resource_type !== source.resource_type || fresh.resource_id !== source.resource_id
-          || JSON.stringify(meetingCorrectionExpectation(fresh)) !== JSON.stringify(expectation)) throw new Error('失败节点或任务状态已变化，请只读原任务后重新决定')
+          || JSON.stringify(meetingCorrectionExpectation(fresh)) !== JSON.stringify(expectation)) throw new Error('失败节点或任务状态已变化，请查看原任务后重新决定')
         intent = { version: 1, adminId: flight.owner, taskId, resourceType: source.resource_type, resourceId: source.resource_id,
           key: newRuntimeRequestId('meeting-output-correction'), body: expectation }
         saveMeetingCorrectionIntents([...meetingCorrectionIntents.value, intent])
@@ -1240,7 +1244,7 @@
       summaryStorageBlocked.value = true
       // Failed removal must keep the original lock; a post-send update keeps its memory key too.
       if (value && !beforeSend) showSummary(value)
-      ElMessage.warning(beforeSend ? '原摘要请求号保存失败，本次未发送' : '摘要原号的会话记录未能更新，已保留原号锁，请勿重复提交')
+      ElMessage.warning(beforeSend ? '原摘要请求编号保存失败，本次未发送' : '摘要请求编号的会话记录未能更新，已保留请求编号锁，请勿重复提交')
       return false
     }
   }
@@ -1255,12 +1259,12 @@
       summaryStorageBlocked.value = false
       if (!raw) return
       const value: unknown = JSON.parse(raw)
-      if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('摘要原号记录无效')
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('摘要请求编号记录无效')
       const item = value as Record<string, unknown>
       if (typeof item.audioTaskId !== 'number' || !Number.isSafeInteger(item.audioTaskId) || item.audioTaskId < 1
         || typeof item.key !== 'string' || !/^[\x21-\x7e]{1,512}$/.test(item.key)
         || (item.summaryTaskId !== null && (typeof item.summaryTaskId !== 'number' || !Number.isSafeInteger(item.summaryTaskId) || item.summaryTaskId < 1))
-        || (item.reviewRevision !== undefined && item.reviewRevision !== null && (typeof item.reviewRevision !== 'number' || !Number.isSafeInteger(item.reviewRevision) || item.reviewRevision < 0))) throw new Error('摘要原号记录无效')
+        || (item.reviewRevision !== undefined && item.reviewRevision !== null && (typeof item.reviewRevision !== 'number' || !Number.isSafeInteger(item.reviewRevision) || item.reviewRevision < 0))) throw new Error('摘要请求编号记录无效')
       showSummary({ audioTaskId: item.audioTaskId, key: item.key, summaryTaskId: item.summaryTaskId,
         reviewRevision: !legacySummaryRaw && typeof item.reviewRevision === 'number' ? item.reviewRevision : null })
     } catch { summaryStorageBlocked.value = true }
@@ -1271,7 +1275,7 @@
     const audioTaskId = pendingSummary.value?.audioTaskId ?? summaryLookupAudioId.value
     const key = pendingSummary.value?.key ?? summaryLookupKey.value.trim()
     if (!audioTaskId || !Number.isSafeInteger(audioTaskId) || audioTaskId < 1 || !/^[\x21-\x7e]{1,512}$/.test(key)) {
-      ElMessage.warning('请填写原音频任务号和最多 512 字节的可见 ASCII 请求键')
+      ElMessage.warning('请填写原音频任务编号和最多 512 个字符的请求编号')
       return
     }
     // Read recovery may proceed, but unavailable storage must never overwrite an existing journal.
@@ -1287,7 +1291,7 @@
         throw new Error('找回的会议摘要任务无效；请保留请求编号核对')
       }
       const knownId = pendingSummary.value?.summaryTaskId
-      if (knownId && knownId !== task.id) throw new Error('找回的会议摘要任务号与原记录不一致')
+      if (knownId && knownId !== task.id) throw new Error('找回的会议摘要任务编号与原记录不一致')
       if (!summaryStorageBlocked.value) {
         const migrated = retainSummary({ audioTaskId, key, summaryTaskId: task.id, reviewRevision: pendingSummary.value?.reviewRevision ?? null })
         if (migrated && legacySummaryRaw) {
@@ -1297,13 +1301,13 @@
             legacySummaryRaw = null
           } catch {
             summaryStorageBlocked.value = true
-            ElMessage.warning('原摘要已只读找到，但旧原号记录尚未清除；继续保留原号锁')
+            ElMessage.warning('原摘要已找到，但旧请求编号记录尚未清除；继续保留请求编号锁')
           }
         }
       }
       upsertTask(task)
       lookupId.value = task.id
-      ElMessage.success(`已只读找回摘要任务 #${task.id}`)
+      ElMessage.success(`已找回摘要任务 #${task.id}`)
       if (!TERMINAL.has(task.state)) startPolling(task.id)
     } catch (error) {
       // A 404 or denied/unknown response is not permission to create another POST or key.
@@ -1347,7 +1351,7 @@
       return true
     } catch {
       reviewRecoveryBlocked.add(pending.audioTaskId)
-      ElMessage.warning('原复核请求号保存失败，本次未发送；请恢复会话存储后重新读取片段复核')
+      ElMessage.warning('原复核请求编号保存失败，本次未发送；请恢复会话存储后重新读取片段复核')
       return false
     }
   }
@@ -1362,7 +1366,7 @@
       return true
     } catch {
       reviewRecoveryBlocked.add(pending.audioTaskId)
-      ElMessage.warning('已收到复核回执，但原号记录未能清除；继续保留原号锁，请只读找回，勿新建请求')
+      ElMessage.warning('已收到复核结果，但请求编号记录未能清除；继续保留请求编号锁，请找回，勿新建请求')
       return false
     }
   }
@@ -1376,11 +1380,11 @@
       ElMessage.warning('本次复核未保存，草稿已保留；请重新读取当前版本后确认并保存')
     } catch {
       reviewRecoveryBlocked.add(pending.audioTaskId)
-      ElMessage.warning('本次复核未保存，但原号记录未能清除；继续保留原号锁，请勿新建请求')
+      ElMessage.warning('本次复核未保存，但请求编号记录未能清除；继续保留请求编号锁，请勿新建请求')
     }
   }
   function summaryReviewBlock(taskId: number): string {
-    if (pendingReviews.has(taskId) || reviewRecoveryBlocked.has(taskId)) return '本任务有尚未确认的复核，请先只读找回原复核结果。'
+    if (pendingReviews.has(taskId) || reviewRecoveryBlocked.has(taskId)) return '本任务有尚未确认的复核，请先找回原复核结果。'
     if (reviewNeedsRefresh.has(taskId)) return '请先读取片段复核，取得当前复核版本后再生成摘要。'
     if (reviewDrafts.get(taskId)?.size) return '本任务有未保存的复核草稿，请先确认并保存后再生成摘要。'
     if (audioReview.value?.taskId !== taskId) return '生成摘要前，请先读取片段复核，确认当前版本。'
@@ -1413,7 +1417,7 @@
     if (kind === 'review_save') return '片段复核保存'
     if (kind === 'summary_submit') return '会议摘要提交'
     if (kind === 'meeting_correction') return '失败摘要节点纠正'
-    return kind === 'cancel' ? '取消' : kind === 'retry' ? '定向重试' : kind === 'receipt' ? '原回执恢复' : '原操作'
+    return kind === 'cancel' ? '取消' : kind === 'retry' ? '定向重试' : kind === 'receipt' ? '原结果恢复' : '原操作'
   }
 
   async function recoverMaterialReceipt(taskId: number): Promise<void> {
@@ -1427,7 +1431,7 @@
     const beforeConfirm = viewGeneration
     const flight = beginMutation(taskId, 'receipt')
     try {
-      try { await ElMessageBox.confirm('仅使用原回执恢复跨文件复核或汇总，不新增模型调用。服务端会重新核对当前身份、来源和回执；复核拒绝时仍保留已完成文件成果。',
+      try { await ElMessageBox.confirm('仅使用原结果恢复跨文件复核或汇总，不新增模型调用。服务端会重新核对当前身份、来源和结果；复核拒绝时仍保留已完成文件成果。',
         '恢复原材料结果', { type: 'warning', confirmButtonText: '确认仅恢复', cancelButtonText: '取消' }) } catch { return }
       if (!currentMutation(flight) || beforeConfirm !== viewGeneration || activeTask.value?.id !== taskId) return
       const generation = ++viewGeneration
@@ -1439,7 +1443,7 @@
       try {
         const task = await taskApi.recoverReviewReceipt(flight.credential, taskId, key)
         if (!currentMutation(flight) || generation !== viewGeneration) return
-        if (task.id !== taskId || task.task_type !== source.task_type || task.resource_type !== source.resource_type || task.resource_id !== source.resource_id) throw new Error('恢复响应与原材料任务不一致，请只读原任务确认')
+        if (task.id !== taskId || task.task_type !== source.task_type || task.resource_type !== source.resource_type || task.resource_id !== source.resource_id) throw new Error('恢复响应与原材料任务不一致，请查看原任务确认')
         upsertTask(task)
         await loadWorkflow(task, generation)
         if (!currentMutation(flight) || generation !== viewGeneration) return
@@ -1527,7 +1531,7 @@
           h('p', `分段整理 ${progress.completed_leaf_count} / ${progress.leaf_count} · 归并 ${progress.completed_merge_count} / ${progress.merge_count}`),
           h('p', `来源 ${progress.source_block_count} 块 · ${progress.source_character_count} 字符 · ${materialCoverageLabel(progress.coverage_state)}`),
           ...(progress.failed_node_count > 0 ? [h('p', `确认失败 ${progress.failed_node_count} 处`)] : []),
-          ...(progress.unknown_node_count > 0 ? [h('p', `结果待确认 ${progress.unknown_node_count} 处；只读刷新原任务找回`)] : [])
+          ...(progress.unknown_node_count > 0 ? [h('p', `结果待确认 ${progress.unknown_node_count} 处；查看原任务找回`)] : [])
         ])
       }
     },
@@ -1910,7 +1914,7 @@
     if (!Number.isSafeInteger(task.attempt_count) || task.attempt_count < 0
       || !['authorization_pending', 'queued', 'running', 'retrying', 'recovery_pending',
         'succeeded', 'failed', 'canceled'].includes(task.state)) {
-      throw new Error('原任务执行代次或状态尚未确认，本次操作未发送；请只读刷新原任务')
+      throw new Error('原任务执行代次或状态尚未确认，本次操作未发送；请查看原任务')
     }
     return { expected_attempt_count: task.attempt_count, expected_state: task.state }
   }
@@ -1920,7 +1924,7 @@
     if (target === 'cross_file_review') {
       const attempt = run.cross_file_review?.attempt_count
       if (typeof attempt !== 'number' || !Number.isSafeInteger(attempt) || attempt < 0) {
-        throw new Error('原跨文件复核代次尚未确认，本次重试未发送；请只读刷新原任务')
+        throw new Error('原跨文件复核代次尚未确认，本次重试未发送；请查看原任务')
       }
       return { ...taskExpectation, expected_review_attempt_count: attempt }
     }
@@ -1930,7 +1934,7 @@
     if (!files.length || new Set(files.map(file => file.file_id)).size !== files.length
       || files.some(file => !Number.isSafeInteger(file.file_id) || file.file_id < 1
         || !Number.isSafeInteger(file.attempt_count) || file.attempt_count < 0)) {
-      throw new Error('原失败文件集合或执行代次尚未确认，本次重试未发送；请只读刷新原任务')
+      throw new Error('原失败文件集合或执行代次尚未确认，本次重试未发送；请查看原任务')
     }
     return { ...taskExpectation, expected_failed_files: files }
   }
@@ -1955,7 +1959,7 @@
   function assertTaskActionTarget(task: SandAiTask, source: SandAiTask): void {
     if (task.id !== source.id || task.task_type !== source.task_type
       || task.resource_type !== source.resource_type || task.resource_id !== source.resource_id) {
-      throw new Error('原任务读取目标不一致，本次操作未发送；请保留原任务号只读确认')
+      throw new Error('原任务读取目标不一致，本次操作未发送；请保留原任务编号查看确认')
     }
   }
 
@@ -2131,7 +2135,7 @@
         }
         const task = await taskApi.cancel(flight.credential, taskId, expectation)
         if (!currentMutation(flight) || generation !== viewGeneration) return
-        if (task.id !== taskId || task.task_type !== source.task_type || task.resource_type !== source.resource_type || task.resource_id !== source.resource_id) throw new Error('取消响应与原任务不一致，请只读原任务确认')
+        if (task.id !== taskId || task.task_type !== source.task_type || task.resource_type !== source.resource_type || task.resource_id !== source.resource_id) throw new Error('取消响应与原任务不一致，请查看原任务确认')
         upsertTask(task)
         await loadWorkflow(task, generation)
         if (!currentMutation(flight) || generation !== viewGeneration) return
@@ -2185,8 +2189,8 @@
         const selected = retryTarget(run)
         if (!selected) {
           ElMessage.info(hasUnconfirmedMaterialChunks(run)
-            ? '原分块调用结果待确认，请只读刷新原任务，不要重新提交材料或更换请求号'
-            : '没有已确认可重试的失败文件或跨文件核对，请只读刷新原任务')
+            ? '原分块调用结果待确认，请查看原任务，不要重新提交材料或更换请求编号'
+            : '没有已确认可重试的失败文件或跨文件核对，请查看原任务')
           return
         }
         target = selected.target
@@ -2226,7 +2230,7 @@
       }
       const task = await taskApi.retry(flight.credential, taskId, target, expectation)
       if (!currentMutation(flight) || generation !== viewGeneration) return
-      if (task.id !== taskId || task.task_type !== source.task_type || task.resource_type !== source.resource_type || task.resource_id !== source.resource_id) throw new Error('重试响应与原任务不一致，请只读原任务确认')
+      if (task.id !== taskId || task.task_type !== source.task_type || task.resource_type !== source.resource_type || task.resource_id !== source.resource_id) throw new Error('重试响应与原任务不一致，请查看原任务确认')
       upsertTask(task)
       await loadWorkflow(task, generation)
       if (!currentMutation(flight) || generation !== viewGeneration) return
@@ -2265,9 +2269,9 @@
       if (!source || !['ai_completion', 'audio_transcription', 'file_parse', 'structured_workflow'].includes(source.task_type)) return
       try {
         await ElMessageBox.confirm(intent
-          ? `按请求编号确认任务 #${taskId} 的授权续接？原意图已应用时仅返回原任务；未应用时重新核验当前应用授权后继续同一意图，不生成新请求号。`
-          : `使用当前应用授权继续任务 #${taskId}？服务端重新核验原调用范围和来源；已完成节点及费用保留，剩余调用仍可能计费，结果未知的节点只找回原回执。`,
-          '明确继续原任务', { type: 'warning', confirmButtonText: intent ? '按原号确认并继续' : '确认继续', cancelButtonText: '取消' })
+          ? `按请求编号确认任务 #${taskId} 的授权续接？原意图已应用时仅返回原任务；未应用时重新核验当前应用授权后继续同一意图，不生成新请求编号。`
+          : `使用当前应用授权继续任务 #${taskId}？服务端重新核验原调用范围和来源；已完成节点及费用保留，剩余调用仍可能计费，结果未知的节点只找回原结果。`,
+          '明确继续原任务', { type: 'warning', confirmButtonText: intent ? '按请求编号确认并继续' : '确认继续', cancelButtonText: '取消' })
       } catch { return }
       if (!currentMutation(flight) || generation !== viewGeneration) return
       if (!intent) {
@@ -2284,12 +2288,12 @@
       if (!confirmed) return
       const task = await taskApi.read(flight.credential, taskId)
       if (!currentMutation(flight) || generation !== viewGeneration) return
-      if (!matchesAuthorizationIntent(task, intent)) throw new Error('原任务读取响应不一致，请只读原任务确认')
+      if (!matchesAuthorizationIntent(task, intent)) throw new Error('原任务读取响应不一致，请查看原任务确认')
       upsertTask(task)
       await loadWorkflow(task, generation)
       if (!currentMutation(flight) || generation !== viewGeneration) return
       ElMessage.info(task.state === 'recovery_pending'
-        ? '原授权续接已确认；调用结果仍待原回执找回，未重新派发未知节点'
+        ? '原授权续接已确认；调用结果仍待原结果找回，未重新派发未知节点'
         : '原授权续接已确认，后续状态、成果和费用以原任务记录为准')
     } catch (error) {
       if (currentMutation(flight) && generation === viewGeneration && !clearOnAccessDenied(error)) lastError.value = toUiError(error)
@@ -2495,9 +2499,9 @@
       if (generation !== viewGeneration || activeTask.value?.id !== audioTaskId) return
       if (receipt.audio_task_id !== original.audioTaskId || receipt.request_key !== original.key
         || receipt.segment_index !== original.index || receipt.expected_revision !== original.revision
-        || receipt.revision !== original.revision + 1) throw new Error('复核回执与原任务、请求号、片段或版本不一致，已保留原号锁')
+        || receipt.revision !== original.revision + 1) throw new Error('复核结果与原任务、请求编号、片段或版本不一致，已保留请求编号锁')
       if (!confirmReview(original)) return
-      ElMessage.success(`已只读找回本次复核，版本 ${receipt.revision}`)
+      ElMessage.success(`已找回本次复核，版本 ${receipt.revision}`)
       busy.value = ''
       await loadAudioReviews(audioTaskId)
     } catch (error) {
@@ -2513,7 +2517,7 @@
     const snapshot = audioReview.value
     if (snapshot?.taskId !== audioTaskId) return
     if (pendingReviews.has(audioTaskId) || reviewRecoveryBlocked.has(audioTaskId)) {
-      ElMessage.warning('请先只读找回本任务的原复核请求，确认后再保存新复核')
+      ElMessage.warning('请先找回本任务的原复核请求，确认后再保存新复核')
       return
     }
     if (reviewNeedsRefresh.has(audioTaskId)) return
@@ -2567,9 +2571,9 @@
       pendingReviewBodies.set(original.key, body)
       const saved = await audioReviewApi.save(flight.credential, audioTaskId, original.revision, original.index, body.text, original.key, body.speaker)
       if (!currentMutation(flight)) return
-      if (saved.segment_index !== original.index || saved.text !== body.text || saved.revision !== original.revision + 1) throw new Error('复核保存回执与原片段或版本不一致，请保留原号只读找回')
+      if (saved.segment_index !== original.index || saved.text !== body.text || saved.revision !== original.revision + 1) throw new Error('复核保存结果与原片段或版本不一致，请保留请求编号找回')
       const pending = pendingReviews.get(audioTaskId)
-      if (pending && (pending.key !== original.key || pending.index !== original.index || pending.revision !== original.revision)) throw new Error('当前复核原号与此回执不一致，未改变当前记录')
+      if (pending && (pending.key !== original.key || pending.index !== original.index || pending.revision !== original.revision)) throw new Error('当前复核请求编号与此结果不一致，未改变当前记录')
       if (pending && !confirmReview(original)) return
       ElMessage.success(`原音频任务 #${audioTaskId} 的复核已保存为版本 ${saved.revision}`)
       // A late receipt confirms its original journal but cannot replace another viewed task.
@@ -2580,7 +2584,7 @@
       if (pending?.key === original.key && error instanceof SandAiRuntimeError
         && ['SAND_AI_RESOURCE_CONFLICT', 'SAND_AI_VALIDATION_ERROR'].includes(error.errorCode ?? '')) rejectReview(original)
       if (generation === viewGeneration && activeTask.value?.id === audioTaskId) lastError.value = toUiError(error)
-      else ElMessage.warning(`原音频任务 #${audioTaskId} 的复核结果需按原号核对`)
+      else ElMessage.warning(`原音频任务 #${audioTaskId} 的复核结果需按请求编号核对`)
     } finally { finishMutation(flight) }
   }
 
@@ -2588,11 +2592,11 @@
     refreshMaterialPending()
     if (newCallsBlocked.value || busy.value) return
     if (pendingSummary.value || summaryLookupKey.value.trim()) {
-      ElMessage.warning('请先只读找回原摘要请求；未确认前不能生成新摘要')
+      ElMessage.warning('请先找回原摘要请求；未确认前不能生成新摘要')
       return
     }
     const reviewBlock = summaryReviewBlock(audioTaskId)
-    if (summaryStorageBlocked.value || reviewBlock) { ElMessage.warning(reviewBlock || '摘要原号会话存储尚未确认，本次未发送'); return }
+    if (summaryStorageBlocked.value || reviewBlock) { ElMessage.warning(reviewBlock || '摘要请求编号会话存储尚未确认，本次未发送'); return }
     const model = summaryModel.value.trim()
     if (!model) {
       ElMessage.warning('请填写已启用的聊天模型名')
@@ -2612,13 +2616,13 @@
       const submitted = await taskApi.submitMeetingSummary(flight.credential, audioTaskId, model, reviewRevision, key)
       if (!currentMutation(flight)) return
       const task = submitted.task
-      if (task.task_type !== 'ai_completion' || !Number.isSafeInteger(task.id) || task.id < 1) throw new Error('摘要提交未返回有效任务号；请保留请求编号只读找回')
+      if (task.task_type !== 'ai_completion' || !Number.isSafeInteger(task.id) || task.id < 1) throw new Error('摘要提交未返回有效任务编号；请保留请求编号找回')
       const actualAudio = task.result?.audio_task_id
       const actualRevision = task.result?.audio_review_revision
-      if ((actualAudio !== undefined && actualAudio !== audioTaskId) || (actualRevision !== undefined && actualRevision !== reviewRevision)) throw new Error('摘要回执的音频任务或复核版本与原请求不一致，已保留原号')
+      if ((actualAudio !== undefined && actualAudio !== audioTaskId) || (actualRevision !== undefined && actualRevision !== reviewRevision)) throw new Error('摘要结果的音频任务或复核版本与原请求不一致，已保留请求编号')
       const pending = currentPendingSummary()
       if (pending && (pending.audioTaskId !== audioTaskId || pending.key !== key || pending.reviewRevision !== reviewRevision
-        || (pending.summaryTaskId !== null && pending.summaryTaskId !== task.id))) throw new Error('摘要回执与当前原号记录不一致，未改变当前记录')
+        || (pending.summaryTaskId !== null && pending.summaryTaskId !== task.id))) throw new Error('摘要结果与当前请求编号记录不一致，未改变当前记录')
       if (pending) retainSummary({ audioTaskId, key, summaryTaskId: task.id, reviewRevision })
       if (task.state === 'succeeded' && pending) {
         if (actualAudio !== audioTaskId || actualRevision !== reviewRevision) throw new Error('原摘要成果的音频任务或复核版本尚未确认，已保留请求编号锁')

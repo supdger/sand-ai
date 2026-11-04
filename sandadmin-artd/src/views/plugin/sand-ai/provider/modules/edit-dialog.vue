@@ -9,10 +9,10 @@
   >
     <ElAlert v-if="pending" type="warning" :closable="false"
       :title="`原${pending.operation === 'save' ? '新增' : '更新'}保存待确认：${pending.code}${pending.id !== null ? `（编号 ${pending.id}）` : ''}`"
-      description="只读取原保存回执，不再次发送；原回执表示当时保存结果，当前配置由列表另行读取。" />
+      description="只查询原保存结果，不再次发送；原结果表示当时的保存情况，当前配置由列表另行读取。" />
     <el-input v-if="pending" :model-value="pending.key" readonly aria-label="原保存请求编号" />
-    <ElButton v-if="pending || journalError" :loading="reading" :disabled="submitting || reading" @click="recoverOperation">读取原保存回执</ElButton>
-    <ElButton v-if="canSendUnsubmitted" :disabled="submitting || reading" @click="handleSubmit">保留原号首次提交</ElButton>
+    <ElButton v-if="pending || journalError" :loading="reading" :disabled="submitting || reading" @click="recoverOperation">查看原保存结果</ElButton>
+    <ElButton v-if="canSendUnsubmitted" :disabled="submitting || reading" @click="handleSubmit">按原请求编号首次提交</ElButton>
     <ElAlert v-if="errorMessage" type="warning" :closable="false" :title="errorMessage" />
     <ElButton v-if="!pending && !journalError && !configurationLoaded" :loading="loadingExisting"
       :disabled="submitting || reading" @click="loadExisting">重新读取当前配置</ElButton>
@@ -20,11 +20,27 @@
       <el-form-item v-if="formData.code" label="编码">
         <span>编码：{{ formData.code }}（自动生成）</span>
       </el-form-item>
+      <el-form-item v-if="dialogType === 'add' && presetGuides.length > 0" label="选择服务商">
+        <div class="preset-grid" role="radiogroup" aria-label="服务商预设">
+          <button
+            v-for="guide in presetGuides"
+            :key="guide.provider_code"
+            type="button"
+            class="preset-card"
+            :class="{ 'preset-card--active': selectedPreset === guide.provider_code }"
+            :aria-pressed="selectedPreset === guide.provider_code"
+            @click="selectPreset(guide)"
+          >
+            <span class="preset-card__name">{{ guide.name }}</span>
+            <span class="preset-card__desc">{{ guide.default_base_url ?? '自行填写接口地址' }}</span>
+          </button>
+        </div>
+      </el-form-item>
       <el-form-item label="名称" prop="name">
         <el-input v-model="formData.name" />
       </el-form-item>
       <el-form-item label="服务商类型" prop="adapter">
-        <el-select v-model="formData.adapter" style="width: 100%" :disabled="dialogType === 'edit'">
+        <el-select v-model="formData.adapter" style="width: 100%" :disabled="dialogType === 'edit' || presetLocked">
           <el-option label="OpenAI 兼容模型接口" value="openai_compatible" />
           <el-option label="Cohere 专业重排" value="cohere_rerank" />
           <el-option label="Jina 专业重排" value="jina_rerank" />
@@ -41,18 +57,55 @@
           <el-input v-model="formData.configBaseUrl" placeholder="服务商提供的 HTTPS API 基础地址" />
         </el-form-item>
         <el-form-item label="API Key">
-          <el-input
-            v-model="formData.configApiKey"
-            type="password"
-            show-password
-            autocomplete="off"
-            placeholder="服务商提供的 API Key"
-          />
+          <div class="api-key-field">
+            <el-input
+              v-model="formData.configApiKey"
+              type="password"
+              show-password
+              autocomplete="off"
+              placeholder="服务商提供的 API Key"
+            />
+            <div v-if="selectedGuide?.api_key_help || selectedGuide?.api_key_url" class="config-hint">
+              {{ selectedGuide?.api_key_help }}
+              <a
+                v-if="selectedGuide?.api_key_url"
+                :href="selectedGuide.api_key_url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >如何获取 API Key</a>
+            </div>
+          </div>
+        </el-form-item>
+        <el-form-item v-if="canTestConnection" label="连接">
+          <div class="test-connection">
+            <ElButton :loading="testing" :disabled="testing || submitting || reading" @click="testConnection">
+              测试连接
+            </ElButton>
+            <ElAlert
+              v-if="testResult"
+              :type="testResult.ok ? 'success' : 'warning'"
+              :closable="false"
+              :title="testResult.message"
+              class="mt-2"
+            />
+            <div v-if="testResult?.ok && testResult.models.length > 0" class="config-hint mt-2">
+              可用模型：
+              <ElTag
+                v-for="model in testResult.models.slice(0, 12)"
+                :key="model.remote_model"
+                :type="isRecommendedModel(model.remote_model) ? 'success' : 'info'"
+                effect="plain"
+                class="model-tag"
+              >{{ model.remote_model }}{{ isRecommendedModel(model.remote_model) ? '（推荐）' : '' }}</ElTag>
+              <span v-if="testResult.models.length > 12">等 {{ testResult.models.length }} 个</span>
+            </div>
+          </div>
         </el-form-item>
       </template>
       <el-form-item v-if="formData.adapter !== 'local_ocr_runtime'" label="连接说明">
         <div>
           <div class="config-hint">{{ configHint }}</div>
+          <div v-if="selectedGuide?.data_egress_notice" class="config-hint">{{ selectedGuide.data_egress_notice }}</div>
           <div class="config-hint">
             {{
               hasEncryptedConfig
@@ -63,7 +116,7 @@
         </div>
       </el-form-item>
       <el-form-item label="状态" prop="status">
-        <el-radio-group v-model="formData.status">
+        <el-radio-group v-model="formData.status" aria-label="服务商状态">
           <el-radio :value="1">启用</el-radio>
           <el-radio :value="2">停用</el-radio>
         </el-radio-group>
@@ -87,6 +140,8 @@
   } from '../../api/catalogConfigurationIntent'
   import providerApi from '../../api/provider'
   import { generateCatalogCode } from '../../api/catalogCode'
+  import { HttpError } from '@/utils/http/error'
+  import type { DiscoveredModel, ProviderGuide } from '../../api/onboarding'
   import type { DataStatus, SandAiProvider, SandAiProviderWrite } from '../../api/types'
 
   type FormModel = {
@@ -148,6 +203,14 @@
     status: 1
   })
 
+  const presetGuides = ref<ProviderGuide[]>([])
+  const selectedPreset = ref('')
+  const testing = ref(false)
+  const testResult = ref<{ ok: boolean; message: string; models: DiscoveredModel[] } | null>(null)
+  const selectedGuide = computed(() => presetGuides.value.find((guide) => guide.provider_code === selectedPreset.value))
+  const presetLocked = computed(() => props.dialogType === 'add' && selectedPreset.value !== ''
+    && selectedPreset.value !== 'custom_openai_compatible')
+
   const needsSecretFields = computed(() => !['local_ocr_runtime', 'local_runtime', 'fake'].includes(formData.adapter))
   const configHint = computed(() => {
     switch (formData.adapter) {
@@ -165,6 +228,74 @@
         return '请按当前服务商类型已声明的连接方式填写接口地址与 API Key。'
     }
   })
+
+  const canTestConnection = computed(() => {
+    if (!needsSecretFields.value) return false
+    if (formData.configBaseUrl.trim() !== '' || formData.configApiKey.trim() !== '') return true
+    return props.dialogType === 'edit' && hasEncryptedConfig.value && typeof formData.id === 'number'
+  })
+
+  function isRecommendedModel(remoteModel: string): boolean {
+    return (selectedGuide.value?.recommended_models ?? [])
+      .some((item) => item.recommended && item.remote_model === remoteModel)
+  }
+
+  function selectPreset(guide: ProviderGuide): void {
+    selectedPreset.value = guide.provider_code ?? ''
+    if (guide.adapter) formData.adapter = guide.adapter
+    if (guide.default_base_url) formData.configBaseUrl = guide.default_base_url
+    if (!formData.name || presetGuides.value.some((item) => item.name === formData.name)) {
+      formData.name = guide.name
+    }
+  }
+
+  async function loadGuides(): Promise<void> {
+    try {
+      const result = await providerApi.guides()
+      presetGuides.value = result.guides.filter((guide) => guide.provider_code && !guide.debug_only)
+    } catch {
+      presetGuides.value = []
+    }
+  }
+
+  async function testConnection(): Promise<void> {
+    if (testing.value || submitting.value || reading.value) return
+    const baseUrl = formData.configBaseUrl.trim()
+    const apiKey = formData.configApiKey.trim()
+    let payload: { connection: { base_url: string; api_key: string } } | { provider_id: number }
+    if (baseUrl !== '' || apiKey !== '') {
+      if (baseUrl === '' || apiKey === '') {
+        testResult.value = { ok: false, message: '请先填写接口地址和 API Key', models: [] }
+        return
+      }
+      payload = { connection: { base_url: baseUrl, api_key: apiKey } }
+    } else if (props.dialogType === 'edit' && hasEncryptedConfig.value && typeof formData.id === 'number') {
+      payload = { provider_id: formData.id }
+    } else {
+      testResult.value = { ok: false, message: '请先填写接口地址和 API Key', models: [] }
+      return
+    }
+    testing.value = true
+    testResult.value = null
+    try {
+      const result = await providerApi.testConnection(payload)
+      testResult.value = {
+        ok: true,
+        message: `连接成功，发现 ${result.models.length} 个可用模型`,
+        models: Array.isArray(result.models) ? result.models : []
+      }
+    } catch (error) {
+      let message = '连接失败，请检查接口地址和 API Key 后重试'
+      if (error instanceof HttpError) {
+        if (error.transport === 'timeout') message = '连接超时，请检查网络后重试'
+        else if (error.transport === 'network') message = '网络不通，无法连接到服务器，请检查后重试'
+        else if (error.message) message = error.message.replace(/^[A-Z0-9_]+:\s*/, '')
+      }
+      testResult.value = { ok: false, message, models: [] }
+    } finally {
+      testing.value = false
+    }
+  }
 
   const rules: FormRules<FormModel> = {
     name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
@@ -198,6 +329,9 @@
     formData.configBaseUrl = ''; formData.configApiKey = ''; formData.status = 1
     hasEncryptedConfig.value = false
     configurationLoaded.value = false
+    selectedPreset.value = ''
+    testing.value = false
+    testResult.value = null
     formRef.value?.clearValidate()
   }
 
@@ -212,6 +346,7 @@
     if (!visible.value || !owner || pending.value || journalError.value) return
     if (props.dialogType === 'add') {
       if (!formData.code) formData.code = generateCatalogCode('provider_')
+      void loadGuides()
       configurationLoaded.value = true
       return
     }
@@ -266,10 +401,10 @@
     const receipt = await providerApi.readOperation(original)
     if (!ownsRead()) return
     if (!matchesCatalogConfigurationReceipt(original, receipt))
-      throw new Error('尚未取得匹配原管理员、动作、编码、目标和请求号的保存回执')
+      throw new Error('尚未取得匹配原管理员、动作、编码、目标和请求号的保存结果')
     resolveCatalogConfigurationIntent(original)
     pending.value = null; unsubmitted.value = null; journalError.value = false
-    ElMessage.success('原服务商保存回执已确认；列表将重新读取当前配置')
+    ElMessage.success('已保存服务商，列表已刷新')
     emit('success')
     handleClose()
   }
@@ -286,7 +421,7 @@
     try { await confirmOriginal(original, current, credential) }
     catch {
       if (live && current === epoch && credential === userStore.accessToken && original.admin_id === adminId.value)
-        errorMessage.value = '原保存回执仍未确认。未找到、无权读取或网络异常不能视为未提交；保留原请求号，仅只读找回，不再次发送。'
+        errorMessage.value = '原保存结果仍未确认。未找到、无权读取或网络异常不能视为未提交；保留原请求编号，仅可找回，不再次发送。'
     } finally { if (live && current === epoch) reading.value = false }
   }
 
@@ -335,11 +470,11 @@
     } catch {
       if (!ownsWrite()) return
       if (sent) {
-        errorMessage.value = '保存结果尚未确认。原目标和请求号已保留，请读取原保存回执；不会重新发送或创建替代请求。'
+        errorMessage.value = '保存结果尚未确认。原目标和请求编号已保留，请查看原保存结果；不会重新发送或创建替代请求。'
       } else {
         restoreIntent()
         errorMessage.value = pending.value || journalError.value
-          ? '原请求记录无法安全确认，本次未发送。请保留此页；修复会话存储后，可保留原号首次提交；离页或身份改变后仅只读找回。'
+          ? '原请求记录无法安全确认，本次未发送。请保留此页；修复会话存储后，可按原请求编号首次提交；离页或身份改变后仅可找回。'
           : '本次未发送，请检查表单格式与会话存储后再保存。'
       }
     } finally { submitting.value = false }
@@ -368,5 +503,57 @@
     font-size: 12px;
     line-height: 1.4;
     color: var(--el-text-color-secondary);
+  }
+
+  .preset-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .preset-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 128px;
+    padding: 8px 10px;
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: left;
+    cursor: pointer;
+    background: var(--el-fill-color-blank);
+    border: 1px solid var(--el-border-color);
+    border-radius: 6px;
+    transition: border-color 0.15s ease;
+  }
+
+  .preset-card:hover {
+    border-color: var(--el-color-primary);
+  }
+
+  .preset-card--active {
+    border-color: var(--el-color-primary);
+    box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+  }
+
+  .preset-card__name {
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+  }
+
+  .preset-card__desc {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    word-break: break-all;
+  }
+
+  .api-key-field,
+  .test-connection {
+    width: 100%;
+  }
+
+  .model-tag {
+    margin: 2px 4px 2px 0;
   }
 </style>

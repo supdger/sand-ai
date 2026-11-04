@@ -56,7 +56,7 @@
         <ElFormItem label="接口路径"><ElInput v-model.trim="connectionForm.path" :disabled="busy || mutationLocked || !!connection" placeholder="/mcp 或只读 HTTP 路径" /></ElFormItem>
         <ElFormItem label="来源分级"><ElInput v-model.trim="connectionForm.dataClass" maxlength="32" :disabled="busy || mutationLocked || !!connection" placeholder="按实际来源填写 data_class" /></ElFormItem>
         <ElFormItem label="连接认证">
-          <ElRadioGroup v-model="authMode" :disabled="busy || mutationLocked || !!connection">
+          <ElRadioGroup v-model="authMode" :disabled="busy || mutationLocked || !!connection" aria-label="工具连接凭证方式">
             <ElRadio value="none">无凭证</ElRadio>
             <ElRadio value="bearer">调用密钥</ElRadio>
           </ElRadioGroup>
@@ -81,7 +81,7 @@
         <ElAlert v-if="bindingConflict" type="warning" :closable="false"
           title="当前启用版本已绑定到本环境的另一连接，不能用所选连接再次绑定。" class="notice" />
         <ElFormItem label="工具类型">
-          <ElRadioGroup v-model="adapter" :disabled="busy || mutationLocked || !!draft">
+          <ElRadioGroup v-model="adapter" :disabled="busy || mutationLocked || !!draft" aria-label="工具适配类型">
             <ElRadio value="mcp_streamable_http">受管外部服务</ElRadio>
             <ElRadio value="standard_readonly_http">标准只读 HTTP</ElRadio>
           </ElRadioGroup>
@@ -116,7 +116,7 @@
           <ElFormItem label="用途说明"><ElInput v-model="toolForm.description" maxlength="1000" type="textarea" :rows="2" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
           <ElFormItem label="输入参数结构"><ElInput v-model="toolForm.inputSchema" type="textarea" :rows="5" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
           <ElFormItem label="输出参数结构"><ElInput v-model="toolForm.outputSchema" type="textarea" :rows="5" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
-          <p class="hint">输入、输出参数结构必须是关闭额外字段的 JSON 对象；启用后版本内容不原地修改。</p>
+          <p class="hint">输入、输出参数结构必须是关闭额外字段的参数（JSON 格式）；启用后版本内容不原地修改。</p>
         </template>
         <ElFormItem label="结果复核"><ElSwitch v-model="reviewRequired" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
         <ElFormItem>

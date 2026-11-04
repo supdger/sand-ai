@@ -32,6 +32,12 @@
               :label="item.name"
               :value="item.id"
             />
+            <template #empty>
+              <div class="cap-app-empty">
+                <span>暂无应用——请先到 SandIAM 登记应用</span>
+                <ElButton link type="primary" @click="router.push('/sand-iam/application')">去登记</ElButton>
+              </div>
+            </template>
           </ElSelect>
         </ElFormItem>
         <ElFormItem label="环境">
@@ -1079,5 +1085,15 @@
 
   .cap-deployment {
     width: 100%;
+  }
+
+  .cap-app-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 0;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
   }
 </style>
