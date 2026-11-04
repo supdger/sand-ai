@@ -9,8 +9,8 @@
   },
   "plugin_dependencies": {
     "sand-iam": {
-      "version": "0.8.5",
-      "sha256": "9679ede3987788b847993b764a2258820bbd97ccc5324510b68458283a63be54"
+      "version": "0.8.6",
+      "sha256": "21ab8aaed74f52382b654d1a7abb18e83021c7b99e16fb7ef72f9c52d7e82710"
     }
   },
   "service_catalog": {

@@ -1,3 +1,6 @@
+## 0.3.3 (release)
+
+- Packaging fix only, no payload change: the SandIAM dependency pin moves to the 0.8.6 artifact (sand-iam-0.8.6.zip), which restores the portal/ payload root after the 0.8.5 top-level app/ layout regression made the bundle uninstallable. `config.json` plugin_dependencies re-pinned to the new artifact identity; `release-payload.json` regenerated.
 ## 0.3.2 (release)
 
 - Admin UX phase-1: fixed admin page scroll clipping via a shared `sand-ai-page` layout class; cleaned user-facing copy and internal identifiers (display labels, catalog codes); collapsed machine-oriented steps in setup flows; regrouped admin navigation into grouped sections; added an idempotent setup/bootstrap endpoint backed by the SandIAM service catalog.
@@ -15,6 +18,10 @@
 - Persist original upload request associations and provide scoped read-only recovery; preserve unknown uploads and reject changed input under the same key.
 
 # 更新日志
+
+## 0.3.3
+
+- 仅打包修复，无载荷变更：SandIAM 依赖钉版移至 0.8.6 工件（sand-iam-0.8.6.zip）；0.8.5 顶层 `app/` 布局回归导致捆绑包无法安装，0.8.6 恢复 `portal/` 载荷根。`config.json` plugin_dependencies 重新钉到新工件身份，`release-payload.json` 重新生成。
 
 ## 0.3.2
 

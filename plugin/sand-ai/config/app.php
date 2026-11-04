@@ -4,7 +4,7 @@ return [
     'debug' => true,
     'controller_suffix' => 'Controller',
     'controller_reuse' => false,
-    'version' => '0.3.2',
+    'version' => '0.3.3',
     'identity' => [
         'audience' => 'sand-ai',
     ],

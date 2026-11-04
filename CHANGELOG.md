@@ -1,3 +1,6 @@
+## 0.3.3 (release)
+
+- Packaging fix only, no payload change: the SandIAM dependency pin moves to the 0.8.6 artifact (sand-iam-0.8.6.zip, sha256 21ab8aae); the 0.8.5 bundle was uninstallable after its top-level app/ layout regression, 0.8.6 restores the portal/ payload root. Delivered trees mirrored from SandAI source commit ac8c14eaa; `release-payload.json` regenerated.
 ## 0.3.2 (release)
 
 - Admin UX phase-1: shared `sand-ai-page` layout class fixes admin page scroll clipping; user-facing copy and internal identifiers cleaned (display labels, catalog codes); machine-oriented setup steps collapsed; admin navigation regrouped into grouped sections; new idempotent setup/bootstrap endpoint backed by the SandIAM service catalog. Admin UI source mirrored from SandAI source commit 835316b4a. SandIAM dependency pin raised to the 0.8.5 grouped-navigation artifact.
