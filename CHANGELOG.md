@@ -1,3 +1,6 @@
+## 0.4.4 (release)
+
+- Trial provisioning chain converged on the canonical entity path: SandIamAdminTrialEntityStore resolves application/environment/credentials through AccessMatrixInput::DEFAULT_* instead of a self-managed system/production/admin_trial chain, adopts an existing system application, reparents the admin_trial workload client into the prod environment, anchors against drift, and normalizes trial grant data_class to NULL in place (disabled/revoked grants are never resurrected). The SandIAM dependency pin moves to the 0.9.4 artifact (sand-iam-0.9.4.zip, sha256 bfa6e9e1) carrying the matrix-side fix (matrixClientFor prefers the sand-ai business client; upsertGrant new grants get data_class=NULL). Delivered trees mirrored from SandAI source commit 479b3bbac; `host-payload.json` and `release-payload.json` regenerated.
 ## 0.4.3 (release)
 
 - Packaging fix only, no payload change: the SandIAM dependency pin moves to the 0.9.3 artifact (sand-iam-0.9.3.zip, sha256 6e6d2faa) carrying the context signing key first-call fix (method_exists guard on Webman\Config::set + in-process resolved cache; first provisioning call returns the key instead of 503). SandAI business payload identical to 0.4.2. Delivered trees mirrored from SandAI source commit 65cd69d8a; `release-payload.json` regenerated.

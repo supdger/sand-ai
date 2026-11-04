@@ -17,15 +17,19 @@ use Throwable;
  */
 final class SandIamAdminTrialEntityStore implements AdminTrialEntityStore
 {
-    private const ORGANIZATION_CODE = 'default';
-    private const ORGANIZATION_NAME = '本机构';
-    private const APPLICATION_CODE = 'system';
-    private const APPLICATION_NAME = '本系统';
-    private const ENVIRONMENT_CODE = 'production';
-    private const ENVIRONMENT_NAME = '正式';
+    /**
+     * The trial chain converges on the same canonical defaults as SandIAM's
+     * access-matrix ensure-defaults path (AccessMatrixInput::DEFAULT_*):
+     * organization `default`, application `lvxu`, environment `prod`. Only the
+     * workload client stays trial-dedicated (`admin_trial`) so revoking that
+     * one client still closes the whole channel. Instances that already ran
+     * the pre-unification chain adopted application `system`; when it exists
+     * it is reused as the business application instead of splitting a second
+     * application — its `prod` environment is then the canonical target.
+     */
+    private const LEGACY_APPLICATION_CODE = 'system';
     private const CLIENT_CODE = 'admin_trial';
     private const CLIENT_NAME = '管理员试用';
-    private const AUDIENCE = 'sand-ai';
     private const SERVICE_CODE = 'sand_ai';
 
     /** All SandIAM classes the channel consumes; absent plugin => unavailable. */
@@ -40,6 +44,7 @@ final class SandIamAdminTrialEntityStore implements AdminTrialEntityStore
             \plugin\SandIam\app\model\ServiceAction::class,
             \plugin\SandIam\app\model\ServiceGrant::class,
             \plugin\SandIam\app\service\CredentialIssuanceService::class,
+            \plugin\SandIam\app\admin\support\AccessMatrixInput::class,
         ] as $class) {
             if (!class_exists($class)) {
                 return false;
@@ -54,62 +59,79 @@ final class SandIamAdminTrialEntityStore implements AdminTrialEntityStore
         Db::startTrans();
         try {
             $this->lockTrialChannel();
-            $application = \plugin\SandIam\app\model\Application::where('code', self::APPLICATION_CODE)
+            // Stability anchor: a trial client already living in a canonical
+            // `prod` environment keeps that application/environment forever —
+            // later-created default entities (e.g. ensure-defaults on an
+            // upgraded instance) must never migrate the channel sideways.
+            $client = null;
+            $environment = null;
+            $organizationId = 0;
+            $applicationId = 0;
+            $existingClient = \plugin\SandIam\app\model\WorkloadClient::where('code', self::CLIENT_CODE)
                 ->order('id')->lock(true)->find();
-            if ($application !== null) {
-                $organizationId = (int) $application->organization_id;
-                $applicationId = (int) $application->id;
-                $this->assertActive($application, '接入应用');
-            } else {
-                $organization = \plugin\SandIam\app\model\Organization::where('status', 1)
-                    ->order('id')->lock(true)->find();
-                if ($organization === null) {
-                    $organization = $this->createOrFind(
-                        \plugin\SandIam\app\model\Organization::class,
-                        ['code' => self::ORGANIZATION_CODE],
-                        ['code' => self::ORGANIZATION_CODE, 'name' => self::ORGANIZATION_NAME, 'status' => 1],
-                    );
+            if ($existingClient !== null) {
+                $anchor = \plugin\SandIam\app\model\Environment::where('id', (int) $existingClient->environment_id)
+                    ->where('code', self::environmentCode())->where('status', 1)->lock(true)->find();
+                if ($anchor !== null) {
+                    $environment = $anchor;
+                    $application = \plugin\SandIam\app\model\Application::where('id', (int) $anchor->application_id)
+                        ->lock(true)->find();
+                    if ($application === null) {
+                        throw new ApiProblem('SAND_AI_TRIAL_CLIENT_DISABLED', '试用通道所属接入应用不可用，请改用调用密钥');
+                    }
+                    $this->assertActive($application, '接入应用');
+                    $organizationId = (int) $application->organization_id;
+                    $applicationId = (int) $application->id;
+                    $client = $existingClient;
                 }
-                $this->assertActive($organization, '客户主体');
-                $organizationId = (int) $organization->id;
-                $application = $this->createOrFind(
-                    \plugin\SandIam\app\model\Application::class,
-                    ['organization_id' => $organizationId, 'code' => self::APPLICATION_CODE],
+            }
+            if ($client === null) {
+                // Canonical business application first (`lvxu`, same as the
+                // access-matrix chain); an existing pre-unification `system`
+                // application is adopted so upgraded instances converge on
+                // the environment their deployments are already bound to.
+                $application = \plugin\SandIam\app\model\Application::where('code', self::applicationCode())
+                    ->order('id')->lock(true)->find();
+                if ($application === null) {
+                    $application = \plugin\SandIam\app\model\Application::where('code', self::LEGACY_APPLICATION_CODE)
+                        ->order('id')->lock(true)->find();
+                }
+                if ($application !== null) {
+                    $organizationId = (int) $application->organization_id;
+                    $applicationId = (int) $application->id;
+                    $this->assertActive($application, '接入应用');
+                } else {
+                    $organization = $this->resolveDefaultOrganization();
+                    $organizationId = (int) $organization->id;
+                    $application = $this->createOrFind(
+                        \plugin\SandIam\app\model\Application::class,
+                        ['organization_id' => $organizationId, 'code' => self::applicationCode()],
+                        [
+                            'organization_id' => $organizationId,
+                            'code' => self::applicationCode(),
+                            'name' => self::applicationName(),
+                            'status' => 1,
+                        ],
+                    );
+                    $applicationId = (int) $application->id;
+                    $this->assertActive($application, '接入应用');
+                }
+                $environment = $this->createOrFind(
+                    \plugin\SandIam\app\model\Environment::class,
+                    ['application_id' => $applicationId, 'code' => self::environmentCode()],
                     [
-                        'organization_id' => $organizationId,
-                        'code' => self::APPLICATION_CODE,
-                        'name' => self::APPLICATION_NAME,
+                        'application_id' => $applicationId,
+                        'code' => self::environmentCode(),
+                        'name' => self::environmentName(),
                         'status' => 1,
                     ],
                 );
-                $applicationId = (int) $application->id;
-                $this->assertActive($application, '接入应用');
+                $this->assertActive($environment, '应用环境');
+                $client = $this->resolveTrialClient($applicationId, (int) $environment->id);
             }
-            $environment = $this->createOrFind(
-                \plugin\SandIam\app\model\Environment::class,
-                ['application_id' => $applicationId, 'code' => self::ENVIRONMENT_CODE],
-                [
-                    'application_id' => $applicationId,
-                    'code' => self::ENVIRONMENT_CODE,
-                    'name' => self::ENVIRONMENT_NAME,
-                    'status' => 1,
-                ],
-            );
-            $this->assertActive($environment, '应用环境');
-            $client = $this->createOrFind(
-                \plugin\SandIam\app\model\WorkloadClient::class,
-                ['environment_id' => (int) $environment->id, 'code' => self::CLIENT_CODE],
-                [
-                    'environment_id' => (int) $environment->id,
-                    'code' => self::CLIENT_CODE,
-                    'name' => self::CLIENT_NAME,
-                    'audience' => self::AUDIENCE,
-                    'status' => 1,
-                ],
-            );
             // A pre-existing row with this code but a different audience is an
             // operator-owned client, not the trial channel; never mutate it.
-            if (!hash_equals(self::AUDIENCE, (string) $client->audience)) {
+            if (!hash_equals(self::audience(), (string) $client->audience)) {
                 throw new ApiProblem('SAND_AI_TRIAL_CLIENT_CONFLICT', '试用通道与既有调用身份冲突，请改用调用密钥');
             }
             if ((int) $client->status !== 1) {
@@ -155,17 +177,26 @@ final class SandIamAdminTrialEntityStore implements AdminTrialEntityStore
                     [
                         'workload_client_id' => $workloadClientId,
                         'service_action_id' => (int) $action->id,
-                        'audience' => self::AUDIENCE,
+                        'audience' => self::audience(),
                     ],
                     [
                         'workload_client_id' => $workloadClientId,
                         'service_action_id' => (int) $action->id,
-                        'audience' => self::AUDIENCE,
+                        'audience' => self::audience(),
+                        'data_class' => null,
                         'status' => 1,
                     ],
                 );
                 if ((int) $grant->status !== 1 || $grant->revoked_time !== null) {
                     throw new ApiProblem('SAND_AI_TRIAL_GRANT_INACTIVE', '管理员试用授权已被停用，请改用调用密钥');
+                }
+                // Trial-owned resources (invocations, uploaded files, speech
+                // runs) are all unclassified, and catalog/metadata reads have
+                // no data class at all: the grant must be NULL to satisfy the
+                // exact-match contract. Rows the pre-unification chain left
+                // at the 'internal' column default are normalized in place.
+                if ($grant->data_class !== null) {
+                    $grant->save(['data_class' => null]);
                 }
                 $granted[$code] = (int) $action->id;
             }
@@ -203,6 +234,106 @@ final class SandIamAdminTrialEntityStore implements AdminTrialEntityStore
             'key_prefix' => (string) $issued['key_prefix'],
             'credential' => (string) $issued['credential'],
         ];
+    }
+
+    /**
+     * Default organization resolution mirroring the access-matrix
+     * ensure-defaults path: the canonical `default` organization when active,
+     * else the first active one, else find-or-create it.
+     */
+    private function resolveDefaultOrganization(): object
+    {
+        $organization = \plugin\SandIam\app\model\Organization::where('code', self::organizationCode())
+            ->where('status', 1)->lock(true)->find();
+        if ($organization === null) {
+            $organization = \plugin\SandIam\app\model\Organization::where('status', 1)
+                ->order('id')->lock(true)->find();
+        }
+        if ($organization === null) {
+            $organization = $this->createOrFind(
+                \plugin\SandIam\app\model\Organization::class,
+                ['code' => self::organizationCode()],
+                ['code' => self::organizationCode(), 'name' => self::organizationName(), 'status' => 1],
+            );
+        }
+        $this->assertActive($organization, '客户主体');
+        return $organization;
+    }
+
+    /**
+     * Canonical-environment trial client. A dedicated trial client that the
+     * pre-unification chain left under a different environment of the same
+     * application is re-parented onto the canonical environment so grants and
+     * already-issued credentials stay attached to one revocable identity.
+     */
+    private function resolveTrialClient(int $applicationId, int $environmentId): object
+    {
+        $client = \plugin\SandIam\app\model\WorkloadClient::where('environment_id', $environmentId)
+            ->where('code', self::CLIENT_CODE)->lock(true)->find();
+        if ($client !== null) {
+            return $client;
+        }
+        $environmentIds = array_map(
+            static fn (array $row): int => (int) $row['id'],
+            \plugin\SandIam\app\model\Environment::where('application_id', $applicationId)
+                ->field('id')->select()->toArray(),
+        );
+        if ($environmentIds !== []) {
+            $legacy = \plugin\SandIam\app\model\WorkloadClient::whereIn('environment_id', $environmentIds)
+                ->where('code', self::CLIENT_CODE)->order('id')->lock(true)->find();
+            if ($legacy !== null) {
+                if (!hash_equals(self::audience(), (string) $legacy->audience)) {
+                    throw new ApiProblem('SAND_AI_TRIAL_CLIENT_CONFLICT', '试用通道与既有调用身份冲突，请改用调用密钥');
+                }
+                if ((int) $legacy->status !== 1) {
+                    throw new ApiProblem('SAND_AI_TRIAL_CLIENT_DISABLED', '管理员试用通道已被停用，请改用调用密钥');
+                }
+                $legacy->save(['environment_id' => $environmentId]);
+                return $legacy;
+            }
+        }
+        return \plugin\SandIam\app\model\WorkloadClient::create([
+            'environment_id' => $environmentId,
+            'code' => self::CLIENT_CODE,
+            'name' => self::CLIENT_NAME,
+            'audience' => self::audience(),
+            'status' => 1,
+        ]);
+    }
+
+    private static function organizationCode(): string
+    {
+        return \plugin\SandIam\app\admin\support\AccessMatrixInput::DEFAULT_ORGANIZATION_CODE;
+    }
+
+    private static function organizationName(): string
+    {
+        return \plugin\SandIam\app\admin\support\AccessMatrixInput::DEFAULT_ORGANIZATION_NAME;
+    }
+
+    private static function applicationCode(): string
+    {
+        return \plugin\SandIam\app\admin\support\AccessMatrixInput::DEFAULT_APPLICATION_CODE;
+    }
+
+    private static function applicationName(): string
+    {
+        return \plugin\SandIam\app\admin\support\AccessMatrixInput::DEFAULT_APPLICATION_NAME;
+    }
+
+    private static function environmentCode(): string
+    {
+        return \plugin\SandIam\app\admin\support\AccessMatrixInput::DEFAULT_ENVIRONMENT_CODE;
+    }
+
+    private static function environmentName(): string
+    {
+        return \plugin\SandIam\app\admin\support\AccessMatrixInput::DEFAULT_ENVIRONMENT_NAME;
+    }
+
+    private static function audience(): string
+    {
+        return \plugin\SandIam\app\admin\support\AccessMatrixInput::DEFAULT_AUDIENCE;
     }
 
     /**
