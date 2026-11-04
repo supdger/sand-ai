@@ -13,10 +13,11 @@ namespace app\Application\Trial;
 interface AdminTrialEntityStore
 {
     /**
-     * Lazily ensure the dedicated trial chain exists: default organization,
-     * "本系统" application, "正式" environment and the isolated trial
-     * workload client (audience `sand-ai`). Existing operator-disabled
-     * entities are reported, never silently re-enabled.
+     * Lazily ensure the dedicated trial chain exists on the same canonical
+     * defaults as the access-matrix chain: default organization, the `lvxu`
+     * (律序) application, the `prod` (正式) environment and the isolated
+     * trial workload client `admin_trial` (audience `sand-ai`). Existing
+     * operator-disabled entities are reported, never silently re-enabled.
      *
      * @return array{organization_id:int,application_id:int,environment_id:int,workload_client_id:int}
      */
