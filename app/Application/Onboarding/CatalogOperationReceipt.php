@@ -11,6 +11,9 @@ use think\facade\Db;
 final class CatalogOperationReceipt
 {
     private const VERSION = 'catalog_operation@1';
+    /** 新写入审计记录的三列直接用中文；旧英文值仍参与原操作回执查询。 */
+    private const RESOURCE_LABELS = ['provider' => '服务商', 'model' => '模型'];
+    private const OPERATION_LABELS = ['save' => '保存', 'update' => '更新'];
 
     public function execute(string $resource, string $operation, array $input, int $actor, string $key, \Closure $guard, \Closure $write): array
     {
@@ -42,8 +45,8 @@ final class CatalogOperationReceipt
             if ($target !== null && $receipt['id'] !== $target) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Catalogue receipt target changed');
             $context = ['version'=>self::VERSION,'lock_sha256'=>$lock,'target_id'=>$target,'code'=>$receipt['code'],'receipt'=>$receipt] + $proof;
             Db::connect('pgsql')->query('INSERT INTO sand_ai_audit_log (actor_type,actor_ref,action,resource_type,resource_id,summary,context) VALUES (?,?,?,?,?,?,CAST(? AS jsonb)) RETURNING id', [
-                'admin', (string) $actor, 'catalog.' . $resource . '.' . $operation, $resource, $receipt['id'],
-                'Saved catalogue operation receipt', json_encode($context, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'admin', (string) $actor, self::storedAction($resource, $operation), self::RESOURCE_LABELS[$resource], $receipt['id'],
+                self::storedSummary($resource, $operation), json_encode($context, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ]);
             $guard();
             return $receipt;
@@ -82,11 +85,25 @@ final class CatalogOperationReceipt
 
     private function original(string $resource, string $operation, int $actor, string $lock): ?array
     {
-        $rows = Db::connect('pgsql')->query("SELECT * FROM sand_ai_audit_log WHERE actor_type='admin' AND actor_ref=? AND action=? AND resource_type=? AND context->>'version'=? AND context->>'lock_sha256'=? ORDER BY id LIMIT 2", [
-            (string) $actor, 'catalog.' . $resource . '.' . $operation, $resource, self::VERSION, $lock,
+        // The stored action/resource moved to Chinese display values; the
+        // pre-change English codes stay queryable so an in-flight request key
+        // still replays its own original receipt after an upgrade.
+        $rows = Db::connect('pgsql')->query("SELECT * FROM sand_ai_audit_log WHERE actor_type='admin' AND actor_ref=? AND action IN (?,?) AND resource_type IN (?,?) AND context->>'version'=? AND context->>'lock_sha256'=? ORDER BY id LIMIT 2", [
+            (string) $actor, self::storedAction($resource, $operation), 'catalog.' . $resource . '.' . $operation,
+            self::RESOURCE_LABELS[$resource], $resource, self::VERSION, $lock,
         ]);
         if (count($rows) > 1) throw new ApiProblem('SAND_AI_IDEMPOTENCY_CONFLICT', 'Original catalogue operation is not unique');
         return $rows[0] ?? null;
+    }
+
+    private static function storedAction(string $resource, string $operation): string
+    {
+        return self::OPERATION_LABELS[$operation] . self::RESOURCE_LABELS[$resource];
+    }
+
+    private static function storedSummary(string $resource, string $operation): string
+    {
+        return '已' . self::OPERATION_LABELS[$operation] . self::RESOURCE_LABELS[$resource] . '目录变更';
     }
 
     private function context(array $row): array

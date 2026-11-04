@@ -1,3 +1,6 @@
+## 0.3.5 (release)
+
+- UX-P1d zero-step + i18n: write paths lazily initialise internal security material on demand and resolve the idempotency key id only after the material is ready, so a fresh install's first write no longer needs a separate setup step; the .env refresh is scoped to material-owned keys (non-material keys never loaded, declared process values not overridden), keeping cold-process key rotation correct. Audit entries render through a Chinese display dictionary and provider types via admin display labels. Delivered trees mirrored from SandAI source commit 798f973a2; SandIAM dependency pin unchanged at the 0.8.6 artifact. `release-payload.json` regenerated.
 ## 0.3.4 (release)
 
 - B1/S1 fixes: setup/bootstrap auto-completes internal security material on fresh installs (idempotent .env reload, protect-config, first initialize) so writes no longer fail with SAND_AI_IDEMPOTENCY_KEY_UNAVAILABLE; init failure surfaces as the Chinese retryable reason security_init_failed. Admin-visible English/internal identifiers cleared to plain Chinese copy; SAND_AI_ error codes moved into the collapsed technical-details block with a unified Chinese mapping. Delivered trees and admin UI source mirrored from SandAI source commit 8f143bd45; SandIAM dependency pin unchanged at the 0.8.6 artifact. `release-payload.json` regenerated.

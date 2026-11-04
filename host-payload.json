@@ -528,7 +528,7 @@
     },
     {
       "path": "app/Application/Audio/LocalAudioExecutionFingerprintPolicy.php",
-      "sha256": "be7a550729c8751085613513adf949714581f0c269c7c23365134525606db04e"
+      "sha256": "9943b1001c86af131db080de17e948c9b0679beb4c3dbb0e28c59c87d89916de"
     },
     {
       "path": "app/Application/Audio/LocalAudioTranscriptionDriver.php",
@@ -829,6 +829,10 @@
     {
       "path": "app/Application/Audio/Workflow/SourceStageNode.php",
       "sha256": "f752ea31dedad4e6aecc0690e5f42dc0aca98095b21e443e4c9c545f3313fc05"
+    },
+    {
+      "path": "app/Application/Audit/AuditDisplayDictionary.php",
+      "sha256": "98176cdab4fcf18c551e47db5c4b0bec05abfea8195a54318dd02dd2bae0d13f"
     },
     {
       "path": "app/Application/Billing/BillingAdminCredentialProvider.php",
@@ -1816,7 +1820,7 @@
     },
     {
       "path": "app/Application/Onboarding/CatalogOperationReceipt.php",
-      "sha256": "7601b85b6ea1a452d819432551c38c49298bffbc73bac02c507d374485ca899c"
+      "sha256": "2b49a020db79d20c956f0baef69d04cb4f5aad855312c0a226581ae575b14f43"
     },
     {
       "path": "app/Application/Onboarding/DeploymentDirectoryGateway.php",
@@ -1832,7 +1836,7 @@
     },
     {
       "path": "app/Application/Onboarding/DeploymentDraftSaveRequestPolicy.php",
-      "sha256": "3f49d3dfe0e7691a262bcf0019d4d169b25bcb23e9100043574c951a97025f39"
+      "sha256": "c68217378c774e3e3c76d1a747e3dcfd9b8273755877fefe1549f7ddff2e7b8b"
     },
     {
       "path": "app/Application/Onboarding/DeploymentDraftSaveService.php",
@@ -1884,7 +1888,7 @@
     },
     {
       "path": "app/Application/Onboarding/DeploymentVerificationRequestPolicy.php",
-      "sha256": "1431b102fe4e95f1d378abf6c9f9c472ddfe94106762ed174e2f105eecdb34ff"
+      "sha256": "4001142452907ba25245c29ff43b1b57739fcbc39c8ad9d38132fca9ab743b07"
     },
     {
       "path": "app/Application/Onboarding/EmbeddingVerificationFailure.php",
@@ -1900,11 +1904,15 @@
     },
     {
       "path": "app/Application/Onboarding/InternalSecurityBootstrapService.php",
-      "sha256": "2cfe88975102ccb93ed8a7d334c32d54805415826f1f487c0cc75ce6d5dacc94"
+      "sha256": "d1eed8896897a6d9aac0b3beca38e721312cf6de252cd062b811bb218a0dca22"
     },
     {
       "path": "app/Application/Onboarding/InternalSecurityInitialization.php",
-      "sha256": "a3dfbe06d1a7856c38d28ac8910715555020a04562dcccc60f033ce2af020b2d"
+      "sha256": "84dd3361af24599f57f11af31cc86409cd4b5a77233abf00e080f86542b9f67b"
+    },
+    {
+      "path": "app/Application/Onboarding/InternalSecurityMaterialGuard.php",
+      "sha256": "47a28c51e5b67944bc99a5cc2b73c56305145ee99d57686194420043b98147c4"
     },
     {
       "path": "app/Application/Onboarding/LegacyTestedDeploymentPolicy.php",
@@ -3352,7 +3360,7 @@
     },
     {
       "path": "app/Infrastructure/Parsing/LocalOcrExecutionConfig.php",
-      "sha256": "be28423817cc59d045464292a9fcc46a89ccbeeb7f50e89248dc77330ed13ccf"
+      "sha256": "0cad395b4197379e7b74df9b7073354584898a627c51e0784fc683e29dea8f8e"
     },
     {
       "path": "app/Infrastructure/Parsing/LocalPaddleOcrDriver.php",
@@ -3820,15 +3828,15 @@
     },
     {
       "path": "app/Infrastructure/Provider/ProviderExecutionConfigFingerprint.php",
-      "sha256": "4044742687d6e904227084210761480acb21a4013b248f79eeabf1cd99a1b294"
+      "sha256": "024967e526371cfcb27eb033241df44c9d7cf691081b1d3a8aa542123c9e8ac6"
     },
     {
       "path": "app/Infrastructure/Provider/ProviderSecretDecryptor.php",
-      "sha256": "ca32de38fb4f6f9dc1bfc6a5d9837ee57678812418ced26b0e9658ee034f986a"
+      "sha256": "9f7ca6a0eb738e0e1b7f720caed63b18ad0341a50141f325f7e0e7da0d0d5dcb"
     },
     {
       "path": "app/Infrastructure/Provider/ProviderSecretEncryptor.php",
-      "sha256": "b463399883ae2e3e2be2a0d07c714636b2c4db6cc03f3d97825c002b3f10cbd2"
+      "sha256": "370d7737b25438b21ae30d32fd89aea128121dae1d913a4ba124d35b1c57f843"
     },
     {
       "path": "app/Infrastructure/Provider/RequestScopedProviderConnection.php",

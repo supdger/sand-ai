@@ -93,21 +93,33 @@ final class InternalSecurityBootstrapService
     }
 
     /**
-     * Non-overwriting .env reload identical to the host boot sequence; newly
-     * written material becomes visible to this process without replacing any
-     * operator-declared value already in the environment.
+     * Targeted .env reload limited to the internal security material names
+     * this service owns: freshly written material becomes visible to this
+     * process without touching any other key. A full-file reload would push
+     * unrelated operator-declared values (database, queue, third-party
+     * credentials) into a running process whose boot environment may
+     * deliberately differ from the file.
      */
-    private static function refreshProcessEnvironment(): void
+    private static function refreshProcessEnvironment(?string $file = null): void
     {
         try {
-            $file = run_path('.env');
-            if (!is_file($file)) {
+            $file = $file ?? run_path('.env');
+            if (!is_file($file) || is_link($file) || @filesize($file) > 1048576) {
                 return;
             }
-            if (method_exists(Dotenv::class, 'createUnsafeMutable')) {
-                Dotenv::createUnsafeMutable(dirname($file))->load();
-            } else {
-                Dotenv::createMutable(dirname($file))->load();
+            $bytes = @file_get_contents($file);
+            if (!is_string($bytes) || $bytes === '') {
+                return;
+            }
+            $parsed = Dotenv::parse($bytes);
+            foreach (InternalSecurityInitialization::materialEnvironmentNames() as $name) {
+                if (!array_key_exists($name, $parsed)) {
+                    continue;
+                }
+                $value = (string) $parsed[$name];
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+                @putenv($name . '=' . $value);
             }
         } catch (\Throwable) {
             // An unreadable or malformed file leaves status() as the source of truth.

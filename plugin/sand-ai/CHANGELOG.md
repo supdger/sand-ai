@@ -1,3 +1,6 @@
+## 0.3.5 (release)
+
+- UX-P1d zero-step + i18n: write paths now lazily initialise internal security material on demand and resolve the idempotency key id only after the material is ready, so a fresh install's first write no longer needs a separate setup step; the .env refresh is scoped to material-owned keys (non-material keys are never loaded and declared process values are not overridden), keeping cold-process key rotation correct. Audit entries render through a Chinese display dictionary and provider types via admin display labels, clearing the remaining English/internal identifiers.
 ## 0.3.4 (release)
 
 - B1/S1 fixes: setup/bootstrap now auto-completes internal security material (idempotent .env reload, protect-config, first initialize) so fresh installs no longer fail writes with SAND_AI_IDEMPOTENCY_KEY_UNAVAILABLE; failure surfaces as the Chinese retryable reason security_init_failed. Admin-visible English/internal identifiers cleared to plain Chinese copy (request ids, error codes, UTC, Skill/Schema/Token wording); SAND_AI_ error codes moved into the collapsed technical-details block with a unified Chinese mapping.
@@ -21,6 +24,10 @@
 - Persist original upload request associations and provide scoped read-only recovery; preserve unknown uploads and reject changed input under the same key.
 
 # 更新日志
+
+## 0.3.5
+
+- UX-P1d 零步化与文案中文化：写路径按需惰性初始化内部安全材料，材料就绪后才解析幂等 key id，新装实例首次写入不再需要单独设置步骤；.env 刷新定向到材料自有键（非材料键不载入、进程已声明值不被覆盖），冷进程换钥场景保持正确。审计条目经中文展示字典呈现、服务商类型经管理端显示标签中文化，清除残余英文与内部标识。
 
 ## 0.3.4
 

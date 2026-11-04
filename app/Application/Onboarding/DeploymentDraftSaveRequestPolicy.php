@@ -14,6 +14,17 @@ final class DeploymentDraftSaveRequestPolicy
     private const PROVIDER_FIELDS = ['code', 'name', 'adapter', 'timeout_ms'];
     private const MODEL_FIELDS = ['code', 'name', 'type', 'capabilities'];
 
+    /** @var \Closure():bool */
+    private readonly \Closure $materialGuard;
+
+    /** @param null|\Closure():bool $materialGuard */
+    public function __construct(?\Closure $materialGuard = null)
+    {
+        $this->materialGuard = $materialGuard ?? static function (): bool {
+            return (new InternalSecurityMaterialGuard())->ready();
+        };
+    }
+
     /**
      * @param array<string,mixed> $input
      * @return array{provider_id:?int,provider:?array{code:string,name:string,adapter:string,timeout_ms:int},model_id:?int,model:?array{code:string,name:string,type:string,capabilities:list<string>},deployment_id:?int,connection_submitted:bool,remote_model:string,config:array<string,int|string>}
@@ -64,7 +75,7 @@ final class DeploymentDraftSaveRequestPolicy
     /** @param array<string,mixed> $canonical @return array{idempotency_hmac:string,request_fingerprint_hmac:string,key_version:string,key_id:string} */
     public function fingerprint(array $canonical, string $idempotencyKey, string $actorRef): array
     {
-        return $this->fingerprintForKeyId($canonical, $idempotencyKey, $actorRef, (string) env('SAND_AI_IDEMPOTENCY_KEY_ID', 'active'));
+        return $this->fingerprintForKeyId($canonical, $idempotencyKey, $actorRef, $this->activeKeyId());
     }
 
     /** @param array<string,mixed> $canonical @return array{idempotency_hmac:string,request_fingerprint_hmac:string,key_version:string,key_id:string} */
@@ -134,16 +145,49 @@ final class DeploymentDraftSaveRequestPolicy
         return $save['key_id'];
     }
 
+    /**
+     * The declared current key id is read only after the lazy material
+     * boundary had its chance to make freshly written shared material
+     * visible. Reading it earlier would freeze the `active` default for the
+     * whole request while the shared file declares another id (for example a
+     * rotated or install-time value this cold process has not loaded yet),
+     * and the very first write would fail instead of resolving on demand.
+     */
+    private function activeKeyId(): string
+    {
+        $keyId = (string) env('SAND_AI_IDEMPOTENCY_KEY_ID', 'active');
+        if (preg_match('/^[A-Za-z0-9._-]{1,64}$/', $keyId) === 1
+            && strlen($this->keyFromEnvironment($keyId)) >= 32) {
+            return $keyId;
+        }
+        if (($this->materialGuard)()) {
+            $keyId = (string) env('SAND_AI_IDEMPOTENCY_KEY_ID', 'active');
+        }
+        return $keyId;
+    }
+
     private function keyForId(string $keyId): string
+    {
+        $key = $this->keyFromEnvironment($keyId);
+        // The shared file may hold material this process never loaded (first
+        // request after install/upgrade) or the instance may still lack it;
+        // resolve on demand instead of failing until a manual service reload.
+        if (strlen($key) < 32 && ($this->materialGuard)()) {
+            $key = $this->keyFromEnvironment($keyId);
+        }
+        if (strlen($key) < 32) {
+            throw new ApiProblem('SAND_AI_IDEMPOTENCY_KEY_UNAVAILABLE', 'Idempotency key material is unavailable');
+        }
+        return $key;
+    }
+
+    private function keyFromEnvironment(string $keyId): string
     {
         $activeId = (string) env('SAND_AI_IDEMPOTENCY_KEY_ID', 'active');
         $key = $keyId === $activeId ? (string) env('SAND_AI_IDEMPOTENCY_KEY', '') : '';
         if ($key === '') {
             $keyring = json_decode((string) env('SAND_AI_IDEMPOTENCY_KEYRING', '{}'), true);
             $key = is_array($keyring) && is_string($keyring[$keyId] ?? null) ? $keyring[$keyId] : '';
-        }
-        if (strlen($key) < 32) {
-            throw new ApiProblem('SAND_AI_IDEMPOTENCY_KEY_UNAVAILABLE', 'Idempotency key material is unavailable');
         }
         return $key;
     }

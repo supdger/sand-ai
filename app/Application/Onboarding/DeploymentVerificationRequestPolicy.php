@@ -32,6 +32,9 @@ final class DeploymentVerificationRequestPolicy
             throw new ApiProblem('SAND_AI_IDEMPOTENCY_CONFLICT', 'Idempotency-Key is required and must not exceed 128 characters');
         }
         $configKey = (string) env('SAND_AI_CONFIG_KEY', '');
+        if (strlen($configKey) < 32 && (new InternalSecurityMaterialGuard())->ready()) {
+            $configKey = (string) env('SAND_AI_CONFIG_KEY', '');
+        }
         if (strlen($configKey) < 32) throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'Provider configuration key is unavailable');
         $key = hash_hmac('sha256', 'sand-ai-deployment-verification-idempotency@1', $configKey, true);
         return hash_hmac('sha256', $idempotencyKey, $key);
