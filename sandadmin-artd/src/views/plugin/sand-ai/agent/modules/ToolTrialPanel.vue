@@ -34,7 +34,7 @@
       <ElAlert v-if="schemaState.error" type="warning" :closable="false" :title="schemaState.error" class="notice" />
       <ElAlert v-if="inputIssue" type="warning" :closable="false" :title="inputIssue" class="notice" />
       <ElFormItem :label="schemaState.schema ? '完整 JSON' : '工具输入'">
-        <ElInput v-model="inputText" type="textarea" :rows="6" :disabled="draftLocked" placeholder="输入符合工具版本参数结构的 JSON 对象，例如 {}" />
+        <ElInput v-model="inputText" type="textarea" :rows="6" :disabled="draftLocked" placeholder="输入工具调用所需的参数（JSON 格式），例如 {}" />
       </ElFormItem>
       <ElFormItem v-if="selectedSchema" label="输入参数结构">
         <ElInput type="textarea" :rows="4" readonly :model-value="format(selectedSchema)" />

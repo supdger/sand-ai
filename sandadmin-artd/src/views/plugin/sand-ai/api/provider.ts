@@ -10,6 +10,12 @@ import type {
 import { assertMockHealthy, delay, nextId, nowText, paginateMock } from './mock/helpers'
 import { mockProviders } from './mock/store'
 import type { CatalogConfigurationIntent, CatalogConfigurationReceipt } from './catalogConfigurationIntent'
+import type { DiscoveredModel, ProviderGuide } from './onboarding'
+
+export interface ProviderTestConnectionResult {
+  ok: boolean
+  models: DiscoveredModel[]
+}
 
 function filterProvider(row: SandAiProvider, query: SandAiPageQuery): boolean {
   if (query.code && !row.code.includes(String(query.code))) return false
@@ -94,6 +100,22 @@ export default {
       url: `${ADMIN_API_PREFIX}/provider/update`,
       data: payload,
       headers: key ? { 'Idempotency-Key': key } : undefined
+    })
+  },
+
+  guides() {
+    return request.get<{ guides: ProviderGuide[] }>({
+      url: `${ADMIN_API_PREFIX}/provider/guides`,
+      showErrorMessage: false
+    })
+  },
+
+  testConnection(payload: { connection: { base_url: string; api_key: string } } | { provider_id: number }) {
+    return request.post<ProviderTestConnectionResult>({
+      url: `${ADMIN_API_PREFIX}/provider/test-connection`,
+      data: payload,
+      timeout: 15000,
+      showErrorMessage: false
     })
   },
 

@@ -61,6 +61,8 @@ export interface ProviderGuide {
   api_key_help?: string
   data_egress_notice?: string
   discovery_notice?: string
+  debug_only?: boolean
+  recommended_models?: Array<{ remote_model: string; recommended: boolean }>
   fields?: Array<{ name: string; label: string; purpose: string }>
 }
 
@@ -142,6 +144,33 @@ export interface SuccessorDeployment {
   model_id: number
   remote_model: string
   config: NewDeployment['config'] & { input_token_ceiling?: number }
+}
+
+export interface ProviderModelDeployment {
+  provider_id: number
+  model: { code: string; name: string; type: 'chat'; capabilities: ['chat'] | ['chat', 'structured_extraction'] }
+  remote_model: string
+  config: NewDeployment['config'] & { input_token_ceiling?: number }
+}
+
+export type OnboardingStageCode = 'connect_provider' | 'discover_model' | 'verify_model'
+  | 'publish_configuration' | 'bind_environment' | 'configuration_published'
+
+export interface OnboardingStatus {
+  provider: { configured: boolean }
+  model: { configured: boolean }
+  deployment: { configured: boolean }
+  tested_configuration: { configured: boolean }
+  published_deployment: { configured: boolean }
+  environment_binding: { environment_id: number; configured: boolean }
+  published_configuration: { configured: boolean }
+  stage: { code: OnboardingStageCode; name: string; next_step: string }
+  internal_security?: {
+    ready: boolean
+    missing_groups: string[]
+    invalid_groups: string[]
+    recovery_action: 'none' | 'initialize_or_restore' | 'restore_original_material'
+  }
 }
 
 export interface EmbeddingDeployment {
@@ -337,6 +366,13 @@ export default {
   providerGuides() {
     return request.get<{ guides: ProviderGuide[] }>({ url: `${setup}/onboarding/provider-guides` })
   },
+  status(environmentId: number) {
+    return request.get<OnboardingStatus>({
+      url: `${setup}/onboarding/status`,
+      params: { environment_id: environmentId },
+      showErrorMessage: false
+    })
+  },
   publishedDeployments(modelType: string, name?: string, capabilityCode?: string, environmentId?: number, selectionScope?: 'published_routes' | 'ocr_route_configuration') {
     return request.get<SandAiPage<PublishedDeployment>>({
       url: `${setup}/deployment/index`,
@@ -351,7 +387,7 @@ export default {
       showErrorMessage: false
     })
   },
-  async save(payload: NewDeployment | SuccessorDeployment | SpeechDeployment | TranscriptionDeployment | EmbeddingDeployment | LocalOcrDeployment | LocalOcrSuccessorDeployment, key: string): Promise<DraftSave> {
+  async save(payload: NewDeployment | SuccessorDeployment | ProviderModelDeployment | SpeechDeployment | TranscriptionDeployment | EmbeddingDeployment | LocalOcrDeployment | LocalOcrSuccessorDeployment, key: string): Promise<DraftSave> {
     let proof: UnsubmittedInputProof | null = null
     try {
       return await request.post<DraftSave>({

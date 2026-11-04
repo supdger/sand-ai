@@ -186,20 +186,20 @@
           <ElInput v-model="draft.limit_amount" :disabled="writing || Boolean(currentPendingSave)" placeholder="正数，最多 6 位小数" />
         </ElFormItem>
         <ElFormItem label="超额方式">
-          <ElRadioGroup v-model="draft.enforcement" :disabled="writing || Boolean(currentPendingSave)">
+          <ElRadioGroup v-model="draft.enforcement" :disabled="writing || Boolean(currentPendingSave)" aria-label="预算执行方式">
             <ElRadio value="hard">硬限制：阻止调用</ElRadio>
             <ElRadio value="soft">软限制：允许并记录</ElRadio>
           </ElRadioGroup>
         </ElFormItem>
         <template v-if="draft.enforcement === 'soft'">
           <ElFormItem label="未定价调用">
-            <ElRadioGroup v-model="draft.unpriced_policy" :disabled="writing || Boolean(currentPendingSave)">
+            <ElRadioGroup v-model="draft.unpriced_policy" :disabled="writing || Boolean(currentPendingSave)" aria-label="未定价调用处理">
               <ElRadio value="block">阻止</ElRadio>
               <ElRadio value="allow">专业重排允许，费用待核实</ElRadio>
             </ElRadioGroup>
           </ElFormItem>
           <ElFormItem label="未知用量">
-            <ElRadioGroup v-model="draft.unmeasured_policy" :disabled="writing || Boolean(currentPendingSave)">
+            <ElRadioGroup v-model="draft.unmeasured_policy" :disabled="writing || Boolean(currentPendingSave)" aria-label="未测得用量处理">
               <ElRadio value="hold">保留待核实</ElRadio>
               <ElRadio value="allow">专业重排业务可继续，费用待核实</ElRadio>
             </ElRadioGroup>

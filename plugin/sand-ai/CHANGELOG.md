@@ -1,3 +1,7 @@
+## 0.4.0 (release)
+
+- UX-P2: provider preset cards and test-connection endpoint with plain-language results (P6); merged home/onboarding wizard with one-click default deployment orchestration (P7); administrator trial channel — backend session issues a short-lived SandIAM runtime identity so admins can try chat/file upload without pasting API keys, one-shot 330s credential with zero persistence (P8). SandIAM pin moves to the 0.9.0 artifact (home access-matrix grid + terminology pass).
+
 ## 0.3.5 (release)
 
 - UX-P1d zero-step + i18n: write paths now lazily initialise internal security material on demand and resolve the idempotency key id only after the material is ready, so a fresh install's first write no longer needs a separate setup step; the .env refresh is scoped to material-owned keys (non-material keys are never loaded and declared process values are not overridden), keeping cold-process key rotation correct. Audit entries render through a Chinese display dictionary and provider types via admin display labels, clearing the remaining English/internal identifiers.

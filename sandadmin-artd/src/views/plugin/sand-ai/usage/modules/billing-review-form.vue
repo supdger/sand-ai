@@ -121,7 +121,7 @@
         ><ElInput v-model="note" maxlength="2000"
       /></ElFormItem>
       <ElFormItem v-if="line.meter_code === 'total_tokens'" label="审核粒度">
-        <ElRadioGroup v-model="granularity"
+        <ElRadioGroup v-model="granularity" aria-label="账单核对粒度"
           ><ElRadio value="aggregate">期间记录</ElRadio
           ><ElRadio value="request">核对逐请求明细</ElRadio></ElRadioGroup
         >

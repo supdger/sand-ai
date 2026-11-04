@@ -168,5 +168,5 @@ function dateFormatValid(format: 'date' | 'date-time', value: string): boolean {
 }
 
 export function typeLabel(type: ToolSchema['type']): string {
-  return { object: 'JSON 对象', array: 'JSON 数组', string: '文字', integer: '整数', number: '数值', boolean: '布尔值' }[type]
+  return { object: '参数（JSON 格式）', array: 'JSON 数组', string: '文字', integer: '整数', number: '数值', boolean: '布尔值' }[type]
 }

@@ -33,6 +33,7 @@
         :loading="loading"
         :data="data"
         :columns="columns"
+        empty-text="这里显示每次 AI 调用及其费用；产生调用后可在此追踪"
         :pagination="pagination"
         @pagination:size-change="handleSizeChange"
         @pagination:current-change="handleCurrentChange"

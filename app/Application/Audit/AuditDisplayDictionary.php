@@ -47,6 +47,7 @@ final class AuditDisplayDictionary
         'pricing.revision.draft' => '保存能力价格草稿',
         'pricing.revision.publish' => '发布能力价格修订',
         'platform.validation.recorded' => '记录平台模型验证结果',
+        'admin_trial.context.issue' => '签发管理员试用身份',
         // 预算
         'budget.policy.draft' => '保存预算策略草稿',
         'budget.policy.publish' => '发布预算策略',
@@ -229,6 +230,7 @@ final class AuditDisplayDictionary
         'rerank_soft_budget' => '重排软预算',
         'admin_validation_attempt' => '平台验证尝试',
         'audio_transcription' => '音频转写',
+        'workload_client' => '调用身份',
     ];
 
     /** @var array<string,string> 能力代码 → 中文名（capability.*.completion 组合规则用） */
@@ -273,6 +275,7 @@ final class AuditDisplayDictionary
         'pricing.revision.draft' => '已保存能力价格草稿',
         'pricing.revision.publish' => '已发布能力价格修订',
         'platform.validation.recorded' => '已记录平台模型验证结果',
+        'admin_trial.context.issue' => '已签发管理员试用身份',
         'budget.policy.draft' => '已保存预算策略草稿',
         'budget.policy.publish' => '已发布预算策略',
         'budget_policy.archive' => '已归档预算策略',

@@ -4,13 +4,23 @@ declare(strict_types=1);
 
 namespace plugin\SandAi\app\admin\controller;
 
+use app\Application\Onboarding\GuzzleOnboardingHttpTransport;
+use app\Application\Onboarding\OnboardingHttpTransport;
 use app\Application\Onboarding\OnboardingRequestSecrets;
+use app\Application\Onboarding\OpenAiCompatibleOnboardingClient;
+use app\Application\Onboarding\ProviderConnectionPolicy;
+use app\Application\Onboarding\ProviderGuideCatalog;
+use app\Application\Onboarding\ProviderTestConnectionRequest;
+use app\Application\Onboarding\SystemHostResolver;
+use app\Infrastructure\Persistence\Model\Provider;
+use app\Infrastructure\Provider\ProviderSecretDecryptor;
 use plugin\SandAi\app\admin\logic\ProviderLogic;
 use app\Api\Support\ApiProblem;
 use app\Application\Onboarding\CatalogOperationReceipt;
 use plugin\sandadmin\app\cache\UserAuthCache;
 use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
+use support\Container;
 use support\Request;
 use support\Response;
 
@@ -59,6 +69,72 @@ final class ProviderController extends SandAiAdminController
         (new ProviderLogic())->destroy($request->post());
         return $this->success('删除成功');
     }
+
+    #[Permission('SandAI 服务商读取', 'sand_ai:provider:read')]
+    public function guides(): Response
+    {
+        return $this->success(['guides' => ProviderGuideCatalog::all($this->debugMode())]);
+    }
+
+    /**
+     * Probes a provider connection without persisting anything. Two mutually
+     * exclusive forms: a fresh `connection` moved to the request vault by the
+     * sensitive-request guard, or `provider_id` decrypted server-side.
+     */
+    #[Permission('SandAI 服务商读取', 'sand_ai:provider:read')]
+    public function testConnection(Request $request): Response
+    {
+        try {
+            $input = $request->post();
+            $source = ProviderTestConnectionRequest::resolve(
+                is_array($input) ? $input : [],
+                OnboardingRequestSecrets::take($request),
+            );
+            $connection = $source['connection'] ?? $this->savedConnection((int) $source['provider_id']);
+            $models = $this->onboardingClient()->discover($connection);
+        } catch (ApiProblem $problem) {
+            throw $this->testConnectionProblem($problem);
+        }
+
+        return $this->success(['ok' => true, 'models' => $models], '连接成功');
+    }
+
+    /** @return array<string, mixed> */
+    private function savedConnection(int $providerId): array
+    {
+        $provider = Provider::findOrEmpty($providerId);
+        if ($provider->isEmpty()) {
+            throw new ApiProblem('SAND_AI_RESOURCE_NOT_FOUND', '服务商不存在，请从列表重新选择');
+        }
+        $envelope = $provider->getAttr('encrypted_config');
+        if (!is_array($envelope)) {
+            throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', '该服务商尚未保存连接配置，请填写接口地址和 API Key 后测试');
+        }
+
+        return (new ProviderSecretDecryptor())->decrypt($envelope);
+    }
+
+    /** Test-connection problems are reported with the same "code: message" contract at 400. */
+    private function testConnectionProblem(ApiProblem $problem): ApiException
+    {
+        return new ApiException($problem->errorCode . ': ' . $problem->getMessage(), 400);
+    }
+
+    private function onboardingClient(): OpenAiCompatibleOnboardingClient
+    {
+        return new OpenAiCompatibleOnboardingClient(
+            new ProviderConnectionPolicy(new SystemHostResolver()),
+            Container::has(OnboardingHttpTransport::class)
+                ? Container::get(OnboardingHttpTransport::class)
+                : new GuzzleOnboardingHttpTransport(),
+        );
+    }
+
+    private function debugMode(): bool
+    {
+        return filter_var(env('APP_DEBUG', false), FILTER_VALIDATE_BOOL);
+    }
+
     #[Permission('SandAI 服务商读取', 'sand_ai:provider:read')]
     public function readOperationByRequestKey(Request $request): Response
     {

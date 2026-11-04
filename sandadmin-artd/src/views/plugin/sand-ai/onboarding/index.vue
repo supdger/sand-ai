@@ -127,7 +127,7 @@
 
         <section class="section">
           <h3>1. 工作目标</h3>
-          <ElRadioGroup v-model="selectedScene">
+          <ElRadioGroup v-model="selectedScene" aria-label="场景选择">
             <ElRadio v-for="item in solutionGuides" :key="item.technical.code" :value="item.technical.code">{{ item.display_name }}</ElRadio>
           </ElRadioGroup>
           <p>{{ guide.plain_summary }}</p>
