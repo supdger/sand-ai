@@ -6,6 +6,7 @@ namespace app\Infrastructure\Agent;
 
 use app\Api\Support\ApiProblem;
 use app\Application\Knowledge\KnowledgeConversationContextMask;
+use app\Infrastructure\Support\NeuronRuntime;
 use NeuronAI\Agent\Middleware\Summarization;
 use NeuronAI\Chat\Messages\AssistantMessage;
 use NeuronAI\Chat\Messages\UserMessage;
@@ -28,8 +29,7 @@ final class NeuronKnowledgeConversationSummarization extends Summarization
     /** @param array<string,mixed> $stage @return array<string,mixed> */
     public function complete(array $stage): array
     {
-        if (!\Composer\InstalledVersions::isInstalled('neuron-core/neuron-ai')
-            || !version_compare((string) \Composer\InstalledVersions::getVersion('neuron-core/neuron-ai'), '4.0.2', '>=')) {
+        if (!NeuronRuntime::available()) {
             throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'The required Neuron summary runtime is unavailable');
         }
         if (($stage['summary_protocol'] ?? null) !== self::PRODUCTION_VERSION

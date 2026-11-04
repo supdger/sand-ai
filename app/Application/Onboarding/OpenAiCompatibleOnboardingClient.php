@@ -11,6 +11,7 @@ use app\Application\Gateway\ProviderSendBoundary;
 use app\Infrastructure\Provider\NeuronControlledHttpClient;
 use app\Infrastructure\Provider\NeuronMaterialChatProvider;
 use app\Infrastructure\Provider\NeuronSkillOutputAdapter;
+use app\Infrastructure\Support\NeuronRuntime;
 
 /**
  * Temporary OpenAI-compatible discovery and verification. It never persists a
@@ -91,9 +92,7 @@ final class OpenAiCompatibleOnboardingClient
             [['role' => 'user', 'content' => 'Reply with OK.']],
             new ChatCompletionOptions((int) $settings['max_output_tokens']),
         );
-        if (!class_exists(\NeuronAI\Providers\OpenAI\OpenAI::class)
-            || !\Composer\InstalledVersions::isInstalled('neuron-core/neuron-ai')
-            || !version_compare((string) \Composer\InstalledVersions::getVersion('neuron-core/neuron-ai'), '4.0.2', '>=')) {
+        if (!NeuronRuntime::available()) {
             throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', '当前运行环境缺少首次开通所需的 Neuron 模型验证能力');
         }
         $headers = $this->headers($normalized);

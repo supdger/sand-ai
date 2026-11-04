@@ -959,8 +959,21 @@
     loadError.value = ''
     iamChecked.value = false
     try {
-      const apps = await iamApi.activeApplications()
+      let apps = await iamApi.activeApplications()
       if (!live || generation !== loadGeneration) return
+      if (apps.length === 0) {
+        // Zero-step first use: a fresh install materializes the default
+        // organization/application/environment instead of sending the user
+        // through a manual registration detour. Idempotent; a provisioning
+        // failure simply leaves the guided empty state.
+        try {
+          await iamApi.ensureDefaultAccess()
+          apps = await iamApi.activeApplications()
+          if (!live || generation !== loadGeneration) return
+        } catch {
+          // keep the empty list; the guided hint below still applies
+        }
+      }
       applications.value = apps
       if (!applicationId.value || !apps.some(item => item.id === applicationId.value)) {
         applicationId.value = apps[0]?.id ?? ''

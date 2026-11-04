@@ -5,6 +5,7 @@ namespace app\Infrastructure\Agent;
 
 use app\Api\Support\ApiProblem;
 use app\Application\Knowledge\KnowledgeConversationContextMask;
+use app\Infrastructure\Support\NeuronRuntime;
 use NeuronAI\Agent\Agent;
 use NeuronAI\Agent\Events\AgentStartEvent;
 use NeuronAI\Workflow\WorkflowStatus;
@@ -19,8 +20,7 @@ final class NeuronAgentCaller
 {
     public function complete(string $model,string $instructions,string $query,string $threadId,array $historyMessages,\Closure $dispatchRound,\Closure $retrieve,?\Closure $dispatchSummary=null,array $summaryScope=[],bool $stream=false,array $readonlyTools=[],?NeuronAgentCheckpoint $checkpoint=null): array
     {
-        if (!\Composer\InstalledVersions::isInstalled('neuron-core/neuron-ai')
-            || !version_compare((string) \Composer\InstalledVersions::getVersion('neuron-core/neuron-ai'), '4.0.2', '>=')) {
+        if (!NeuronRuntime::available()) {
             throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID','The required Neuron agent runtime is unavailable');
         }
         if (count($historyMessages)>48) throw new ApiProblem('SAND_AI_AGENT_TOOL_LIMIT','Authorized agent history exceeds its message limit');

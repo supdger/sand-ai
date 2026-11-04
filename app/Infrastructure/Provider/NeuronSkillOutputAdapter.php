@@ -7,6 +7,7 @@ namespace app\Infrastructure\Provider;
 use app\Api\Support\ApiProblem;
 use app\Application\Gateway\NeuronOutputContract;
 use app\Application\Skill\SkillOutputStrategy;
+use app\Infrastructure\Support\NeuronRuntime;
 use NeuronAI\Chat\Enums\MessageRole;
 use NeuronAI\Chat\Messages\Message;
 use NeuronAI\HttpClient\HttpClientInterface;
@@ -19,8 +20,7 @@ final class NeuronSkillOutputAdapter
     /** @param array<string,mixed> $parameters @param array<string,string> $headers */
     public static function provider(NeuronOutputContract $output, string $key, string $model, array $parameters, string $endpoint, array $headers, HttpClientInterface $client): OpenAI
     {
-        if (!\Composer\InstalledVersions::isInstalled('neuron-core/neuron-ai')
-            || !version_compare((string) \Composer\InstalledVersions::getVersion('neuron-core/neuron-ai'), '4.0.2', '>=')) {
+        if (!NeuronRuntime::available()) {
             throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'The required Neuron Skill runtime is unavailable');
         }
         // SDK owns messages and response_format. Frozen legacy messages are only

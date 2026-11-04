@@ -11,6 +11,7 @@ use app\Application\Gateway\ProviderIdempotencyCapability;
 use app\Application\Gateway\ProviderRequestBodyBuilder;
 use app\Application\Gateway\ProviderSendBoundary;
 use app\Application\Gateway\ProviderResponseIdentity;
+use app\Infrastructure\Support\NeuronRuntime;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectException;
@@ -57,15 +58,10 @@ final class OpenAiCompatibleChatProvider
         $skillOutput = $options?->skillOutput;
         if ($skillOutput !== null && (!$useNeuron || $agentToolRequest !== null || $streamSegments)) throw new ApiProblem('SAND_AI_CAPABILITY_UNSUPPORTED', 'Skill output strategies require their official single-call transport');
         if ($agentToolRequest !== null && ($useNeuron || $streamSegments)) throw new ApiProblem('SAND_AI_CAPABILITY_UNSUPPORTED', 'Agent rounds require their controlled transport');
-        if (($acceptAgentChunk!==null)!==$agentStream || (($agentStream || $streamSegments) && (!class_exists(\NeuronAI\Providers\OpenAI\OpenAI::class)
-            || !\Composer\InstalledVersions::isInstalled('neuron-core/neuron-ai')
-            || !version_compare((string) \Composer\InstalledVersions::getVersion('neuron-core/neuron-ai'), '4.0.2', '>=')))) {
+        if (($acceptAgentChunk!==null)!==$agentStream || (($agentStream || $streamSegments) && !NeuronRuntime::available())) {
             throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID','Official measured stream runtime is unavailable');
         }
-        if ($useNeuron && ($streamSegments
-            || !class_exists(\NeuronAI\Providers\OpenAI\OpenAI::class)
-            || !\Composer\InstalledVersions::isInstalled('neuron-core/neuron-ai')
-            || !version_compare((string) \Composer\InstalledVersions::getVersion('neuron-core/neuron-ai'), '4.0.2', '>='))) {
+        if ($useNeuron && ($streamSegments || !NeuronRuntime::available())) {
             throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'The required Neuron material runtime is unavailable');
         }
         $config = $this->configPolicy->normalize($config);
