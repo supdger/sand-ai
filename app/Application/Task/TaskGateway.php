@@ -62,6 +62,7 @@ final class TaskGateway
         TaskLeasePolicy::runningTimezone();
         if ((new \app\Application\Agent\AgentExpiredReceiptFinalizer())->runOne($workerId)) return true;
         if ($this->finalizeExhaustedMeetingRejection($workerId)) return true;
+        if ((new LocalOutcomeRecoveryService($this->structuredWorkflows))->runOne($workerId)) return true;
         $chunkRunner = new \app\Application\Audio\Chunk\AudioChunkTaskRunner();
         $task = $chunkRunner->claimContinuation($workerId);
         if ($task === null) {

@@ -1,6 +1,6 @@
 # SandAI
 
-> **状态：开发中。** 最新公开发行版是 [v0.3.0](https://github.com/supdger/sand-ai/releases/tag/v0.3.0)（2026-10-30 发布，资产 `sand-ai-0.3.0.zip`），仓内两份 `info.ini` 的源码版本同为 `0.3.0`；此前另有正式发行 [v0.2.42](https://github.com/supdger/sand-ai/releases/tag/v0.2.42) 与预发行 [0.1.0 预览](https://github.com/supdger/sand-ai/releases/tag/sand-ai-v0.1.0-preview-2821503)（旧的仅插件目录结构）。公开发行包可下载，但本仓 `0.3.0` 源码候选尚未在真实宿主完成端到端安装与业务验收；阅读口径见[当前状态与验收边界](#当前状态与验收边界)。
+> **状态：测试中。** 最新公开发行版是 [v0.3.0](https://github.com/supdger/sand-ai/releases/tag/v0.3.0)（2026-10-30 发布，资产 `sand-ai-0.3.0.zip`），仓内两份 `info.ini` 的源码版本同为 `0.3.0`；此前另有正式发行 [v0.2.42](https://github.com/supdger/sand-ai/releases/tag/v0.2.42) 与预发行 [0.1.0 预览](https://github.com/supdger/sand-ai/releases/tag/sand-ai-v0.1.0-preview-2821503)（旧的仅插件目录结构）。公开发行包可下载，本仓 `0.3.0` 源码候选已进入测试阶段，真实宿主端到端安装与业务验收正在进行；阅读口径见[当前状态与验收边界](#当前状态与验收边界)。
 
 SandAI 是面向 SandAdmin 的 AI 能力插件，为业务应用提供统一的 AI API。管理员在后台配置模型服务、能力路由、私有文件、知识库和任务；接入开发者通过 API 调用聊天、材料整理、知识问答、智能体和音频处理，并查看来源与费用。
 
@@ -24,7 +24,7 @@ SandAI 通过一个 SandPackage ZIP 安装，包含 PHP/Webman 后端、Vue 管�
 当前整体状态：
 
 - 已公开发行：`v0.3.0`（最新）、`v0.2.42`，以及 `0.1.0` 预发行预览。
-- 未完成：本仓 `0.3.0` 源码候选的重新构包、真实宿主安装与端到端业务验收；法律能力阶段整体未完成。
+- 测试中：本仓 `0.3.0` 源码候选的重新构包、真实宿主安装与端到端业务验收；法律能力阶段整体未完成。
 - 后台保存成功、SDK 接入成功、安装成功、迁移执行成功彼此独立，任一项都不代表对应业务链已验收。
 - 未知的调用结果、回执和费用一律保持「未知」，不补造成功、不填零、不自动重发；恢复只通过原业务幂等键只读找回。
 - 公开发行与下载见 [GitHub Releases](https://github.com/supdger/sand-ai/releases)；逐版本变化见[完整更新日志](plugin/sand-ai/CHANGELOG.md)。

@@ -1744,7 +1744,7 @@
     },
     {
       "path": "app/Application/Legal/LegalOutputFailureWriter.php",
-      "sha256": "ae2826908452ffe971834e654d1854b5575720ab923c4085f876d53cb2d3493e"
+      "sha256": "d4a0867e802a59ee5fa3a979e4d76751f20ee2b3ce282ce2f0a80115d3cce86b"
     },
     {
       "path": "app/Application/Legal/LegalOutputRejected.php",
@@ -2156,7 +2156,7 @@
     },
     {
       "path": "app/Application/Task/TaskGateway.php",
-      "sha256": "40fa1b805c20c169f38ac00658124c6c2b9cda60745aaa33abc9b8674ae1493c"
+      "sha256": "56d0e093cf5a90fc7b8989da41af3fcab60a9babf5f1bb3b2841e14e14a6bed4"
     },
     {
       "path": "app/Application/Task/TaskInputAccessGuard.php",
@@ -2900,7 +2900,7 @@
     },
     {
       "path": "app/Application/Workflow/StructuredWorkflowGateway.php",
-      "sha256": "d4a59612e111c36ead18a820eda382404b7b58a2a072610fe9ea8bd31d27eee6"
+      "sha256": "fdb088c82fa6aedd2593a8f53688e4150010ba30e8521536596c9bc039606433"
     },
     {
       "path": "app/Application/Workflow/StructuredWorkflowPolicy.php",

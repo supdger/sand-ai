@@ -142,7 +142,8 @@ final class LegalOutputFailureWriter
             $ids = array_merge(...array_column($snapshotSources, 'source_block_ids'));
             try {
                 (new LegalAnalysisOutputValidator())->validate($accounted->content, $legal['profile'], $ids,
-                    $legal['sources'], $legal['facts'], LegalOutputContract::fromSnapshot($snapshot));
+                    $legal['sources'], $legal['facts'], LegalOutputContract::fromSnapshot($snapshot),
+                    $legal['complaint'] ?? null, $legal['remedy'] ?? null);
                 self::invalid();
             } catch (ApiProblem $rejection) {
                 if ($rejection->errorCode !== $failure->errorCode) self::invalid();

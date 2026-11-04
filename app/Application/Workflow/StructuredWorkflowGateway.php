@@ -1422,6 +1422,7 @@ final class StructuredWorkflowGateway
             $manifest = (new LegalAnalysisOutputValidator())->validate(
                 $content, $legal['profile'], $prompt['source_block_ids'], $legal['sources'], $legal['facts'],
                 \app\Application\Legal\LegalOutputContract::fromSnapshot((array) $run->execution_snapshot),
+                $legal['complaint'] ?? null, $legal['remedy'] ?? null,
             );
             } catch (ApiProblem $failure) {
                 if (!in_array($failure->errorCode, ['SAND_AI_SCHEMA_UNSUPPORTED', 'SAND_AI_ARTIFACT_PROVENANCE_INVALID'], true)) throw $failure;
@@ -2253,11 +2254,22 @@ final class StructuredWorkflowGateway
                     || $saved['parse_id'] !== $source['parse_id']
                     || $saved['content_sha256'] !== $block['content_sha256']
                     || $saved['locator_type'] !== $block['locator_type']
-                    || $saved['locator'] !== $block['locator']) {
+                    || self::canonicalLocator($saved['locator']) !== self::canonicalLocator($block['locator'])) {
                     throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'A legal source changed after execution snapshot verification');
                 }
             }
         }
+    }
+
+    /** @param array<string,mixed> $locator @return array<string,mixed> */
+    private static function canonicalLocator(array $locator): array
+    {
+        $list = array_is_list($locator);
+        foreach ($locator as $key => $value) {
+            if (is_array($value)) $locator[$key] = self::canonicalLocator($value);
+        }
+        if (!$list) ksort($locator, SORT_STRING);
+        return $locator;
     }
 
     /** @param list<array{file_id:int,sha256:string,version_ref:string}> $files @return list<array<string, mixed>> */

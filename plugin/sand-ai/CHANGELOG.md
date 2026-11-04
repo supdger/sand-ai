@@ -1,3 +1,6 @@
+## 0.3.1 (release)
+
+- Packaging fix only, no payload change: the release ZIP now carries `dependencies/sand-iam-0.8.4.zip` injected at build time from the locked public artifact (`tools/build-package.php --iam-bundle=`); the 0.3.0 public asset was missing the dependency bundle. `release-payload.json` and `host-payload.json` regenerated against the delivered tree.
 ## 0.3.0 (source candidate)
 
 - Version bump to 0.3.0; dropped historical bundled SandIAM zips (0.7.6/0.8.3) to fit the 16 MiB intake limit; the pinned 0.8.4 artifact identity stays declared in `config.json` `plugin_dependencies`. Dependency artifacts are injected at build time (`tools/build-package.php --iam-bundle=`) instead of being committed; `release-payload.json` regenerated from the official builder member set (1398 members) by `tools/build-release-payload.php`; stale root `tools/` duplicates removed. Not yet repackaged, installed, or acceptance-verified.
@@ -9,6 +12,10 @@
 - Persist original upload request associations and provide scoped read-only recovery; preserve unknown uploads and reject changed input under the same key.
 
 # 更新日志
+
+## 0.3.1
+
+- 仅打包修复，无载荷变更：发行 ZIP 现含 `dependencies/sand-iam-0.8.4.zip`，由 `tools/build-package.php --iam-bundle=` 在构建期注入锁定的公开工件；0.3.0 公开资产缺失该依赖捆绑。`release-payload.json` 与 `host-payload.json` 已按交付树重新生成。
 
 ## 0.3.0（源码候选）
 
