@@ -1,3 +1,6 @@
+## 0.4.3 (release)
+
+- Packaging fix only, no payload change: the SandIAM dependency pin moves to the 0.9.3 artifact (sand-iam-0.9.3.zip, sha256 6e6d2faa) carrying the context signing key first-call fix (method_exists guard on Webman\Config::set + in-process resolved cache; first provisioning call returns the key instead of 503). SandAI business payload identical to 0.4.2. Delivered trees mirrored from SandAI source commit 65cd69d8a; `release-payload.json` regenerated.
 ## 0.4.2 (release)
 
 - Neuron runtime self-heal: deployment verify on hosts that installed composer dependencies after Workerman master start died with `SAND_AI_PROVIDER_CONFIG_INVALID: Neuron material runtime is unavailable` (stale ClassLoader + negative class cache); new `NeuronRuntime` probe registers the bundled package PSR-4/PSR-0 prefixes as fallback and all six probe sites route through it. SandIAM dependency pin moves to the 0.9.2 artifact (context signing key provisioning + ensure-defaults). Delivered trees mirrored from SandAI source commit 7d8862504; `release-payload.json` regenerated.
