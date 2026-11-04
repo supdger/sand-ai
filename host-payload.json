@@ -832,7 +832,7 @@
     },
     {
       "path": "app/Application/Audit/AuditDisplayDictionary.php",
-      "sha256": "98176cdab4fcf18c551e47db5c4b0bec05abfea8195a54318dd02dd2bae0d13f"
+      "sha256": "5e6753ffb029096cddd0b414e2d2a5b27b5e494d568c2769ee542d45d8f76a50"
     },
     {
       "path": "app/Application/Billing/BillingAdminCredentialProvider.php",
@@ -1952,7 +1952,11 @@
     },
     {
       "path": "app/Application/Onboarding/ProviderGuideCatalog.php",
-      "sha256": "46824db931e2bf3bab1711057cccaf6f89308dccf878e2f652bbacfe86196362"
+      "sha256": "8b96a56fa5659b3e25f6009656487edf17ccc798fbd19aef9d89534b5392e95b"
+    },
+    {
+      "path": "app/Application/Onboarding/ProviderTestConnectionRequest.php",
+      "sha256": "57945962f16f3570d37b47488e639b2188449f07fa906b3e0debda30338ee4b8"
     },
     {
       "path": "app/Application/Onboarding/RemoteModelIdentifier.php",
@@ -2377,6 +2381,26 @@
     {
       "path": "app/Application/Tool/VerifiedToolEndpoint.php",
       "sha256": "47dc78980c71aa75f3de5bbdf4cdb34f26c9cd82b2844cf5162af3a0444ddb89"
+    },
+    {
+      "path": "app/Application/Trial/AdminTrialActions.php",
+      "sha256": "5263a76f73ec3982f9fe597140f603fc6a957c92cdb66045ffe4e5ba05907779"
+    },
+    {
+      "path": "app/Application/Trial/AdminTrialContextService.php",
+      "sha256": "03bdf5da3973b13d7fadd67ad25ba212db38b1abb0050fb89f0f0643b9839937"
+    },
+    {
+      "path": "app/Application/Trial/AdminTrialEntityStore.php",
+      "sha256": "2f9f19064060b20a19a73d67e82a32eb018ac9b68492de42f46b05b22806dd74"
+    },
+    {
+      "path": "app/Application/Trial/AdminTrialRateLimiter.php",
+      "sha256": "354d4a9da5c32eec19032f93b56402eaba8714da96daf2e47145d516eda9a362"
+    },
+    {
+      "path": "app/Application/Trial/SandIamAdminTrialEntityStore.php",
+      "sha256": "4dd3adf394b3f441a7722a1c84680da649a4367b142bd26e52734107a9b6eb85"
     },
     {
       "path": "app/Application/Usage/AdminValidationUsage.php",
