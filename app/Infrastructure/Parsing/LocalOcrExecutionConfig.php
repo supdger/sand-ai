@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\Infrastructure\Parsing;
 
 use app\Api\Support\ApiProblem;
+use app\Application\Onboarding\InternalSecurityMaterialGuard;
 
 /** The loopback wire configuration is shared by deployment evidence and the OCR send. */
 final class LocalOcrExecutionConfig
@@ -35,6 +36,9 @@ final class LocalOcrExecutionConfig
     public static function fingerprint(): array
     {
         $key = (string) env('SAND_AI_CONFIG_KEY', '');
+        if (strlen($key) < 32 && (new InternalSecurityMaterialGuard())->ready()) {
+            $key = (string) env('SAND_AI_CONFIG_KEY', '');
+        }
         if (strlen($key) < 32) throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'Provider execution fingerprint key is unavailable');
         return ['version' => 'local_ocr_execution_config@1', 'hmac_sha256' => hash_hmac('sha256',
             json_encode(['driver_code' => 'local_paddle_ocr', 'wire' => self::configuration()], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),

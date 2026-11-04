@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\Application\Audio;
 
 use app\Api\Support\ApiProblem;
+use app\Application\Onboarding\InternalSecurityMaterialGuard;
 
 /** Host-owned local configuration is frozen privately without disclosing paths or file hashes. */
 final class LocalAudioExecutionFingerprintPolicy
@@ -39,6 +40,9 @@ final class LocalAudioExecutionFingerprintPolicy
             $projection['files'][$kind] = ['configured_path' => $path, 'resolved_path' => $resolved, 'sha256' => $digest];
         }
         $key = (string) env('SAND_AI_CONFIG_KEY', '');
+        if (strlen($key) < 32 && (new InternalSecurityMaterialGuard())->ready()) {
+            $key = (string) env('SAND_AI_CONFIG_KEY', '');
+        }
         if (strlen($key) < 32) {
             throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'Provider execution fingerprint key is unavailable');
         }

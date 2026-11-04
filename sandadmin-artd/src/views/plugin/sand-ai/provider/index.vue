@@ -71,6 +71,7 @@
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { useTable } from '@/hooks/core/useTable'
   import providerApi from '../api/provider'
+  import { providerAdapterLabel } from '../api/displayLabels'
   import type { SandAiPageQuery, SandAiProvider } from '../api/types'
   import CodeNameStatusSearch from '../components/CodeNameStatusSearch.vue'
   import StatusTag from '../components/StatusTag.vue'
@@ -106,7 +107,12 @@
       columnsFactory: () => [
         { prop: 'id', label: '编号', width: 80, align: 'center' },
         { prop: 'name', label: '名称', minWidth: 160 },
-        { prop: 'adapter', label: '服务商类型', minWidth: 160 },
+        {
+          prop: 'adapter',
+          label: '服务商类型',
+          minWidth: 160,
+          formatter: (row: SandAiProvider) => providerAdapterLabel(row.adapter)
+        },
         { prop: 'timeout_ms', label: '超时（毫秒）', width: 110, align: 'center' },
         { prop: 'has_encrypted_config', label: '密钥', width: 100, useSlot: true },
         { prop: 'status', label: '状态', width: 100, useSlot: true },

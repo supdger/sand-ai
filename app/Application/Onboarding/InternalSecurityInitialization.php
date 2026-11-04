@@ -19,6 +19,14 @@ final class InternalSecurityInitialization
         'queued_identity' => ['SAND_AI_IAM_CONTEXT_CURRENT_KEY_ID', 'SAND_AI_IAM_CONTEXT_CURRENT_KEY'],
         'outcome_receipt' => ['SAND_AI_OUTCOME_RECEIPT_CURRENT_KEY_ID', 'SAND_AI_OUTCOME_RECEIPT_CURRENT_KEY'],
     ];
+    // Rotation/replay companions of the group keys above; status() inspects
+    // them and the bootstrap refresh owns exactly the same set.
+    private const AUXILIARY_NAMES = [
+        'SAND_AI_IDEMPOTENCY_KEY_ID',
+        'SAND_AI_IDEMPOTENCY_KEYRING',
+        'SAND_AI_IAM_CONTEXT_PREVIOUS_KEYS_JSON',
+        'SAND_AI_OUTCOME_RECEIPT_PREVIOUS_KEYS_JSON',
+    ];
     // These existing tables retain config encryption/fingerprints, idempotency,
     // queued identity, or sealed receipts. Any history prevents regeneration.
     private const HISTORY_TABLES = [
@@ -285,11 +293,32 @@ final class InternalSecurityInitialization
                 $values[$name] = (string) env($name, '');
             }
         }
-        foreach (['SAND_AI_IDEMPOTENCY_KEY_ID', 'SAND_AI_IDEMPOTENCY_KEYRING',
-            'SAND_AI_IAM_CONTEXT_PREVIOUS_KEYS_JSON', 'SAND_AI_OUTCOME_RECEIPT_PREVIOUS_KEYS_JSON'] as $name) {
+        foreach (self::AUXILIARY_NAMES as $name) {
             $values[$name] = (string) env($name, $name === 'SAND_AI_IDEMPOTENCY_KEY_ID' ? 'active' : '');
         }
         return $values;
+    }
+
+    /**
+     * Every environment name owned by this four-category internal security
+     * material family: the group keys initialize() may generate plus the
+     * operator-declared rotation/replay companions. The bootstrap refresh
+     * updates exactly these names and nothing else.
+     *
+     * @return list<string>
+     */
+    public static function materialEnvironmentNames(): array
+    {
+        $names = [];
+        foreach (self::GROUPS as $group) {
+            foreach ($group as $name) {
+                $names[] = $name;
+            }
+        }
+        foreach (self::AUXILIARY_NAMES as $name) {
+            $names[] = $name;
+        }
+        return $names;
     }
 
     /** @param array<string,string> $values @return array{ready:bool,missing_groups:list<string>,invalid_groups:list<string>,recovery_action:string} */

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\Infrastructure\Provider;
 
 use app\Api\Support\ApiProblem;
+use app\Application\Onboarding\InternalSecurityMaterialGuard;
 use app\Infrastructure\Persistence\Model\Provider;
 
 /** Infrastructure-only decrypt-and-HMAC projection; callers never receive config material. */
@@ -37,6 +38,9 @@ final class ProviderExecutionConfigFingerprint
         if (!in_array($adapter, ['openai_compatible', 'cohere_rerank', 'jina_rerank'], true)) throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'Execution fingerprint adapter is unsupported');
         $projection = $this->policy->normalize($config);
         $key = (string) env('SAND_AI_CONFIG_KEY', '');
+        if (strlen($key) < 32 && (new InternalSecurityMaterialGuard())->ready()) {
+            $key = (string) env('SAND_AI_CONFIG_KEY', '');
+        }
         if (strlen($key) < 32) { throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'Provider execution fingerprint key is unavailable'); }
         if ($adapter !== 'openai_compatible') $projection = ['adapter' => $adapter, 'config' => $projection];
         return ['version' => $adapter === 'openai_compatible' ? self::VERSION : 'professional_rerank_execution_config@1', 'hmac_sha256' => hash_hmac('sha256', self::encode($projection), hash_hmac('sha256', 'sand-ai-provider-execution-fingerprint@1', $key, true))];

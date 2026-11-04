@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace plugin\SandAi\app\admin\support;
 
+use app\Application\Onboarding\InternalSecurityMaterialGuard;
 use plugin\sandadmin\exception\ApiException;
 
 final class ProviderSecret
@@ -12,8 +13,11 @@ final class ProviderSecret
     public static function encrypt(array $config): array
     {
         $key = (string) env('SAND_AI_CONFIG_KEY', '');
+        if (strlen($key) < 32 && (new InternalSecurityMaterialGuard())->ready()) {
+            $key = (string) env('SAND_AI_CONFIG_KEY', '');
+        }
         if (strlen($key) < 32) {
-            throw new ApiException('SAND_AI_VALIDATION_ERROR: SAND_AI_CONFIG_KEY must contain at least 32 characters');
+            throw new ApiException('SAND_AI_VALIDATION_ERROR: 系统安全初始化未完成，请重试或联系管理员');
         }
         $iv = random_bytes(12);
         $plaintext = json_encode($config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);

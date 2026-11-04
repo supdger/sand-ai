@@ -49,6 +49,16 @@ export const capabilityLabels: Readonly<Record<string, string>> = {
   audio_speech: '语音合成'
 }
 
+/** 服务商类型中文名，与 provider/modules/edit-dialog.vue 选项一致。 */
+export const providerAdapterLabels: Readonly<Record<string, string>> = {
+  openai_compatible: 'OpenAI 兼容模型接口',
+  cohere_rerank: 'Cohere 专业重排',
+  jina_rerank: 'Jina 专业重排',
+  local_runtime: '本地运行',
+  local_ocr_runtime: '本地图片文字识别',
+  fake: '开发用模拟接口'
+}
+
 /** 模型类型中文名。 */
 export const modelTypeLabels: Readonly<Record<string, string>> = {
   chat: '对话',
@@ -104,6 +114,10 @@ export function serviceActionLabel(code: string): string {
 
 export function capabilityLabel(code: string): string {
   return capabilityLabels[code] ?? code
+}
+
+export function providerAdapterLabel(adapter: string): string {
+  return providerAdapterLabels[adapter] ?? (adapter === '' ? '未知类型' : `未知类型（${adapter}）`)
 }
 
 export function modelTypeLabel(type: string): string {

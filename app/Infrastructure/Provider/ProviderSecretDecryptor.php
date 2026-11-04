@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\Infrastructure\Provider;
 
 use app\Api\Support\ApiProblem;
+use app\Application\Onboarding\InternalSecurityMaterialGuard;
 
 /**
  * Decrypts the write-only provider configuration inside the trusted runtime.
@@ -19,6 +20,9 @@ final class ProviderSecretDecryptor
             throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'Provider configuration is unavailable');
         }
         $key = (string) env('SAND_AI_CONFIG_KEY', '');
+        if (strlen($key) < 32 && (new InternalSecurityMaterialGuard())->ready()) {
+            $key = (string) env('SAND_AI_CONFIG_KEY', '');
+        }
         if (strlen($key) < 32) {
             throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'Provider configuration key is unavailable');
         }
