@@ -38,7 +38,7 @@ final class MeetingExecutionController extends SandAiAdminController
             return json(['code' => 400, 'message' => $exception->errorCode . ': 当前环境归属无法核验，请检查 SandIAM 配置'])->withStatus(400);
         } catch (ApiProblem $problem) {
             $status = in_array($problem->errorCode, ['SAND_AI_MEETING_EXECUTION_CONFLICT', 'SAND_AI_MEETING_WORKER_UNAVAILABLE'], true) ? 409 : 400;
-            return json(['code' => $status, 'message' => $problem->errorCode . ': ' . $problem->getMessage()])->withStatus($status);
+            return json(['code' => $status, 'message' => $this->adminProblemMessage($problem)])->withStatus($status);
         }
     }
 }

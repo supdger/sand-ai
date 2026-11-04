@@ -58,7 +58,7 @@ final class UsageAdjustmentController extends SandAiAdminController
                 'SAND_AI_INVOCATION_FACTS_UNVERIFIED' => 403,
                 default => 400,
             };
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), $status);
+            throw $this->adminProblemException($problem, $status);
         } catch (\Throwable) {
             throw new ApiException('SAND_AI_USAGE_ADJUSTMENT_FAILED: 退款调整未确认，请先按原请求键查找记录，勿更换请求键', 500);
         }

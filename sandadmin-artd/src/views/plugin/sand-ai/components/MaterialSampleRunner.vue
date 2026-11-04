@@ -28,11 +28,11 @@
     </ElSpace>
     <ElButton v-if="recoveryStorageError" :disabled="busy || reading" @click="loadRecoveryKey(apiKey.trim(), generation)">重读原请求记录</ElButton>
     <ElForm label-width="110px" @submit.prevent>
-      <RuntimeApiKeyField v-model="apiKey" placeholder="应用提供的 SandIAM Bearer；需 file.read、workflow.run/read；上传解析另需 file.write、document_parse" />
+      <RuntimeApiKeyField v-model="apiKey" placeholder="应用提供的 SandIAM 调用密钥；需文件读取、工作流运行权限；上传解析另需文件写入权限" />
       <MaterialSampleFiles :bearer="apiKey" :environment-id="environmentId" :disabled="disabled || busy || !!submitted || !!recoveryKey"
         @use-file="addPreparedFile" @identity-denied="clearDeniedResult" />
-      <ElFormItem label="文件 ID">
-        <ElInput v-model.trim="fileIdsText" :disabled="busy || !!submitted || !!recoveryKey" placeholder="上方加入的文件会显示在这里，也可填写 1–100 个已解析文件 ID" />
+      <ElFormItem label="文件编号">
+        <ElInput v-model.trim="fileIdsText" :disabled="busy || !!submitted || !!recoveryKey" placeholder="上方加入的文件会显示在这里，也可填写 1–100 个已解析文件编号" />
       </ElFormItem>
       <ElFormItem label="业务范围">
         <ElInput v-model.trim="scopeRef" :disabled="busy || !!recoveryKey" placeholder="应用中的业务范围引用，例如试用项目代码" />
@@ -646,11 +646,11 @@ async function retryFailedPart(): Promise<void> {
 function fileIds(): number[] {
   const parts = fileIdsText.value.split(/[,，\s]+/).filter(Boolean)
   if (parts.length < 1 || parts.length > 100 || parts.some(part => !/^[1-9][0-9]*$/.test(part))) {
-    throw new Error('请输入 1–100 个正整数文件 ID')
+    throw new Error('请输入 1–100 个正整数文件编号')
   }
   const ids = parts.map(Number)
   if (ids.some(id => !Number.isSafeInteger(id)) || new Set(ids).size !== ids.length) {
-    throw new Error('文件 ID 必须是不重复的正整数')
+    throw new Error('文件编号必须是不重复的正整数')
   }
   return ids
 }
@@ -667,7 +667,7 @@ function addPreparedFile(fileId: number): void {
     fileIdsText.value = [...ids, fileId].join(', ')
     ElMessage.success(`文件 #${fileId} 已加入样本`)
   } catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '请先核对样本文件 ID'
+    error.value = failure instanceof Error ? failure.message : '请先核对样本文件编号'
   }
 }
 
@@ -711,7 +711,7 @@ async function submit(): Promise<void> {
           || signature(ids) !== currentSignature) return
         for (const [index, file] of batch.entries()) {
           if (file.id !== ids[offset + index] || !Number.isSafeInteger(file.latest_parse?.id)) {
-            throw new Error('读取的文件快照与所选文件 ID 不一致')
+            throw new Error('读取的文件快照与所选文件编号不一致')
           }
           if (file.state !== 'parsed' || file.latest_parse?.state !== 'succeeded'
             || file.latest_parse.source_block_count < 1 || !/^[a-f0-9]{64}$/i.test(file.sha256)) {

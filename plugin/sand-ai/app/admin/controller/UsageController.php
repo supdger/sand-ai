@@ -7,12 +7,11 @@ namespace plugin\SandAi\app\admin\controller;
 use app\Api\Support\ApiProblem;
 use plugin\SandAi\app\admin\logic\UsageCostLogic;
 use plugin\SandAi\app\admin\logic\UsageLogic;
-use plugin\sandadmin\basic\BaseController;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
 
-final class UsageController extends BaseController
+final class UsageController extends SandAiAdminController
 {
     #[Permission('SandAI 用量记录', 'sand_ai:usage:index')]
     public function index(Request $request): Response
@@ -26,7 +25,7 @@ final class UsageController extends BaseController
                 'SAND_AI_USAGE_SCOPE_UNAVAILABLE' => 503,
                 default => 400,
             };
-            return json(['code' => $status, 'message' => $problem->errorCode . ': ' . $problem->getMessage()])->withStatus($status);
+            return json(['code' => $status, 'message' => $this->adminProblemMessage($problem)])->withStatus($status);
         }
     }
 
@@ -45,7 +44,7 @@ final class UsageController extends BaseController
             };
             return json([
                 'code' => $status,
-                'message' => $problem->errorCode . ': ' . $problem->getMessage(),
+                'message' => $this->adminProblemMessage($problem),
             ])->withStatus($status);
         }
     }
@@ -68,7 +67,7 @@ final class UsageController extends BaseController
             };
             return json([
                 'code' => $status,
-                'message' => $problem->errorCode . ': ' . $problem->getMessage(),
+                'message' => $this->adminProblemMessage($problem),
             ])->withStatus($status);
         }
     }

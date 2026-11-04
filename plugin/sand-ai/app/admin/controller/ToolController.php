@@ -8,7 +8,6 @@ use app\Api\Support\ApiProblem;
 use app\Application\Tool\ToolAdminGateway;
 use app\Application\Tool\ToolConnectionRequestSecrets;
 use app\Application\Tool\ToolGatewayFactory;
-use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
@@ -224,7 +223,7 @@ final class ToolController extends SandAiAdminController
         try {
             return $this->success($callback(), $message);
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 

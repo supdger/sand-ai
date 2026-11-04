@@ -7,7 +7,6 @@ namespace plugin\SandAi\app\admin\controller;
 use app\Api\Support\ApiProblem;
 use app\Application\Billing\BillingQueryPolicy;
 use app\Application\Billing\BillingImportService;
-use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
@@ -23,7 +22,7 @@ final class BillingImportController extends SandAiAdminController
 
             return $this->success((new BillingImportService())->index($providerId));
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 
@@ -37,9 +36,9 @@ final class BillingImportController extends SandAiAdminController
                 fn (): array => (new BillingImportService())->import($input, $adminId)));
         } catch (ApiProblem $problem) {
             if (in_array($problem->errorCode, ['SAND_AI_BILLING_FACT_CONFLICT','SAND_AI_BILLING_IDEMPOTENCY_CONFLICT','SAND_AI_BILLING_RECOVERY_CONFLICT','SAND_AI_BILLING_OPERATION_REJECTED','SAND_AI_BILLING_OPERATION_UNKNOWN'], true)) {
-                return json(['code' => 409, 'message' => $problem->errorCode === 'SAND_AI_BILLING_FACT_CONFLICT' ? '账单事实内容冲突' : $problem->getMessage(), 'data' => ['error_code' => $problem->errorCode, 'retryable' => false]])->withStatus(409);
+                return json(['code' => 409, 'message' => $this->adminProblemOverride($problem) ?? ($problem->errorCode === 'SAND_AI_BILLING_FACT_CONFLICT' ? '账单事实内容冲突' : $problem->getMessage()), 'data' => ['error_code' => $problem->errorCode, 'retryable' => false]])->withStatus(409);
             }
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         } catch (\Throwable) {
             return json([
                 'code' => 500,
@@ -57,7 +56,7 @@ final class BillingImportController extends SandAiAdminController
 
             return $this->success((new BillingImportService(new \app\Application\Billing\PostgresBillingImportStore($this->billingTrace($request))))->read($id));
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
     #[Permission('SandAI 查看账单', 'sand_ai:billing:index')]
@@ -68,7 +67,7 @@ final class BillingImportController extends SandAiAdminController
                 ->read('import', $request->get(), (int) $this->authenticatedAdminId()))->withHeaders(['Cache-Control' => 'private, no-store']);
         } catch (ApiProblem $problem) {
             $status = $problem->errorCode === 'SAND_AI_BILLING_RECOVERY_CONFLICT' ? 409 : 400;
-            return json(['code' => $status, 'message' => $problem->getMessage(),
+            return json(['code' => $status, 'message' => $this->adminProblemOverride($problem) ?? $problem->getMessage(),
                 'data' => ['error_code' => $problem->errorCode, 'retryable' => false]])->withStatus($status)->withHeaders(['Cache-Control' => 'private, no-store']);
         } catch (\Throwable) {
             return json(['code' => 500, 'message' => 'Original billing operation could not be read',

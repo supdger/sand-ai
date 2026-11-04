@@ -3,7 +3,7 @@
     <template #header>
       <div class="skill-header">
         <div>
-          <h2>环境 Skill · 管理员配置</h2>
+          <h2>环境技能模板 · 管理员配置</h2>
           <p>选定已开放资料和聊天能力，创建固定版本；测试成功后由管理员手动启用。</p>
         </div>
         <ElButton :loading="environmentLoading" @click="loadEnvironments(true)">刷新环境</ElButton>
@@ -20,10 +20,10 @@
       <ElButton v-if="pending?.operation === 'test' && confirmedFailure(testResult)"
         :disabled="Boolean(busy)" @click="prepareNewTest">另起一次新的付费评测</ElButton>
       <template v-if="pending && pending.operation !== 'test'">
-        <p v-if="pending.operation === 'case-create' && !pending.versionId">旧记录未保存固定版本 ID，请填写原创建案例所用的版本 ID；不能以当前草稿猜测。</p>
-        <ElInputNumber v-if="pending.operation === 'case-create' && !pending.versionId" v-model="legacyReceiptVersionId" :min="1" :max="Number.MAX_SAFE_INTEGER" :disabled="Boolean(busy)" aria-label="原案例版本 ID" />
-        <p v-if="['case-review', 'case-retire'].includes(pending.operation) && !pending.caseId">旧记录未保存原案例 ID，请填写原审核或废弃的案例 ID；服务端仍须核原管理员与原请求。</p>
-        <ElInputNumber v-if="['case-review', 'case-retire'].includes(pending.operation) && !pending.caseId" v-model="legacyReceiptCaseId" :min="1" :max="Number.MAX_SAFE_INTEGER" :disabled="Boolean(busy)" aria-label="原案例 ID" />
+        <p v-if="pending.operation === 'case-create' && !pending.versionId">旧记录未保存固定版本编号，请填写原创建案例所用的版本编号；不能以当前草稿猜测。</p>
+        <ElInputNumber v-if="pending.operation === 'case-create' && !pending.versionId" v-model="legacyReceiptVersionId" :min="1" :max="Number.MAX_SAFE_INTEGER" :disabled="Boolean(busy)" aria-label="原案例版本编号" />
+        <p v-if="['case-review', 'case-retire'].includes(pending.operation) && !pending.caseId">旧记录未保存原案例编号，请填写原审核或废弃的案例编号；服务端仍须核原管理员与原请求。</p>
+        <ElInputNumber v-if="['case-review', 'case-retire'].includes(pending.operation) && !pending.caseId" v-model="legacyReceiptCaseId" :min="1" :max="Number.MAX_SAFE_INTEGER" :disabled="Boolean(busy)" aria-label="原案例编号" />
         <ElButton :disabled="Boolean(busy) || managementRecoveryBlocked" @click="recoverManagement">只读找回原管理回执</ElButton>
         <p>无记录、权限拒绝或原证明不足都不表示未提交；保留原号，不重发。</p>
       </template>
@@ -37,7 +37,7 @@
     </section>
     <ElForm label-width="100px" @submit.prevent>
       <ElFormItem label="消费环境">
-        <ElSelect v-model="environmentId" filterable clearable placeholder="选择 Skill 所属环境"
+        <ElSelect v-model="environmentId" filterable clearable placeholder="选择技能模板所属环境"
           :disabled="Boolean(busy)" style="width: 380px" @change="changeEnvironment">
           <ElOption v-for="environment in environments" :key="environment.id"
             :value="environment.id" :label="environment.name" />
@@ -49,10 +49,10 @@
 
     <template v-if="environmentId">
       <div class="skill-section-title">
-        <h3>已有 Skill</h3>
+        <h3>已有技能模板</h3>
         <ElButton :loading="busy === 'list'" :disabled="Boolean(busy)" @click="loadSkills(1)">刷新</ElButton>
       </div>
-      <ElTable :data="skills" row-key="id" empty-text="当前环境尚无 Skill" v-loading="busy === 'list'">
+      <ElTable :data="skills" row-key="id" empty-text="当前环境尚无技能模板" v-loading="busy === 'list'">
         <ElTableColumn label="名称" prop="name" min-width="150" />
         <ElTableColumn label="代码" prop="code" min-width="150" />
         <ElTableColumn label="状态" width="120">
@@ -110,7 +110,7 @@
         <ElFormItem>
           <ElButton type="primary" :loading="busy === 'create'" :disabled="Boolean(busy) || !canCreate"
             @click="createDraft">保存草稿版本</ElButton>
-          <span class="skill-hint">草稿固定资料、Schema 和模型路由；修改请创建新版本。</span>
+          <span class="skill-hint">草稿固定资料、参数结构和模型路由；修改请创建新版本。</span>
         </ElFormItem>
       </ElForm>
 
@@ -195,7 +195,7 @@
               <ElDescriptionsItem label="计量金额">
                 {{ showMoney(testCost.price.metered_amount, testCost.price.currency) }}
               </ElDescriptionsItem>
-              <ElDescriptionsItem label="输入 / 输出 Token">
+              <ElDescriptionsItem label="输入 / 输出词元">
                 {{ testCost.tokens.input_tokens ?? '未知' }} / {{ testCost.tokens.output_tokens ?? '未知' }}
               </ElDescriptionsItem>
               <ElDescriptionsItem label="账单金额">
@@ -222,7 +222,7 @@
             <h3>按应用身份运行已启用版本 {{ detail.skill.active_version }}</h3>
           </div>
           <p class="skill-hint">
-            使用 SandIAM 签发的应用凭证，实际调用已启用版本；需要 Skill 运行与所引用知识的允许使用。
+            使用 SandIAM 签发的应用凭证，实际调用已启用版本；需要技能模板运行与所引用知识的允许使用。
             运行会调用模型并独立计费。
           </p>
           <ElForm label-width="110px" @submit.prevent>
@@ -252,7 +252,7 @@
               · {{ runtimeResult.review_required ? '结果需要人工复核' : '结果仍请按业务规则核对' }}
             </p>
             <ElAlert v-if="runtimeResult.state === 'failed'" type="error"
-              :title="runtimeResult.error_code ?? 'Skill 运行失败'" :closable="false" />
+              :title="runtimeResult.error_code ?? '技能模板运行失败'" :closable="false" />
             <pre v-if="runtimeResult.output" class="skill-result">{{ JSON.stringify(runtimeResult.output, null, 2) }}</pre>
             <ElTable :data="runtimeResult.citations" empty-text="本次运行没有来源摘录">
               <ElTableColumn label="知识版本" min-width="130">
@@ -275,7 +275,7 @@
               <ElDescriptionsItem label="计量金额">
                 {{ showMoney(runtimeCost.price.metered_amount, runtimeCost.price.currency) }}
               </ElDescriptionsItem>
-              <ElDescriptionsItem label="输入 / 输出 Token">
+              <ElDescriptionsItem label="输入 / 输出词元">
                 {{ runtimeCost.tokens.input_tokens ?? '未知' }} / {{ runtimeCost.tokens.output_tokens ?? '未知' }}
               </ElDescriptionsItem>
               <ElDescriptionsItem label="账单金额">
@@ -610,7 +610,7 @@
     try {
       const result = await invocationApi.cost(environment, requestId)
       if (result.request_id !== requestId || (result.skill !== null && result.skill.run_id !== run.run_id)) {
-        throw new Error('费用记录与本次 Skill 测试不一致')
+        throw new Error('费用记录与本次技能模板测试不一致')
       }
       if (current === costRequest && testResult.value?.run_id === run.run_id
         && testResult.value.invocation_request_id === requestId && environmentId.value === environment) {
@@ -1280,7 +1280,7 @@
           || !canPublishCases.value || publicationIntent() !== originalIntent)
           throw new Error('原启用版本或案例判定已变化，请重新读取并明确确认；本次不发送')
       }
-      try { await ElMessageBox.confirm(`启用 ${skill.code} 第 ${version.version} 版；具备 SandIAM 授权的应用才可运行此固定版本。`, '启用 Skill') }
+      try { await ElMessageBox.confirm(`启用 ${skill.code} 第 ${version.version} 版；具备 SandIAM 授权的应用才可运行此固定版本。`, '启用技能模板') }
       catch { return }
       if (current !== generation || environmentId.value !== environment || detail.value?.skill.id !== skill.id
         || draftVersion.value?.id !== version.id || !canPublishCases.value || busyState.value) return
@@ -1328,7 +1328,7 @@
           || revocationIntent() !== originalIntent)
           throw new Error('原撤销目标已变化，请重新读取并明确确认；本次不发送')
       }
-      try { await ElMessageBox.confirm('撤销后新调用将无法运行此 Skill。', '撤销 Skill') }
+      try { await ElMessageBox.confirm('撤销后新调用将无法运行此技能模板。', '撤销技能模板') }
       catch { return }
       if (current !== generation || environmentId.value !== environment) return
       confirmIntent()
@@ -1342,7 +1342,7 @@
         if (result.skill_id !== skill.id || result.code !== skill.code || result.state !== 'revoked')
           throw new Error('撤销结果与原目标不一致，原请求号仍保留')
         settlePending()
-        ElMessage.success('Skill 已撤销')
+        ElMessage.success('技能模板已撤销')
         busyState.value = ''
         await loadSkills(1, flight)
         if (current !== generation) return

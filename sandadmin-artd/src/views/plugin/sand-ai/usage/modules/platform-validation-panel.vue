@@ -13,13 +13,13 @@
       />
       <ElForm label-position="top" class="mt-4" @submit.prevent="load()">
         <div class="validation-filters">
-          <ElFormItem label="发生时间（UTC）">
+          <ElFormItem label="发生时间（世界标准时间）">
             <ElSelect v-model="filters.range" aria-label="模型验证费用时间范围">
               <ElOption label="近 24 小时" value="recent" />
               <ElOption label="指定时间" value="custom" />
             </ElSelect>
           </ElFormItem>
-          <ElFormItem label="服务商 ID">
+          <ElFormItem label="服务商编号">
             <ElInputNumber
               v-model="filters.provider_id"
               :min="1"
@@ -27,7 +27,7 @@
               placeholder="全部服务商"
             />
           </ElFormItem>
-          <ElFormItem label="模型 ID">
+          <ElFormItem label="模型编号">
             <ElInputNumber
               v-model="filters.model_id"
               :min="1"
@@ -35,7 +35,7 @@
               placeholder="全部模型"
             />
           </ElFormItem>
-          <ElFormItem label="部署 ID">
+          <ElFormItem label="部署编号">
             <ElInputNumber
               v-model="filters.deployment_id"
               :min="1"
@@ -43,7 +43,7 @@
               placeholder="全部部署"
             />
           </ElFormItem>
-          <ElFormItem label="管理员 ID">
+          <ElFormItem label="管理员编号">
             <ElInputNumber
               v-model="filters.admin_actor_id"
               :min="1"
@@ -69,7 +69,7 @@
           </ElFormItem>
         </div>
         <div v-if="filters.range === 'custom'" class="validation-time-fields">
-          <ElFormItem label="开始时间（UTC，包含）">
+          <ElFormItem label="开始时间（世界标准时间，包含）">
             <ElInput
               :id="`${formId}-from`"
               ref="fromInput"
@@ -78,7 +78,7 @@
               :aria-describedby="`${formId}-time-help`"
             />
           </ElFormItem>
-          <ElFormItem label="结束时间（UTC，不包含）">
+          <ElFormItem label="结束时间（世界标准时间，不包含）">
             <ElInput
               :id="`${formId}-to`"
               ref="toInput"
@@ -89,8 +89,8 @@
           </ElFormItem>
         </div>
         <p :id="`${formId}-time-help`" class="mt-0 mb-3 text-sm text-gray-500">
-          时间使用 UTC，结束时间不包含，范围最多 366
-          天。目标尚未登记的临时验证，其服务商、模型和部署 ID 保持未登记。
+          时间使用世界标准时间（UTC），结束时间不包含，范围最多 366
+          天。目标尚未登记的临时验证，其服务商、模型和部署编号保持未登记。
         </p>
         <ElButton
           type="primary"
@@ -115,7 +115,7 @@
       <p v-if="loading" class="mt-3 mb-0 text-sm" role="status">正在读取模型验证费用</p>
       <ElAlert
         v-if="!canIndex"
-        title="需要用量查看权限（sand_ai:usage:index）才能读取模型验证费用。"
+        title="需要用量查看权限才能读取模型验证费用。"
         type="warning"
         :closable="false"
         class="mt-3"
@@ -125,12 +125,12 @@
     <ElCard v-if="canIndex" shadow="never">
       <h3 class="m-0 mb-3 text-base">平台验证汇总</h3>
       <p v-if="!canSummary" class="m-0 text-sm text-gray-500">
-        当前账号可查看验证记录；费用汇总另需 sand_ai:usage:summary 权限。
+        当前账号可查看验证记录；费用汇总另需费用汇总权限。
       </p>
       <ElAlert v-if="summaryError" :title="summaryError" type="warning" :closable="false" />
       <template v-if="summary">
         <p class="mt-0 mb-3 text-sm">
-          汇总范围（UTC）：{{ summary.from }} 至 {{ summary.to }}（不含结束时间）
+          汇总范围（世界标准时间）：{{ summary.from }} 至 {{ summary.to }}（不含结束时间）
         </p>
         <ElDescriptions :column="narrowScreen ? 1 : 3" border class="mb-3">
           <ElDescriptionsItem label="验证尝试">{{ summary.total_attempts }}</ElDescriptionsItem>
@@ -181,9 +181,9 @@
         row-key="id"
         empty-text="所选范围暂无已纳入产品计量的模型验证尝试"
       >
-        <ElTableColumn prop="id" label="尝试 ID" width="105" />
-        <ElTableColumn prop="call_started_at" label="调用开始（UTC）" min-width="185" />
-        <ElTableColumn prop="admin_actor_id" label="管理员 ID" width="120" />
+        <ElTableColumn prop="id" label="尝试编号" width="105" />
+        <ElTableColumn prop="call_started_at" label="调用开始（世界标准时间）" min-width="185" />
+        <ElTableColumn prop="admin_actor_id" label="管理员编号" width="120" />
         <ElTableColumn label="验证目标" min-width="150">
           <template #default="{ row }">{{ targetLabel(row) }}</template>
         </ElTableColumn>
@@ -241,24 +241,24 @@
         />
         <ElDescriptions :column="narrowScreen ? 1 : 2" border>
           <ElDescriptionsItem label="费用范围">平台管理员验证</ElDescriptionsItem>
-          <ElDescriptionsItem label="尝试 ID">{{ selected.id }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="管理员 ID">{{ selected.admin_actor_id }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="计量事件 ID">{{
+          <ElDescriptionsItem label="尝试编号">{{ selected.id }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="管理员编号">{{ selected.admin_actor_id }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="计量事件编号">{{
             idLabel(selected.platform_usage.usage_event_id)
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="验证目标">{{ targetLabel(selected) }}</ElDescriptionsItem>
           <ElDescriptionsItem label="部署修订">{{
             idLabel(selected.deployment_revision)
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="服务商 ID">{{
+          <ElDescriptionsItem label="服务商编号">{{
             idLabel(selected.provider_id)
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="模型 ID">{{ idLabel(selected.model_id) }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="模型编号">{{ idLabel(selected.model_id) }}</ElDescriptionsItem>
           <ElDescriptionsItem label="能力">{{
             capabilityLabel(selected.capability_code)
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="能力权限">{{ selected.service_action }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="调用开始（UTC）" :span="2">{{
+          <ElDescriptionsItem label="调用开始（世界标准时间）" :span="2">{{
             selected.call_started_at
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="派发与计量状态">{{
@@ -267,13 +267,13 @@
           <ElDescriptionsItem label="用量状态">{{
             usageLabel(selected.platform_usage)
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="输入 Token">{{
+          <ElDescriptionsItem label="输入词元">{{
             tokenLabel(selected.input_tokens, selected.platform_usage)
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="输出 Token">{{
+          <ElDescriptionsItem label="输出词元">{{
             tokenLabel(selected.output_tokens, selected.platform_usage)
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="合计 Token">{{
+          <ElDescriptionsItem label="合计词元">{{
             tokenLabel(selected.total_tokens, selected.platform_usage)
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="价格状态">{{
@@ -516,7 +516,7 @@
       const start = utcTimestamp(filters.from)
       const end = utcTimestamp(filters.to)
       if (start === null || end === null) {
-        validationError.value = '请填写有效的 UTC 开始和结束时间（YYYY-MM-DD HH:mm:ss）。'
+        validationError.value = '请填写有效的世界标准时间开始和结束时间（YYYY-MM-DD HH:mm:ss）。'
         if (start === null) fromInput.value?.focus()
         else toInput.value?.focus()
         return null
@@ -542,7 +542,7 @@
     if (
       ids.some((id) => id !== undefined && id !== null && (!Number.isSafeInteger(id) || id < 1))
     ) {
-      validationError.value = '筛选 ID 应为有效的正整数；留空表示全部。'
+      validationError.value = '筛选编号应为有效的正整数；留空表示全部。'
       return null
     }
     return {
@@ -561,10 +561,10 @@
       if (failure.code === 401) return '管理员登录已失效，请正常登录后重新查询。'
       if (failure.code === 403)
         return purpose === 'list'
-          ? '没有模型验证费用查看权限，请申请 sand_ai:usage:index。'
-          : '没有模型验证费用汇总权限，请申请 sand_ai:usage:summary。'
+          ? '没有模型验证费用查看权限，请申请用量查看权限。'
+          : '没有模型验证费用汇总权限，请申请费用汇总权限。'
       if (failure.code === 400)
-        return '筛选未通过校验，请检查正整数 ID、UTC 时间和最长 366 天范围。'
+        return '筛选未通过校验，请检查正整数编号、世界标准时间和最长 366 天范围。'
       if (failure.code === 409)
         return '费用事实尚无法核验，暂不能展示；请联系管理员检查原记录，不要重新验证模型。'
       if (failure.code === 404) return '后台尚未提供模型验证费用接口，请联系管理员核对安装版本。'

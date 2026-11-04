@@ -1,3 +1,6 @@
+## 0.3.4 (release)
+
+- B1/S1 fixes: setup/bootstrap auto-completes internal security material on fresh installs (idempotent .env reload, protect-config, first initialize) so writes no longer fail with SAND_AI_IDEMPOTENCY_KEY_UNAVAILABLE; init failure surfaces as the Chinese retryable reason security_init_failed. Admin-visible English/internal identifiers cleared to plain Chinese copy; SAND_AI_ error codes moved into the collapsed technical-details block with a unified Chinese mapping. Delivered trees and admin UI source mirrored from SandAI source commit 8f143bd45; SandIAM dependency pin unchanged at the 0.8.6 artifact. `release-payload.json` regenerated.
 ## 0.3.3 (release)
 
 - Packaging fix only, no payload change: the SandIAM dependency pin moves to the 0.8.6 artifact (sand-iam-0.8.6.zip, sha256 21ab8aae); the 0.8.5 bundle was uninstallable after its top-level app/ layout regression, 0.8.6 restores the portal/ payload root. Delivered trees mirrored from SandAI source commit ac8c14eaa; `release-payload.json` regenerated.

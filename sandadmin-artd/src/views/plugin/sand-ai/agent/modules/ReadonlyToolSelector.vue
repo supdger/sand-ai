@@ -10,18 +10,18 @@
     <ElButton link type="primary" :disabled="disabled || !environmentId || !currentAdminId" :loading="loading" @click="load(true)">刷新工具</ElButton>
     <ElButton v-if="more" link type="primary" :disabled="disabled || !currentAdminId" :loading="loading" @click="load(false)">更多工具</ElButton>
     <p v-if="error" class="note">{{ error }}。已选版本保留，请核对后保存。</p>
-    <p class="note">列表来自选定环境。选择工具不会授予执行权限；运行时仍须凭证获准的 tool.run。工具版本、业务范围和输入 Schema 随版本或本次请求固定。</p>
+    <p class="note">列表来自选定环境。选择工具不会授予执行权限；运行时仍须凭证获准的工具运行权限。工具版本、业务范围和输入参数结构随版本或本次请求固定。</p>
     <div v-for="(tool, index) in modelValue" :key="key(tool)" class="selected-tool">
       <strong>{{ tool.code }} · 第 {{ tool.version }} 版</strong>
       <ElInput :model-value="tool.business_scope" :disabled="disabled" maxlength="128"
         placeholder="填写已获授权的业务范围，例如 public_docs" @update:model-value="scope(index, $event)" />
       <ElCollapse>
-        <ElCollapseItem title="查看已启用输入 Schema" :name="key(tool)">
+        <ElCollapseItem title="查看已启用输入参数结构" :name="key(tool)">
           <pre>{{ schema(tool) }}</pre>
         </ElCollapseItem>
       </ElCollapse>
     </div>
-    <p v-if="modelValue.length" class="note">新组合最多执行一次私有检索及每项只读工具一次，最多四轮模型回答，每轮最多 512 Token。工具请求按实际次数计量；未定价不表示免费。待确认任务应刷新原任务，不重新提交。</p>
+    <p v-if="modelValue.length" class="note">新组合最多执行一次私有检索及每项只读工具一次，最多四轮模型回答，每轮最多 512 词元。工具请求按实际次数计量；未定价不表示免费。待确认任务应刷新原任务，不重新提交。</p>
   </div>
 </template>
 
@@ -46,7 +46,7 @@
   const unavailable = computed(() => props.modelValue.filter(tool => !catalog.value.some(item => key(item) === key(tool))))
   function schema(tool: AgentReadonlyToolSelection): string {
     const item = catalog.value.find(candidate => key(candidate) === key(tool))
-    return item ? JSON.stringify(item.input_schema, null, 2) : '当前目录未返回此版本的 Schema；服务端会在保存及执行前再次核验。'
+    return item ? JSON.stringify(item.input_schema, null, 2) : '当前目录未返回此版本的参数结构；服务端会在保存及执行前再次核验。'
   }
   function select(value: unknown): void {
     if (props.disabled || !currentAdminId.value || !Array.isArray(value) || value.length > 2 || !value.every(item => typeof item === 'string')) return

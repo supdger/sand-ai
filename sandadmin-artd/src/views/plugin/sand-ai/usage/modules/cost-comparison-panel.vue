@@ -2,11 +2,11 @@
   <section ref="panel" tabindex="-1" aria-label="历史费用比较与当前价格估算">
     <ElCard class="art-table-card" shadow="never">
       <h3 class="m-0 mb-2 text-base">历史费用比较与当前价格估算</h3>
-      <p class="mb-3 text-sm text-gray-500">从下方用量事件选择基线和当前调用，或填写调用 ID。后台核对输入及执行条件后比较计量金额；当前已启用价格只按本次实际 Token 数量估算。查询不会重新调用模型。缓存／复用节省未知：当前费用数据没有真实命中和对应基准证据，尚未具备计算依据。</p>
+      <p class="mb-3 text-sm text-gray-500">从下方用量事件选择基线和当前调用，或填写调用编号。后台核对输入及执行条件后比较计量金额；当前已启用价格只按本次实际词元数量估算。查询不会重新调用模型。缓存／复用节省未知：当前费用数据没有真实命中和对应基准证据，尚未具备计算依据。</p>
       <ElForm label-width="110px" @submit.prevent="loadComparison">
-        <ElFormItem label="环境 ID"><ElInputNumber v-model="environmentId" :min="1" :controls="false" /></ElFormItem>
-        <ElFormItem label="当前调用 ID"><ElInputNumber v-model="currentId" :min="1" :controls="false" /></ElFormItem>
-        <ElFormItem label="基线调用 ID"><ElInputNumber v-model="baselineId" :min="1" :controls="false" /></ElFormItem>
+        <ElFormItem label="环境编号"><ElInputNumber v-model="environmentId" :min="1" :controls="false" /></ElFormItem>
+        <ElFormItem label="当前调用编号"><ElInputNumber v-model="currentId" :min="1" :controls="false" /></ElFormItem>
+        <ElFormItem label="基线调用编号"><ElInputNumber v-model="baselineId" :min="1" :controls="false" /></ElFormItem>
         <ElFormItem label="比较价格版本">
           <ElInputNumber v-model="priceId" :min="1" :controls="false" placeholder="当前有效已启用价格" />
         </ElFormItem>
@@ -30,7 +30,7 @@
           <ElDescriptionsItem label="能力范围">{{ result.current.cost.capability }}</ElDescriptionsItem>
           <ElDescriptionsItem label="冻结价格版本">{{ result.current.cost.price.revision_id ?? '未知' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="当前价格版本">{{ result.scenario.price_revision_id ?? '未知' }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="输入 / 输出 Token">{{ result.scenario.input_tokens ?? '未知' }} / {{ result.scenario.output_tokens ?? '未知' }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="输入 / 输出词元">{{ result.scenario.input_tokens ?? '未知' }} / {{ result.scenario.output_tokens ?? '未知' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="原冻结计量金额">{{ money(result.scenario.frozen_amount, result.scenario.currency) }}</ElDescriptionsItem>
           <ElDescriptionsItem label="按当前价格估算">{{ money(result.scenario.published_amount, result.scenario.currency) }}</ElDescriptionsItem>
           <ElDescriptionsItem label="冻结减当前估算">{{ money(result.scenario.difference_amount, result.scenario.currency) }}</ElDescriptionsItem>
@@ -100,7 +100,7 @@
     if (!allowed.value || loading.value || owner === null) return
     invalidate()
     const environment = environmentId.value; const current = currentId.value; const baseline = baselineId.value; const price = priceId.value ?? undefined
-    if (!validId(environment) || !validId(current) || !validId(baseline) || (price !== undefined && !validId(price))) { error.value = '请填写有效环境、当前调用和基线调用 ID；价格版本可留空。'; return }
+    if (!validId(environment) || !validId(current) || !validId(baseline) || (price !== undefined && !validId(price))) { error.value = '请填写有效环境、当前调用和基线调用编号；价格版本可留空。'; return }
     const requestId = ++generation
     loading.value = true
     try {

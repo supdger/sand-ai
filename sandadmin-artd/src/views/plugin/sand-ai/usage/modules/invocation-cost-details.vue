@@ -21,13 +21,13 @@
       }}</ElDescriptionsItem>
       <ElDescriptionsItem label="计量单位">{{ meteringUnit }}</ElDescriptionsItem>
       <ElDescriptionsItem label="计量数量">{{ meteringQuantity }}</ElDescriptionsItem>
-      <ElDescriptionsItem label="输入 Token">{{
+      <ElDescriptionsItem label="输入词元">{{
         tokenValue(cost.tokens.input_tokens)
       }}</ElDescriptionsItem>
-      <ElDescriptionsItem label="输出 Token">{{
+      <ElDescriptionsItem label="输出词元">{{
         tokenValue(cost.tokens.output_tokens)
       }}</ElDescriptionsItem>
-      <ElDescriptionsItem label="合计 Token">{{
+      <ElDescriptionsItem label="合计词元">{{
         tokenValue(cost.tokens.total_tokens)
       }}</ElDescriptionsItem>
       <ElDescriptionsItem label="冻结价格版本">{{
@@ -76,12 +76,12 @@
       class="mt-3"
     />
     <p class="mt-2 mb-3 text-sm text-gray-500">
-      预算上界来自调用前冻结的报价，仅作预算预占，不代表实际 Token 预测、计量金额或已付现金。
+      预算上界来自调用前冻结的报价，仅作预算预占，不代表实际词元预测、计量金额或已付现金。
       采用最小预占时金额可能为 0.000001。
     </p>
     <p class="mt-2 mb-3 text-sm text-gray-500">
-      计量数量来自本次调用的真实用量；专业重排按服务商确认的搜索单位或重排 Token 展示，
-      不换算为输入／输出 Token。未确认的计量不展示数量。
+      计量数量来自本次调用的真实用量；专业重排按服务商确认的搜索单位或重排词元展示，
+      不换算为输入／输出词元。未确认的计量不展示数量。
     </p>
     <section class="mt-3" aria-label="服务商调用标识">
       <h3 class="mb-2 text-base">服务商调用标识</h3>
@@ -105,12 +105,12 @@
           providerIdentitySourceLabels[identity.source]
         }}</ElDescriptionsItem>
         <ElDescriptionsItem label="标识值" :span="2">{{ identity.value }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="接收时间（UTC）" :span="2">{{
+        <ElDescriptionsItem label="接收时间（世界标准时间）" :span="2">{{
           identity.received_time
         }}</ElDescriptionsItem>
       </ElDescriptions>
       <p class="mb-3 text-sm text-gray-500">
-        标识供核查原调用；响应 ID 不作为服务商账单请求号。接收时间为服务器收到标识的时间，
+        标识供核查原调用；响应编号不作为服务商账单请求号。接收时间为服务器收到标识的时间，
         不代表服务商完成时间。已收到标识不证明结果完整、用量已测得或已付款，也不能据此释放预算或重发调用。
       </p>
     </section>
@@ -195,7 +195,7 @@
       border
       class="mt-3"
     >
-      <ElDescriptionsItem v-if="cost.skill" label="Skill 运行" :span="2"
+      <ElDescriptionsItem v-if="cost.skill" label="技能模板运行" :span="2"
         >{{ cost.skill.code }} · 版本 {{ cost.skill.version }} · 运行
         {{ cost.skill.run_id }}</ElDescriptionsItem
       >
@@ -424,16 +424,16 @@
   const tokenQuantity = (input: unknown): input is string =>
     typeof input === 'string' && input === input.trim() && /^(0|[1-9][0-9]*)$/.test(input)
   const meterLabels: Record<SandAiCostBreakdownItem['meter_code'], string> = {
-    input_tokens: '输入 Token',
-    output_tokens: '输出 Token',
+    input_tokens: '输入词元',
+    output_tokens: '输出词元',
     rerank_search_units: '重排搜索单位',
-    rerank_tokens: '重排 Token'
+    rerank_tokens: '重排词元'
   }
   const meterUnitLabels: Record<SandAiCostBreakdownItem['meter_code'], string> = {
-    input_tokens: 'Token',
-    output_tokens: 'Token',
+    input_tokens: '词元',
+    output_tokens: '词元',
     rerank_search_units: '搜索单位',
-    rerank_tokens: '重排 Token'
+    rerank_tokens: '重排词元'
   }
   function isBreakdownItem(input: unknown): input is SandAiCostBreakdownItem {
     if (typeof input !== 'object' || input === null) return false
@@ -520,9 +520,9 @@
   const meteringUnit = computed(() => {
     if (props.cost.usage.state !== 'measured') return '未提供'
     switch (props.cost.usage.metering_unit) {
-      case 'total_tokens': return 'Token（合计）'
+      case 'total_tokens': return '词元（合计）'
       case 'rerank_search_units': return '重排搜索单位'
-      case 'rerank_tokens': return '重排 Token'
+      case 'rerank_tokens': return '重排词元'
       default: return '未提供'
     }
   })

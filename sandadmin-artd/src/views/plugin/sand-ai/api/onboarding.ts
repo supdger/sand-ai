@@ -206,7 +206,11 @@ type UnsubmittedInputProof = {
   retryable: false
 }
 
-export type SetupBootstrapFailureReason = 'sandiam_unavailable' | 'sandiam_disabled' | 'catalog_error'
+export type SetupBootstrapFailureReason =
+  | 'sandiam_unavailable'
+  | 'sandiam_disabled'
+  | 'catalog_error'
+  | 'security_init_failed'
 
 export interface SetupBootstrapReady {
   ready: true
@@ -222,7 +226,7 @@ export interface SetupBootstrapFailure {
 }
 
 const bootstrapFailureReasons: readonly SetupBootstrapFailureReason[] = [
-  'sandiam_unavailable', 'sandiam_disabled', 'catalog_error'
+  'sandiam_unavailable', 'sandiam_disabled', 'catalog_error', 'security_init_failed'
 ]
 
 function bootstrapFailureProof(value: unknown): SetupBootstrapFailure | null {

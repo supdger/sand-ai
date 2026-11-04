@@ -58,7 +58,7 @@
               class="dash-clickable-table"
               @row-click="goInvocation"
             >
-              <ElTableColumn prop="id" label="ID" width="70" />
+              <ElTableColumn prop="id" label="编号" width="70" />
               <ElTableColumn label="请求编号" min-width="140">
                 <template #default="{ row }">{{ row.request_id }}</template>
               </ElTableColumn>
@@ -71,7 +71,7 @@
           <ElCol :xs="24" :lg="12">
             <h3 class="dash-section-title">近期审计</h3>
             <ElTable :data="recentAudits" row-key="id" border stripe empty-text="暂无审计记录">
-              <ElTableColumn prop="id" label="ID" width="70" />
+              <ElTableColumn prop="id" label="编号" width="70" />
               <ElTableColumn label="操作" min-width="120">
                 <template #default="{ row }">{{ serviceActionLabel(row.action) }}</template>
               </ElTableColumn>

@@ -14,7 +14,6 @@ use app\Application\Channel\WecomCredentialGateway;
 use app\Application\Channel\WecomCredentialRequestSecrets;
 use app\Application\Channel\WecomDeliveryGateway;
 use app\Application\Channel\WecomChannelStatusGateway;
-use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
@@ -219,7 +218,7 @@ final class ChannelBindingController extends SandAiAdminController
             $revalidateAdmin();
             return $this->success($result, '已找回原回信重试结果')->header('Cache-Control', 'no-store');
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 
@@ -312,7 +311,7 @@ final class ChannelBindingController extends SandAiAdminController
     }
 
     /** @param callable():array<string,mixed> $callback */
-    private function guard(callable $callback, string $message = '渠道绑定已更新'): Response { try { return $this->success($callback(), $message); } catch (ApiProblem $problem) { throw new ApiException($problem->errorCode . ': ' . $problem->getMessage()); } }
+    private function guard(callable $callback, string $message = '渠道绑定已更新'): Response { try { return $this->success($callback(), $message); } catch (ApiProblem $problem) { throw $this->adminProblemException($problem); } }
     /** @param list<string> $keys @return array<string,mixed> */
     private function body(Request $request, array $keys): array { $body = $request->post(); if (!is_array($body) || array_diff(array_keys($body), $keys) !== []) throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Channel request is invalid'); return $body; }
     private function positiveInt(mixed $value): int { if (!is_int($value) || $value <= 0) throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Channel request is invalid'); return $value; }

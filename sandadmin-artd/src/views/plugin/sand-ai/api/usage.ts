@@ -29,16 +29,16 @@ function usageFilterError(query: SandAiUsageSummaryQuery): Error | null {
     'knowledge_base_version_id', 'knowledge_query_id', 'knowledge_index_id'] as const
   for (const key of resourceIds) {
     const value = query[key]
-    if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) return new Error('资源运行、版本及绑定 ID 须为正整数')
+    if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) return new Error('资源运行、版本及绑定编号须为正整数')
   }
   if (query.delivery_platform !== undefined && query.delivery_platform !== 'feishu' && query.delivery_platform !== 'wecom') {
     return new Error('渠道平台仅支持飞书或企业微信')
   }
   if (query.composition_run_id !== undefined && (!Number.isSafeInteger(query.composition_run_id) || query.composition_run_id < 1)) {
-    return new Error('AI 工作流运行 ID 须为正整数')
+    return new Error('AI 工作流运行编号须为正整数')
   }
   if (query.composition_node_code !== undefined && (query.composition_run_id === undefined || !/^[a-z][a-z0-9_]{0,31}$/.test(query.composition_node_code))) {
-    return new Error('先填写 AI 工作流运行 ID；节点标识须为小写字母、数字或下划线')
+    return new Error('先填写 AI 工作流运行编号；节点标识须为小写字母、数字或下划线')
   }
   return null
 }

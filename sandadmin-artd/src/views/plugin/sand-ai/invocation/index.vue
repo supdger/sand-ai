@@ -89,7 +89,7 @@
       apiFn: invocationApi.list,
       apiParams: {},
       columnsFactory: () => [
-        { prop: 'id', label: 'ID', width: 80, align: 'center' },
+        { prop: 'id', label: '编号', width: 80, align: 'center' },
         { prop: 'request_id', label: '请求编号', minWidth: 160 },
         { prop: 'environment_id', label: '环境', width: 130 },
         { prop: 'model_id', label: '模型', width: 100 },

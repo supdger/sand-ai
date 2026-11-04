@@ -2,11 +2,11 @@
   <ElCard class="art-table-card" shadow="never">
     <h3 class="m-0 mb-2 text-base">单次调用成本分解</h3>
     <p class="mb-3 text-sm text-gray-500">
-      从调用记录取得环境 ID
+      从调用记录取得环境编号
       和请求号，查看该次调用的用量、冻结价格及账单核对结果。查询不会重新发起调用。
     </p>
     <ElForm label-width="90px" @submit.prevent="loadCost">
-      <ElFormItem label="环境 ID">
+      <ElFormItem label="环境编号">
         <ElInputNumber
           v-model="environmentId"
           :min="1"
@@ -72,7 +72,7 @@
         (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127
       )
     ) {
-      error.value = '请填写有效的环境 ID 和请求号；可在调用记录中取得这两项。'
+      error.value = '请填写有效的环境编号和请求号；可在调用记录中取得这两项。'
       return
     }
     const current = ++generation

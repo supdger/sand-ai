@@ -812,7 +812,7 @@ OCR 价格 revision／rate／金额／currency 保持 NULL、`unpriced`，不能
 
 ### 5.3.2 系统准备：一次登记 SandIAM 服务目录（P4）
 
-`POST /app/sand-ai/admin/setup/bootstrap`，请求体为空（`{}` 或不带 body；携带任何字段返回 `400`，`SAND_AI_VALIDATION_ERROR`）。要求后台登录并拥有 `sand_ai:setup:service-catalog:register`，不新增权限码。端点幂等，不接受 GET：每次调用先用 `preflight` 判断 SandIAM 目录端口，可用时依次执行基础、Skill、音频三组登记，等价于顺序调用既有三个 `POST .../register`。三组登记在 SandIAM 内仅补缺，不覆盖已有行；重复及并发调用结果一致，不重复插入。该端点只登记服务与动作声明，不创建组织、应用、环境、客户端、凭证或 grant，也不恢复已停用的服务或动作。
+`POST /app/sand-ai/admin/setup/bootstrap`，请求体为空（`{}` 或不带 body；携带任何字段返回 `400`，`SAND_AI_VALIDATION_ERROR`）。要求后台登录并拥有 `sand_ai:setup:service-catalog:register`，不新增权限码。端点幂等，不接受 GET。每次调用先幂等确保 SandAI 内部安全材料（等价于 `sand-ai:security initialize` 的首次初始化：私有 `.env` 存储、文件锁、权限及业务历史核验完全一致；材料已就绪则跳过，不轮换、不覆盖、不在响应中输出）；随后用 `preflight` 判断 SandIAM 目录端口，可用时依次执行基础、Skill、音频三组登记，等价于顺序调用既有三个 `POST .../register`。三组登记在 SandIAM 内仅补缺，不覆盖已有行；重复及并发调用结果一致，不重复插入。该端点只登记服务与动作声明，不创建组织、应用、环境、客户端、凭证或 grant，也不恢复已停用的服务或动作；已有业务数据而内部材料缺失的实例按既有安全模型拒绝生成替代材料。
 
 成功（HTTP 200，`code=200`）：
 
@@ -827,6 +827,7 @@ OCR 价格 revision／rate／金额／currency 保持 NULL、`unpriced`，不能
 | `sandiam_unavailable` | 需要先安装身份与授权插件（SandIAM） | `false` |
 | `sandiam_disabled` | SandIAM 中的 SandAI 服务或动作已被停用，请先在 SandIAM 中启用后重试 | `false` |
 | `catalog_error` | 系统准备未完成：服务目录登记失败，请稍后重试 | `true` |
+| `security_init_failed` | 系统安全初始化未完成，请重试或联系管理员 | 按原因：`SAND_AI_SECURITY_BUSY`／`INITIALIZATION_FAILED` 为 `true`，恢复类原因（含已有业务历史缺材料、权限不符、材料残缺）为 `false` |
 
 ```json
 {"code":400,"message":"需要先安装身份与授权插件（SandIAM）","data":{"ready":false,"reason":"sandiam_unavailable","retryable":false}}

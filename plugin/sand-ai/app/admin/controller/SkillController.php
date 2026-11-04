@@ -6,7 +6,6 @@ use app\Application\Skill\SkillGateway;
 use app\Application\Skill\SkillCaseGateway;
 use app\Application\Skill\SkillWorkspaceGateway;
 use app\Application\Usage\UsageAttribution;
-use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
@@ -50,8 +49,8 @@ final class SkillController extends SandAiAdminController {
          throw new ApiProblem('SAND_AI_VALIDATION_ERROR','Skill receipt query is invalid');
      return $q;
  }
- private function write(Request $r,callable $fn,string $m): Response { try{$b=$r->post();if(!is_array($b))throw new ApiProblem('SAND_AI_VALIDATION_ERROR','Skill request envelope is invalid');$k=$r->header('idempotency-key');if(!is_string($k)||trim($k)===''||strlen($k)>128)throw new ApiProblem('SAND_AI_VALIDATION_ERROR','Idempotency-Key is invalid');return $this->success($fn($b,trim($k)),$m);}catch(ApiProblem $e){throw new ApiException($e->errorCode.': '.$e->getMessage());} }
- private function readOnly(callable $fn): Response { try{return $this->success($fn());}catch(ApiProblem $e){throw new ApiException($e->errorCode.': '.$e->getMessage());} }
+ private function write(Request $r,callable $fn,string $m): Response { try{$b=$r->post();if(!is_array($b))throw new ApiProblem('SAND_AI_VALIDATION_ERROR','Skill request envelope is invalid');$k=$r->header('idempotency-key');if(!is_string($k)||trim($k)===''||strlen($k)>128)throw new ApiProblem('SAND_AI_VALIDATION_ERROR','Idempotency-Key is invalid');return $this->success($fn($b,trim($k)),$m);}catch(ApiProblem $e){throw $this->adminProblemException($e);} }
+ private function readOnly(callable $fn): Response { try{return $this->success($fn());}catch(ApiProblem $e){throw $this->adminProblemException($e);} }
  private function queryId(mixed $v): int { $id=filter_var($v,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($id===false)throw new ApiProblem('SAND_AI_VALIDATION_ERROR','Skill query is invalid');return(int)$id; }
  private function id(mixed $v): int {if((!is_int($v)&&(!is_string($v)||!ctype_digit($v)))||(int)$v<1)throw new ApiProblem('SAND_AI_VALIDATION_ERROR','Skill request envelope is invalid');return(int)$v;} private function array(mixed $v):array{if(!is_array($v))throw new ApiProblem('SAND_AI_VALIDATION_ERROR','Skill request envelope is invalid');return$v;} private function without(array $a,string $k):array{unset($a[$k]);return$a;}
 }

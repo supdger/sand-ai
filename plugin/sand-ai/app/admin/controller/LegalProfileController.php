@@ -144,7 +144,7 @@ final class LegalProfileController extends SandAiAdminController
         try {
             return $this->success($operation(), $message);
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         } catch (ApiException $exception) {
             throw $exception;
         } catch (\Throwable) {

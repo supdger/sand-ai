@@ -8,13 +8,12 @@ use app\Api\Support\ApiProblem;
 use app\Application\Usage\UsageSummaryCsvExporter;
 use app\Application\Usage\UsageSummaryGateway;
 use app\Application\Usage\UsageSummaryPolicy;
-use plugin\sandadmin\basic\BaseController;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
 
 /** Platform administrator aggregation over sand_ai_usage_event only. */
-final class UsageSummaryController extends BaseController
+final class UsageSummaryController extends SandAiAdminController
 {
     #[Permission('SandAI 费用汇总', 'sand_ai:usage:summary')]
     public function summary(Request $request): Response
@@ -76,7 +75,7 @@ final class UsageSummaryController extends BaseController
             'SAND_AI_USAGE_SCOPE_UNAVAILABLE' => 503,
             default => 400,
         };
-        return json(['code' => $status, 'message' => $problem->errorCode . ': ' . $problem->getMessage()])->withStatus($status);
+        return json(['code' => $status, 'message' => $this->adminProblemMessage($problem)])->withStatus($status);
     }
 
 }

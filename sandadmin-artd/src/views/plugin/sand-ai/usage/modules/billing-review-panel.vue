@@ -17,14 +17,14 @@
       ></template
     >
     <div class="flex flex-wrap items-center gap-3 mb-3"
-      ><label>服务商 ID</label
+      ><label>服务商编号</label
       ><ElInput
         v-model="providerText"
         :disabled="scopeLocked"
         class="max-w-xs"
         placeholder="留空查看全部获权批次"
       /><ElButton :disabled="pending || recoveryBusy" @click="load">筛选</ElButton
-      ><span class="text-sm">最近 100 个导入批次，时间为 UTC</span></div
+      ><span class="text-sm">最近 100 个导入批次，时间为世界标准时间（UTC）</span></div
     >
     <div class="mb-3">
       <ElButton :disabled="pending || recoveryBusy" @click="journal.reload">查看本管理员原请求记录</ElButton>
@@ -42,10 +42,10 @@
     <ElTable v-else :data="batches" v-loading="loading">
       <ElTableColumn prop="id" label="批次" width="90" /><ElTableColumn
         prop="provider_id"
-        label="服务商 ID"
+        label="服务商编号"
         width="110"
       />
-      <ElTableColumn label="账期 UTC" min-width="300"
+      <ElTableColumn label="账期（世界标准时间）" min-width="300"
         ><template #default="{ row }"
           >{{ row.period_start }} 至 {{ row.period_end }}</template
         ></ElTableColumn
@@ -54,7 +54,7 @@
         prop="reference"
         label="参考号"
         min-width="140"
-      /><ElTableColumn prop="create_time" label="导入时间 UTC" min-width="170" />
+      /><ElTableColumn prop="create_time" label="导入时间（世界标准时间）" min-width="170" />
       <ElTableColumn label="操作" width="120"
         ><template #default="{ row }"
           ><ElButton link type="primary" :disabled="pending || recoveryBusy" @click="openBatch(row.id)"
@@ -119,8 +119,8 @@
     <ElAlert v-else-if="detailError" :title="detailError" type="warning" :closable="false" />
     <template v-else-if="detail">
       <ElDescriptions :column="1" border
-        ><ElDescriptionsItem label="服务商 ID">{{ detail.provider_id }}</ElDescriptionsItem
-        ><ElDescriptionsItem label="账期 UTC"
+        ><ElDescriptionsItem label="服务商编号">{{ detail.provider_id }}</ElDescriptionsItem
+        ><ElDescriptionsItem label="账期（世界标准时间）"
           >{{ detail.period_start }} 至 {{ detail.period_end }}</ElDescriptionsItem
         ><ElDescriptionsItem label="来源 / 参考号"
           >{{ detail.source_kind }} / {{ detail.reference }}</ElDescriptionsItem
@@ -220,6 +220,7 @@
   import { ElMessageBox } from 'element-plus'
   import { useAuth } from '@/hooks/core/useAuth'
   import { billingApi, billingError, positiveId } from '../../api/billing'
+  import { hintForRuntimeErrorCode } from '../../api/runtimeErrors'
   import { reconciliationLabel, reconciliationReason, reviewLabel } from '../../api/billing-types'
   import type {
     BillingBatch,
@@ -263,7 +264,8 @@
       } else if (response.state === 'rejected') {
         rejectedEntry.value = entry
         rejectedCode.value = response.rejection.error_code
-        recoveryNotice.value = `原请求已正式拒绝（${response.rejection.error_code}）。明确确认拒绝后再修正输入；请求编号仍保留。`
+        const rejectionHint = hintForRuntimeErrorCode(response.rejection.error_code)
+        recoveryNotice.value = `原请求已正式拒绝${rejectionHint ? `：${rejectionHint.replace(/。$/, '')}` : ''}。明确确认拒绝后再修正输入；请求编号仍保留。`
       }
       else recoveryNotice.value = '原请求结果仍未知，不代表尚未提交。请保留请求编号，只读查询原请求结果；结果确认前不能重新填写输入、再次导入或更换请求号。'
       if (entry.operation === 'import') { importOpen.value = true; return }
@@ -389,7 +391,7 @@
     invalidateIndex()
     const id = providerText.value === '' ? undefined : positiveId(providerText.value)
     if (id === null) {
-      error.value = '服务商 ID 必须是正整数。'
+      error.value = '服务商编号必须是正整数。'
       return
     }
     const generation = ++indexGeneration

@@ -48,7 +48,7 @@ export default {
       || result.state !== 'published' || result.effect_class !== 'read_only'
       || !object(result.input_schema) || !object(result.output_schema)
       || typeof result.snapshot_sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(result.snapshot_sha256)) {
-      throw new Error('当前授权下的工具固定版本、环境或 Schema 未确认；尚未提交试用。')
+      throw new Error('当前授权下的工具固定版本、环境或参数结构未确认；尚未提交试用。')
     }
     return { code, version, environment_id: result.environment_id, state: 'published', effect_class: 'read_only',
       input_schema: result.input_schema, output_schema: result.output_schema, snapshot_sha256: result.snapshot_sha256 }

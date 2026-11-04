@@ -703,7 +703,7 @@
         && !route.driver_code)
     )
     if (incomplete) {
-      ElMessage.warning(`请补全 ${incomplete.capability_code} 的部署 ID 与驱动`)
+      ElMessage.warning(`请补全 ${incomplete.capability_code} 的部署编号与驱动`)
       return
     }
     const targetEnvironment = environmentId.value

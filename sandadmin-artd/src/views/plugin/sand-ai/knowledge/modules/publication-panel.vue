@@ -91,7 +91,7 @@
           maxlength="64"
           show-word-limit
           :disabled="writing"
-          placeholder="例如 legal_reference"
+          placeholder="英文小写引用，例如“法律条文”对应编码"
         />
         <span class="form-hint">同一消费环境内唯一；启用后不能改指向其他知识库。</span>
       </ElFormItem>
@@ -120,7 +120,7 @@
     <ElAlert v-if="trialError" type="error" :title="trialError" :closable="false" class="panel-alert" />
     <ElTable v-if="trialResult" :data="trialResult.matches" row-key="source_block_id"
       :empty-text="trialResult.matches.length === 0 ? '没有命中来源块' : ''">
-      <ElTableColumn label="文件 ID" prop="file_id" width="110" />
+      <ElTableColumn label="文件编号" prop="file_id" width="110" />
       <ElTableColumn label="定位" min-width="180">
         <template #default="{ row }">{{ row.locator_type }} · {{ JSON.stringify(row.locator) }}</template>
       </ElTableColumn>

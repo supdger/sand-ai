@@ -8,7 +8,7 @@
   </div>
 
   <ElAlert
-    title="导入只记录账单，不自动解析原件或核验厂商身份。绑定同一原件和相同位置后，跨批导入相同明细会复用原记录；内容不同会拒绝。所有时间为 UTC。"
+    title="导入只记录账单，不自动解析原件或核验厂商身份。绑定同一原件和相同位置后，跨批导入相同明细会复用原记录；内容不同会拒绝。所有时间为世界标准时间（UTC）。"
     type="info"
     :closable="false"
     class="mb-3"
@@ -30,17 +30,17 @@
   />
   <ElForm label-position="top" :disabled="formLocked">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <ElFormItem label="服务商 ID"><ElInput v-model="draft.provider" /></ElFormItem>
+      <ElFormItem label="服务商编号"><ElInput v-model="draft.provider" /></ElFormItem>
       <ElFormItem label="来源代码（小写字母开头）"
         ><ElInput v-model="draft.source_kind"
       /></ElFormItem>
-      <ElFormItem label="账期起 UTC"
+      <ElFormItem label="账期起（世界标准时间）"
         ><ElDatePicker
           v-model="draft.period_start"
           type="datetime"
           value-format="YYYY-MM-DD HH:mm:ss"
       /></ElFormItem>
-      <ElFormItem label="账期止 UTC"
+      <ElFormItem label="账期止（世界标准时间）"
         ><ElDatePicker
           v-model="draft.period_end"
           type="datetime"
@@ -50,17 +50,17 @@
     <ElFormItem label="参考号"><ElInput v-model="draft.reference" maxlength="256" /></ElFormItem>
     <ElCheckbox v-model="useEvidence">绑定原件，识别跨批重复明细</ElCheckbox>
     <template v-if="useEvidence">
-      <p class="my-3 text-sm">上传本服务商的 CSV、PDF 或 Excel（.xlsx）原件，或填写已有原件 ID。文件以私有方式保存，摘要只证明内容一致；原件位置由你填写，不代表自动解析或厂商认证。期间汇总和未出账记录仍须按原粒度填写，不分摊到单次调用。</p>
+      <p class="my-3 text-sm">上传本服务商的 CSV、PDF 或 Excel（.xlsx）原件，或填写已有原件编号。文件以私有方式保存，摘要只证明内容一致；原件位置由你填写，不代表自动解析或厂商认证。期间汇总和未出账记录仍须按原粒度填写，不分摊到单次调用。</p>
       <div v-if="hasAuth('sand_ai:billing:review')" class="my-3 flex flex-wrap gap-3">
         <label>CSV / PDF / XLSX 原件（1 字节至 10 MiB）
           <input ref="fileInput" type="file" accept=".csv,.pdf,.xlsx,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" :disabled="formLocked" @change="chooseFile" />
         </label>
         <ElButton :disabled="formLocked || !selectedFile" :loading="uploadBusy" @click="uploadEvidence">上传原件</ElButton>
       </div>
-      <p v-else class="my-3 text-sm">上传原件需要账单审核权限；可由有权限的管理员上传后提供原件 ID。</p>
+      <p v-else class="my-3 text-sm">上传原件需要账单审核权限；可由有权限的管理员上传后提供原件编号。</p>
       <p v-if="selectedFile" class="my-3 text-sm">已选：{{ selectedFile.name }} · {{ selectedFile.size }} 字节。上传不会解析或导入明细。</p>
-      <ElFormItem label="已有原件 ID（须属于本服务商）">
-        <ElInput v-model="draft.evidenceId" placeholder="上传成功后自动填入，也可填写已有 ID" />
+      <ElFormItem label="已有原件编号（须属于本服务商）">
+        <ElInput v-model="draft.evidenceId" placeholder="上传成功后自动填入，也可填写已有编号" />
       </ElFormItem>
       <p v-if="uploadedEvidence && draft.evidenceId === String(uploadedEvidence.id)" class="my-3 text-sm">
         原件 {{ uploadedEvidence.id }}：{{ evidenceLabel(uploadedEvidence.state) }}；服务器 SHA-256：{{ uploadedEvidence.sha256 }}
@@ -85,13 +85,13 @@
         <ElFormItem label="币种（三位大写）"
           ><ElInput v-model="line.currency" maxlength="3"
         /></ElFormItem>
-        <ElFormItem label="发生起 UTC"
+        <ElFormItem label="发生起（世界标准时间）"
           ><ElDatePicker
             v-model="line.occurred_start"
             type="datetime"
             value-format="YYYY-MM-DD HH:mm:ss"
         /></ElFormItem>
-        <ElFormItem label="发生止 UTC"
+        <ElFormItem label="发生止（世界标准时间）"
           ><ElDatePicker
             v-model="line.occurred_end"
             type="datetime"
@@ -313,7 +313,7 @@
       if (original === null) {
         const providerId = positiveId(draft.provider)
         const file = selectedFile.value
-        if (!providerId || !file) throw new Error('请先填写服务商 ID 并选择原件。')
+        if (!providerId || !file) throw new Error('请先填写服务商编号并选择原件。')
         const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
         if (!currentOwner(actor, actorEpoch)) return
         original = { providerId, file, sha256: Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('') }
@@ -371,7 +371,7 @@
       const evidenceId = useEvidence.value ? positiveId(draft.evidenceId) : null
       if (useEvidence.value && (!evidenceId ||
           (uploadedEvidence.value?.id === evidenceId && uploadedEvidence.value.state !== 'available')))
-        throw new Error('请先上传可用原件，或填写属于本服务商的可用原件 ID。')
+        throw new Error('请先上传可用原件，或填写属于本服务商的可用原件编号。')
       if (
         !providerId ||
         !code.test(draft.source_kind) ||
@@ -380,7 +380,7 @@
         !validTime(draft.period_end) ||
         draft.period_end <= draft.period_start
       )
-        throw new Error('请填写服务商、合法来源代码、参考号与完整 UTC 账期。')
+        throw new Error('请填写服务商、合法来源代码、参考号与完整世界标准时间账期。')
       const ids = new Set<string>()
       const locators = new Set<string>()
       for (const line of draft.lines) {
@@ -424,7 +424,7 @@
       }
       confirming.value = true
       await ElMessageBox.confirm(
-        `服务商 ${input.provider_id}，${input.lines.length} 行，账期 ${input.period_start} 至 ${input.period_end} UTC。${evidenceId === null ? '未绑定原件，不做跨批明细去重。' : `绑定原件 ${evidenceId}，按人工填写的位置识别同一明细；不代表厂商已核验。`}导入金额保持原文；是否记录？`,
+        `服务商 ${input.provider_id}，${input.lines.length} 行，账期 ${input.period_start} 至 ${input.period_end}（世界标准时间）。${evidenceId === null ? '未绑定原件，不做跨批明细去重。' : `绑定原件 ${evidenceId}，按人工填写的位置识别同一明细；不代表厂商已核验。`}导入金额保持原文；是否记录？`,
         '确认导入',
         { type: 'warning' }
       )

@@ -41,7 +41,7 @@ final class MeetingReviewWorkflowController extends SandAiAdminController
                 ->withStatus(400);
         } catch (ApiProblem $problem) {
             $status = $problem->errorCode === 'SAND_AI_MEETING_REVIEW_HANDOFF_FAILED' ? 409 : 400;
-            return json(['code' => $status, 'message' => $problem->errorCode . ': ' . $problem->getMessage()])
+            return json(['code' => $status, 'message' => $this->adminProblemMessage($problem)])
                 ->withStatus($status);
         }
     }

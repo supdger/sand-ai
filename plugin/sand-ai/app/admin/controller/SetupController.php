@@ -13,6 +13,7 @@ use app\Application\Onboarding\GuzzleOnboardingHttpTransport;
 use app\Application\Onboarding\OnboardingHttpTransport;
 use app\Application\Onboarding\OnboardingRequestSecrets;
 use app\Application\Onboarding\OnboardingStatus;
+use app\Application\Onboarding\InternalSecurityBootstrapService;
 use app\Application\Onboarding\InternalSecurityInitialization;
 use app\Application\Onboarding\OnboardingPublicationService;
 use app\Application\Onboarding\OnboardingTokenBoundPolicy;
@@ -53,7 +54,7 @@ final class SetupController extends SandAiAdminController
         try {
             return $this->success(SolutionGuideCatalog::index());
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 
@@ -225,7 +226,7 @@ final class SetupController extends SandAiAdminController
         try {
             return $this->success((new HostSandIamServiceCatalog())->preflight());
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), 400);
+            throw $this->adminProblemException($problem, 400);
         }
     }
 
@@ -239,7 +240,7 @@ final class SetupController extends SandAiAdminController
         try {
             return $this->success((new HostSandIamServiceCatalog())->register(), '服务目录登记完成');
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), 400);
+            throw $this->adminProblemException($problem, 400);
         }
     }
 
@@ -249,7 +250,7 @@ final class SetupController extends SandAiAdminController
         try {
             return $this->success((new HostSandIamServiceCatalog())->preflightSkill());
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), 400);
+            throw $this->adminProblemException($problem, 400);
         }
     }
 
@@ -262,7 +263,7 @@ final class SetupController extends SandAiAdminController
         try {
             return $this->success((new HostSandIamServiceCatalog())->registerSkill(), 'Skill 服务动作登记完成');
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), 400);
+            throw $this->adminProblemException($problem, 400);
         }
     }
 
@@ -272,7 +273,7 @@ final class SetupController extends SandAiAdminController
         try {
             return $this->success((new HostSandIamServiceCatalog())->preflightAudio());
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), 400);
+            throw $this->adminProblemException($problem, 400);
         }
     }
 
@@ -285,18 +286,47 @@ final class SetupController extends SandAiAdminController
         try {
             return $this->success((new HostSandIamServiceCatalog())->registerAudio(), '音频服务动作登记完成');
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), 400);
+            throw $this->adminProblemException($problem, 400);
         }
     }
 
-    /** Idempotent one-call registration of the base, Skill and audio service declarations. */
+    /** Idempotent one-call registration of internal security material and the base, Skill and audio service declarations. */
     #[Permission('SandAI 系统准备（登记服务目录）', 'sand_ai:setup:service-catalog:register')]
     public function bootstrap(Request $request): Response
     {
         if ($request->post() !== []) {
             throw new ApiException('SAND_AI_VALIDATION_ERROR: setup bootstrap accepts an empty body', 400);
         }
+        // First-use internal security material is ensured before the SandIAM
+        // service catalog: a missing keyring blocks every SandAI write, and
+        // both steps are independent insert-if-missing operations.
+        $security = (new InternalSecurityBootstrapService())->ensure();
         $result = (new ServiceCatalogBootstrapService())->bootstrap();
+        // SandIAM is the outer dependency: when both checks fail, report its
+        // absence first so the operator is not told to retry security material
+        // initialization that cannot succeed without the identity plane.
+        if ($result['ready'] !== true && $result['reason'] === ServiceCatalogBootstrapService::REASON_MISSING) {
+            return json([
+                'code' => 400,
+                'message' => (string) $result['message'],
+                'data' => [
+                    'ready' => false,
+                    'reason' => $result['reason'],
+                    'retryable' => $result['retryable'],
+                ],
+            ], JSON_UNESCAPED_UNICODE);
+        }
+        if ($security['ready'] !== true) {
+            return json([
+                'code' => 400,
+                'message' => (string) $security['message'],
+                'data' => [
+                    'ready' => false,
+                    'reason' => $security['reason'],
+                    'retryable' => $security['retryable'],
+                ],
+            ], JSON_UNESCAPED_UNICODE);
+        }
         if ($result['ready'] === true) {
             return $this->success([
                 'ready' => true,
@@ -480,7 +510,7 @@ final class SetupController extends SandAiAdminController
             'SAND_AI_ONBOARDING_MODEL_INVALID',
         ];
         if (!in_array($problem->errorCode, $inputCodes, true)) {
-            return new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            return $this->adminProblemException($problem);
         }
         $message = $problem->getMessage();
         if ($problem->errorCode === 'SAND_AI_VALIDATION_ERROR') {
@@ -632,7 +662,7 @@ final class SetupController extends SandAiAdminController
         try {
             return $this->success($operation(), $message);
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 

@@ -92,7 +92,7 @@ final class BillingReviewController extends SandAiAdminController
     {
         $status = in_array($error->errorCode, ['SAND_AI_BILLING_REVIEW_CONFLICT','SAND_AI_BILLING_REVIEW_FINAL','SAND_AI_BILLING_RECOVERY_CONFLICT','SAND_AI_BILLING_OPERATION_REJECTED','SAND_AI_BILLING_OPERATION_UNKNOWN'], true) ? 409
             : ($error->errorCode === 'SAND_AI_RESOURCE_NOT_FOUND' ? 404 : 400);
-        return json(['code' => $status, 'message' => $error->getMessage(),
+        return json(['code' => $status, 'message' => $this->adminProblemOverride($error) ?? $error->getMessage(),
             'data' => ['error_code' => $error->errorCode, 'retryable' => false]])->withStatus($status);
     }
     private function failed(): Response

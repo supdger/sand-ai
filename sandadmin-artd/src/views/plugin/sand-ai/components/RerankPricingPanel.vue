@@ -1,7 +1,7 @@
 <template>
   <section class="rerank-price">
     <h4>此模型的专业重排价格</h4>
-    <p>计量单位：{{ unitLabel }}。按实际服务商费率填写币种与 UTC 生效时间；保存草稿不会启用价格。金额未计价与实际账单未核对会分别保留。</p>
+    <p>计量单位：{{ unitLabel }}。按实际服务商费率填写币种与世界标准时间生效时间；保存草稿不会启用价格。金额未计价与实际账单未核对会分别保留。</p>
     <ElAlert v-if="notice" :title="notice" :closable="false" type="warning" />
     <ElButton v-permission="'sand_ai:pricing:index'" :loading="busy === 'read'" :disabled="!!busy" @click="read">读取价格目录 / 找回原操作</ElButton>
     <ElSelect v-model="selectedId" :disabled="!!busy || !!pending" clearable placeholder="选择已有价格版本" @change="selectPrice">
@@ -13,8 +13,8 @@
       <ElFormItem label="币种"><ElInput v-model.trim="currency" maxlength="3" placeholder="如 USD、CNY" /></ElFormItem>
       <ElFormItem label="单位价格"><ElInput v-model.trim="unitPrice" placeholder="非负金额，最多 8 位小数" /></ElFormItem>
       <ElFormItem :label="`每多少${unitLabel}`"><ElInputNumber v-model="perQuantity" :min="1" :max="2147483647" :precision="0" /></ElFormItem>
-      <ElFormItem label="UTC 生效时间"><ElInput v-model.trim="effectiveFrom" placeholder="YYYY-MM-DD HH:mm:ss" /></ElFormItem>
-      <ElFormItem label="UTC 失效时间"><ElInput v-model.trim="effectiveUntil" placeholder="可留空" /></ElFormItem>
+      <ElFormItem label="世界标准时间生效时间"><ElInput v-model.trim="effectiveFrom" placeholder="YYYY-MM-DD HH:mm:ss" /></ElFormItem>
+      <ElFormItem label="世界标准时间失效时间"><ElInput v-model.trim="effectiveUntil" placeholder="可留空" /></ElFormItem>
     </ElForm>
     <ElSpace wrap>
       <ElButton v-permission="'sand_ai:pricing:save'" :loading="busy === 'save'" :disabled="!!busy || !!pending || storageBlocked || !!selected || !canSave" @click="save">保存新的价格草稿</ElButton>
@@ -47,7 +47,7 @@ const originalReceipt = ref<RerankPrice | null>(null)
 const originalKind = ref<'save' | 'publish'>('save')
 const storageBlocked = ref(false)
 let generation = 0
-const unitLabel = computed(() => props.driver === 'cohere_rerank' ? '搜索单位' : '重排 Token')
+const unitLabel = computed(() => props.driver === 'cohere_rerank' ? '搜索单位' : '重排词元')
 const canSave = computed(() => !!name.value && /^[A-Z]{3}$/.test(currency.value) && /^(0|[1-9][0-9]{0,11})(\.[0-9]{1,8})?$/.test(unitPrice.value) && Number.isSafeInteger(perQuantity.value) && perQuantity.value > 0 && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(effectiveFrom.value) && (!effectiveUntil.value || /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(effectiveUntil.value)))
 function namespace(): string {
   const admin = identity.actor.value

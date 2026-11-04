@@ -7,14 +7,14 @@
     <ElAlert
       type="info"
       :closable="false"
-      title="范围与操作者是消费应用声明（consumer_declared），不代表平台已验证个人或团队成员。真实人员及成员关系须由已授权消费应用核实并传入，手填引用不能证明认证；组织引用由服务端核对。"
+      title="范围与操作者是消费应用声明，不代表平台已验证个人或团队成员。真实人员及成员关系须由已授权消费应用核实并传入，手填引用不能证明认证；组织引用由服务端核对。"
     />
     <ElAlert v-if="error" type="error" :title="error" closable @close="error = ''" />
     <ElForm label-width="110px" @submit.prevent>
       <RuntimeApiKeyField
         v-model="bearer"
         :persist-in-session="false"
-        placeholder="由消费后端取得的 sand-ai 工作负载 Bearer，仅保留在本页"
+        placeholder="由消费后端取得的 SandAI 工作负载调用密钥，仅保留在本页"
       />
       <ElFormItem label="消费范围">
         <ElSelect v-model="scopeType" placeholder="选择消费后端声明的范围">
@@ -23,10 +23,10 @@
         </ElSelect>
       </ElFormItem>
       <ElFormItem label="范围引用"
-        ><ElInput v-model="scopeRef" placeholder="消费后端提供的 scope.ref"
+        ><ElInput v-model="scopeRef" placeholder="消费后端提供的范围引用"
       /></ElFormItem>
       <ElFormItem label="操作者引用"
-        ><ElInput v-model="actorRef" placeholder="消费后端提供的 actor_ref"
+        ><ElInput v-model="actorRef" placeholder="消费后端提供的操作者引用"
       /></ElFormItem>
       <ElFormItem
         ><ElButton :disabled="!ready || busy" :loading="busy" @click="loadWorkspace(1)"
@@ -409,12 +409,12 @@
       启用、版本废弃或撤销后仍可读取；需要独立费用权限，未知金额不代表免费。
     </p>
     <ElForm label-width="110px" @submit.prevent>
-      <ElFormItem label="原 Skill 代码"><ElInput v-model="costLocator.code" /></ElFormItem>
+      <ElFormItem label="原技能模板代码"><ElInput v-model="costLocator.code" /></ElFormItem>
       <ElFormItem label="原固定版本"><ElInputNumber v-model="costLocator.version" :min="1" /></ElFormItem>
       <ElFormItem label="原调用类型"><ElSelect v-model="costLocator.kind">
         <ElOption label="草稿测试" value="test" /><ElOption label="固定版本运行" value="run" />
       </ElSelect></ElFormItem>
-      <ElFormItem label="原请求键"><ElInput v-model="costLocator.key" placeholder="原 Idempotency-Key / request_id" /></ElFormItem>
+      <ElFormItem label="原请求键"><ElInput v-model="costLocator.key" placeholder="原请求编号" /></ElFormItem>
       <ElFormItem><ElButton :disabled="costReadBusy || !readerReady || !costLocator.code.trim() || !costLocator.key.trim()" :loading="costReadBusy" @click="readCost">
         只读原调用费用
       </ElButton></ElFormItem>
@@ -1178,7 +1178,7 @@
   function draftSchema(text: string, label: string): Record<string, unknown> {
     const schema = object(text)
     if (schema.type !== 'object')
-      throw new Error(`${label}须为根类型 type 为 object 的 JSON Schema，不能使用空对象或其他根类型`)
+      throw new Error(`${label}须为根类型 type 为 object 的参数结构，不能使用空对象或其他根类型`)
     return schema
   }
   function draftPayload(): ConsumerSkillDraft {

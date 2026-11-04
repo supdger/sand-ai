@@ -12,10 +12,10 @@
         <div>
           <h2 class="know-title">检索 / 知识</h2>
           <p class="know-desc">
-            消费契约 1.7：仅检索当前环境已解析私有文件的来源块。返回定位与短摘录，不暴露 bucket/object key。
+            仅检索当前环境已解析私有文件的来源块。返回定位与短摘录，不暴露存储位置细节。
           </p>
         </div>
-        <ElTag type="success" effect="plain">API 1.7 · retrieval</ElTag>
+        <ElTag type="success" effect="plain">私有来源检索</ElTag>
       </div>
 
       <ElForm label-width="110px" @submit.prevent>

@@ -1,24 +1,24 @@
 <template>
   <ElDrawer v-model="open" title="账单历史与原调用费用" size="min(1200px, 96vw)" append-to-body destroy-on-close @closed="clearReadData">
-    <p class="mb-3 text-sm">查询已有记录。当前导入、同步、审核或退款的输入及原请求记录会继续保留。所有时间为 UTC，未知金额不表示零。</p>
+    <p class="mb-3 text-sm">查询已有记录。当前导入、同步、审核或退款的输入及原请求记录会继续保留。所有时间为世界标准时间（UTC），未知金额不表示零。</p>
     <section v-if="canBilling" aria-label="已有账单批次">
       <ElDivider>账单批次</ElDivider>
       <ElForm label-position="top" @submit.prevent>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <ElFormItem label="服务商 ID（留空查看获权批次）"><ElInput v-model="providerText" /></ElFormItem>
-          <ElFormItem label="已有批次 ID（可直接读取更早的批次）"><ElInput v-model="batchText" /></ElFormItem>
+          <ElFormItem label="服务商编号（留空查看获权批次）"><ElInput v-model="providerText" /></ElFormItem>
+          <ElFormItem label="已有批次编号（可直接读取更早的批次）"><ElInput v-model="batchText" /></ElFormItem>
         </div>
         <div class="flex flex-wrap gap-3 mb-3">
           <ElButton :loading="listLoading" @click="loadBatches">查询最近 100 个批次</ElButton>
-          <ElButton :loading="batchLoading" @click="readBatch()">按批次 ID 读取</ElButton>
+          <ElButton :loading="batchLoading" @click="readBatch()">按批次编号读取</ElButton>
         </div>
       </ElForm>
       <ElAlert v-if="listError" :title="listError" type="warning" :closable="false" />
       <ElEmpty v-else-if="listLoaded && batches.length === 0" description="暂无可读取批次" />
       <ElTable v-if="batches.length" :data="batches" v-loading="listLoading">
         <ElTableColumn prop="id" label="批次" width="90" />
-        <ElTableColumn prop="provider_id" label="服务商 ID" width="110" />
-        <ElTableColumn label="账期 UTC" min-width="300"><template #default="{ row }">{{ row.period_start }} 至 {{ row.period_end }}</template></ElTableColumn>
+        <ElTableColumn prop="provider_id" label="服务商编号" width="110" />
+        <ElTableColumn label="账期（世界标准时间）" min-width="300"><template #default="{ row }">{{ row.period_start }} 至 {{ row.period_end }}</template></ElTableColumn>
         <ElTableColumn prop="source_kind" label="来源" min-width="120" />
         <ElTableColumn prop="reference" label="参考号" min-width="140" />
         <ElTableColumn label="操作" width="100"><template #default="{ row }"><ElButton link type="primary" @click="readBatch(row.id)">读取明细</ElButton></template></ElTableColumn>
@@ -28,11 +28,11 @@
       <template v-else-if="selectedBatch">
         <ElDescriptions :column="1" border class="mt-3">
           <ElDescriptionsItem label="当前读取的批次">{{ selectedBatch.id }} · 服务商 {{ selectedBatch.provider_id }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="账期 UTC">{{ selectedBatch.period_start }} 至 {{ selectedBatch.period_end }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="账期（世界标准时间）">{{ selectedBatch.period_start }} 至 {{ selectedBatch.period_end }}</ElDescriptionsItem>
           <ElDescriptionsItem label="来源 / 参考号">{{ selectedBatch.source_kind }} / {{ selectedBatch.reference }}</ElDescriptionsItem>
         </ElDescriptions>
         <ElTable :data="selectedBatch.lines" class="mt-3">
-          <ElTableColumn prop="billing_line_id" label="行 ID" width="100" />
+          <ElTableColumn prop="billing_line_id" label="行编号" width="100" />
           <ElTableColumn prop="external_line_id" label="原行号" min-width="120" />
           <ElTableColumn label="模型 / 能力" min-width="170"><template #default="{ row }">{{ row.model_code }} / {{ row.capability_code }}</template></ElTableColumn>
           <ElTableColumn prop="meter_code" label="计量口径" min-width="140" />
@@ -50,7 +50,7 @@
         <ElDescriptionsItem label="当前原账单行">{{ selectedLine.billing_line_id }} · {{ selectedLine.external_line_id }}</ElDescriptionsItem>
         <ElDescriptionsItem label="原账单金额">{{ selectedLine.amount }} {{ selectedLine.currency }}</ElDescriptionsItem>
         <ElDescriptionsItem label="数量 / 计量口径">{{ selectedLine.quantity }} / {{ selectedLine.meter_code }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="发生时段 UTC">{{ selectedLine.occurred_start }} 至 {{ selectedLine.occurred_end }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="发生时段（世界标准时间）">{{ selectedLine.occurred_start }} 至 {{ selectedLine.occurred_end }}</ElDescriptionsItem>
         <ElDescriptionsItem label="来源身份">{{ selectedLine.identity_state === 'verified' ? '来源身份已核验' : '来源身份未核验' }}</ElDescriptionsItem>
       </ElDescriptions>
     </section>
@@ -58,19 +58,19 @@
     <section v-if="canReview" aria-label="原账单行审核历史">
       <ElDivider>原账单行审核历史</ElDivider>
       <ElForm label-position="top" @submit.prevent>
-        <ElFormItem label="已有账单行 ID"><ElInput v-model="lineText" /></ElFormItem>
+        <ElFormItem label="已有账单行编号"><ElInput v-model="lineText" /></ElFormItem>
         <ElButton :loading="historyLoading" @click="readHistory">查询原行审核历史</ElButton>
       </ElForm>
-      <p v-if="historyTarget" class="my-3 text-sm">当前查询行 ID：{{ historyTarget }}。人工审核记录不替换厂商对账金额。</p>
+      <p v-if="historyTarget" class="my-3 text-sm">当前查询行编号：{{ historyTarget }}。人工审核记录不替换厂商对账金额。</p>
       <ElAlert v-if="historyError" :title="historyError" type="warning" :closable="false" class="mt-3" />
       <ElEmpty v-else-if="historyLoaded && history.length === 0" description="此原行暂无人工审核记录" />
       <ElTable v-else-if="history.length" :data="history" v-loading="historyLoading" class="mt-3">
-        <ElTableColumn prop="create_time" label="时间 UTC" min-width="170" />
-        <ElTableColumn prop="admin_id" label="原操作员 ID" width="120" />
+        <ElTableColumn prop="create_time" label="时间（世界标准时间）" min-width="170" />
+        <ElTableColumn prop="admin_id" label="原操作员编号" width="120" />
         <ElTableColumn label="人工结果" min-width="170"><template #default="{ row }">{{ reviewLabel(row.comparison_state) }}</template></ElTableColumn>
         <ElTableColumn label="差额" min-width="200"><template #default="{ row }">数量 {{ row.quantity_difference ?? '未比较' }} / 金额 {{ row.amount_difference ?? '未比较' }}<span v-if="selectedLine"> {{ selectedLine.currency }}</span></template></ElTableColumn>
         <ElTableColumn prop="reason" label="比较说明" min-width="170" />
-        <ElTableColumn label="原件记录" min-width="220"><template #default="{ row }">ID {{ row.evidence_id }} · {{ row.evidence_state === 'available' ? '原件可用' : '原件不可用' }}<br />SHA {{ row.evidence_sha256 }}</template></ElTableColumn>
+        <ElTableColumn label="原件记录" min-width="220"><template #default="{ row }">编号 {{ row.evidence_id }} · {{ row.evidence_state === 'available' ? '原件可用' : '原件不可用' }}<br />SHA {{ row.evidence_sha256 }}</template></ElTableColumn>
         <ElTableColumn prop="evidence_locator" label="原审核位置" min-width="160" />
         <ElTableColumn prop="note" label="原审核说明" min-width="180" />
         <ElTableColumn prop="idempotency_key" label="原请求号" min-width="220" />
@@ -82,8 +82,8 @@
       <ElDivider>原模型调用费用</ElDivider>
       <ElForm label-position="top" @submit.prevent>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <ElFormItem label="已有调用的环境 ID"><ElInput v-model="environmentText" /></ElFormItem>
-          <ElFormItem label="已有调用 ID"><ElInput v-model="invocationText" /></ElFormItem>
+          <ElFormItem label="已有调用的环境编号"><ElInput v-model="environmentText" /></ElFormItem>
+          <ElFormItem label="已有调用编号"><ElInput v-model="invocationText" /></ElFormItem>
         </div>
         <ElButton :loading="costLoading" @click="readCost">读取原调用费用</ElButton>
       </ElForm>
@@ -210,7 +210,7 @@
     if (!canBilling.value || !current(start)) return
     clearList()
     const providerId = providerText.value === '' ? undefined : positiveId(providerText.value)
-    if (providerId === null) { listError.value = '服务商 ID 必须是正整数，或留空。'; return }
+    if (providerId === null) { listError.value = '服务商编号必须是正整数，或留空。'; return }
     const generation = ++listGeneration
     listLoading.value = true
     try {
@@ -229,13 +229,13 @@
     if (id !== undefined) batchText.value = String(id)
     clearBatch()
     const target = positiveId(batchText.value)
-    if (!target) { batchError.value = '请填写已有账单批次的正整数 ID。'; return }
+    if (!target) { batchError.value = '请填写已有账单批次的正整数编号。'; return }
     const generation = ++batchGeneration
     batchLoading.value = true
     try {
       const detail = await billingApi.read(target)
       if (!current(start) || generation !== batchGeneration || !canBilling.value) return
-      if (detail.id !== target) throw new Error('账单明细响应与原批次 ID 不一致')
+      if (detail.id !== target) throw new Error('账单明细响应与原批次编号不一致')
       selectedBatch.value = detail
     } catch (cause) {
       if (current(start) && generation === batchGeneration && canBilling.value) batchError.value = billingError(cause)
@@ -252,14 +252,14 @@
     if (!canReview.value || !current(start)) return
     clearHistory()
     const target = positiveId(lineText.value)
-    if (!target) { historyError.value = '请填写已有账单行的正整数 ID。'; return }
+    if (!target) { historyError.value = '请填写已有账单行的正整数编号。'; return }
     const generation = ++historyGeneration
     historyTarget.value = target
     historyLoading.value = true
     try {
       const rows = await billingApi.history(target)
       if (!current(start) || generation !== historyGeneration || !canReview.value) return
-      if (rows.some(row => row.billing_line_id !== target)) throw new Error('审核历史响应与原账单行 ID 不一致')
+      if (rows.some(row => row.billing_line_id !== target)) throw new Error('审核历史响应与原账单行编号不一致')
       history.value = rows
       historyLoaded.value = true
     } catch (cause) {
@@ -278,7 +278,7 @@
     clearCost()
     const environmentId = positiveId(environmentText.value)
     const invocationId = positiveId(invocationText.value)
-    if (!environmentId || !invocationId) { costError.value = '请填写已有调用的正整数环境 ID 和调用 ID。'; return }
+    if (!environmentId || !invocationId) { costError.value = '请填写已有调用的正整数环境编号和调用编号。'; return }
     const generation = ++costGeneration
     costTarget.value = { environmentId, invocationId }
     costLoading.value = true

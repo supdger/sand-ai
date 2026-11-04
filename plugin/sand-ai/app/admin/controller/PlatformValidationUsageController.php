@@ -34,7 +34,7 @@ final class PlatformValidationUsageController extends SandAiAdminController
             $status = match ($problem->errorCode) {
                 'SAND_AI_AUTHENTICATION_FAILED' => 401, 'SAND_AI_INVOCATION_FACTS_UNVERIFIED' => 409, default => 400,
             };
-            return json(['code' => $status, 'message' => $problem->errorCode . ': ' . $problem->getMessage()])->withStatus($status);
+            return json(['code' => $status, 'message' => $this->adminProblemMessage($problem)])->withStatus($status);
         }
     }
 }

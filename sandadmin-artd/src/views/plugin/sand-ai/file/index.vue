@@ -107,7 +107,10 @@
       <section v-if="parseReaderTarget && parseReaderResult" class="file-alert">
         <p>原文件 #{{ parseReaderTarget.fileId }} · 原任务 #{{ parseReaderResult.id }} · {{ runStateLabel(parseReaderResult.state) }}。</p>
         <p v-if="parseReaderResult.file_parse_id">解析记录 #{{ parseReaderResult.file_parse_id }}。</p>
-        <p v-if="parseReaderResult.error_code">错误码：{{ parseReaderResult.error_code }}。</p>
+        <template v-if="parseReaderResult.error_code">
+          <p>错误：{{ hintForRuntimeErrorCode(parseReaderResult.error_code) ?? '未能识别的错误，请展开技术详情查看错误码' }}</p>
+          <details class="file-recover"><summary>技术详情</summary><p class="file-desc">{{ parseReaderResult.error_code }}</p></details>
+        </template>
         <p class="file-desc">此结果未提供费用金额。请按原任务号查看成果、来源与实际费用记录；解析请求号不是费用记录号。</p>
         <ElButton link type="primary" @click="viewKnownParse">查看原任务、成果与费用</ElButton>
       </section>
@@ -446,7 +449,7 @@
   }
 
   const columns: ColumnOption<SandAiFile>[] = [
-    { prop: 'id', label: 'ID', width: 80, align: 'center' },
+    { prop: 'id', label: '编号', width: 80, align: 'center' },
     { prop: 'original_name', label: '文件名', minWidth: 160 },
     { prop: 'extension', label: '扩展名', width: 90 },
     { prop: 'media_type', label: 'MIME', minWidth: 140 },
@@ -563,7 +566,7 @@
     if (row.state === 'delete_failed') return '清理未完成，可重试清理'
     const parse = row.latest_parse
     if (!parse) return '—'
-    const err = parse.error_code ? ` · ${parse.error_code}` : ''
+    const err = parse.error_code ? ` · ${hintForRuntimeErrorCode(parse.error_code) ?? '错误码见原任务详情'}` : ''
     return `${parse.state} · ${parse.parser_code}@${parse.parser_version} · 来源块 ${parse.source_block_count}${err}`
   }
 

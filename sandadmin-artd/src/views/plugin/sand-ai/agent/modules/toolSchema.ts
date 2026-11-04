@@ -28,12 +28,12 @@ const nodes = (value: unknown): number => Array.isArray(value)
 
 export function parseToolSchema(value: unknown): ToolSchema {
   if (bytes(JSON.stringify(value) ?? '') > 32768 || nodes(value) > 256) {
-    throw new Error('Schema 超出大小或字段数量限制')
+    throw new Error('参数结构超出大小或字段数量限制')
   }
   function child(raw: unknown, path: string, depth: number): ToolSchema {
     if (!record(raw) || depth > 8 || !types.includes(String(raw.type))
       || Object.keys(raw).some(key => !keywords.includes(key))) {
-      throw new Error(`${path}包含不支持的 Schema 定义`)
+      throw new Error(`${path}包含不支持的参数结构定义`)
     }
     const type = raw.type
     if (type !== 'object' && type !== 'array' && type !== 'string'
@@ -94,8 +94,8 @@ export function parseToolSchema(value: unknown): ToolSchema {
     }
     return result
   }
-  const schema = child(value, 'Schema', 0)
-  if (schema.type !== 'object') throw new Error('Schema 根节点必须是关闭额外字段的对象')
+  const schema = child(value, '参数结构', 0)
+  if (schema.type !== 'object') throw new Error('参数结构根节点必须是关闭额外字段的对象')
   return schema
 }
 
@@ -144,7 +144,7 @@ export function toolInputIssues(schema: ToolSchema, input: unknown): string[] {
       for (const [name, item] of Object.entries(value)) {
         const property = definition.properties && Object.hasOwn(definition.properties, name)
           ? definition.properties[name] : undefined
-        if (!property) issues.push(`${path}.${name}未在工具 Schema 中声明`)
+        if (!property) issues.push(`${path}.${name}未在参数结构中声明`)
         else check(property, item, `${path}.${name}`, depth + 1)
       }
     }

@@ -3,7 +3,7 @@
   <p class="muted">调整输出上限、推理额度或技能模板输出时，另存为后继部署。继续使用已保存的服务商连接和模型，无需再次填写 API Key。</p>
   <ElAlert v-if="postFlight" title="原部署操作仍在提交中。切换身份或环境不会取消已发出的请求；待本次提交结束后，只读找回原结果。" type="info" :closable="false" class="notice" />
   <ElAlert v-if="message" :title="message" :type="messageType" :closable="false" class="notice" />
-  <p v-if="verificationIntent" class="muted">原后继验证请求号：{{ verificationIntent.key }} · 部署 {{ verificationIntent.deployment_id }} · 修订 {{ verificationIntent.revision }}。此号与费用明细中的尝试 ID 不同。</p>
+  <p v-if="verificationIntent" class="muted">原后继验证请求号：{{ verificationIntent.key }} · 部署 {{ verificationIntent.deployment_id }} · 修订 {{ verificationIntent.revision }}。此号与费用明细中的尝试编号不同。</p>
   <p v-if="attempt" class="muted">原后继保存请求号：{{ attempt.key }} · 应用 {{ attempt.application_id }} / 环境 {{ attempt.environment_id }} · 原部署 {{ attempt.source_deployment_id }} / 修订 {{ attempt.source_revision }}。</p>
   <ElAlert v-if="savePending || saveStorageError" :closable="false" type="warning" title="原后继保存结果尚未确认或保留本地未提交证明。新保存、验证、另存和启用已锁定；原应用和环境不随当前选择改变。" />
   <ElButton v-if="attempt || saveStorageError" :disabled="Boolean(busy || postFlight)" :loading="busy === 'read'" @click="restoreSave">只读找回原保存</ElButton>
@@ -29,10 +29,10 @@
       <ElFormItem label="技能模板输出">
         <ElSelect v-model="skillOutputStrategy" :disabled="locked" aria-label="后继部署技能模板输出">
           <ElOption label="标准输出（默认）" value="neuron_json_extract_v1" />
-          <ElOption label="JSON 对象（需模型支持）" value="neuron_zai_json_object_v1" />
-          <ElOption label="JSON Schema（需模型支持）" value="neuron_openai_json_schema_v1" />
+          <ElOption label="对象结构输出（需模型支持）" value="neuron_zai_json_object_v1" />
+          <ElOption label="约束结构输出（需模型支持）" value="neuron_openai_json_schema_v1" />
         </ElSelect>
-        <span class="muted">仅影响新技能模板版本。选择 JSON 对象或 JSON Schema 前确认模型支持对应格式；已有技能模板快照不改写。</span>
+        <span class="muted">仅影响新技能模板版本。选择对象结构输出或约束结构输出前确认模型支持对应格式；已有技能模板快照不改写。</span>
       </ElFormItem>
       <ElFormItem label="输出上限">
         <ElInputNumber v-model="maxOutputTokens" :min="1" :max="131072" :step="1" :precision="0" :disabled="locked" />
@@ -238,8 +238,8 @@ const reasoningEffort = ref<ReasoningEffort | ''>('')
 const skillOutputStrategy = ref<SkillOutputStrategy>('neuron_json_extract_v1')
 const strategyLabels: Record<SkillOutputStrategy, string> = {
   neuron_json_extract_v1: '标准输出',
-  neuron_zai_json_object_v1: 'JSON 对象',
-  neuron_openai_json_schema_v1: 'JSON Schema'
+  neuron_zai_json_object_v1: '对象结构输出',
+  neuron_openai_json_schema_v1: '约束结构输出'
 }
 const sourceStrategyLabel = computed(() => {
   const strategy = source.value?.deployment.config.skill_output_strategy

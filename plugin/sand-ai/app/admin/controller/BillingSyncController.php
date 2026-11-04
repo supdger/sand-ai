@@ -9,7 +9,6 @@ use app\Application\Billing\BillingFetchRequestPolicy;
 use app\Application\Billing\BillingImportService;
 use app\Application\Billing\ProviderBillingSyncService;
 use app\Infrastructure\Billing\ProviderBillingRuntimeFactory;
-use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
@@ -32,9 +31,9 @@ final class BillingSyncController extends SandAiAdminController
                 }));
         } catch (ApiProblem $problem) {
             if (in_array($problem->errorCode, ['SAND_AI_BILLING_FACT_CONFLICT', 'SAND_AI_BILLING_RECOVERY_CONFLICT', 'SAND_AI_BILLING_OPERATION_REJECTED', 'SAND_AI_BILLING_OPERATION_UNKNOWN'], true)) {
-                return json(['code' => 409, 'message' => $problem->errorCode === 'SAND_AI_BILLING_FACT_CONFLICT' ? '账单事实内容冲突' : $problem->getMessage(), 'data' => ['error_code' => $problem->errorCode, 'retryable' => false]])->withStatus(409);
+                return json(['code' => 409, 'message' => $this->adminProblemOverride($problem) ?? ($problem->errorCode === 'SAND_AI_BILLING_FACT_CONFLICT' ? '账单事实内容冲突' : $problem->getMessage()), 'data' => ['error_code' => $problem->errorCode, 'retryable' => false]])->withStatus(409);
             }
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 
@@ -47,7 +46,7 @@ final class BillingSyncController extends SandAiAdminController
                 ->read('sync', $request->get(), (int) $this->authenticatedAdminId()))->withHeaders(['Cache-Control' => 'private, no-store']);
         } catch (ApiProblem $problem) {
             $status = $problem->errorCode === 'SAND_AI_BILLING_RECOVERY_CONFLICT' ? 409 : 400;
-            return json(['code' => $status, 'message' => $problem->getMessage(),
+            return json(['code' => $status, 'message' => $this->adminProblemOverride($problem) ?? $problem->getMessage(),
                 'data' => ['error_code' => $problem->errorCode, 'retryable' => false]])->withStatus($status)->withHeaders(['Cache-Control' => 'private, no-store']);
         } catch (\Throwable) {
             return json(['code' => 500, 'message' => 'Original billing sync could not be read',

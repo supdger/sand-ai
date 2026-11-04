@@ -385,7 +385,7 @@ const runtimeLocked = computed(() => existingRunView.value || busy.value || Bool
 const runtimeGraph = computed(() => versions.value.find(item => item.version_no === runtimeVersion.value)?.graph)
 const inputPaths = computed(() => [...new Set(runtimeGraph.value?.nodes.flatMap(node => Object.values(node.inputs).filter(binding => binding.source === 'input').map(binding => binding.path)) ?? [])])
 const serviceKey = (item: CompositionService) => `${item.kind}:${item.code}:${item.version}`
-const kindLabel = (kind: ServiceKind) => ({ agent: '智能体', skill: 'Skill', material: '材料配置', knowledge: '知识库', tool: '只读工具' })[kind]
+const kindLabel = (kind: ServiceKind) => ({ agent: '智能体', skill: '技能模板', material: '材料配置', knowledge: '知识库', tool: '只读工具' })[kind]
 const nodeService = (node: NodeEditor) => catalog.value.find(item => serviceKey(item) === node.serviceKey)
 const stateNames: Record<string, string> = { pending: '待执行', running: '执行中', waiting: '等待子运行', partial_failed: '部分失败', succeeded: '成功', cancelled: '已停止', submitting: '提交中', failed: '失败', unknown: '派发未明', blocked: '依赖未成功' }
 const stateLabel = (state: string) => stateNames[state] ?? state

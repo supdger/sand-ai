@@ -172,7 +172,7 @@
           <p v-if="providerGuide?.api_key_url && safeGuideUrl(providerGuide.api_key_url)"><a :href="safeGuideUrl(providerGuide.api_key_url)" target="_blank" rel="noopener noreferrer">前往服务商创建 API Key</a></p>
           <p v-if="providerGuide?.billing_help_url && safeGuideUrl(providerGuide.billing_help_url)"><a :href="safeGuideUrl(providerGuide.billing_help_url)" target="_blank" rel="noopener noreferrer">查看服务商计费说明</a></p>
           <p v-else class="muted">服务商未提供计费说明链接。请在所选服务商控制台查看当前模型的计费规则。</p>
-          <p class="muted">连接前请核对所选模型的输入 Token、输出 Token 计量单位、单价和币种；其他能力按服务商公布的实际单位核对。</p>
+          <p class="muted">连接前请核对所选模型的输入、输出计量单位、单价和币种；其他能力按服务商公布的实际单位核对。</p>
           <p class="muted">调用费用按本次调用冻结的价格版本和实际用量记录。未配置价格时费用未计价，缺少用量或币种时保持未知；预估金额、计量金额和对账金额分开查看。对账金额需依据真实服务商账单核对，人工补录保留来源与核对状态。</p>
           <ElSpace wrap>
             <ElButton @click="router.push('/sand-ai/usage')">查看费用与账单</ElButton>
@@ -235,7 +235,7 @@
               <ElSelect v-model="skillOutputStrategy" aria-label="技能模板输出策略" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
                 <ElOption v-for="(label, value) in skillStrategyLabels" :key="value" :label="label" :value="value" />
               </ElSelect>
-              <span class="muted">默认要求完整 JSON。JSON 对象需模型服务支持 json_object 协议，JSON Schema 需支持 OpenAI json_schema 协议；选择后仍须通过技能模板案例评测。</span>
+              <span class="muted">默认要求完整结构化输出。对象结构输出需模型服务支持相应输出协议；约束结构输出需支持 OpenAI 结构化输出协议；选择后仍须通过技能模板案例评测。</span>
               <span class="muted">仅新建技能模板版本采用此配置，已冻结版本和历史调用保持原策略。</span>
             </ElFormItem>
             <ElFormItem label="推理额度">
@@ -290,7 +290,7 @@
         <section class="section">
           <h3>3. 验证并启用模型连接</h3>
           <p v-if="draft">部署 {{ draft.deployment_id }} · 修订 {{ draft.revision }} · {{ verificationStateLabel }}</p>
-          <p v-if="verificationRequest" class="muted">原验证请求号：{{ verificationRequest.key }} · 部署 {{ verificationRequest.deployment_id }} · 修订 {{ verificationRequest.revision }}。此号用于找回本次验证，与费用明细中的尝试 ID 不同。</p>
+          <p v-if="verificationRequest" class="muted">原验证请求号：{{ verificationRequest.key }} · 部署 {{ verificationRequest.deployment_id }} · 修订 {{ verificationRequest.revision }}。此号用于找回本次验证，与费用明细中的尝试编号不同。</p>
           <ElAlert v-if="verificationRecoveryPending" type="warning" :closable="false" title="原验证结果尚未确认。本页保留请求编号，暂时锁定新保存、验证和重新配置；只读找回不会再次调用模型。" />
           <ElAlert v-if="verificationStorageError" type="warning" :closable="false" title="无法确认本机会话中的原验证记录，暂时不能发起新验证。请保留原部署与修订号，由管理员核查；不会换请求号重发。" />
           <ElButton v-if="verificationRecoveryPending || verificationStorageError || journeyLocked" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="restoreVerificationRequest">找回原验证状态</ElButton>
@@ -331,7 +331,7 @@
                 ? '当前修订已确认回到待验证。可重新配置连接；此处不会重复验证已经发送过的修订。'
                 : '当前修订的失败反馈无法确认。请保留部署与修订号并联系管理员核查；此处不会重复验证或重新配置。'" />
           <ElAlert v-if="verification?.validation_evidence?.usage_measured === false" type="warning" :closable="false"
-            title="模型已通过调用验证，但服务商未返回 Token 用量。运行费用会保持未知，依赖精确用量的限额和低成本路由可能不可用。" />
+            title="模型已通过调用验证，但服务商未返回用量。运行费用会保持未知，依赖精确用量的限额和低成本路由可能不可用。" />
           <ElAlert v-if="verification?.state === 'verifying'" type="info" :closable="false" title="服务商验证仍在进行。请稍后读取当前修订状态，不要重复发送验证请求。" />
           <ElAlert v-if="verificationUncertain" type="warning" :closable="false" title="验证结果无法确定，可能已产生服务商费用。请保留上方部署与修订号，请到服务商控制台核查调用记录并联系管理员；此处不会重新发送验证请求。" />
           <ElAlert v-if="bindingStorageError" type="warning" :closable="false"
@@ -356,7 +356,7 @@
           <p v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" class="muted">聊天能力已绑定；所选工作目标仍需按对应配置入口继续准备、试用并启用。</p>
           <ElSpace v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" wrap>
             <ElButton type="primary" :disabled="Boolean(busy)" @click="openChatTrial">试用已启用聊天能力</ElButton>
-            <span class="muted">后台管理员负责配置；应用调用使用 SandIAM 工作负载 Bearer，调用环境由凭证决定。进入“聊天路线试用”后填写该凭证，无需填写服务商 API Key。</span>
+            <span class="muted">后台管理员负责配置；应用调用使用 SandIAM 工作负载调用密钥，调用环境由凭证决定。进入“聊天路线试用”后填写该凭证，无需填写服务商 API Key。</span>
           </ElSpace>
         </section>
 
@@ -570,7 +570,7 @@ const inspectedRevision = ref<DraftSave | null>(null)
 let inspectionGeneration = 0
 const validInspectionTarget = computed(() => Number.isSafeInteger(inspectionTargetId.value) && Number(inspectionTargetId.value) > 0 && Number.isSafeInteger(inspectionTargetRevision.value) && Number(inspectionTargetRevision.value) > 0)
 
-const skillStrategyLabels: Record<SkillOutputStrategy, string> = { neuron_json_extract_v1: '标准输出（默认）', neuron_zai_json_object_v1: 'JSON 对象', neuron_openai_json_schema_v1: 'JSON Schema' }
+const skillStrategyLabels: Record<SkillOutputStrategy, string> = { neuron_json_extract_v1: '标准输出（默认）', neuron_zai_json_object_v1: '对象结构输出', neuron_openai_json_schema_v1: '约束结构输出' }
 const processingLocation = ref('')
 const draft = ref<DraftSave | null>(null)
 const saveAttempt = ref<{ payload: NewDeployment; key: string; hadUncertainOutcome: boolean } | null>(null)
@@ -1047,7 +1047,7 @@ const failureNotices: Readonly<Record<Exclude<VerificationFailureReason, 'local_
   provider_access_denied: ['SAND_AI_PROVIDER_REJECTED', '服务商拒绝了账号权限，请核对项目、模型和聊天接口权限'],
   model_or_endpoint_unavailable: ['SAND_AI_PROVIDER_REJECTED', '服务商没有提供请求的聊天模型或接口，请核对模型标识与 API 基础地址'],
   chat_endpoint_unsupported: ['SAND_AI_PROVIDER_REJECTED', '服务商未接受聊天接口，请确认模型支持聊天以及 API 基础地址正确'],
-  model_or_parameters_rejected: ['SAND_AI_PROVIDER_REJECTED', '服务商拒绝了模型或参数，请核对聊天能力、Token 额度与推理额度'],
+  model_or_parameters_rejected: ['SAND_AI_PROVIDER_REJECTED', '服务商拒绝了模型或参数，请核对聊天能力、用量额度与推理额度'],
   provider_rejected: ['SAND_AI_PROVIDER_REJECTED', '服务商拒绝了验证请求，请核对 Key、权限、模型和参数'],
   provider_timeout: ['SAND_AI_PROVIDER_UNAVAILABLE', '模型验证超时，可能已发送并产生费用，请核对服务商调用记录；不要重复验证此修订'],
   provider_unavailable: ['SAND_AI_PROVIDER_UNAVAILABLE', '模型验证连接或响应未确认，请核对服务商调用记录和当前修订状态'],
@@ -1181,7 +1181,7 @@ async function registerCatalog(): Promise<void> {
       throw new Error('Unexpected service catalog registration result')
     }
     catalogRegistered.value = true
-    catalogMessage.value = 'SandAI 能力权限已登记。请到 SandIAM 为目标应用和工作负载客户端配置授权。'
+    catalogMessage.value = 'SandAI 能力权限已登记。请到 SandIAM 为目标应用和调用身份配置授权。'
     catalogMessageType.value = 'success'
   } catch (error) {
     if (generation === catalogGeneration) {
@@ -1206,7 +1206,7 @@ async function loadSkillCatalog(): Promise<void> {
     const result = await onboardingApi.skillServiceCatalogPreflight()
     if (generation !== skillCatalogGeneration) return
     if (result.service_code !== 'sand_ai' || !hasSkillCatalogActions(result.action_codes)) {
-      throw new Error('Unexpected Skill service catalog declaration')
+      throw new Error('Unexpected skill service catalog declaration')
     }
     skillCatalogPreflight.value = result
     skillCatalogDisabled.value = disabledCatalogItems(result).length > 0
@@ -1215,7 +1215,7 @@ async function loadSkillCatalog(): Promise<void> {
   } catch {
     if (generation === skillCatalogGeneration) {
       skillCatalogPreflight.value = null
-      skillCatalogMessage.value = '无法检查 Skill 能力权限，请确认后台权限与 SandIAM 状态。'
+      skillCatalogMessage.value = '无法检查技能模板能力权限，请确认后台权限与 SandIAM 状态。'
       skillCatalogMessageType.value = 'warning'
     }
   } finally {
@@ -1228,8 +1228,8 @@ async function registerSkillCatalog(): Promise<void> {
   const confirmedGeneration = skillCatalogGeneration
   try {
     await ElMessageBox.confirm(
-      '将登记 Skill 的运行、读取、管理、测试和启用五项能力权限。此操作不会创建应用或授予客户端调用权限。',
-      '登记个人 Skill 能力权限',
+      '将登记技能模板的运行、读取、管理、测试和启用五项能力权限。此操作不会创建应用或授予客户端调用权限。',
+      '登记技能模板能力权限',
       { type: 'warning', confirmButtonText: '确认登记' }
     )
   } catch {
@@ -1246,16 +1246,16 @@ async function registerSkillCatalog(): Promise<void> {
     if (generation !== skillCatalogGeneration) return
     if (!result.registered || result.service_code !== 'sand_ai'
       || !hasSkillCatalogActions(result.action_codes)) {
-      throw new Error('Unexpected Skill service catalog registration result')
+      throw new Error('Unexpected skill service catalog registration result')
     }
     skillCatalogRegistered.value = true
-    skillCatalogMessage.value = 'Skill 能力权限已登记。请到 SandIAM 为目标应用和客户端配置授权。'
+    skillCatalogMessage.value = '技能模板能力权限已登记。请到 SandIAM 为目标应用和调用身份配置授权。'
     skillCatalogMessageType.value = 'success'
   } catch (error) {
     if (generation === skillCatalogGeneration) {
       skillCatalogDisabled.value = isCatalogDisabled(error)
       skillCatalogMessage.value = skillCatalogDisabled.value
-        ? 'SandIAM 中的服务或 Skill 动作已停用。请由 SandIAM 管理员核查；此页不会自动恢复。'
+        ? 'SandIAM 中的服务或技能模板动作已停用。请由 SandIAM 管理员核查；此页不会自动恢复。'
         : '登记结果未确认。请先到 SandIAM 核查，再决定是否重试。'
       skillCatalogMessageType.value = 'warning'
     }
@@ -1730,7 +1730,7 @@ async function readVerification(): Promise<void> {
     else if (state.state === 'verifying') notice('验证仍在进行。稍后读取同一修订状态。', 'warning')
     else if (state.state === 'verification_ambiguous') notice('验证结果无法确定，可能已产生服务商费用。请保留部署、修订和请求编号，联系管理员核查；不会自动重试。', 'warning')
     else if (state.state === 'draft' && (verificationRejected.value || verificationAttempted.value || hasVerificationFailure.value)) notice('已读取当前修订状态，请查看下方恢复提示。', 'warning')
-    else if (state.validation_evidence?.usage_measured === false) notice('模型已验证；服务商未返回 Token 用量，费用暂不可确认。', 'warning')
+    else if (state.validation_evidence?.usage_measured === false) notice('模型已验证；服务商未返回用量，费用暂不可确认。', 'warning')
     else notice(`当前修订状态：${verificationStateLabel.value}`, 'success')
   } catch (error) {
     if (ownsRead()) notice(accessFailureNotice(error) || '无法确认原验证尝试。未找到或读取失败不表示未发送；请保留请求编号并继续只读核查。', 'warning')
@@ -1807,7 +1807,7 @@ async function verifyDraft(): Promise<void> {
       applyVerification(result)
       resolveVerificationRequest(request)
       notice(result.validation_evidence?.usage_measured === false
-        ? '聊天模型验证通过；服务商未返回 Token 用量，运行费用暂不可确认。'
+        ? '聊天模型验证通过；服务商未返回用量，运行费用暂不可确认。'
         : '聊天模型验证通过。启用后仍需配置所选目标的业务能力。',
       result.validation_evidence?.usage_measured === false ? 'warning' : 'success')
     } catch (error) {

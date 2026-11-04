@@ -8,10 +8,10 @@
             <ElSelect v-model="scopeKind"><ElOption v-for="item in scopeKinds" :key="item.value" :value="item.value" :label="item.label" /></ElSelect>
           </ElFormItem>
           <ElFormItem label="已登记对象引用">
-            <ElInput v-model="scopeRef" :disabled="scopeKind === 'service'" :placeholder="scopeKind === 'capability' ? '真实能力代码，例如 chat' : '已登记对象的正整数 ID'" />
+            <ElInput v-model="scopeRef" :disabled="scopeKind === 'service'" :placeholder="scopeKind === 'capability' ? '真实能力代码' : '已登记对象的正整数编号'" />
           </ElFormItem>
         </div>
-        <p class="mb-3 text-sm">服务固定为 sand_ai；能力填写已登记代码，其他范围填写已登记 ID。是否可读取由正式后台核验。</p>
+        <p class="mb-3 text-sm">服务固定为 SandAI；能力填写已登记代码，其他范围填写已登记编号。是否可读取由正式后台核验。</p>
         <div class="flex flex-wrap gap-3 mb-3">
           <ElButton :loading="listLoading" @click="readList(1)">读取预算版本</ElButton>
           <ElButton :loading="activeLoading" @click="readActive">读取该范围当前额度与提醒</ElButton>
@@ -21,7 +21,7 @@
       <ElAlert v-else-if="activeLoaded && !activeSummary" title="正式后台确认：此范围当前没有生效预算版本。未显示额度不表示额度为零。" type="info" :closable="false" class="mb-3" />
       <section v-if="activeSummary" aria-label="当前生效预算">
         <h3 class="mb-2 text-base">所选范围当前生效预算 · #{{ activeSummary.policy.id }} / 版本 {{ activeSummary.policy.revision }}</h3>
-        <p class="mb-3 text-sm">{{ scopeLabel(activeSummary.policy.scope_kind) }} / {{ activeSummary.policy.scope_ref }} · {{ activeSummary.policy.period_start }} 至 {{ activeSummary.policy.period_end }} UTC。此范围额度不代表一次调用匹配的全部预算。</p>
+        <p class="mb-3 text-sm">{{ scopeLabel(activeSummary.policy.scope_kind) }} / {{ activeSummary.policy.scope_ref }} · {{ activeSummary.policy.period_start }} 至 {{ activeSummary.policy.period_end }}（世界标准时间）。此范围额度不代表一次调用匹配的全部预算。</p>
         <ElAlert :title="alertText(activeSummary)" :type="activeSummary.alert.level === 'normal' ? 'info' : 'warning'" :closable="false" class="mb-3" />
         <ElDescriptions :column="2" border>
           <ElDescriptionsItem label="币种">{{ activeSummary.window.currency }}</ElDescriptionsItem>
@@ -36,9 +36,9 @@
       <ElAlert v-if="listError" :title="listError" type="warning" :closable="false" class="mb-3" />
       <ElEmpty v-else-if="listLoaded && policies.length === 0" description="此范围暂无预算版本" />
       <ElTable v-if="policies.length" :data="policies" v-loading="listLoading" row-key="id">
-        <ElTableColumn prop="id" label="原版本 ID" width="110" />
+        <ElTableColumn prop="id" label="原版本编号" width="110" />
         <ElTableColumn prop="revision" label="版本" width="80" />
-        <ElTableColumn label="时段 UTC" min-width="300"><template #default="{ row }">{{ row.period_start }} 至 {{ row.period_end }}</template></ElTableColumn>
+        <ElTableColumn label="时段（世界标准时间）" min-width="300"><template #default="{ row }">{{ row.period_start }} 至 {{ row.period_end }}</template></ElTableColumn>
         <ElTableColumn label="限额" min-width="140"><template #default="{ row }">{{ row.limit_amount }} {{ row.currency }}</template></ElTableColumn>
         <ElTableColumn label="状态" width="110"><template #default="{ row }">{{ stateLabel(row.state) }}</template></ElTableColumn>
         <ElTableColumn label="读取" min-width="150"><template #default="{ row }"><ElButton link type="primary" @click="readPolicy(row.id)">读取原版本详情</ElButton></template></ElTableColumn>
@@ -46,25 +46,25 @@
       <ElPagination v-if="listLoaded && total > 20" :current-page="page" :page-size="20" :total="total" layout="prev, pager, next, total" class="my-3" @current-change="readList" />
       <ElDivider>直接读取原预算版本</ElDivider>
       <ElForm label-position="top" @submit.prevent>
-        <ElFormItem label="原预算版本 ID（必须归属上方独立读取范围）"><ElInput v-model="policyText" /></ElFormItem>
-        <ElButton :loading="policyLoading" @click="readPolicy()">按原 ID 读取详情</ElButton>
+        <ElFormItem label="原预算版本编号（必须归属上方独立读取范围）"><ElInput v-model="policyText" /></ElFormItem>
+        <ElButton :loading="policyLoading" @click="readPolicy()">按原编号读取详情</ElButton>
       </ElForm>
       <ElAlert v-if="policyError" :title="policyError" type="warning" :closable="false" class="mt-3" />
       <div v-if="policyLoading" v-loading="policyLoading" class="min-h-24" />
       <template v-else-if="selectedPolicy">
         <ElDescriptions :column="2" border class="mt-3">
-          <ElDescriptionsItem label="原版本 ID / 版本">{{ selectedPolicy.id }} / {{ selectedPolicy.revision }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="原版本编号 / 版本">{{ selectedPolicy.id }} / {{ selectedPolicy.revision }}</ElDescriptionsItem>
           <ElDescriptionsItem label="正式读取状态">{{ stateLabel(selectedPolicy.state) }}</ElDescriptionsItem>
           <ElDescriptionsItem label="范围 / 对象">{{ scopeLabel(selectedPolicy.scope_kind) }} / {{ selectedPolicy.scope_ref }}</ElDescriptionsItem>
           <ElDescriptionsItem label="环境归属">{{ selectedPolicy.environment_id ?? '不限定单个环境' }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="时段 UTC" :span="2">{{ selectedPolicy.period_start }} 至 {{ selectedPolicy.period_end }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="时段（世界标准时间）" :span="2">{{ selectedPolicy.period_start }} 至 {{ selectedPolicy.period_end }}</ElDescriptionsItem>
           <ElDescriptionsItem label="配置限额">{{ selectedPolicy.limit_amount }} {{ selectedPolicy.currency }}</ElDescriptionsItem>
           <ElDescriptionsItem label="超额方式">{{ selectedPolicy.enforcement === 'hard' ? '硬限制' : '软限制' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="未定价策略">{{ selectedPolicy.unpriced_policy === 'block' ? '阻止调用' : '允许调用' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="未测得用量策略">{{ selectedPolicy.unmeasured_policy === 'hold' ? '保留占额' : '允许调用' }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="启用时间 UTC">{{ selectedPolicy.published_time ?? '未启用' }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="创建时间 UTC">{{ selectedPolicy.create_time }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="更新时间 UTC">{{ selectedPolicy.update_time }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="启用时间（世界标准时间）">{{ selectedPolicy.published_time ?? '未启用' }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="创建时间（世界标准时间）">{{ selectedPolicy.create_time }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="更新时间（世界标准时间）">{{ selectedPolicy.update_time }}</ElDescriptionsItem>
         </ElDescriptions>
         <ElAlert v-if="selectedPolicy.state === 'draft'" title="此版本仍为草稿，没有正式生效窗口；配置限额不代表当前可用额度，不按零展示汇总。" type="info" :closable="false" class="mt-3" />
         <ElButton v-else class="mt-3" :loading="summaryLoading" @click="readSummary">读取此原版本窗口</ElButton>
@@ -72,7 +72,7 @@
       <ElAlert v-if="summaryError" :title="summaryError" type="warning" :closable="false" class="mt-3" />
       <section v-if="historicalSummary" aria-label="原预算版本窗口" class="mt-3">
         <h3 class="mb-2 text-base">原版本窗口 · #{{ historicalSummary.policy.id }} / 版本 {{ historicalSummary.policy.revision }}</h3>
-        <p class="mb-3 text-sm">{{ stateLabel(historicalSummary.policy.state) }} · {{ scopeLabel(historicalSummary.policy.scope_kind) }} / {{ historicalSummary.policy.scope_ref }} · {{ historicalSummary.policy.period_start }} 至 {{ historicalSummary.policy.period_end }} UTC。此窗口为原版本记录，不代表该范围当前可用额度。</p>
+        <p class="mb-3 text-sm">{{ stateLabel(historicalSummary.policy.state) }} · {{ scopeLabel(historicalSummary.policy.scope_kind) }} / {{ historicalSummary.policy.scope_ref }} · {{ historicalSummary.policy.period_start }} 至 {{ historicalSummary.policy.period_end }}（世界标准时间）。此窗口为原版本记录，不代表该范围当前可用额度。</p>
         <ElAlert :title="alertText(historicalSummary)" :type="historicalSummary.alert.level === 'normal' ? 'info' : 'warning'" :closable="false" class="mb-3" />
         <ElDescriptions :column="2" border>
           <ElDescriptionsItem label="币种">{{ historicalSummary.window.currency }}</ElDescriptionsItem>
@@ -150,7 +150,7 @@
   function scopeTarget(): BudgetScope {
     const reference = scopeKind.value === 'service' ? 'sand_ai' : scopeRef.value
     if (!reference || (scopeKind.value === 'capability' ? !/^[a-z][a-z0-9_.-]{0,95}$/.test(reference) : scopeKind.value !== 'service' && !positiveId(reference)))
-      throw new Error('请填写已登记的范围引用：能力使用真实代码，其他对象使用正整数 ID。')
+      throw new Error('请填写已登记的范围引用：能力使用真实代码，其他对象使用正整数编号。')
     return { scope_kind: scopeKind.value, scope_ref: reference }
   }
   function sameScope(value: BudgetScope, scope: BudgetScope): boolean {
@@ -169,7 +169,7 @@
         typeof policy.create_time !== 'string' || typeof policy.update_time !== 'string' ||
         !(policy.environment_id === null || (Number.isSafeInteger(policy.environment_id) && policy.environment_id > 0)) ||
         !(policy.published_time === null || typeof policy.published_time === 'string'))
-      throw new Error('预算详情与原 ID、范围或版本事实不一致，暂不显示。')
+      throw new Error('预算详情与原编号、范围或版本事实不一致，暂不显示。')
   }
   function assertSummary(value: BudgetSummary, scope: BudgetScope, expectedId?: number): void {
     if (!value || !value.policy || !value.window || !value.alert) throw new Error('预算窗口响应不完整')
@@ -297,7 +297,7 @@
     try {
       const scope = scopeTarget()
       const target = positiveId(policyText.value)
-      if (!target) throw new Error('请填写原预算版本的正整数 ID')
+      if (!target) throw new Error('请填写原预算版本的正整数编号')
       const policy = await budgetApi.readPolicy(target)
       if (!current(start) || generation !== policyGeneration) return
       assertPolicy(policy, scope, target)

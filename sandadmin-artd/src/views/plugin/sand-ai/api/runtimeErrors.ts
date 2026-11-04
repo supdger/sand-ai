@@ -14,7 +14,7 @@ export type RuntimeUiError = {
 
 /** 契约错误码 → 操作员可读说明；键必须与契约表逐字一致。 */
 export const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
-  SAND_AI_AUTHENTICATION_FAILED: '身份上下文无效：缺少 Bearer、签名无效或载荷无法解析。',
+  SAND_AI_AUTHENTICATION_FAILED: '身份上下文无效：缺少调用密钥、签名无效或载荷无法解析。',
   SAND_AI_IDENTITY_CONTEXT_EXPIRED: '身份上下文已过期，需要重新签发短期 workload context。',
   SAND_AI_CREDENTIAL_REVOKED: '签发该 context 的 credential、client 或 environment 已撤销/停用。',
   SAND_AI_IDENTITY_CONTEXT_UNAVAILABLE:

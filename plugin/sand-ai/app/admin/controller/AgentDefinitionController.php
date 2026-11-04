@@ -6,7 +6,6 @@ namespace plugin\SandAi\app\admin\controller;
 
 use app\Api\Support\ApiProblem;
 use app\Application\Agent\AgentDefinitionGateway;
-use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
@@ -70,7 +69,7 @@ final class AgentDefinitionController extends SandAiAdminController
             $revalidateAdmin();
             return $this->success($result, '已找回原智能体操作结果')->header('Cache-Control', 'no-store');
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 
@@ -137,7 +136,7 @@ final class AgentDefinitionController extends SandAiAdminController
     }
 
     /** @param callable():array<string,mixed> $callback */
-    private function guard(callable $callback): Response { try { return $this->success($callback(), '智能体配置已更新'); } catch (ApiProblem $problem) { throw new ApiException($problem->errorCode . ': ' . $problem->getMessage()); } }
+    private function guard(callable $callback): Response { try { return $this->success($callback(), '智能体配置已更新'); } catch (ApiProblem $problem) { throw $this->adminProblemException($problem); } }
     /** @param list<string> $keys @return array<string,mixed> */
     private function body(Request $request, array $keys): array { $body = $request->post(); if (!is_array($body) || array_diff(array_keys($body), $keys) !== []) throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Agent request is invalid'); return $body; }
     private function positiveInt(mixed $value): int { if (!is_int($value) || $value <= 0) throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Agent request is invalid'); return $value; }

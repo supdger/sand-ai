@@ -7,15 +7,15 @@
     <ElButton v-if="rejectionCode" :disabled="syncBusy || syncFlight" @click="acknowledgeRejected">确认拒绝并修正输入</ElButton>
   </div>
 
-  <ElAlert title="按服务商已配置的账单能力同步，点击同步后会访问外部服务。账期使用 UTC，最长 31 天；期间汇总不能认定为单次调用金额，费用记录也不证明已退款。" type="info" :closable="false" class="mb-3" />
+  <ElAlert title="按服务商已配置的账单能力同步，点击同步后会访问外部服务。账期使用世界标准时间（UTC），最长 31 天；期间汇总不能认定为单次调用金额，费用记录也不证明已退款。" type="info" :closable="false" class="mb-3" />
   <ElAlert v-if="syncError" :title="syncError" type="warning" :closable="false" class="mb-3" />
   <ElAlert v-if="syncUnknown" title="同步结果尚未确认。服务商、账期与请求号已冻结；请按原请求恢复，不要另建同步。" type="warning" :closable="false" class="mb-3" />
   <ElAlert v-if="syncMessage" :title="syncMessage" type="success" :closable="false" class="mb-3" />
   <ElForm label-position="top" :disabled="pending || credentialBlocked || syncAttempt !== null || recoveryMeta !== null">
-    <ElFormItem label="服务商 ID"><ElInput v-model="draft.provider" placeholder="已配置官方账单能力的服务商 ID" /></ElFormItem>
+    <ElFormItem label="服务商编号"><ElInput v-model="draft.provider" placeholder="已配置官方账单能力的服务商编号" /></ElFormItem>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <ElFormItem label="账期起 UTC"><ElDatePicker v-model="draft.period_start" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" /></ElFormItem>
-      <ElFormItem label="账期止 UTC（不含此时刻）"><ElDatePicker v-model="draft.period_end" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" /></ElFormItem>
+      <ElFormItem label="账期起（世界标准时间）"><ElDatePicker v-model="draft.period_start" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" /></ElFormItem>
+      <ElFormItem label="账期止（世界标准时间，不含此时刻）"><ElDatePicker v-model="draft.period_end" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" /></ElFormItem>
     </div>
   </ElForm>
   <div class="flex flex-wrap gap-3">
@@ -191,7 +191,7 @@
     const start = utc(draft.period_start)
     const end = utc(draft.period_end)
     if (!providerId || start === null || end === null || end <= start || end - start > 31 * 86400000) {
-      syncError.value = '请填写合法服务商 ID 和正向 UTC 账期，跨度最长 31 天。'
+      syncError.value = '请填写合法服务商编号和正向世界标准时间账期，跨度最长 31 天。'
       return
     }
     const input: BillingSyncInput = {
@@ -205,7 +205,7 @@
     const submittingOwnerEpoch = ownerEpoch
     try {
       await ElMessageBox.confirm(
-        `将访问服务商官方账单接口：服务商 ${input.provider_id}，账期 ${input.period_start} 至 ${input.period_end} UTC。是否同步？`,
+        `将访问服务商官方账单接口：服务商 ${input.provider_id}，账期 ${input.period_start} 至 ${input.period_end}（世界标准时间）。是否同步？`,
         '确认同步',
         { type: 'warning' }
       )
@@ -269,7 +269,7 @@
   async function checkStatus() {
     if (!hasAuth('sand_ai:billing:credential') || syncBusy.value || syncFlight.value || credentialFlight.value || credentialConfirming.value || credentialBusy.value || statusBusy.value || syncAttempt.value) return
     const providerId = credentialMeta.value?.provider_id ?? positiveId(draft.provider)
-    if (!providerId) { credentialError.value = '请填写合法服务商 ID。'; return }
+    if (!providerId) { credentialError.value = '请填写合法服务商编号。'; return }
     const generation = ++statusGeneration
     statusBusy.value = true
     billingDriver.value = null
@@ -320,7 +320,7 @@
     if (!providerId || !/^org-[A-Za-z0-9_-]{1,120}$/.test(credentialDraft.organization) ||
         /[\x00-\x1f\x7f]/.test(credentialDraft.organization) || new TextEncoder().encode(key).length < 8 ||
         new TextEncoder().encode(key).length > 512 || /[\x00-\x1f\x7f]/.test(credentialDraft.key))
-      throw new Error('请填写合法服务商 ID、org- 开头的组织标识和 8 至 512 字符的专用密钥。')
+      throw new Error('请填写合法服务商编号、org- 开头的组织标识和 8 至 512 字符的专用密钥。')
     const operation: CredentialMeta = { version: 1, admin_id: actor, provider_id: providerId, request_key: crypto.randomUUID() }
     credentialInputs.set(operation.request_key, { provider_id: providerId, billing_admin_key: key,
       billing_organization_id: credentialDraft.organization })
@@ -376,7 +376,7 @@
     let operation: CredentialMeta
     try { operation = freezeCredential(operationOwner) }
     catch {
-      credentialError.value = '请填写合法服务商 ID、org- 开头的组织标识和 8 至 512 字符的专用密钥。'
+      credentialError.value = '请填写合法服务商编号、org- 开头的组织标识和 8 至 512 字符的专用密钥。'
       return
     }
     credentialConfirming.value = true

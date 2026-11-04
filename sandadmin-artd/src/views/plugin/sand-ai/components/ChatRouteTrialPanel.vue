@@ -6,7 +6,7 @@
       需允许使用“模型目录读取”“AI 对话”；结果找回和费用读取分别需要“调用状态读取”“调用费用读取”。
     </p>
     <ElForm label-width="120px" @submit.prevent="submit">
-      <RuntimeApiKeyField v-model="bearer" :persist-in-session="false" placeholder="填写 SandIAM 签发的 Bearer（仅本页面）" />
+      <RuntimeApiKeyField v-model="bearer" :persist-in-session="false" placeholder="填写 SandIAM 签发的调用密钥（仅本页面）" />
       <ElFormItem label="已启用模型">
         <ElButton :disabled="!bearer.trim() || Boolean(busy)" :loading="busy === 'models'" @click="loadModels">
           读取当前凭证的模型
@@ -58,14 +58,14 @@
     </div>
     <div v-if="pendingKey" class="chat-trial__recovery">
       <p>请求编号：<code>{{ pendingKey }}</code></p>
-      <p>请求结果尚未确认。仅查询原请求，不会重发；请使用原调用身份的 Bearer。404 或无权限不能证明原请求未执行。</p>
+      <p>请求结果尚未确认。仅查询原请求，不会重发；请使用原调用身份的调用密钥。404 或无权限不能证明原请求未执行。</p>
       <p v-if="invocation?.state === 'failed'">调用失败不代表未发送或无费用。原请求保持锁定，请只读核对调用与费用记录。</p>
       <ElButton :disabled="!bearer.trim() || Boolean(busy)" :loading="busy === 'recover'" @click="recover">
         只读找回原请求
       </ElButton>
     </div>
     <ElDescriptions v-if="invocation" title="调用状态" :column="1" border>
-      <ElDescriptionsItem label="请求 ID">{{ invocation.request_id }}</ElDescriptionsItem>
+      <ElDescriptionsItem label="请求编号">{{ invocation.request_id }}</ElDescriptionsItem>
       <ElDescriptionsItem label="状态">{{ invocation.state }}</ElDescriptionsItem>
       <ElDescriptionsItem label="耗时">{{ invocation.latency_ms === null ? '未知' : `${invocation.latency_ms} ms` }}</ElDescriptionsItem>
       <ElDescriptionsItem label="错误码">{{ invocation.error_code ?? '无' }}</ElDescriptionsItem>
@@ -90,7 +90,7 @@
       <ElDescriptionsItem label="计量费用">{{ amount(cost.price.metered_amount, cost.price.currency) }}</ElDescriptionsItem>
     </ElDescriptions>
     <p v-if="cost" class="chat-trial__hint">
-      调用前预算上界仅作预算预占，不代表实际 Token 预测、计量费用或已付现金；
+      调用前预算上界仅作预算预占，不代表实际词元预测、计量费用或已付现金；
       采用最小预占时金额可能为 0.000001。已核对账单须另行查看，未知金额不按零处理。
     </p>
     <ElButton v-if="terminal" :disabled="Boolean(busy)" @click="newCall">
