@@ -1,3 +1,7 @@
+## 0.4.2 (release)
+
+- Neuron runtime self-heal: after SandPackage installs composer dependencies, the host reload inherits a stale ClassLoader (missing NeuronAI PSR-4 map + negative class cache), so `class_exists` stayed false while `InstalledVersions` reported the package installed — deployment verify died with `SAND_AI_PROVIDER_CONFIG_INVALID: Neuron material runtime is unavailable`. New `NeuronRuntime` probe falls back to registering the package PSR-4/PSR-0 prefixes from the bundled composer metadata; all six probe sites now route through it. SandIAM pin moves to the 0.9.2 artifact (context signing key provisioning + ensure-defaults zero-step entities).
+
 ## 0.4.1 (release)
 
 - Packaging fix only, no payload change: the SandIAM dependency pin moves to the 0.9.1 artifact (sand-iam-0.9.1.zip, sha256 619f56a6) carrying the access-matrix one-click grant 503 fix (per-action audit request ids + chained idempotency cause). SandAI business payload identical to 0.4.0.

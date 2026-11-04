@@ -7,7 +7,7 @@ namespace app\Application\Audio;
 use app\Api\Support\ApiProblem;
 use app\Application\Gateway\RequestPayloadFingerprint;
 use app\Infrastructure\Persistence\Model\TaskRun;
-use Composer\InstalledVersions;
+use app\Infrastructure\Support\NeuronRuntime;
 use NeuronAI\RAG\Document;
 use NeuronAI\RAG\Splitter\DelimiterTextSplitter;
 use think\facade\Db;
@@ -134,9 +134,7 @@ final class MeetingLocalPlanning
 
     private static function assertSdk(): void
     {
-        if (!InstalledVersions::isInstalled('neuron-core/neuron-ai')
-            || !version_compare((string) InstalledVersions::getVersion('neuron-core/neuron-ai'), self::SDK_VERSION, '>=')
-            || !class_exists(DelimiterTextSplitter::class)) self::invalid();
+        if (!NeuronRuntime::available(DelimiterTextSplitter::class)) self::invalid();
     }
 
     private static function invalid(): never

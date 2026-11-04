@@ -556,7 +556,7 @@
     },
     {
       "path": "app/Application/Audio/MeetingLocalPlanning.php",
-      "sha256": "bf64d8782dcfe8b6d7a1350dab8d31c2e0f6d5a61d873e902f6bad09965b3d1b"
+      "sha256": "ddbbeaa2949e7a89e60e2241f7cbb8a6107b937ac0e91aea5a3280f200c1f7be"
     },
     {
       "path": "app/Application/Audio/MeetingOutputCorrection.php",
@@ -1944,7 +1944,7 @@
     },
     {
       "path": "app/Application/Onboarding/OpenAiCompatibleOnboardingClient.php",
-      "sha256": "b0c6524ef71ce01bfed83aca793d8f118974bc0c19570728d2d64fe3a0f515e6"
+      "sha256": "1d8f73be31fc86e805f04fea20ed05816e0de43b9916db90c05a97e5f32dfb67"
     },
     {
       "path": "app/Application/Onboarding/ProviderConnectionPolicy.php",
@@ -3232,7 +3232,7 @@
     },
     {
       "path": "app/Infrastructure/Agent/NeuronAgentCaller.php",
-      "sha256": "69bae43a8f09e96b61c1c5f8fe20ce5d970b964f6c4a6d99bf0ea457214e572a"
+      "sha256": "9b291ae04908da894e9c3a2e901cfa07fb5739dc846a85acdccac24e37f492c5"
     },
     {
       "path": "app/Infrastructure/Agent/NeuronAgentCheckpoint.php",
@@ -3268,7 +3268,7 @@
     },
     {
       "path": "app/Infrastructure/Agent/NeuronKnowledgeConversationSummarization.php",
-      "sha256": "677ccdbb9310a8e4a57bcd0604b32b31e57b7b824b061fa16f76453bc4fd8e7a"
+      "sha256": "d545370d190f76540bda5637c3cf16c2c7578eac4dadefcc1bfbb25d506854d4"
     },
     {
       "path": "app/Infrastructure/Agent/NeuronKnowledgeSummaryProvider.php",
@@ -3804,7 +3804,7 @@
     },
     {
       "path": "app/Infrastructure/Provider/NeuronSkillOutputAdapter.php",
-      "sha256": "5e207c0f023fdff6ee8c295f2511ec8b02962dd4a4a48b53d256fc28ad927c2d"
+      "sha256": "7f5d2a01a52fb661b96dad0354630f78e962a49f8bbb94111bbdaac4be907bef"
     },
     {
       "path": "app/Infrastructure/Provider/NeuronSkillRequestCapture.php",
@@ -3820,7 +3820,7 @@
     },
     {
       "path": "app/Infrastructure/Provider/OpenAiCompatibleChatProvider.php",
-      "sha256": "d4435c01611f5ed6c892ea744b46a44f7750935f588baa015c87202c46cb2606"
+      "sha256": "d12b0d6ad5586a9da7b4ca64b116e4b1312148f01890c8f7130b309b94a4034c"
     },
     {
       "path": "app/Infrastructure/Provider/OpenAiCompatibleEmbeddingProvider.php",
@@ -3897,6 +3897,10 @@
     {
       "path": "app/Infrastructure/Storage/StorageException.php",
       "sha256": "b17a922dfaf0ac45196f077e42030ea9cd4e4ce90ddb6706df03ccaa0e965600"
+    },
+    {
+      "path": "app/Infrastructure/Support/NeuronRuntime.php",
+      "sha256": "281be5be2f9ba9865a7b3ae6402019f027e3028cd27a6faccbeb1995b2552d37"
     },
     {
       "path": "app/Infrastructure/Support/PooledFiberContext.php",
