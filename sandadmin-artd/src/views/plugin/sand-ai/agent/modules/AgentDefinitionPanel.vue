@@ -109,7 +109,7 @@
           <ElDescriptionsItem label="回答要求">{{ form.instructions.trim() || '请填写回答边界和引用要求' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="历史上下文">{{ form.context_turn_limit === 0 ? '不带历史对话' : `最多参考最近 ${form.context_turn_limit} 轮有效、无需复核的回答` }}</ElDescriptionsItem>
         </ElDescriptions>
-        <p class="knowledge-note">以上组合随启用版本固定。只读工具的精确版本、业务范围和 Schema 会一起固定；模型、知识库、工具或回答要求变化后需保存并启用新版本。</p>
+        <p class="knowledge-note">以上组合随启用版本固定。只读工具的精确版本、业务范围和参数结构会一起固定；模型、知识库、工具或回答要求变化后需保存并启用新版本。</p>
         <ElFormItem><ElButton type="primary" :loading="writing" :disabled="!canSave" @click="save">保存草稿</ElButton></ElFormItem>
       </ElForm>
       <ElDialog v-model="versionsVisible" title="配置版本与回退" width="760px">

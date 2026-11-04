@@ -1,7 +1,7 @@
 <template>
   <section class="ocr-price">
     <h4>此模型的图片文字识别服务费</h4>
-    <p>计量单位：{{ unitLabel }}。填写 CNY 服务费与 UTC 生效时间；保存草稿不会启用价格。可填 0。此服务费不含 CPU 与机器费用，不代表现金账单核对；未计价时硬预算请求会拒绝。</p>
+    <p>计量单位：{{ unitLabel }}。填写人民币服务费与世界标准时间生效时间；保存草稿不会启用价格。可填 0。此服务费不含 CPU 与机器费用，不代表现金账单核对；未计价时严格预算请求会拒绝。</p>
     <ElAlert v-if="notice" :title="notice" :closable="false" type="warning" />
     <ElButton v-permission="'sand_ai:pricing:index'" :loading="busy === 'read'" :disabled="!!busy" @click="read">读取价格目录 / 找回原操作</ElButton>
     <ElSelect v-model="selectedId" :disabled="!!busy || !!pending" clearable placeholder="选择已有价格版本" @change="selectPrice">
@@ -13,8 +13,8 @@
       <ElFormItem label="币种"><span>CNY</span></ElFormItem>
       <ElFormItem label="单位价格"><ElInput v-model.trim="unitPrice" placeholder="非负金额，最多 8 位小数" /></ElFormItem>
       <ElFormItem :label="`每多少${unitLabel}`"><ElInputNumber v-model="perQuantity" :min="1" :max="2147483647" :precision="0" /></ElFormItem>
-      <ElFormItem label="UTC 生效时间"><ElInput v-model.trim="effectiveFrom" placeholder="YYYY-MM-DD HH:mm:ss" /></ElFormItem>
-      <ElFormItem label="UTC 失效时间"><ElInput v-model.trim="effectiveUntil" placeholder="可留空" /></ElFormItem>
+      <ElFormItem label="世界标准时间生效时间"><ElInput v-model.trim="effectiveFrom" placeholder="YYYY-MM-DD HH:mm:ss" /></ElFormItem>
+      <ElFormItem label="世界标准时间失效时间"><ElInput v-model.trim="effectiveUntil" placeholder="可留空" /></ElFormItem>
     </ElForm>
     <ElSpace wrap>
       <ElButton v-permission="'sand_ai:pricing:save'" :loading="busy === 'save'" :disabled="!!busy || !!pending || storageBlocked || !!selected || !canSave" @click="save">保存新的价格草稿</ElButton>

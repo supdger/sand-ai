@@ -17,7 +17,7 @@
         </ElTag>
         <ElButton :disabled="!configured" @click="clearKey">{{ identityRefusal?.requiresReplacement ? '清除并更换' : '清除' }}</ElButton>
         <ElButton link type="primary" @click="goSandIamApplication">去 SandIAM 应用</ElButton>
-        <ElButton link type="primary" @click="goWorkloadClient">工作负载客户端</ElButton>
+        <ElButton link type="primary" @click="goWorkloadClient">调用身份</ElButton>
       </ElSpace>
       <ElAlert
         v-if="identityRefusal"
@@ -28,7 +28,7 @@
         show-icon
       />
       <p class="runtime-key__hint">
-        请填写管理员在身份与授权插件（SandIAM）中生成的调用密钥，不含 Bearer 前缀。填写后仍由每次调用验证身份与允许使用。
+        请填写管理员在身份与授权插件（SandIAM）中生成的调用密钥，粘贴密钥本身即可，无需加前缀。填写后仍由每次调用验证身份与允许使用。
       </p>
     </div>
   </ElFormItem>
@@ -83,7 +83,7 @@
     identityRefusal.value = null
     emit('update:modelValue', '')
     if (props.persistInSession) clearRuntimeBearer()
-    ElMessage.success(props.persistInSession ? '已清除本机会话中的 Bearer' : '已清除本页面的 Bearer')
+    ElMessage.success(props.persistInSession ? '已清除本机会话中的调用密钥' : '已清除本页面的调用密钥')
   }
 
   /** SAND-113E 已移除 /sand-ai/setup；身份与凭证入口在 SandIAM。 */

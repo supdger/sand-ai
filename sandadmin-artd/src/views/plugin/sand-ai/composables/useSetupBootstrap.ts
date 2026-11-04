@@ -35,6 +35,9 @@ function noticeFor(failure: SetupBootstrapFailure): SetupBootstrapNotice {
       return { message: '需要先安装身份与授权插件（SandIAM）', retryable: false }
     case 'sandiam_disabled':
       return { message: failure.message, retryable: false }
+    case 'security_init_failed':
+      // 服务端已给出中文提示；是否可重试由原因决定（BUSY/异常可重试，需恢复材料则否）。
+      return { message: failure.message, retryable: failure.retryable === true }
     case 'catalog_error':
     default:
       return { message: '系统准备未完成', retryable: true }

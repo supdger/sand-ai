@@ -8,7 +8,7 @@
     @close="handleClose"
   >
     <ElAlert v-if="pending" type="warning" :closable="false"
-      :title="`原${pending.operation === 'save' ? '新增' : '更新'}保存待确认：${pending.code}${pending.id !== null ? ' · ID ' + pending.id : ''}`"
+      :title="`原${pending.operation === 'save' ? '新增' : '更新'}保存待确认：${pending.code}${pending.id !== null ? `（编号 ${pending.id}）` : ''}`"
       description="只读取原保存回执，不再次发送；原回执表示当时保存结果，当前配置由列表另行读取。" />
     <el-input v-if="pending" :model-value="pending.key" readonly aria-label="原保存请求编号" />
     <ElButton v-if="pending || journalError" :loading="reading" :disabled="submitting || reading" @click="recoverOperation">读取原保存回执</ElButton>

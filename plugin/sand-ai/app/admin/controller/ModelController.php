@@ -74,7 +74,7 @@ final class ModelController extends SandAiAdminController
             return $callback($admin, $guard);
         } catch (ApiProblem $problem) {
             $status = in_array($problem->errorCode, ['SAND_AI_IDEMPOTENCY_CONFLICT','SAND_AI_RESOURCE_CONFLICT'], true) ? 409 : 400;
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), $status);
+            throw $this->adminProblemException($problem, $status);
         } catch (ApiException $exception) {
             throw $exception;
         } catch (\Throwable) {

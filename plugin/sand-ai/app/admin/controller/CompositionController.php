@@ -5,7 +5,6 @@ namespace plugin\SandAi\app\admin\controller;
 use app\Api\Support\ApiProblem;
 use app\Application\Composition\CompositionDefinitionGateway;
 use app\Application\Composition\CompositionServiceCatalog;
-use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
@@ -48,6 +47,6 @@ final class CompositionController extends SandAiAdminController
         });
     }
     private function environment(Request $request): int { $id=filter_var($request->get('environment_id'),FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]); if ($id===false) self::invalid(); return (int)$id; }
-    private function respond(\Closure $callback): Response { try { $this->authenticatedAdminId(); return $this->success($callback(),'AI 工作流操作已完成')->header('Cache-Control','no-store'); } catch (ApiProblem $problem) { throw new ApiException($problem->errorCode . ': ' . $problem->getMessage()); } }
+    private function respond(\Closure $callback): Response { try { $this->authenticatedAdminId(); return $this->success($callback(),'AI 工作流操作已完成')->header('Cache-Control','no-store'); } catch (ApiProblem $problem) { throw $this->adminProblemException($problem); } }
     private static function invalid(): never { throw new ApiProblem('SAND_AI_VALIDATION_ERROR','AI 工作流配置请求无效'); }
 }

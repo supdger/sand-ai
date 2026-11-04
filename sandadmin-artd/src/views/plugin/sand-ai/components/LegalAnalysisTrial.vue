@@ -5,7 +5,7 @@
     <ElAlert v-if="error" :title="error" type="error" :closable="false" class="notice" />
     <ElAlert v-if="requestKey && !runId" title="存在尚未确认的请求。请先找回原运行；不要更换请求号重复提交。" type="warning" :closable="false" class="notice" />
     <ElForm label-position="top" @submit.prevent>
-      <ElFormItem label="应用 Bearer"><ElInput v-model="apiKey" type="password" show-password autocomplete="off" :disabled="busy" placeholder="仅用于当前页面，不保存凭证" /></ElFormItem>
+      <ElFormItem label="应用调用密钥"><ElInput v-model="apiKey" type="password" show-password autocomplete="off" :disabled="busy" placeholder="仅用于当前页面，不保存凭证" /></ElFormItem>
       <template v-if="!requestKey && !runId">
         <ElFormItem label="原请求号（找回已有分析）"><ElInput v-model="recoveryKey" :disabled="busy || reading" placeholder="粘贴原提交时保存的请求号" /></ElFormItem>
         <ElSpace wrap class="actions"><ElButton :disabled="busy || reading || !apiKey.trim() || !recoveryKey.trim()" :loading="busy" @click="recoverKnownRequest">只读找回原分析</ElButton><span>需当前应用凭证及 workflow.read 授权；只读取原运行，不提交新的分析。</span></ElSpace>
@@ -21,8 +21,8 @@
         </fieldset>
         <h4>法律来源</h4><p>效力状态全部为消费者声明，包括“声明有效”也不代表官方核验。每次最多 10 个来源、40 个来源块。</p>
         <article v-for="(source, index) in sources" :key="source.key" class="source-form">
-          <div class="fields"><ElFormItem label="文件 ID"><ElInputNumber v-model="source.fileId" :min="1" :precision="0" :disabled="locked" /></ElFormItem><ElFormItem label="法源引用"><ElInput v-model.trim="source.sourceRef" maxlength="512" :disabled="locked" placeholder="法条、司法解释或裁判文书引用" /></ElFormItem><ElFormItem label="来源版本"><ElInput v-model.trim="source.sourceVersion" maxlength="512" :disabled="locked" placeholder="业务方确认的来源版本" /></ElFormItem></div>
-          <div class="fields"><ElFormItem label="文件版本引用"><ElInput v-model.trim="source.versionRef" maxlength="512" :disabled="locked" placeholder="业务系统固定的文件版本引用" /></ElFormItem><ElFormItem label="来源块 ID"><ElInput v-model.trim="source.blockIds" :disabled="locked" placeholder="从文件解析结果获取，逗号分隔" /></ElFormItem><ElFormItem label="声明的效力"><ElSelect v-model="source.effect" :disabled="locked"><ElOption v-for="(label, value) in effectLabels" :key="value" :label="label" :value="value" /></ElSelect></ElFormItem></div>
+          <div class="fields"><ElFormItem label="文件编号"><ElInputNumber v-model="source.fileId" :min="1" :precision="0" :disabled="locked" /></ElFormItem><ElFormItem label="法源引用"><ElInput v-model.trim="source.sourceRef" maxlength="512" :disabled="locked" placeholder="法条、司法解释或裁判文书引用" /></ElFormItem><ElFormItem label="来源版本"><ElInput v-model.trim="source.sourceVersion" maxlength="512" :disabled="locked" placeholder="业务方确认的来源版本" /></ElFormItem></div>
+          <div class="fields"><ElFormItem label="文件版本引用"><ElInput v-model.trim="source.versionRef" maxlength="512" :disabled="locked" placeholder="业务系统固定的文件版本引用" /></ElFormItem><ElFormItem label="来源块编号"><ElInput v-model.trim="source.blockIds" :disabled="locked" placeholder="从文件解析结果获取，逗号分隔" /></ElFormItem><ElFormItem label="声明的效力"><ElSelect v-model="source.effect" :disabled="locked"><ElOption v-for="(label, value) in effectLabels" :key="value" :label="label" :value="value" /></ElSelect></ElFormItem></div>
           <ElButton type="danger" link :disabled="locked || sources.length === 1" @click="sources.splice(index, 1)">移除此来源</ElButton>
         </article>
         <ElSpace wrap class="actions"><ElButton :disabled="locked || sources.length >= 10" @click="addSource">添加来源</ElButton><ElButton :disabled="locked || !apiKey.trim()" :loading="busy" @click="previewSources">读取并核对来源快照</ElButton><ElButton link type="primary" @click="router.push('/sand-ai/file')">打开文件中心</ElButton></ElSpace>
@@ -41,7 +41,7 @@
     </ElForm>
     <template v-if="runId">
       <ElSpace wrap class="actions"><strong>运行 #{{ runId }} · {{ run ? stateLabel(run.state) : '待读取' }}</strong><ElButton :loading="reading" :disabled="reading || !apiKey.trim()" @click="refreshRun">刷新结果</ElButton><ElButton v-if="canReplayAuthorization" type="primary" :loading="busy" :disabled="busy || reading || !apiKey.trim()" @click="submit">原请求重新授权</ElButton><ElButton :disabled="busy || reading" @click="startNew">新建一次试运行</ElButton></ElSpace>
-      <template v-if="run"><p>计量状态：{{ stateLabel(run.usage.state) }} · 输入 Token：{{ run.usage.input_tokens ?? '未知' }} · 输出 Token：{{ run.usage.output_tokens ?? '未知' }}</p><p>费用状态：{{ stateLabel(run.cost.state) }} · {{ run.cost.metered_amount ?? '未知' }} {{ run.cost.currency ?? '' }}</p><p v-if="run.task?.error_code">任务错误：{{ run.task.error_code }}</p><LegalAnalysisResult v-if="run.result" :payload="run.result.payload" @open-source="openSource" /><ElEmpty v-else description="成果尚未生成，可稍后刷新运行状态" :image-size="64" /></template>
+      <template v-if="run"><p>计量状态：{{ stateLabel(run.usage.state) }} · 输入词元：{{ run.usage.input_tokens ?? '未知' }} · 输出词元：{{ run.usage.output_tokens ?? '未知' }}</p><p>费用状态：{{ stateLabel(run.cost.state) }} · {{ run.cost.metered_amount ?? '未知' }} {{ run.cost.currency ?? '' }}</p><template v-if="run.task?.error_code"><p>任务错误：{{ taskErrorHint(run.task.error_code) }}</p><details class="tech-details"><summary>技术详情</summary><p>{{ run.task.error_code }}</p></details></template><LegalAnalysisResult v-if="run.result" :payload="run.result.payload" @open-source="openSource" /><ElEmpty v-else description="成果尚未生成，可稍后刷新运行状态" :image-size="64" /></template>
     </template>
     <section class="history-read" :aria-labelledby="historyHeadingId" :aria-busy="historyReading">
       <h4 :id="historyHeadingId">独立只读查看原分析</h4>
@@ -52,10 +52,10 @@
       <template v-if="historyRun">
         <p>原请求号 {{ historyResolvedKey }} · 原运行 #{{ historyRun.run_id }} · {{ stateLabel(historyRun.state) }}</p>
         <p>原分析配置：{{ historyRun.analysis_profile?.code ?? '未返回配置' }} · {{ historyRun.analysis_profile?.version ?? '未返回版本' }}</p>
-        <p>原运行计量状态：{{ stateLabel(historyRun.usage.state) }} · 输入 Token：{{ historyRun.usage.input_tokens ?? '未知' }} · 输出 Token：{{ historyRun.usage.output_tokens ?? '未知' }}</p>
+        <p>原运行计量状态：{{ stateLabel(historyRun.usage.state) }} · 输入词元：{{ historyRun.usage.input_tokens ?? '未知' }} · 输出词元：{{ historyRun.usage.output_tokens ?? '未知' }}</p>
         <p>原运行费用状态：{{ stateLabel(historyRun.cost.state) }} · {{ historyRun.cost.metered_amount ?? '未知' }} {{ historyRun.cost.currency ?? '' }}</p>
         <p>费用与计量来自此原运行返回的实际投影；未返回金额时显示未知。原请求号和运行号不能用作模型调用费用标识。</p>
-        <p v-if="historyRun.task?.error_code">原任务错误：{{ historyRun.task.error_code }}</p>
+        <template v-if="historyRun.task?.error_code"><p>原任务错误：{{ taskErrorHint(historyRun.task.error_code) }}</p><details class="tech-details"><summary>技术详情</summary><p>{{ historyRun.task.error_code }}</p></details></template>
         <LegalAnalysisResult v-if="historyRun.result" :payload="historyRun.result.payload" @open-source="openHistorySource" />
         <ElEmpty v-else description="此原运行尚未返回成果，可只读刷新状态" :image-size="64" />
       </template>
@@ -74,6 +74,7 @@ import legalApi, { effectLabels, legalModes, type EffectStatus, type LegalFact, 
 import fileApi from '../api/file'
 import taskApi from '../api/task'
 import { newRuntimeRequestId } from '../api/runtime'
+import { hintForRuntimeErrorCode } from '../api/runtimeErrors'
 import { useUserStore } from '@/store/modules/user'
 import type { SandAiWorkflowRun, SandAiWorkflowSource } from '../api/types'
 import LegalAnalysisResult from './LegalAnalysisResult.vue'
@@ -182,10 +183,13 @@ function clearPrivateInput(): void {
   scope.ref = ''; scope.snapshot_ref = ''; scope.snapshot_version = ''
   sources.value = []; facts.value = []; addSource()
 }
+function taskErrorHint(code: string | undefined): string {
+  return hintForRuntimeErrorCode(code) ?? '未能识别的错误，请展开技术详情查看错误码'
+}
 function parseIds(text: string): number[] {
   const tokens = text.split(/[,，\s]+/).filter(Boolean)
   const ids = tokens.map(Number)
-  if (!tokens.length || tokens.some(token => !/^[1-9]\d*$/.test(token)) || ids.some(id => !Number.isSafeInteger(id)) || new Set(ids).size !== ids.length) throw new Error('来源块 ID 必须为不重复的正整数')
+  if (!tokens.length || tokens.some(token => !/^[1-9]\d*$/.test(token)) || ids.some(id => !Number.isSafeInteger(id)) || new Set(ids).size !== ids.length) throw new Error('来源块编号必须为不重复的正整数')
   return ids
 }
 async function previewSources(): Promise<void> {
@@ -194,7 +198,7 @@ async function previewSources(): Promise<void> {
   error.value = ''; preparedSources.value = []; snapshots.value = []; confirmed.value = false
   try {
     const selected = sources.value.map(source => {
-      if (!Number.isSafeInteger(source.fileId) || !source.fileId || source.fileId < 1 || !source.sourceRef || !source.sourceVersion || !source.versionRef) throw new Error('请填写每项来源的文件 ID、法源引用、来源版本和文件版本引用')
+      if (!Number.isSafeInteger(source.fileId) || !source.fileId || source.fileId < 1 || !source.sourceRef || !source.sourceVersion || !source.versionRef) throw new Error('请填写每项来源的文件编号、法源引用、来源版本和文件版本引用')
       return { ...source, fileId: source.fileId, ids: parseIds(source.blockIds) }
     })
     const ids = selected.flatMap(source => source.ids)
@@ -371,4 +375,5 @@ onBeforeUnmount(() => { active = false; clearHistory(); ++generation; ++sourceGe
 .history-read { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--el-border-color); }
 .source-form, fieldset { margin: 12px 0; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 16px; min-width: 0; }
 .source-content { white-space: pre-wrap; max-height: 280px; overflow: auto; }
+.tech-details { margin: 4px 0; }
 </style>

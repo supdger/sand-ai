@@ -25,7 +25,7 @@
       </ElForm>
       <h4>原请求找回</h4>
       <p>换短凭证后先读取同一消费范围，再用原请求键只读找回。运行中或结果未知不会自动再次生成。</p>
-      <ElInput :model-value="recoveryKey" :disabled="busy" placeholder="原来源提炼 Idempotency-Key"
+      <ElInput :model-value="recoveryKey" :disabled="busy" placeholder="原来源提炼请求编号"
         @update:model-value="emit('update:recoveryKey', $event)" />
       <ElButton :disabled="!ready || busy || !recoveryKey.trim()" @click="emit('recover')">只读原请求</ElButton>
       <template v-if="result">

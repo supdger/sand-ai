@@ -69,11 +69,11 @@
                   上下文容量：{{
                     selection.registration.capacity.context_window_tokens
                   }}
-                  Token；输入上限：{{
+                  词元；输入上限：{{
                     selection.registration.capacity.input_token_limit
                   }}
-                  Token；分词请求上限：{{ selection.registration.capacity.max_tokenizer_requests }}
-                  次。<span v-if="selection.registration.capacity.planning_driver">原设置使用本地 SDK 规划，不实测 Token。</span>
+                  词元；分词请求上限：{{ selection.registration.capacity.max_tokenizer_requests }}
+                  次。<span v-if="selection.registration.capacity.planning_driver">原设置使用本地引擎规划，不实测词元。</span>
                 </p>
                 <p> 依据网址：{{ selection.registration.capacity.capacity_source_url }} </p>
                 <p class="digest">
@@ -104,11 +104,11 @@
               <ElFormItem label="规划方式">
                 <ElSelect v-model="draft.planning_mode" :disabled="formLocked" @change="changePlanningMode">
                   <ElOption v-if="selection.route.tokenizer_drivers.length" label="远程分词计数" value="remote" />
-                  <ElOption v-if="planningDrivers.length" label="本地 SDK 文本规划（不实测 Token）" value="local" />
+                  <ElOption v-if="planningDrivers.length" label="本地引擎文本规划（不实测词元）" value="local" />
                 </ElSelect>
               </ElFormItem>
-              <ElAlert v-if="isLocal" type="info" :closable="false" title="本地规划不实测 Token，不向分词服务发送请求；这不是免费声明。模型生成仍按实际调用核对容量和费用。" />
-              <p v-if="isLocal && planningDriver">SDK：{{ planningDriver.sdk_package }} {{ planningDriver.sdk_version }}；文本分区上限 {{ planningDriver.max_length }}，重叠 {{ planningDriver.word_overlap }}；Token 未测量。</p>
+              <ElAlert v-if="isLocal" type="info" :closable="false" title="本地规划不实测词元，不向分词服务发送请求；这不是免费声明。模型生成仍按实际调用核对容量和费用。" />
+              <p v-if="isLocal && planningDriver">引擎包：{{ planningDriver.sdk_package }} {{ planningDriver.sdk_version }}；文本分区上限 {{ planningDriver.max_length }}，重叠 {{ planningDriver.word_overlap }}；词元未测量。</p>
               <ElFormItem v-if="isLocal" label="本地规划驱动">
                 <ElSelect v-model="draft.planning_driver" :disabled="formLocked" placeholder="明确选择本地驱动">
                   <ElOption v-for="item in planningDrivers" :key="item.code" :label="item.code" :value="item.code" />
@@ -128,7 +128,7 @@
                   />
                 </ElSelect>
               </ElFormItem>
-              <ElFormItem label="上下文容量（Token）">
+              <ElFormItem label="上下文容量（词元）">
                 <ElInputNumber
                   v-model="draft.context_window_tokens"
                   :disabled="formLocked"
@@ -140,7 +140,7 @@
                 />
                 <span v-if="driver">当前驱动安全上限：{{ driver.context_window_ceiling }}。</span>
               </ElFormItem>
-              <ElFormItem label="输入上限（Token）">
+              <ElFormItem label="输入上限（词元）">
                 <ElInputNumber
                   v-model="draft.input_token_limit"
                   :disabled="formLocked"
@@ -150,14 +150,14 @@
                   placeholder="填写核定值"
                 />
                 <span
-                  >每次输出预留 {{ selection.route.max_output_tokens }} Token。{{
+                  >每次输出预留 {{ selection.route.max_output_tokens }} 词元。{{
                     inputCeiling === null
                       ? '请先填写上下文容量。'
-                      : `输入最多 ${Math.max(0, inputCeiling)} Token。`
+                      : `输入最多 ${Math.max(0, inputCeiling)} 词元。`
                   }}</span
                 >
               </ElFormItem>
-              <p v-if="isLocal">分词服务请求：0 次；Token 计数未测量，不作为财务计量依据。</p>
+              <p v-if="isLocal">分词服务请求：0 次；词元计数未测量，不作为财务计量依据。</p>
               <ElFormItem v-else label="分词请求上限（次）">
                 <ElInputNumber
                   v-model="draft.max_tokenizer_requests"
@@ -523,7 +523,7 @@
     try {
       await ElMessageBox.confirm(
         enabled
-          ? (isLocal.value ? '确认启用已保存的本地规划设置？本地不实测 Token，模型生成仍需 SandIAM 授权并可能产生费用。' : '确认启用当前模型版本及已保存容量的会议执行？实际调用仍需 SandIAM 授权，可能产生模型与分词费用。')
+          ? (isLocal.value ? '确认启用已保存的本地规划设置？本地不实测词元，模型生成仍需 SandIAM 授权并可能产生费用。' : '确认启用当前模型版本及已保存容量的会议执行？实际调用仍需 SandIAM 授权，可能产生模型与分词费用。')
           : '确认撤销此路线的会议执行？新会议任务将被拒绝，已冻结任务保留原恢复规则。',
         enabled ? '启用会议执行' : '撤销会议执行',
         {

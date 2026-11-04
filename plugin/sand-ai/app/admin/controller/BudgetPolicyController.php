@@ -51,7 +51,7 @@ final class BudgetPolicyController extends SandAiAdminController
             $key = $header === null ? null : (new BudgetPolicyValidator())->normalizeRequestKey($header);
             $policy = (new BudgetPolicyService())->saveDraft($request->post(), (string) $adminId, $key, $this->draftAdminGuard($adminId));
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
         return $this->success($policy, '预算草稿已保存');
     }
@@ -70,7 +70,7 @@ final class BudgetPolicyController extends SandAiAdminController
             );
             return $this->success($result, '已找回原预算草稿保存结果')->header('Cache-Control', 'no-store');
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 
@@ -104,7 +104,7 @@ final class BudgetPolicyController extends SandAiAdminController
                 $body['expected_policy'] ?? null,
             );
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
         return $this->success($policy, '预算策略已发布');
     }
@@ -179,7 +179,7 @@ final class BudgetPolicyController extends SandAiAdminController
         try {
             return $this->success($callback(), $message);
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 

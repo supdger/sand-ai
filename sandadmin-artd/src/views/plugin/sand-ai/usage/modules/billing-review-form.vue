@@ -15,7 +15,7 @@
     <ElDescriptionsItem label="数量 / 计量口径"
       >{{ line.quantity }} / {{ line.meter_code }}</ElDescriptionsItem
     >
-    <ElDescriptionsItem label="发生时段 UTC"
+    <ElDescriptionsItem label="发生时段（世界标准时间）"
       >{{ line.occurred_start }} 至 {{ line.occurred_end }}</ElDescriptionsItem
     >
     <ElDescriptionsItem label="来源身份">{{
@@ -67,7 +67,7 @@
       >已选择：{{ file.name }} · {{ file.size }} 字节；原件以私有方式保存，上传不会解析、认证厂商身份或创建账单行。</p
     >
     <ElForm class="mt-3" label-position="top" :disabled="locked">
-      <ElFormItem label="已有原件 ID（须属于本服务商）"
+      <ElFormItem label="已有原件编号（须属于本服务商）"
         ><ElInput v-model="evidenceIdText"
       /></ElFormItem>
     </ElForm>
@@ -98,7 +98,7 @@
         v-if="clearUnknown || evidenceState === 'clearing'"
         :loading="busy"
         @click="clearEvidence"
-        >按原 ID 继续清除</ElButton
+        >按原编号继续清除</ElButton
       >
     </div>
     <ElForm
@@ -135,8 +135,8 @@
       />
       <template v-if="granularity === 'request' && line.meter_code === 'total_tokens'">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <ElFormItem label="环境 ID"><ElInput v-model="environmentId" /></ElFormItem>
-          <ElFormItem label="用量事件 ID"><ElInput v-model="usageEventId" /></ElFormItem>
+          <ElFormItem label="环境编号"><ElInput v-model="environmentId" /></ElFormItem>
+          <ElFormItem label="用量事件编号"><ElInput v-model="usageEventId" /></ElFormItem>
         </div>
         <ElCheckbox v-model="requestConfirmed"
           >已人工核对原件账户、逐请求粒度与关联依据；此声明不是厂商认证。</ElCheckbox
@@ -161,7 +161,7 @@
       <p class="text-sm">冻结请求号：{{ attempt.idempotency_key }}</p>
       <ElButton :loading="busy" :disabled="busy || writeFlight" @click="queryOriginal">查询原审核结果</ElButton>
     </div>
-    <ElDivider>审核历史（最近 100 条，时间为 UTC）</ElDivider>
+    <ElDivider>审核历史（最近 100 条，时间为世界标准时间（UTC））</ElDivider>
     <ElButton :loading="historyLoading" :disabled="busy" @click="loadHistory"
       >查询审核记录</ElButton
     >
@@ -174,8 +174,8 @@
     />
     <ElEmpty v-else-if="historyLoaded && history.length === 0" description="暂无人工审核记录" />
     <ElTable :data="history" v-loading="historyLoading" class="mt-3">
-      <ElTableColumn prop="create_time" label="时间 UTC" min-width="170" />
-      <ElTableColumn prop="admin_id" label="操作员 ID" width="100" />
+      <ElTableColumn prop="create_time" label="时间（世界标准时间）" min-width="170" />
+      <ElTableColumn prop="admin_id" label="操作员编号" width="100" />
       <ElTableColumn label="人工结果" min-width="170"
         ><template #default="{ row }">{{
           reviewLabel(row.comparison_state)
@@ -189,7 +189,7 @@
       >
       <ElTableColumn label="证据" min-width="210"
         ><template #default="{ row }"
-          >ID {{ row.evidence_id }} ·
+          >编号 {{ row.evidence_id }} ·
           {{ row.evidence_state === 'available' ? '原件可用' : '原件不可用' }}<br />SHA
           {{ row.evidence_sha256 }}</template
         ></ElTableColumn
@@ -434,9 +434,9 @@
       else
         error.value =
           result.value.state === 'upload_pending'
-            ? '原件尚未上传完成。请按原文件恢复，或清除这个原件 ID。'
+            ? '原件尚未上传完成。请按原文件恢复，或清除这个原件编号。'
             : result.value.state === 'clearing'
-              ? '原件正在清除，只能按原 ID 继续清除。'
+              ? '原件正在清除，只能按原编号继续清除。'
               : '该原件不可用，同一文件不会恢复已清除原件。'
     } catch (cause) {
       if (!currentOwner(operationOwner, operationOwnerEpoch)) return
@@ -560,7 +560,7 @@
       [...locator.value].length > 256 ||
       [...note.value].length > 2000
     ) {
-      error.value = '原件 ID、位置和说明为必填，且不能含换行或控制字符。'
+      error.value = '原件编号、位置和说明为必填，且不能含换行或控制字符。'
       return
     }
     const common = {
@@ -577,7 +577,7 @@
       const env = positiveId(environmentId.value)
       const event = positiveId(usageEventId.value)
       if (props.line.meter_code !== 'total_tokens' || !env || !event || !requestConfirmed.value) {
-        error.value = '逐请求核对必须填写真实环境和事件 ID，并明确确认原件依据。'
+        error.value = '逐请求核对必须填写真实环境和事件编号，并明确确认原件依据。'
         return
       }
       input = {

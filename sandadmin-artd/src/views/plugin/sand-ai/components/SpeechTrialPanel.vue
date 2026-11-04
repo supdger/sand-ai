@@ -45,7 +45,7 @@
     <p class="muted">填写已保存的请求编号，可补充已知运行号核对结果。读取只查询已有运行与费用，不改变上方试用请求。</p>
     <ElForm label-width="110px" @submit.prevent="readKnownRequest">
       <ElFormItem label="请求编号">
-        <ElInput v-model="readerKey" maxlength="512" placeholder="原请求的 Idempotency-Key" />
+        <ElInput v-model="readerKey" maxlength="512" placeholder="原请求的请求编号" />
       </ElFormItem>
       <ElFormItem label="已知运行号">
         <ElInput v-model.trim="readerPublicId" maxlength="32" placeholder="可选；用于核对原运行号" />

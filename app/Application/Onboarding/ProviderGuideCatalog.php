@@ -18,7 +18,7 @@ final class ProviderGuideCatalog
             'default_base_url' => 'https://api.openai.com/v1',
             'api_key_url' => 'https://platform.openai.com/api-keys',
             'billing_help_url' => 'https://help.openai.com/en/articles/9039756',
-            'api_key_help' => '在 OpenAI API 平台创建项目 API Key，并确认 API 账号的计费设置；不要填写 ChatGPT 工作区的 Admin key。',
+            'api_key_help' => '在 OpenAI API 平台创建项目 API Key，并确认 API 账号的计费设置；不要填写 ChatGPT 工作区的管理密钥。',
             'data_egress_notice' => '测试和后续调用会把提交给模型的内容发送到 OpenAI，请先确认数据外发与地区要求。',
             'discovery_notice' => '发现模型通常不产生模型推理费用；验证模型会发送极小样本文本，可能产生少量费用。',
             'fields' => [

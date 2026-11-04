@@ -1,9 +1,9 @@
 <template>
   <section class="knowledge-query">
     <h3>应用知识检索</h3>
-    <p class="hint">使用消费环境的应用凭证查询已开放资料。有已激活向量索引时执行关键词与向量混合检索，查询 Embedding 按实际调用计费；开启重排会另产生所选服务的调用费用。</p>
+    <p class="hint">使用消费环境的应用凭证查询已开放资料。有已激活向量索引时执行关键词与向量混合检索，查询向量按实际调用计费；开启重排会另产生所选服务的调用费用。</p>
     <ElForm label-width="110px" @submit.prevent>
-      <RuntimeApiKeyField v-model="apiKey" :persist-in-session="false" placeholder="填写所选消费环境的运行面 Bearer（仅本页面）" />
+      <RuntimeApiKeyField v-model="apiKey" :persist-in-session="false" placeholder="填写所选消费环境的调用密钥（仅本页面）" />
       <ElFormItem label="开放关系">
         <ElSelect v-model="code" filterable :disabled="busy || !!pending" placeholder="选择当前消费环境的知识库" class="query-input">
           <ElOption v-for="item in available" :key="item.id" :label="publicationLabel(item)" :value="item.code" />
@@ -69,7 +69,7 @@
     <ElAlert v-if="error" type="error" :title="error" :closable="false" class="notice" />
     <template v-if="result">
       <p>知识库 {{ result.knowledge_base.code }} · 第 {{ result.knowledge_base.version }} 版 · 查询：{{ result.query }}</p>
-      <p class="hint">{{ result.embedding_invocation ? '关键词与向量混合检索；分数为融合排序分数，不是置信度。' : '本次仅关键词检索；没有已激活的向量索引，未产生查询 Embedding 调用。分数为关键词相关性分数。' }}</p>
+      <p class="hint">{{ result.embedding_invocation ? '关键词与向量混合检索；分数为融合排序分数，不是置信度。' : '本次仅关键词检索；没有已激活的向量索引，未产生向量调用。分数为关键词相关性分数。' }}</p>
       <p class="hint">{{ rerankLabel(result.rerank_state, result.rerank_mode) }}</p>
       <ElAlert v-if="result.rerank_mode === 'professional' && result.budget"
         :type="result.budget.state === 'settled' ? 'success' : result.budget.state === 'released' ? 'info' : 'warning'"
@@ -87,13 +87,13 @@
     </template>
     <template v-if="queryUsage">
       <div v-if="queryUsage.embedding_usage" class="query-cost">
-        <p>查询 Embedding 调用 {{ queryUsage.embedding_invocation?.id }}</p>
+        <p>向量调用 {{ queryUsage.embedding_invocation?.id }}</p>
         <ElButton :loading="costBusy" :disabled="busy" @click="loadCost('embedding')">查看 / 刷新本次费用</ElButton>
         <p class="hint">费用读取需该应用具备 usage.read 权限；未知金额保留为待核实。</p>
         <ElAlert v-if="costError" type="error" :title="costError" :closable="false" class="notice" />
         <template v-if="cost">
           <p>本次计量金额：{{ money(cost.price.metered_amount, cost.price.currency) }} · 计量：{{ usageLabel(cost.usage.state) }}</p>
-          <p class="hint">总 Token：{{ cost.tokens.total_tokens ?? '未提供' }} · 对账：{{ reconciliationLabel(cost.reconciliation.state) }}</p>
+          <p class="hint">总词元：{{ cost.tokens.total_tokens ?? '未提供' }} · 对账：{{ reconciliationLabel(cost.reconciliation.state) }}</p>
           <p class="hint">请求标识：{{ cost.request_id }}</p>
         </template>
       </div>
@@ -105,7 +105,7 @@
         <template v-if="rerankCost">
           <p>重排计量金额：{{ money(rerankCost.price.metered_amount, rerankCost.price.currency) }} · 计量：{{ usageLabel(rerankCost.usage.state) }}</p>
           <p v-if="queryUsage.rerank_mode === 'professional'" class="hint">专业计量：{{ professionalMeteringLabel }} · 对账：{{ reconciliationLabel(rerankCost.reconciliation.state) }}</p>
-          <p v-else class="hint">总 Token：{{ rerankCost.tokens.total_tokens ?? '未提供' }} · 对账：{{ reconciliationLabel(rerankCost.reconciliation.state) }}</p>
+          <p v-else class="hint">总词元：{{ rerankCost.tokens.total_tokens ?? '未提供' }} · 对账：{{ reconciliationLabel(rerankCost.reconciliation.state) }}</p>
           <p class="hint">请求标识：{{ rerankCost.request_id }}</p>
         </template>
       </div>
@@ -207,7 +207,7 @@ const rerankCostError = ref('')
 const professionalMeteringLabel = computed(() => {
   const metering = professionalRerankMetering(rerankCost.value)
   if (!metering) return '待结算（计量单位或计量量尚未确认）'
-  const unit = metering.unit === 'rerank_search_units' ? '检索计费单位' : '重排 Token'
+  const unit = metering.unit === 'rerank_search_units' ? '检索计费单位' : '重排词元'
   return `${metering.quantity ?? '待结算'} ${unit}`
 })
 let rerankCostEpoch = 0
@@ -281,7 +281,7 @@ async function search(): Promise<void> {
         await ElMessageBox.confirm(
           `在消费环境 #${original.environmentId} 检索 ${original.code}，最多返回 ${original.limit} 条；${originalRerankLabel(original.options)}。` +
           `当前启用预览为第 ${previewVersion ?? '未确认'} 版，实际版本由服务端受理时固定，按原结果读取。` +
-          '存在活动向量索引时会调用查询 Embedding；开启重排且至少命中两条来源时会向所选服务发送摘录，可能产生费用。授权、预算和实际费用由正式调用记录确认，未知金额不代表零。' +
+          '存在活动向量索引时会调用查询向量；开启重排且至少命中两条来源时会向所选服务发送摘录，可能产生费用。授权、预算和实际费用由正式调用记录确认，未知金额不代表零。' +
           `确认后只发送这份查询与设置；原请求号 ${original.key}，结果不明时仅按原号只读找回。`,
           '确认知识检索', { type: 'warning', confirmButtonText: '确认检索', cancelButtonText: '取消' }
         )

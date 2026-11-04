@@ -1,3 +1,6 @@
+## 0.3.4 (release)
+
+- B1/S1 fixes: setup/bootstrap now auto-completes internal security material (idempotent .env reload, protect-config, first initialize) so fresh installs no longer fail writes with SAND_AI_IDEMPOTENCY_KEY_UNAVAILABLE; failure surfaces as the Chinese retryable reason security_init_failed. Admin-visible English/internal identifiers cleared to plain Chinese copy (request ids, error codes, UTC, Skill/Schema/Token wording); SAND_AI_ error codes moved into the collapsed technical-details block with a unified Chinese mapping.
 ## 0.3.3 (release)
 
 - Packaging fix only, no payload change: the SandIAM dependency pin moves to the 0.8.6 artifact (sand-iam-0.8.6.zip), which restores the portal/ payload root after the 0.8.5 top-level app/ layout regression made the bundle uninstallable. `config.json` plugin_dependencies re-pinned to the new artifact identity; `release-payload.json` regenerated.
@@ -18,6 +21,10 @@
 - Persist original upload request associations and provide scoped read-only recovery; preserve unknown uploads and reject changed input under the same key.
 
 # 更新日志
+
+## 0.3.4
+
+- B1/S1 修复：setup/bootstrap 自动补齐内部安全材料（幂等重载 .env、protect-config、首次 initialize），新装实例写操作不再报 SAND_AI_IDEMPOTENCY_KEY_UNAVAILABLE；失败以中文可重试原因 security_init_failed 呈现。管理端可见英文与内部标识清零（请求编号、错误码、世界标准时间、技能模板/参数结构/词元等措辞），SAND_AI_ 错误码收入折叠技术详情并统一中文映射。
 
 ## 0.3.3
 

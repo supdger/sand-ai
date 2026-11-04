@@ -10,8 +10,8 @@
       <ElButton v-if="storageBlocked" class="mb-3" :disabled="pending" @click="retryRecovery">重试读取原请求引用</ElButton>
       <ElForm label-position="top" :disabled="pending">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <ElFormItem label="环境 ID"><ElInput v-model="query.environment" /></ElFormItem>
-          <ElFormItem label="用量事件 ID"><ElInput v-model="query.event" /></ElFormItem>
+          <ElFormItem label="环境编号"><ElInput v-model="query.environment" /></ElFormItem>
+          <ElFormItem label="用量事件编号"><ElInput v-model="query.event" /></ElFormItem>
         </div>
       </ElForm>
       <ElButton v-if="hasAuth('sand_ai:usage:adjustment:index')" :disabled="writeBusy || listBusy || detailBusy" :loading="listBusy" @click="load(1)">{{ recovery ? '查询原请求记录' : '查询退款记录与原已核账金额' }}</ElButton>
@@ -24,11 +24,11 @@
         </ElDescriptions>
         <p v-if="pageData.totals.state === 'bill_unavailable'" class="my-3 text-sm">原调用尚无可信已核账金额，退款上限无法确定，暂不可新增记录。</p>
         <ElTable :data="pageData.data">
-          <ElTableColumn prop="id" label="记录 ID" width="100" />
+          <ElTableColumn prop="id" label="记录编号" width="100" />
           <ElTableColumn prop="idempotency_key" label="原请求号" min-width="280" />
           <ElTableColumn label="退款金额" min-width="150"><template #default="{ row }">{{ row.refund_amount }} {{ row.currency }}</template></ElTableColumn>
           <ElTableColumn prop="provider_refund_reference" label="服务商退款引用" min-width="160" />
-          <ElTableColumn prop="create_time" label="记录时间 UTC" min-width="180" />
+          <ElTableColumn prop="create_time" label="记录时间（世界标准时间）" min-width="180" />
           <ElTableColumn label="操作" min-width="180"><template #default="{ row }"><ElButton link type="primary" :disabled="writeBusy || detailBusy" @click="read(row)">{{ recovery && row.idempotency_key === recovery.idempotency_key ? '读取原请求详情' : '查看详情' }}</ElButton></template></ElTableColumn>
         </ElTable>
         <ElPagination class="mt-3" layout="prev, pager, next, total" :total="pageData.total" :page-size="pageData.per_page" :current-page="pageData.current_page" :disabled="listBusy || detailBusy || writeBusy" @current-change="load" />
@@ -41,19 +41,19 @@
           <ElDescriptionsItem label="原已核账金额">{{ selectedRecord.original_billed_amount }} {{ selectedRecord.currency }}</ElDescriptionsItem>
           <ElDescriptionsItem label="退款金额">{{ selectedRecord.refund_amount }} {{ selectedRecord.currency }}</ElDescriptionsItem>
           <ElDescriptionsItem label="服务商退款引用">{{ selectedRecord.provider_refund_reference }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="私有凭证 ID / 定位">{{ selectedRecord.evidence_id }} / {{ selectedRecord.evidence_locator }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="私有凭证编号 / 定位">{{ selectedRecord.evidence_id }} / {{ selectedRecord.evidence_locator }}</ElDescriptionsItem>
           <ElDescriptionsItem label="凭证状态">{{ selectedRecord.evidence_state === 'available' ? '私有原件可用' : '私有原件不可用，历史记录仍保留' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="审核说明">{{ selectedRecord.note }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="审核管理员 / 时间 UTC">{{ selectedRecord.admin_id }} / {{ selectedRecord.create_time }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="审核管理员 / 时间（世界标准时间）">{{ selectedRecord.admin_id }} / {{ selectedRecord.create_time }}</ElDescriptionsItem>
           <ElDescriptionsItem label="事实依据">人工核对的退款凭证；金额依据为原已核账金额。</ElDescriptionsItem>
         </ElDescriptions>
       </template>
       <template v-if="hasAuth('sand_ai:usage:adjustment:refund')">
         <ElDivider>记录已发生的真实退款</ElDivider>
-        <p class="mb-3 text-sm">先查询目标环境和用量事件。私有凭证 ID 来自账单原件上传入口，定位填写页码或行号；该原件必须属于原服务商且完整可读取。</p>
+        <p class="mb-3 text-sm">先查询目标环境和用量事件。私有凭证编号来自账单原件上传入口，定位填写页码或行号；该原件必须属于原服务商且完整可读取。</p>
         <ElForm label-position="top" :disabled="pending || !canRecord">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <ElFormItem label="私有退款凭证 ID"><ElInput v-model="draft.evidence" /></ElFormItem>
+            <ElFormItem label="私有退款凭证编号"><ElInput v-model="draft.evidence" /></ElFormItem>
             <ElFormItem label="凭证定位（页码或行号）"><ElInput v-model="draft.locator" maxlength="256" /></ElFormItem>
             <ElFormItem label="服务商实际退款引用"><ElInput v-model="draft.reference" maxlength="128" /></ElFormItem>
             <ElFormItem label="实际退款金额（正数，最多六位小数）"><ElInput v-model="draft.amount" /></ElFormItem>
@@ -230,7 +230,7 @@
     if (!hasAuth('sand_ai:usage:adjustment:index') || writeBusy.value || listBusy.value || detailBusy.value) return
     const selection = currentScope()
     const adminId = actor.value
-    if (!selection || adminId === null) { error.value = '请填写合法环境 ID、用量事件 ID，并确认当前管理员身份。'; return }
+    if (!selection || adminId === null) { error.value = '请填写合法环境编号、用量事件编号，并确认当前管理员身份。'; return }
     const generation = ++listGeneration
     const epoch = identityEpoch
     listBusy.value = true

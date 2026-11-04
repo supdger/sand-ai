@@ -66,7 +66,7 @@
       apiFn: auditApi.list,
       apiParams: {},
       columnsFactory: () => [
-        { prop: 'id', label: 'ID', width: 80, align: 'center' },
+        { prop: 'id', label: '编号', width: 80, align: 'center' },
         { prop: 'actor_type', label: '操作者类型', width: 110 },
         { prop: 'actor_ref', label: '操作者', minWidth: 120 },
         {

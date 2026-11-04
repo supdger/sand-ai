@@ -64,10 +64,10 @@
           <div>
             <ElSelect v-model="reviewOutputStrategy" :disabled="locked">
               <ElOption label="标准 JSON" value="neuron_json_extract_v1" />
-              <ElOption label="JSON 对象" value="neuron_zai_json_object_v1" />
-              <ElOption label="JSON Schema" value="neuron_openai_json_schema_v1" />
+              <ElOption label="对象结构输出" value="neuron_zai_json_object_v1" />
+              <ElOption label="约束结构输出" value="neuron_openai_json_schema_v1" />
             </ElSelect>
-            <p class="muted">JSON 对象或 JSON Schema 需模型支持对应协议。</p>
+            <p class="muted">对象结构输出或约束结构输出需模型支持对应协议。</p>
           </div>
         </ElFormItem>
         <ElFormItem label="提示词字符上限"><ElInputNumber v-model="form.max_prompt_characters" :min="1" :max="200000" :disabled="locked" /></ElFormItem>

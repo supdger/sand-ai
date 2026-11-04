@@ -4,12 +4,47 @@ declare(strict_types=1);
 
 namespace plugin\SandAi\app\admin\controller;
 
+use app\Api\Support\ApiProblem;
 use plugin\sandadmin\app\cache\UserInfoCache;
 use plugin\sandadmin\basic\BaseController;
 use plugin\sandadmin\exception\ApiException;
 
 abstract class SandAiAdminController extends BaseController
 {
+    /**
+     * Environment-level failures surface to administrators as one Chinese
+     * sentence instead of a raw English error code. Other problems keep the
+     * established "error_code: message" contract text. A $status of 0 keeps
+     * the ApiException default (rendered as business code 500).
+     */
+    protected function adminProblemException(ApiProblem $problem, int $status = 0): ApiException
+    {
+        return new ApiException($this->adminProblemMessage($problem), $status);
+    }
+
+    /**
+     * Same mapping for controllers that render the problem inside a JSON
+     * payload instead of throwing an ApiException.
+     */
+    protected function adminProblemMessage(ApiProblem $problem): string
+    {
+        return $this->adminProblemOverride($problem)
+            ?? $problem->errorCode . ': ' . $problem->getMessage();
+    }
+
+    /**
+     * Chinese operator text for the mapped error codes, or null when the
+     * problem keeps its own contract message.
+     */
+    protected function adminProblemOverride(ApiProblem $problem): ?string
+    {
+        if ($problem->errorCode === 'SAND_AI_IDEMPOTENCY_KEY_UNAVAILABLE') {
+            return '系统安全初始化未完成，请重试或联系管理员';
+        }
+
+        return null;
+    }
+
     protected function authenticatedAdminId(): int
     {
         $request = request();

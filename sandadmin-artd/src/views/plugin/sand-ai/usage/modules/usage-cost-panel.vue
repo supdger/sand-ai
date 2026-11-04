@@ -20,7 +20,7 @@
         </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="12" :md="8" :lg="6">
-        <el-form-item label="应用 ID" prop="application_id">
+        <el-form-item label="应用编号" prop="application_id">
           <el-input-number
             v-model="searchForm.application_id"
             :min="1"
@@ -41,11 +41,11 @@
       </el-col>
       <el-col :xs="24" :sm="12" :md="8" :lg="6">
         <el-form-item label="能力" prop="capability_code">
-          <el-input v-model="searchForm.capability_code" clearable placeholder="如 chat" />
+          <el-input v-model="searchForm.capability_code" clearable placeholder="能力权限代码" />
         </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="12" :md="8" :lg="6">
-        <el-form-item label="服务商 ID" prop="provider_id">
+        <el-form-item label="服务商编号" prop="provider_id">
           <el-input-number
             v-model="searchForm.provider_id"
             :min="1"
@@ -56,7 +56,7 @@
         </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="12" :md="8" :lg="6">
-        <el-form-item label="模型 ID" prop="model_id">
+        <el-form-item label="模型编号" prop="model_id">
           <el-input-number
             v-model="searchForm.model_id"
             :min="1"
@@ -84,7 +84,7 @@
       </el-col>
     </sa-search-bar>
 
-    <p class="mb-3 text-sm text-gray-500">服务：SandAI（sand_ai）。能力权限是该服务内的调用类型；环境留空时显示当前管理员正式可读取环境范围的小计，不代表组织或应用全部历史费用；停用环境按正式历史读取权限纳入。</p>
+    <p class="mb-3 text-sm text-gray-500">服务：SandAI。能力权限是该服务内的调用类型；环境留空时显示当前管理员正式可读取环境范围的小计，不代表组织或应用全部历史费用；停用环境按正式历史读取权限纳入。</p>
     <ElAlert v-if="scopeError" :title="scopeError" type="error" :closable="false" class="mb-3" />
     <ElButton v-if="scopeError" size="small" @click="loadScopes">重试读取允许环境</ElButton>
     <ElCard v-if="canEvents || canSummary" class="mb-3" shadow="never">
@@ -95,7 +95,7 @@
         </ElFormItem>
         <ElFormItem label="AI 工作流节点">
           <ElInput v-model="searchForm.composition_node_code" clearable
-            :disabled="!searchForm.composition_run_id" placeholder="先指定运行 ID，如 lookup" />
+            :disabled="!searchForm.composition_run_id" placeholder="先填写运行编号" />
         </ElFormItem>
         <ElFormItem label="渠道平台">
           <ElSelect v-model="searchForm.delivery_platform" clearable placeholder="全部平台">
@@ -114,7 +114,7 @@
     <ElCard v-if="canSummary" class="art-table-card" shadow="never">
       <h3 class="m-0 text-base">费用汇总</h3>
       <p class="mt-1 mb-0 text-sm text-gray-500">
-        按上方筛选条件汇总不可变计量事件。资源、运行、版本和绑定按实际 ID 分组；缺少关联证据的事件显示为未归属。
+        按上方筛选条件汇总不可变计量事件。资源、运行、版本和绑定按实际编号分组；缺少关联证据的事件显示为未归属。
         各维度是同批事件的不同投影，不将运行总额与其子调用相加。
       </p>
       <form class="summary-range mt-3" @submit.prevent="loadSummary">
@@ -135,7 +135,7 @@
         </fieldset>
         <div v-if="rangeMode === 'custom'" class="summary-range-fields">
           <div class="summary-range-field">
-            <label :for="`${rangeId}-from`" class="text-sm">开始时间（UTC）</label>
+            <label :for="`${rangeId}-from`" class="text-sm">开始时间（世界标准时间）</label>
             <ElInput
               :id="`${rangeId}-from`"
               ref="fromTimeInput"
@@ -149,7 +149,7 @@
             }}</p>
           </div>
           <div class="summary-range-field">
-            <label :for="`${rangeId}-to`" class="text-sm">结束时间（UTC，不含）</label>
+            <label :for="`${rangeId}-to`" class="text-sm">结束时间（世界标准时间，不含）</label>
             <ElInput
               :id="`${rangeId}-to`"
               ref="toTimeInput"
@@ -164,7 +164,7 @@
           </div>
         </div>
         <p :id="`${rangeId}-help`" class="mt-2 mb-2 text-sm text-gray-500">
-          按 UTC 输入，最长 93 天。开始时间包含，结束时间不包含。
+          按世界标准时间（UTC）输入，最长 93 天。开始时间包含，结束时间不包含。
         </p>
         <ElButton
           class="summary-range-submit"
@@ -200,7 +200,7 @@
         {{ summaryLoading ? '正在读取费用汇总' : '时间已修改，点击查看费用汇总' }}
       </p>
       <p v-if="summary" class="mt-3 mb-0 text-sm summary-applied-range">
-        汇总范围（UTC）：{{ summary.filters.from_time }} 至
+        汇总范围（世界标准时间）：{{ summary.filters.from_time }} 至
         {{ summary.filters.to_time }}（不含结束时间）；授权环境小计：{{ summary.scope.environment_ids.length ? summary.scope.environment_ids.join('、') : '当前无可读取环境' }}
       </p>
       <ElAlert
@@ -223,8 +223,8 @@
         </p>
         <ElButton v-if="canCost" @click="focusComparison">比较已有费用</ElButton>
         <p class="mt-3 mb-2 text-sm">
-          <template v-if="summary.ambiguous.scope_state === 'association_unavailable'">当前运行或知识库筛选无法确认未计量派发的归属；次数、Token 和金额均未知。</template>
-          <template v-else>派发结果不确定且没有用量事件：{{ summary.ambiguous.count }} 次；不属于下方用量事件汇总，Token 和金额未知。请沿原请求在单次费用入口找回，不计入已知费用或损失。</template>
+          <template v-if="summary.ambiguous.scope_state === 'association_unavailable'">当前运行或知识库筛选无法确认未计量派发的归属；次数、词元和金额均未知。</template>
+          <template v-else>派发结果不确定且没有用量事件：{{ summary.ambiguous.count }} 次；不属于下方用量事件汇总，词元和金额未知。请沿原请求在单次费用入口找回，不计入已知费用或损失。</template>
         </p>
         <h4 class="mt-4 mb-2 text-sm">各币种总览</h4>
         <ElTable :data="summary.overall.rows" border stripe empty-text="所选范围暂无计量事件">
@@ -275,8 +275,8 @@
             <ElOption label="能力" value="by_capability" />
             <ElOption label="模型" value="by_model" />
             <ElOption label="服务商" value="by_provider" />
-            <ElOption label="Skill" value="by_skill" />
-            <ElOption label="Skill 版本" value="by_skill_version" />
+            <ElOption label="技能模板" value="by_skill" />
+            <ElOption label="技能模板版本" value="by_skill_version" />
             <ElOption label="组织" value="by_organization" />
             <ElOption label="环境" value="by_environment" />
             <ElOption label="来源类别" value="by_source_kind" />
@@ -285,7 +285,7 @@
             <ElOption label="AI 工作流节点" value="by_composition_node" />
             <ElOption label="机器人运行" value="by_agent_run" />
             <ElOption label="知识库" value="by_knowledge_base" />
-            <ElOption label="Skill 运行" value="by_skill_run" />
+            <ElOption label="技能模板运行" value="by_skill_run" />
             <ElOption label="机器人定义" value="by_agent_definition" />
             <ElOption label="机器人版本" value="by_agent_version" />
             <ElOption label="渠道绑定" value="by_channel_binding" />
@@ -393,7 +393,7 @@
 
     <ElCard v-if="canEvents" class="art-table-card" shadow="never">
       <p class="mb-3 text-sm text-gray-500">
-        用量事件与汇总使用同一 UTC 时间筛选；未指定时为最近 30 天。按维度查看调用会沿用当前已显示汇总的时间和业务条件。
+        用量事件与汇总使用同一世界标准时间筛选；未指定时为最近 30 天。按维度查看调用会沿用当前已显示汇总的时间和业务条件。
       </p>
       <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData" />
       <ArtTable
@@ -418,14 +418,14 @@
     >
       <template v-if="selectedEvent">
         <ElDescriptions :column="narrowScreen ? 1 : 2" border class="mb-3">
-          <ElDescriptionsItem label="事件 ID">{{ selectedEvent.id }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="调用 ID">{{
+          <ElDescriptionsItem label="事件编号">{{ selectedEvent.id }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="调用编号">{{
             show(selectedEvent.invocation_id)
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="应用 ID">{{
+          <ElDescriptionsItem label="应用编号">{{
             show(selectedEvent.application_id)
           }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="环境 ID">{{
+          <ElDescriptionsItem label="环境编号">{{
             selectedEvent.environment_id
           }}</ElDescriptionsItem>
           <ElDescriptionsItem label="来源">{{
@@ -437,7 +437,7 @@
           @click="compareSelectedEvent">将本调用带入历史比较</ElButton>
         <ElAlert
           v-if="!canCost"
-          title="无单次费用权限，请向管理员申请单次费用查看权限（sand_ai:usage:cost）。"
+          title="无单次费用权限，请向管理员申请单次费用查看权限。"
           type="warning"
           :closable="false"
         />
@@ -505,8 +505,8 @@
   const sourceLabels: Readonly<Record<string, string>> = {
     structured_workflow: '结构化工作流',
     chat: '聊天',
-    skill: 'Skill 调用',
-    skill_test: 'Skill 测试',
+    skill: '技能模板调用',
+    skill_test: '技能模板测试',
     knowledge_query: '知识库查询',
     knowledge_index: '知识库索引',
     agent: '机器人',
@@ -528,20 +528,20 @@
   const scopeError = ref('')
   let scopeGeneration = 0
   const associationFilterFields: ReadonlyArray<{ key: 'organization_id' | 'skill_id' | 'skill_version_id' | 'workflow_run_id' | 'composition_run_id' | 'agent_run_id' | 'knowledge_base_id' | 'skill_run_id' | 'agent_definition_id' | 'agent_version_id' | 'channel_binding_id' | 'knowledge_base_version_id' | 'knowledge_query_id' | 'knowledge_index_id'; label: string }> = [
-    { key: 'organization_id', label: '组织 ID' },
-    { key: 'skill_id', label: 'Skill ID' },
-    { key: 'skill_version_id', label: 'Skill 版本 ID' },
-    { key: 'workflow_run_id', label: '材料工作流运行 ID' },
-    { key: 'composition_run_id', label: 'AI 工作流运行 ID' },
-    { key: 'agent_run_id', label: '机器人运行 ID' },
-    { key: 'knowledge_base_id', label: '知识库 ID' },
-    { key: 'skill_run_id', label: 'Skill 运行 ID' },
-    { key: 'agent_definition_id', label: '机器人定义 ID' },
-    { key: 'agent_version_id', label: '机器人版本 ID' },
-    { key: 'channel_binding_id', label: '渠道绑定 ID' },
-    { key: 'knowledge_base_version_id', label: '知识库版本 ID' },
-    { key: 'knowledge_query_id', label: '知识查询 ID' },
-    { key: 'knowledge_index_id', label: '知识索引 ID' }
+    { key: 'organization_id', label: '组织编号' },
+    { key: 'skill_id', label: '技能模板编号' },
+    { key: 'skill_version_id', label: '技能模板版本编号' },
+    { key: 'workflow_run_id', label: '材料工作流运行编号' },
+    { key: 'composition_run_id', label: 'AI 工作流运行编号' },
+    { key: 'agent_run_id', label: '机器人运行编号' },
+    { key: 'knowledge_base_id', label: '知识库编号' },
+    { key: 'skill_run_id', label: '技能模板运行编号' },
+    { key: 'agent_definition_id', label: '机器人定义编号' },
+    { key: 'agent_version_id', label: '机器人版本编号' },
+    { key: 'channel_binding_id', label: '渠道绑定编号' },
+    { key: 'knowledge_base_version_id', label: '知识库版本编号' },
+    { key: 'knowledge_query_id', label: '知识查询编号' },
+    { key: 'knowledge_index_id', label: '知识索引编号' }
   ]
   async function loadScopes(): Promise<void> {
     const owner = identity.capture()
@@ -680,8 +680,8 @@
     if (row.metering_unit === 'audio_seconds') return `${show(row.metering_quantity)} 秒`
     if (row.metering_unit === 'external_request') return `${show(row.metering_quantity)} 次请求`
     if (row.metering_unit === 'rerank_search_units') return `${show(row.metering_quantity)} 重排搜索单位`
-    if (row.metering_unit === 'rerank_tokens') return `${show(row.metering_quantity)} 重排 Token`
-    return row.total_tokens === null ? '未测得' : `${row.total_tokens} Token`
+    if (row.metering_unit === 'rerank_tokens') return `${show(row.metering_quantity)} 重排词元`
+    return row.total_tokens === null ? '未测得' : `${row.total_tokens} 词元`
   }
   async function readEvents(params: SandAiUsageQuery): Promise<SandAiPage<SandAiUsage>> {
     const owner = identity.capture()
@@ -716,33 +716,33 @@
       immediate: canEvents.value && identity.actor.value !== null,
       apiParams: {},
       columnsFactory: () => [
-        { prop: 'id', label: '事件 ID', width: 105 },
+        { prop: 'id', label: '事件编号', width: 105 },
         { prop: 'create_time', label: '发生时间', width: 180 },
         {
           prop: 'application_id',
-          label: '应用 ID',
+          label: '应用编号',
           width: 100,
           formatter: (row: SandAiUsage) => show(row.application_id)
         },
-        { prop: 'environment_id', label: '环境 ID', width: 100 },
-        { prop: 'organization_id', label: '组织 ID', width: 100, formatter: (row: SandAiUsage) => show(row.organization_id) },
+        { prop: 'environment_id', label: '环境编号', width: 100 },
+        { prop: 'organization_id', label: '组织编号', width: 100, formatter: (row: SandAiUsage) => show(row.organization_id) },
         { prop: 'service_code', label: '服务', width: 130, formatter: (row: SandAiUsage) => row.service_code === 'sand_ai' ? 'SandAI' : '未知' },
-        { prop: 'skill_id', label: 'Skill ID', width: 100, formatter: (row: SandAiUsage) => show(row.skill_id) },
-        { prop: 'skill_version_id', label: 'Skill 版本 ID', width: 130, formatter: (row: SandAiUsage) => show(row.skill_version_id) },
-        { prop: 'workflow_run_id', label: '材料工作流运行 ID', width: 155, formatter: (row: SandAiUsage) => show(row.workflow_run_id) },
-        { prop: 'composition_run_id', label: 'AI 工作流运行 ID', width: 155, formatter: (row: SandAiUsage) => show(row.composition_run_id) },
+        { prop: 'skill_id', label: '技能模板编号', width: 100, formatter: (row: SandAiUsage) => show(row.skill_id) },
+        { prop: 'skill_version_id', label: '技能模板版本编号', width: 130, formatter: (row: SandAiUsage) => show(row.skill_version_id) },
+        { prop: 'workflow_run_id', label: '材料工作流运行编号', width: 155, formatter: (row: SandAiUsage) => show(row.workflow_run_id) },
+        { prop: 'composition_run_id', label: 'AI 工作流运行编号', width: 155, formatter: (row: SandAiUsage) => show(row.composition_run_id) },
         { prop: 'composition_node_code', label: 'AI 工作流节点', width: 155, formatter: (row: SandAiUsage) => show(row.composition_node_code) },
-        { prop: 'agent_run_id', label: '机器人运行 ID', width: 140, formatter: (row: SandAiUsage) => show(row.agent_run_id) },
-        { prop: 'skill_run_id', label: 'Skill 运行 ID', width: 150, formatter: (row: SandAiUsage) => show(row.skill_run_id) },
-        { prop: 'agent_definition_id', label: '机器人定义 ID', width: 150, formatter: (row: SandAiUsage) => show(row.agent_definition_id) },
-        { prop: 'agent_version_id', label: '机器人版本 ID', width: 150, formatter: (row: SandAiUsage) => show(row.agent_version_id) },
-        { prop: 'channel_binding_id', label: '渠道绑定 ID', width: 150, formatter: (row: SandAiUsage) => show(row.channel_binding_id) },
-        { prop: 'knowledge_base_version_id', label: '知识库版本 ID', width: 150, formatter: (row: SandAiUsage) => show(row.knowledge_base_version_id) },
-        { prop: 'knowledge_query_id', label: '知识查询 ID', width: 150, formatter: (row: SandAiUsage) => show(row.knowledge_query_id) },
-        { prop: 'knowledge_index_id', label: '知识索引 ID', width: 150, formatter: (row: SandAiUsage) => show(row.knowledge_index_id) },
+        { prop: 'agent_run_id', label: '机器人运行编号', width: 140, formatter: (row: SandAiUsage) => show(row.agent_run_id) },
+        { prop: 'skill_run_id', label: '技能模板运行编号', width: 150, formatter: (row: SandAiUsage) => show(row.skill_run_id) },
+        { prop: 'agent_definition_id', label: '机器人定义编号', width: 150, formatter: (row: SandAiUsage) => show(row.agent_definition_id) },
+        { prop: 'agent_version_id', label: '机器人版本编号', width: 150, formatter: (row: SandAiUsage) => show(row.agent_version_id) },
+        { prop: 'channel_binding_id', label: '渠道绑定编号', width: 150, formatter: (row: SandAiUsage) => show(row.channel_binding_id) },
+        { prop: 'knowledge_base_version_id', label: '知识库版本编号', width: 150, formatter: (row: SandAiUsage) => show(row.knowledge_base_version_id) },
+        { prop: 'knowledge_query_id', label: '知识查询编号', width: 150, formatter: (row: SandAiUsage) => show(row.knowledge_query_id) },
+        { prop: 'knowledge_index_id', label: '知识索引编号', width: 150, formatter: (row: SandAiUsage) => show(row.knowledge_index_id) },
         { prop: 'delivery_platform', label: '渠道平台', width: 120, formatter: (row: SandAiUsage) => row.delivery_platform === null ? '未关联 / 未确认' : platformLabel(row.delivery_platform) },
-        { prop: 'tool_run_id', label: '工具原运行 ID', width: 145, formatter: (row: SandAiUsage) => show(row.tool_run_id) },
-        { prop: 'knowledge_base_id', label: '知识库 ID', width: 120, formatter: (row: SandAiUsage) => show(row.knowledge_base_id) },
+        { prop: 'tool_run_id', label: '工具原运行编号', width: 145, formatter: (row: SandAiUsage) => show(row.tool_run_id) },
+        { prop: 'knowledge_base_id', label: '知识库编号', width: 120, formatter: (row: SandAiUsage) => show(row.knowledge_base_id) },
         {
           prop: 'source_kind',
           label: '来源',
@@ -753,13 +753,13 @@
         { prop: 'capability_code', label: '能力', width: 130 },
         {
           prop: 'provider_id',
-          label: '服务商 ID',
+          label: '服务商编号',
           width: 110,
           formatter: (row: SandAiUsage) => show(row.provider_id)
         },
         {
           prop: 'model_id',
-          label: '模型 ID',
+          label: '模型编号',
           width: 100,
           formatter: (row: SandAiUsage) => show(row.model_id)
         },
@@ -795,13 +795,13 @@
         },
         {
           prop: 'price_revision_id',
-          label: '价格版本 ID',
+          label: '价格版本编号',
           width: 125,
           formatter: (row: SandAiUsage) => show(row.price_revision_id)
         },
         {
           prop: 'invocation_id',
-          label: '调用 ID',
+          label: '调用编号',
           width: 105,
           formatter: (row: SandAiUsage) => show(row.invocation_id)
         },
@@ -921,7 +921,7 @@
       !Number.isSafeInteger(row.invocation_id) ||
       row.invocation_id < 1
     ) {
-      costError.value = '此事件没有有效的环境或调用 ID，请联系管理员检查记录。'
+      costError.value = '此事件没有有效的环境或调用编号，请联系管理员检查记录。'
       return
     }
     const current = ++costGeneration
@@ -973,25 +973,25 @@
     if (value === null) return '未关联 / 归属不可确定'
     if (value === 'unattributed') return '未归属'
     const labels: Partial<Record<SummaryDimension, string>> = {
-      by_application: '应用 ID',
-      by_provider: '服务商 ID',
-      by_model: '模型 ID',
-      by_organization: '组织 ID',
-      by_environment: '环境 ID',
-      by_workflow_run: '材料工作流运行 ID',
-      by_composition_run: 'AI 工作流运行 ID',
-      by_composition_node: 'AI 工作流运行 ID / 节点',
-      by_agent_run: '机器人运行 ID',
-      by_knowledge_base: '知识库 ID',
-      by_skill_run: 'Skill 运行 ID',
-      by_agent_definition: '机器人定义 ID',
-      by_agent_version: '机器人版本 ID',
-      by_channel_binding: '渠道绑定 ID',
-      by_knowledge_base_version: '知识库版本 ID',
-      by_knowledge_query: '知识查询 ID',
-      by_knowledge_index: '知识索引 ID'
+      by_application: '应用编号',
+      by_provider: '服务商编号',
+      by_model: '模型编号',
+      by_organization: '组织编号',
+      by_environment: '环境编号',
+      by_workflow_run: '材料工作流运行编号',
+      by_composition_run: 'AI 工作流运行编号',
+      by_composition_node: 'AI 工作流运行编号 / 节点',
+      by_agent_run: '机器人运行编号',
+      by_knowledge_base: '知识库编号',
+      by_skill_run: '技能模板运行编号',
+      by_agent_definition: '机器人定义编号',
+      by_agent_version: '机器人版本编号',
+      by_channel_binding: '渠道绑定编号',
+      by_knowledge_base_version: '知识库版本编号',
+      by_knowledge_query: '知识查询编号',
+      by_knowledge_index: '知识索引编号'
     }
-    if (summaryDimension.value === 'by_service') return value === 'sand_ai' ? 'SandAI（sand_ai）' : value
+    if (summaryDimension.value === 'by_service') return value === 'sand_ai' ? 'SandAI' : value
     if (summaryDimension.value === 'by_source_kind') return sourceLabel(value)
     if (summaryDimension.value === 'by_delivery_platform') return platformLabel(value)
     const label = labels[summaryDimension.value]
@@ -1120,11 +1120,11 @@
     const id = searchForm.value.composition_run_id
     const code = searchForm.value.composition_node_code
     if (id !== undefined && id !== null && (!Number.isSafeInteger(id) || id < 1)) {
-      summaryError.value = 'AI 工作流运行 ID 须为正整数'
+      summaryError.value = 'AI 工作流运行编号须为正整数'
       return false
     }
     if (code && (!id || !/^[a-z][a-z0-9_]{0,31}$/.test(code))) {
-      summaryError.value = '先填写 AI 工作流运行 ID；节点标识须为小写字母、数字或下划线'
+      summaryError.value = '先填写 AI 工作流运行编号；节点标识须为小写字母、数字或下划线'
       return false
     }
     return true
@@ -1261,11 +1261,11 @@
     const to = utcTimestamp(toTime.value)
     if (from === null)
       rangeErrors.value.from = fromTime.value
-        ? '请输入有效的 UTC 日期时间（YYYY-MM-DD HH:mm:ss）'
+        ? '请输入有效的世界标准时间日期时间（YYYY-MM-DD HH:mm:ss）'
         : '请填写开始时间'
     if (to === null)
       rangeErrors.value.to = toTime.value
-        ? '请输入有效的 UTC 日期时间（YYYY-MM-DD HH:mm:ss）'
+        ? '请输入有效的世界标准时间日期时间（YYYY-MM-DD HH:mm:ss）'
         : '请填写结束时间'
     if (from !== null && to !== null) {
       if (to <= from) rangeErrors.value.to = '结束时间应晚于开始时间'
@@ -1337,7 +1337,7 @@
           error instanceof HttpError && error.code === 403
             ? '无费用汇总权限，请向管理员申请'
             : error instanceof HttpError && error.code === 400
-              ? '汇总条件未通过校验，请检查范围、筛选及 UTC 时间范围（最长 93 天）后重试'
+              ? '汇总条件未通过校验，请检查范围、筛选及世界标准时间范围（最长 93 天）后重试'
               : '费用汇总读取失败，请重试'
       }
     } finally {
@@ -1377,7 +1377,7 @@
           error instanceof HttpError && error.code === 403
             ? '无费用汇总导出权限，请向管理员申请'
             : error instanceof HttpError && error.code === 400
-              ? '导出条件未通过校验，请重新查询有效环境和 UTC 时间范围（最长 93 天）后导出'
+              ? '导出条件未通过校验，请重新查询有效环境和世界标准时间范围（最长 93 天）后导出'
               : 'CSV 导出失败，未生成下载文件，请重试'
       }
     } finally {

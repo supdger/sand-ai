@@ -1,6 +1,6 @@
 <template>
   <ElCard shadow="never" class="embedding-setup">
-    <template #header><h4>Embedding 模型部署</h4></template>
+    <template #header><h4>向量检索模型部署</h4></template>
     <p class="muted">用于知识索引与查询向量。保存草稿后，以固定的非敏感短文本验证一次连接；可能产生费用，验证费用未纳入业务计量。</p>
     <ElAlert v-if="message" :title="message" :type="messageType" :closable="false" class="notice" />
     <ElAlert v-if="saveRecoveryKey" type="warning" :closable="false" :title="`原保存请求 ${saveRecoveryKey} 结果尚未确认。凭据已清除，请只读找回原保存结果；此处不会创建新草稿。`" />
@@ -13,25 +13,25 @@
       <ElFormItem label="服务商名称"><ElInput v-model.trim="providerName" maxlength="160" :disabled="locked" /></ElFormItem>
       <ElFormItem label="服务地址"><ElInput v-model.trim="baseUrl" :disabled="locked" placeholder="https://服务商提供的 API 基础地址" /></ElFormItem>
       <ElFormItem label="API Key"><ElInput v-model="apiKey" type="password" show-password autocomplete="off" :disabled="locked" placeholder="仅用于保存服务商连接" /></ElFormItem>
-      <ElFormItem label="远端模型"><ElInput v-model.trim="remoteModel" maxlength="128" :disabled="locked" placeholder="服务商提供的 Embedding 模型标识" /></ElFormItem>
-      <ElFormItem v-if="!draft"><ElButton v-permission="'sand_ai:setup:deployment:save'" type="primary" :loading="busy === 'save'" :disabled="Boolean(busy) || recoveryBlocked || !canSave" @click="save">保存 Embedding 部署草稿</ElButton></ElFormItem>
+      <ElFormItem label="远端模型"><ElInput v-model.trim="remoteModel" maxlength="128" :disabled="locked" placeholder="服务商提供的向量检索模型标识" /></ElFormItem>
+      <ElFormItem v-if="!draft"><ElButton v-permission="'sand_ai:setup:deployment:save'" type="primary" :loading="busy === 'save'" :disabled="Boolean(busy) || recoveryBlocked || !canSave" @click="save">保存向量检索部署草稿</ElButton></ElFormItem>
       <template v-if="draft">
         <p>部署 {{ draft.deployment_id }} · 修订 {{ draft.revision }} · {{ stateLabel }}</p>
         <ElFormItem label="处理位置"><ElSelect v-model="processingLocation" :disabled="Boolean(busy) || attempted || recoveryBlocked" placeholder="按服务商实际处理位置确认"><ElOption label="本地运行" value="local_runtime" /><ElOption label="私有网络" value="private_network" /><ElOption label="公共云" value="public_cloud" /></ElSelect></ElFormItem>
         <p v-if="state?.failure" class="muted">{{ state.failure.message }}</p>
         <ElSpace wrap>
-          <ElButton v-permission="'sand_ai:setup:deployment:verify'" :loading="busy === 'verify'" :disabled="Boolean(busy) || recoveryBlocked || attempted || !processingLocation || state?.state !== 'draft' || Boolean(state?.failure)" @click="verify">验证 Embedding 连接</ElButton>
+          <ElButton v-permission="'sand_ai:setup:deployment:verify'" :loading="busy === 'verify'" :disabled="Boolean(busy) || recoveryBlocked || attempted || !processingLocation || state?.state !== 'draft' || Boolean(state?.failure)" @click="verify">验证向量检索连接</ElButton>
           <ElButton v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="read">读取配置与修订状态</ElButton>
-          <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'publish'" :disabled="Boolean(busy) || recoveryBlocked || publicationNeedsRead || state?.state !== 'tested' || !state.validation_evidence" @click="publish">启用 Embedding 部署</ElButton>
+          <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'publish'" :disabled="Boolean(busy) || recoveryBlocked || publicationNeedsRead || state?.state !== 'tested' || !state.validation_evidence" @click="publish">启用向量检索部署</ElButton>
         </ElSpace>
         <p v-if="state?.state === 'tested'" class="muted">仅证明一次响应向量结构有效，不代表知识索引质量或运行计费已验收。</p>
         <p v-if="publicationNeedsRead" class="muted">启用结果未确认，请读取原部署状态；读取不会重新启用。</p>
         <template v-if="draft.state === 'published' && state?.state === 'published' && !recoveryBlocked">
-          <p>此部署已启用。请在目标环境选择 Embedding 能力路由并启用能力档，再到知识页建立索引。SandIAM 授权需单独配置。</p>
-          <ElButton @click="router.push('/sand-ai/capability')">配置 Embedding 能力路由</ElButton>
+          <p>此部署已启用。请在目标环境选择向量检索能力路由并启用能力档，再到知识页建立索引。SandIAM 授权需单独配置。</p>
+          <ElButton @click="router.push('/sand-ai/capability')">配置向量检索能力路由</ElButton>
           <ElButton @click="router.push('/sand-ai/knowledge')">进入知识管理</ElButton>
         </template>
-        <ElButton v-if="!recoveryBlocked && attempted && (state?.state === 'published' || (state?.state === 'draft' && state.failure?.outcome_uncertain === false))" :disabled="Boolean(busy)" @click="newDraft">新建 Embedding 部署草稿</ElButton>
+        <ElButton v-if="!recoveryBlocked && attempted && (state?.state === 'published' || (state?.state === 'draft' && state.failure?.outcome_uncertain === false))" :disabled="Boolean(busy)" @click="newDraft">新建向量检索部署草稿</ElButton>
       </template>
     </ElForm>
   </ElCard>
@@ -236,7 +236,7 @@ async function save(): Promise<void> {
       || Object.keys(saved.deployment.config).length !== 0 || !Object.hasOwn(labels, saved.state)) throw new Error('Deployment differs')
     sessionStorage.removeItem(storeKey); saveRecoveryKey.value = ''
     draft.value = saved; state.value = { deployment_id: saved.deployment_id, revision: saved.revision, state: saved.state, validation_evidence: null }
-    notice('Embedding 部署草稿已保存，请确认处理位置后验证。', 'success')
+    notice('向量检索部署草稿已保存，请确认处理位置后验证。', 'success')
   } catch (error) { if (active && current === generation) {
     apiKey.value = ''; saveAttempt.value = null
     clearDenied(error)
@@ -291,7 +291,7 @@ async function verify(): Promise<void> {
     if (result.deployment_id !== target.deployment_id || result.revision !== target.revision || result.state !== 'tested' || !result.validation_evidence) throw new Error('Original result differs')
     state.value = result; resolve(original); await exact(target, current)
     if (current !== generation) return
-    notice('固定样本的 Embedding 向量结构验证通过，可启用此修订。', 'success')
+    notice('固定样本的向量结构验证通过，可启用此修订。', 'success')
   } catch (error) { if (current === generation) { clearDenied(error); if (error instanceof HttpError && [401, 403].includes(error.code)) { notice('当前权限拒绝读取，旧结果和凭据已清除；原请求号保留，不会重发。'); return } try { await exact(target, current) } catch (readError) { clearDenied(readError) /* Keep original intent locked. */ } notice(pending.value ? '原验证结果未确认，请用原号只读找回；不会重发。' : '原状态已读回，请按当前修订状态继续。') } }
   finally {
     if (verifyFlight.value === flight) {
@@ -323,7 +323,7 @@ async function publish(): Promise<void> {
     const confirmed = await exact(target, current)
     if (current !== generation) return
     if (!confirmed || publicationNeedsRead.value || confirmed.detail.state !== 'published' || confirmed.verification.state !== 'published' || !confirmed.verification.validation_evidence) throw new Error('Publication unconfirmed')
-    notice('Embedding 部署已启用，请继续配置目标环境的能力路由。', 'success')
+    notice('向量检索部署已启用，请继续配置目标环境的能力路由。', 'success')
   } catch (error) { if (current === generation) { clearDenied(error); publicationNeedsRead.value = true; notice('启用结果未确认，请只读核对原部署与修订状态；不会重新启用。') } }
   finally {
     publicationFlight.value = false

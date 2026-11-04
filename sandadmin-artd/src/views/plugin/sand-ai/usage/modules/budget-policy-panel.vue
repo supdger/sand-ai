@@ -4,7 +4,7 @@
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="m-0 text-base">调用预算</h2>
-          <p class="mt-1 mb-0 text-sm text-gray-500">按 UTC 时段限制所选范围的调用额度；全部匹配预算共同生效，各维度金额不能相加。硬预算额度不足时阻止下一次外发，软预算允许超额并记录。未定价和未知用量按版本内策略处理，未知费用不代表零。</p>
+          <p class="mt-1 mb-0 text-sm text-gray-500">按世界标准时间（UTC）时段限制所选范围的调用额度；全部匹配预算共同生效，各维度金额不能相加。严格预算额度不足时阻止下一次外发，宽松预算允许超额并记录。未定价和未知用量按版本内策略处理，未知费用不代表零。</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <ElButton v-if="hasAuth('sand_ai:budget:index')" @click="budgetHistoryOpen = true">读取已有预算</ElButton>
@@ -96,7 +96,7 @@
           </template>
         </ElTableColumn>
         <ElTableColumn prop="revision" label="版本" width="75" />
-        <ElTableColumn label="时段（UTC）" min-width="305">
+        <ElTableColumn label="时段（世界标准时间）" min-width="305">
           <template #default="{ row }">{{ row.period_start }} 至 {{ row.period_end }}</template>
         </ElTableColumn>
         <ElTableColumn label="限额" min-width="145">
@@ -173,10 +173,10 @@
         <ElFormItem label="预算对象">
           {{ scopeKinds.find(item => item.value === draft.scope_kind)?.label }} · {{ targets.find(item => item.ref === draft.scope_ref)?.name ?? draft.scope_ref }}
         </ElFormItem>
-        <ElFormItem label="开始时间 UTC">
+        <ElFormItem label="开始时间（世界标准时间）">
           <ElInput v-model="draft.period_start" :disabled="writing || Boolean(currentPendingSave)" placeholder="YYYY-MM-DD HH:mm:ss" />
         </ElFormItem>
-        <ElFormItem label="结束时间 UTC">
+        <ElFormItem label="结束时间（世界标准时间）">
           <ElInput v-model="draft.period_end" :disabled="writing || Boolean(currentPendingSave)" placeholder="YYYY-MM-DD HH:mm:ss" />
         </ElFormItem>
         <ElFormItem label="币种">
@@ -209,8 +209,8 @@
         </template>
         <ElAlert type="info" :closable="false"
           :title="draft.enforcement === 'hard'
-            ? '硬预算要求调用前可冻结价格与可靠用量上界，未定价阻止、未知用量保留待核实。无法证明上界的专业重排在发送前拒绝。时段最长 366 天，启用后不可编辑。'
-            : '软预算允许超额并记录。专业重排可以保留没有可靠上界的未知费用义务，真实量按调用前冻结价格结算；缺量或缺价格仍待核实。其他能力沿原可靠上界要求。时段最长 366 天，启用后不可编辑。'" />
+            ? '严格预算要求调用前可冻结价格与可靠用量上界，未定价阻止、未知用量保留待核实。无法证明上界的专业重排在发送前拒绝。时段最长 366 天，启用后不可编辑。'
+            : '宽松预算允许超额并记录。专业重排可以保留没有可靠上界的未知费用义务，真实量按调用前冻结价格结算；缺量或缺价格仍待核实。其他能力沿原可靠上界要求。时段最长 366 天，启用后不可编辑。'" />
       </ElForm>
       <ElAlert v-if="formError" type="error" :closable="false" :title="formError" class="mt-3" />
       <template #footer>
@@ -347,11 +347,11 @@
       return '该版本当前是否生效尚未确认，请刷新当前额度。以下为该版本记录，不能据此判断新调用是否可用。'
     const current = activeSummary.value
     if (!current || current.policy.id !== version.policy.id)
-      return '最近刷新未显示该版本正在生效；只有处于 UTC 生效时段的已启用预算才限制新预占。历史占额保留，新调用仍检查全部当前匹配预算。'
+      return '最近刷新未显示该版本正在生效；只有处于世界标准时间生效时段的已启用预算才限制新预占。历史占额保留，新调用仍检查全部当前匹配预算。'
     if (current.window.available_amount.startsWith('-'))
       return version.policy.enforcement === 'hard'
-        ? '最近刷新时该硬预算正在生效且占用已超额，会阻止额度不足的新预占；已发送调用仍按冻结事实结算。'
-        : '最近刷新时该软预算正在生效且占用已超额，允许超额并记录；其他匹配硬预算仍可能阻止新预占。'
+        ? '最近刷新时该严格预算正在生效且占用已超额，会阻止额度不足的新预占；已发送调用仍按冻结事实结算。'
+        : '最近刷新时该宽松预算正在生效且占用已超额，允许超额并记录；其他匹配严格预算仍可能阻止新预占。'
     return '最近刷新时该版本正在生效；此处仅显示本版本额度，新调用仍检查全部匹配预算。已发送调用按冻结事实结算。'
   })
   function hasPendingDraft(target: BudgetScope & { id?: number }): boolean {
@@ -532,7 +532,12 @@
       || !['SAND_AI_BUDGET_VALIDATION_ERROR', 'SAND_AI_BUDGET_IMMUTABLE', 'SAND_AI_RESOURCE_NOT_FOUND'].includes(result.error_code)
       || typeof result.message !== 'string')
       throw new Error('未保存收据无效；仍保留原请求号，只读核对')
-    return `服务端原请求收据已确认未保存。请核对时段、额度及草稿状态，修改后手动保存（${result.error_code}）。`
+    const reasons: Record<string, string> = {
+      SAND_AI_BUDGET_VALIDATION_ERROR: '草稿未通过服务端校验',
+      SAND_AI_BUDGET_IMMUTABLE: '目标预算版本不可修改',
+      SAND_AI_RESOURCE_NOT_FOUND: '目标资源不存在或当前身份不可见'
+    }
+    return `服务端原请求收据已确认未保存：${reasons[result.error_code]}。请核对时段、额度及草稿状态，修改后手动保存。`
   }
   async function refreshSavedPolicy(saved: BudgetPolicy, actorId: number): Promise<void> {
     if (!sameScope(saved)) return
@@ -765,7 +770,7 @@
     try {
       try {
         const message = action === 'publish'
-          ? `版本 ${policy.revision} 在 ${policy.period_start} 至 ${policy.period_end}（UTC）限制所选范围：${policy.limit_amount} ${policy.currency}。${policy.enforcement === 'hard' ? '超额阻止新调用' : '超额允许并记录'}；${policy.unpriced_policy === 'block' ? '未定价阻止' : '未定价专业重排允许，费用待核实'}；${policy.unmeasured_policy === 'hold' ? '未知用量保留待核实' : '专业重排业务可继续，费用仍待核实'}。允许策略仅由专业重排执行链支持，其他能力遇到不支持的策略会在外发前拒绝；全部匹配预算共同生效。启用后不能编辑。`
+          ? `版本 ${policy.revision} 在 ${policy.period_start} 至 ${policy.period_end}（世界标准时间）限制所选范围：${policy.limit_amount} ${policy.currency}。${policy.enforcement === 'hard' ? '超额阻止新调用' : '超额允许并记录'}；${policy.unpriced_policy === 'block' ? '未定价阻止' : '未定价专业重排允许，费用待核实'}；${policy.unmeasured_policy === 'hold' ? '未知用量保留待核实' : '专业重排业务可继续，费用仍待核实'}。允许策略仅由专业重排执行链支持，其他能力遇到不支持的策略会在外发前拒绝；全部匹配预算共同生效。启用后不能编辑。`
           : `停用版本 ${policy.revision} 后，版本将归档，此预算不再限制新的调用；没有其他匹配预算时，新调用将没有该预算限额。历史额度、已预占及待核实占用保留，已发送调用继续按冻结事实结算，不释放历史占额或减少已发生费用。可新建并启用替代预算。`
         await ElMessageBox.confirm(message, action === 'publish' ? '启用预算' : '停用预算', {
           type: 'warning', confirmButtonText: action === 'publish' ? '确认启用' : '确认停用', cancelButtonText: '取消'

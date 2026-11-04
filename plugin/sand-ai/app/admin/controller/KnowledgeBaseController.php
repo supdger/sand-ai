@@ -329,7 +329,7 @@ final class KnowledgeBaseController extends SandAiAdminController
         }
     }
     /** @param callable():array<string,mixed> $callback */
-    private function guard(callable $callback, string $message): Response { try { return $this->success($callback(), $message); } catch (ApiProblem $problem) { throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), 400); } }
+    private function guard(callable $callback, string $message): Response { try { return $this->success($callback(), $message); } catch (ApiProblem $problem) { throw $this->adminProblemException($problem, 400); } }
     /** @param list<string> $keys @return array<string,mixed> */
     private function body(Request $request, array $keys): array { $body = $request->post(); if (!is_array($body) || array_diff(array_keys($body), $keys) !== []) throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Knowledge base request envelope is invalid'); return $body; }
     private function positiveInt(mixed $value): int { if (!is_int($value) || $value <= 0) throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Knowledge base request envelope is invalid'); return $value; }

@@ -8,7 +8,6 @@ use app\Api\Support\ApiProblem;
 use app\Application\Usage\PricingRevisionService;
 use app\Application\Usage\PricingOperationReceipt;
 use plugin\sandadmin\app\cache\UserAuthCache;
-use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
@@ -40,7 +39,7 @@ final class PricingRevisionController extends SandAiAdminController
         try {
             return $this->success((new PricingRevisionService())->read((int) $request->input('id', 0)));
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 
@@ -51,7 +50,7 @@ final class PricingRevisionController extends SandAiAdminController
             $admin = $this->authenticatedAdminId();
             $revision = (new PricingRevisionService())->saveDraft($request->post(), $admin, $request->header('Idempotency-Key'), $this->operationGuard($admin, 'save'));
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
         return $this->success($revision, '价格草稿已保存');
     }
@@ -67,7 +66,7 @@ final class PricingRevisionController extends SandAiAdminController
             }
             $revision = (new PricingRevisionService())->publish((int) $request->post('id', 0), $admin, $key, $this->operationGuard($admin, 'publish'));
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
         return $this->success($revision, '价格已发布');
     }
@@ -79,7 +78,7 @@ final class PricingRevisionController extends SandAiAdminController
             return $this->success((new PricingOperationReceipt())->read($request->get(), $admin,
                 $this->operationGuard($admin, (string) $request->get('kind'), true)));
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 

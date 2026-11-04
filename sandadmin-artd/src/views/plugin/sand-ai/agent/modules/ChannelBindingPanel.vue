@@ -449,9 +449,9 @@
         <ElAlert v-if="pendingFeishu" type="warning" :closable="false" show-icon title="上次保存结果未确认" description="原凭据已清除，只读找回原请求收据；确认前不接受另一组凭据，不再次提交保存。" class="panel-alert" />
         <ElForm label-width="145px" @submit.prevent>
           <ElFormItem label="Encrypt Key"><ElInput v-model="feishuForm.encrypt_key" type="password" show-password :disabled="feishuWriting || !!pendingFeishu" autocomplete="off" /></ElFormItem>
-          <ElFormItem label="Verification Token"><ElInput v-model="feishuForm.verification_token" type="password" show-password :disabled="feishuWriting || !!pendingFeishu" autocomplete="off" /></ElFormItem>
+          <ElFormItem label="验证令牌"><ElInput v-model="feishuForm.verification_token" type="password" show-password :disabled="feishuWriting || !!pendingFeishu" autocomplete="off" /></ElFormItem>
           <ElFormItem label="SandIAM 工作负载凭据"><ElInput v-model="feishuForm.workload_credential" type="password" show-password :disabled="feishuWriting || !!pendingFeishu" autocomplete="off" /></ElFormItem>
-          <ElFormItem label="App ID"><ElInput v-model="feishuForm.app_id" :disabled="feishuWriting || !!pendingFeishu" autocomplete="off" /></ElFormItem>
+          <ElFormItem label="应用编号"><ElInput v-model="feishuForm.app_id" :disabled="feishuWriting || !!pendingFeishu" autocomplete="off" /></ElFormItem>
           <ElFormItem label="App Secret"><ElInput v-model="feishuForm.app_secret" type="password" show-password :disabled="feishuWriting || !!pendingFeishu" autocomplete="off" /></ElFormItem>
         </ElForm>
         <template #footer>
@@ -467,9 +467,9 @@
         <ElAlert v-if="wecomError" type="error" :title="wecomError" show-icon class="panel-alert" />
         <ElAlert v-if="pendingWecom" type="warning" :closable="false" show-icon title="上次保存结果未确认" description="原凭据已清除，只读找回原请求收据；确认前不接受另一组凭据，不再次提交保存。" class="panel-alert" />
         <ElForm label-width="150px" @submit.prevent>
-          <ElFormItem label="回调 Token"><ElInput v-model="wecomForm.token" type="password" show-password :disabled="wecomWriting || !!pendingWecom" autocomplete="off" /></ElFormItem>
+          <ElFormItem label="回调令牌"><ElInput v-model="wecomForm.token" type="password" show-password :disabled="wecomWriting || !!pendingWecom" autocomplete="off" /></ElFormItem>
           <ElFormItem label="EncodingAESKey"><ElInput v-model="wecomForm.encoding_aes_key" type="password" show-password :disabled="wecomWriting || !!pendingWecom" autocomplete="off" /></ElFormItem>
-          <ElFormItem label="企业 ID"><ElInput v-model="wecomForm.corp_id" :disabled="wecomWriting || !!pendingWecom" autocomplete="off" /></ElFormItem>
+          <ElFormItem label="企业编号"><ElInput v-model="wecomForm.corp_id" :disabled="wecomWriting || !!pendingWecom" autocomplete="off" /></ElFormItem>
           <ElFormItem label="应用 AgentId"><ElInput v-model="wecomForm.agent_id" :disabled="wecomWriting || !!pendingWecom" autocomplete="off" /></ElFormItem>
           <ElFormItem label="应用 Secret"><ElInput v-model="wecomForm.corp_secret" type="password" show-password :disabled="wecomWriting || !!pendingWecom" autocomplete="off" /></ElFormItem>
           <ElFormItem label="SandIAM 工作负载凭据"><ElInput v-model="wecomForm.workload_credential" type="password" show-password :disabled="wecomWriting || !!pendingWecom" autocomplete="off" /></ElFormItem>

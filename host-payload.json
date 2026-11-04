@@ -1899,6 +1899,10 @@
       "sha256": "746df52174e1214a142d09a2979d5ffd975670e366fd2ed814963d5931701aa9"
     },
     {
+      "path": "app/Application/Onboarding/InternalSecurityBootstrapService.php",
+      "sha256": "2cfe88975102ccb93ed8a7d334c32d54805415826f1f487c0cc75ce6d5dacc94"
+    },
+    {
       "path": "app/Application/Onboarding/InternalSecurityInitialization.php",
       "sha256": "a3dfbe06d1a7856c38d28ac8910715555020a04562dcccc60f033ce2af020b2d"
     },
@@ -1940,7 +1944,7 @@
     },
     {
       "path": "app/Application/Onboarding/ProviderGuideCatalog.php",
-      "sha256": "a167a73d892af69d2e3e1d2c799bae842fae164c4cb62ea3f6ccf520fca43c3a"
+      "sha256": "46824db931e2bf3bab1711057cccaf6f89308dccf878e2f652bbacfe86196362"
     },
     {
       "path": "app/Application/Onboarding/RemoteModelIdentifier.php",

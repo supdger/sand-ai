@@ -34,7 +34,7 @@
         </ElFormItem>
         <ElFormItem label="原摘要请求键">
           <ElInput v-model.trim="summaryLookupKey" :disabled="Boolean(busy) || !!pendingSummary" maxlength="512"
-            placeholder="原生成摘要时的 Idempotency-Key；找回使用当前 Bearer" />
+            placeholder="原生成摘要时的请求编号；找回使用当前调用密钥" />
         </ElFormItem>
         <ElFormItem>
           <ElSpace wrap>
@@ -305,7 +305,7 @@
             <p class="task-footnote">
               用量状态：{{ usageStateLabel(workflowRun.usage.state) }}
               <span v-if="workflowRun.usage.total_tokens !== null">
-                · {{ workflowRun.usage.total_tokens }} Token
+                · {{ workflowRun.usage.total_tokens }} 词元
               </span>
               <span v-if="workflowRun.usage.attempt_count !== undefined">
                 · 调用尝试 {{ workflowRun.usage.attempt_count }} 次
@@ -525,7 +525,7 @@
                 累计已确认 {{ total.metered_amount }} {{ total.currency }}
               </template>
               <template v-else>累计金额未知或待结算</template>
-              · Token {{ total.total_tokens ?? '未测得' }}
+              · 词元 {{ total.total_tokens ?? '未测得' }}
             </p>
             <details>
               <summary>查看 {{ meetingNodeCost.calls.length }} 次节点调用费用</summary>
@@ -536,7 +536,7 @@
                 </template>
                 <template v-else-if="call.pricing_state === 'unpriced'">未计价</template>
                 <template v-else>金额未知或待结算</template>
-                · Token {{ call.total_tokens ?? '未测得' }}
+                · 词元 {{ call.total_tokens ?? '未测得' }}
                 · 价格版本 #{{ call.price_revision_id ?? '未知' }}
               </p>
             </details>
@@ -549,7 +549,7 @@
             · 价格版本 #{{ legacyMeetingCost.price_revision_id ?? '未知' }}
           </template>
           <template v-else>金额未知或待结算</template>
-          · Token {{ legacyMeetingCost.total_tokens ?? '未测得' }}
+          · 词元 {{ legacyMeetingCost.total_tokens ?? '未测得' }}
         </p>
         <template v-if="activeTask.result?.meeting_summary_error">
           <h3 class="task-detail__title">会议摘要</h3>
@@ -1451,10 +1451,10 @@
   }
 
   const columns: ColumnOption<SandAiTask>[] = [
-    { prop: 'id', label: 'ID', width: 80, align: 'center' },
+    { prop: 'id', label: '编号', width: 80, align: 'center' },
     { prop: 'task_type', label: '类型', minWidth: 120 },
     { prop: 'resource_type', label: '资源', width: 110 },
-    { prop: 'resource_id', label: '资源 ID', width: 100 },
+    { prop: 'resource_id', label: '资源编号', width: 100 },
     { prop: 'state', label: '状态', width: 110 },
     {
       prop: 'attempt_count',
@@ -1462,7 +1462,7 @@
       width: 100,
       formatter: (row) => `${row.attempt_count}/${row.max_attempts}`
     },
-    { prop: 'error_code', label: 'error_code', minWidth: 140 },
+    { prop: 'error_code', label: '错误码', minWidth: 140 },
     {
       prop: 'id',
       label: '操作',
@@ -1506,14 +1506,14 @@
     { prop: 'code', label: '步骤', minWidth: 140 },
     { prop: 'state', label: '状态', width: 110 },
     { prop: 'attempt_count', label: '尝试', width: 90 },
-    { prop: 'error_code', label: 'error_code', minWidth: 140 },
+    { prop: 'error_code', label: '错误码', minWidth: 140 },
     { prop: 'error_summary', label: '摘要', minWidth: 180 },
     { prop: 'started_at', label: '开始', width: 170 },
     { prop: 'completed_at', label: '完成', width: 170 }
   ]
 
   const fileColumns: ColumnOption<SandAiWorkflowFileState>[] = [
-    { prop: 'file_id', label: '文件 ID', width: 110 },
+    { prop: 'file_id', label: '文件编号', width: 110 },
     { prop: 'analysis_state', label: '分析状态', width: 150 },
     {
       prop: 'chunk_progress',

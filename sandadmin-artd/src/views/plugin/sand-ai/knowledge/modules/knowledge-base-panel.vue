@@ -34,7 +34,7 @@
     <ElForm label-width="110px" @submit.prevent>
       <ElFormItem label="知识库代码">
         <ElInput v-model="code" :disabled="replacingId !== null || draftLocked" maxlength="64"
-          placeholder="英文小写字母开头，例如 case_materials" style="width: 420px" />
+          placeholder="英文小写字母开头，只用字母、数字和下划线" style="width: 420px" />
       </ElFormItem>
       <ElFormItem label="名称">
         <ElInput v-model="name" :disabled="draftLocked || writing" maxlength="128" style="width: 420px" />

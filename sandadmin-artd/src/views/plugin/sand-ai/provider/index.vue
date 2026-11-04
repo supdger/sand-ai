@@ -104,7 +104,7 @@
       apiFn: providerApi.list,
       apiParams: {},
       columnsFactory: () => [
-        { prop: 'id', label: 'ID', width: 80, align: 'center' },
+        { prop: 'id', label: '编号', width: 80, align: 'center' },
         { prop: 'name', label: '名称', minWidth: 160 },
         { prop: 'adapter', label: '服务商类型', minWidth: 160 },
         { prop: 'timeout_ms', label: '超时（毫秒）', width: 110, align: 'center' },

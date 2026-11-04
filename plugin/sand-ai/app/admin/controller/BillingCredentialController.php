@@ -7,7 +7,6 @@ use app\Application\Billing\BillingCredentialService;
 use app\Application\Onboarding\OnboardingRequestSecrets;
 use app\Infrastructure\Billing\ProviderConfigCipher;
 use app\Infrastructure\Billing\ProviderModelBillingCredentialStore;
-use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
@@ -36,7 +35,7 @@ final class BillingCredentialController extends SandAiAdminController
 
             return $this->success($this->service()->save($input, (int) $this->authenticatedAdminId(), (string) $request->header('Idempotency-Key', '')));
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         } catch (\Throwable) {
             return json([
                 'code' => 500,
@@ -52,7 +51,7 @@ final class BillingCredentialController extends SandAiAdminController
         try {
             return $this->success($this->service()->readSavedByRequestKey((array) $request->get(), (int) $this->authenticatedAdminId()));
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         } catch (\Throwable) {
             return json([
                 'code' => 500,
@@ -68,7 +67,7 @@ final class BillingCredentialController extends SandAiAdminController
         try {
             return $this->success($this->service()->status((int) $request->get('provider_id')));
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage());
+            throw $this->adminProblemException($problem);
         }
     }
 }

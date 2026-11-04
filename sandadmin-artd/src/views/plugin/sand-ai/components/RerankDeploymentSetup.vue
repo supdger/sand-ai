@@ -25,7 +25,7 @@
           <ElButton v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="read">读取配置与修订状态</ElButton>
           <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'publish'" :disabled="Boolean(busy) || recoveryBlocked || publicationNeedsRead || state?.state !== 'tested' || !state.validation_evidence" @click="publish">启用专业重排部署</ElButton>
         </ElSpace>
-        <p v-if="state?.validation_evidence" class="muted">本次验证计量：{{ state.validation_evidence.rerank_quantity ?? '服务商未提供' }} {{ state.validation_evidence.rerank_meter_code === 'rerank_search_units' ? '搜索单位' : '重排 Token' }}；Token 拆分不适用于专业重排。</p>
+        <p v-if="state?.validation_evidence" class="muted">本次验证计量：{{ state.validation_evidence.rerank_quantity ?? '服务商未提供' }} {{ state.validation_evidence.rerank_meter_code === 'rerank_search_units' ? '搜索单位' : '重排词元' }}；词元拆分不适用于专业重排。</p>
         <p v-if="state?.state === 'tested'" class="muted">仅证明一次专业重排响应与来源映射有效；排序质量、实际业务与服务商账单仍需验收。</p>
         <p v-if="publicationNeedsRead" class="muted">启用结果未确认，请读取原部署状态；读取不会重新启用。</p>
         <template v-if="draft.state === 'published' && state?.state === 'published' && !recoveryBlocked">

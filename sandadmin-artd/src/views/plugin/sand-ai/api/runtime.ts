@@ -147,7 +147,7 @@ export async function runtimeRequest<T>(options: {
   const key = options.apiKey.trim()
   if (!key) {
     throw new SandAiRuntimeError({
-      message: '缺少运行面 Bearer',
+      message: '缺少运行身份调用密钥',
       httpStatus: 0,
       businessCode: ApiStatus.error,
       errorCode: 'SAND_AI_AUTHENTICATION_FAILED',
@@ -213,7 +213,7 @@ export async function runtimeBlobRequest(apiKey: string, path: string): Promise<
   const key = apiKey.trim()
   if (!key) {
     throw new SandAiRuntimeError({
-      message: '缺少运行面 Bearer',
+      message: '缺少运行身份调用密钥',
       httpStatus: 0,
       businessCode: ApiStatus.error,
       errorCode: 'SAND_AI_AUTHENTICATION_FAILED',

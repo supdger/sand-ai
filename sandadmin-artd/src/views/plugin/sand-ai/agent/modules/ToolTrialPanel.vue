@@ -3,7 +3,7 @@
     <template #header>
       <div class="panel-head">
         <h3>外部资料工具试用</h3>
-        <p>使用已启用并绑定到当前 Bearer 所属环境的只读工具。MCP 工具也走这一受控运行入口；试用会记录实际外部请求次数。</p>
+        <p>使用已启用并绑定到当前调用密钥所属环境的只读工具。外部工具服务也走这一受控运行入口；试用会记录实际外部请求次数。</p>
       </div>
     </template>
     <ElAlert v-if="recoveryNotice" type="warning" :closable="false" :title="recoveryNotice" class="notice" />
@@ -13,7 +13,7 @@
       <ElFormItem v-if="environmentId" label="已绑定工具">
         <ElSelect :model-value="selectedTool" filterable clearable placeholder="选择工具，或在下方手动填写" :loading="catalogBusy" :disabled="draftLocked" @update:model-value="selectTool">
           <ElOption v-for="item in availableTools" :key="`${item.code}@${item.version}`"
-            :label="`${item.name} · ${item.code} v${item.version} · ${item.adapter === 'mcp_streamable_http' ? 'MCP' : '只读 HTTP'}`"
+            :label="`${item.name} · ${item.code} v${item.version} · ${item.adapter === 'mcp_streamable_http' ? '受管外部服务' : '只读接口'}`"
             :value="`${item.code}@${item.version}`" />
         </ElSelect>
         <ElButton v-if="catalogMore" :loading="catalogBusy" @click="loadAvailable">加载更多</ElButton>
@@ -30,13 +30,13 @@
       </ElFormItem>
       <ToolSchemaFields v-if="schemaState.schema" v-model="inputText" :schema="schemaState.schema" :disabled="draftLocked" />
       <ElAlert v-if="code.trim() && !selectedSchema" type="info" :closable="false"
-        title="尚未读到此固定版本的输入 Schema。请从已绑定工具目录选择或加载更多；原运行找回不需要重新配置工具。" class="notice" />
+        title="尚未读到此固定版本的输入参数结构。请从已绑定工具目录选择或加载更多；原运行找回不需要重新配置工具。" class="notice" />
       <ElAlert v-if="schemaState.error" type="warning" :closable="false" :title="schemaState.error" class="notice" />
       <ElAlert v-if="inputIssue" type="warning" :closable="false" :title="inputIssue" class="notice" />
       <ElFormItem :label="schemaState.schema ? '完整 JSON' : '工具输入'">
-        <ElInput v-model="inputText" type="textarea" :rows="6" :disabled="draftLocked" placeholder="输入符合工具版本 Schema 的 JSON 对象，例如 {}" />
+        <ElInput v-model="inputText" type="textarea" :rows="6" :disabled="draftLocked" placeholder="输入符合工具版本参数结构的 JSON 对象，例如 {}" />
       </ElFormItem>
-      <ElFormItem v-if="selectedSchema" label="输入 Schema">
+      <ElFormItem v-if="selectedSchema" label="输入参数结构">
         <ElInput type="textarea" :rows="4" readonly :model-value="format(selectedSchema)" />
       </ElFormItem>
       <ElFormItem>
@@ -50,10 +50,10 @@
       </ElFormItem>
     </ElForm>
     <ElAlert v-if="pending || lookupKey.trim()" type="warning" :closable="false"
-      :title="pending && !pending.key ? '原运行尚未结束。使用当前 Bearer 读取原运行；未确认前不能提交新试用。' : '原请求尚待核对。使用当前 Bearer 按请求编号只读找回；找回不会重新调用工具。未确认前不能提交新试用。'" class="notice" />
+      :title="pending && !pending.key ? '原运行尚未结束。使用当前调用密钥读取原运行；未确认前不能提交新试用。' : '原请求尚待核对。使用当前调用密钥按请求编号只读找回；找回不会重新调用工具。未确认前不能提交新试用。'" class="notice" />
     <ElForm label-width="110px" @submit.prevent>
       <ElFormItem label="请求编号">
-        <ElInput v-model.trim="lookupKey" :disabled="busy || !!pending || !!run || lookupRunId !== null" maxlength="128" placeholder="粘贴原试用的 Idempotency-Key" />
+        <ElInput v-model.trim="lookupKey" :disabled="busy || !!pending || !!run || lookupRunId !== null" maxlength="128" placeholder="粘贴原试用的请求编号" />
         <ElButton :disabled="recoveryMalformed || busy || !apiKey.trim() || !lookupKey.trim()" :loading="busy" @click="recoverByKey">按原请求找回</ElButton>
       </ElFormItem>
       <ElFormItem label="已有运行号">
@@ -62,7 +62,7 @@
       </ElFormItem>
     </ElForm>
     <ElAlert v-if="lookupRunId !== null && !run && !pending && !lookupKey.trim()" type="info" :closable="false"
-      title="已保留原运行号。请使用当前 Bearer 读取原运行，确认结束后再开始新试用。" class="notice" />
+      title="已保留原运行号。请使用当前调用密钥读取原运行，确认结束后再开始新试用。" class="notice" />
     <ElAlert v-if="run?.state === 'ambiguous'" type="warning" :closable="false" title="外部结果不明。请先核对运行与费用，避免用新请求键重复调用。" class="notice" />
     <ElAlert v-if="error" type="error" :closable="false" :title="error" class="notice" />
     <template v-if="run">
@@ -96,7 +96,7 @@
         <ElInputNumber v-model="readerVersion" :disabled="readerBusy" :min="1" :max="2147483647" :precision="0" />
       </ElFormItem>
       <ElFormItem label="请求编号">
-        <ElInput v-model.trim="readerKey" :disabled="readerBusy" maxlength="128" placeholder="原 Idempotency-Key；已有运行号时可留空" />
+        <ElInput v-model.trim="readerKey" :disabled="readerBusy" maxlength="128" placeholder="原请求编号；已有运行号时可留空" />
       </ElFormItem>
       <ElFormItem label="原运行号">
         <ElInputNumber v-model="readerRunId" :disabled="readerBusy" :min="1" :max="2147483647" :precision="0" />
@@ -135,7 +135,7 @@
           <ElDescriptionsItem label="只读启用快照">{{ confirmation.snapshot }}</ElDescriptionsItem>
           <ElDescriptionsItem label="请求编号">{{ confirmation.key }}</ElDescriptionsItem>
         </ElDescriptions>
-        <p>下方输入已固定。将调用外部工具并计量实际外部请求次数；MCP 可能产生多次协议请求。未计价、未核账保留未知，不代表零。当前工作负载仍须具有运行权限。</p>
+        <p>下方输入已固定。将调用外部工具并计量实际外部请求次数；外部工具服务可能产生多次协议请求。未计价、未核账保留未知，不代表零。当前工作负载仍须具有运行权限。</p>
         <ElInput type="textarea" :rows="7" readonly :model-value="confirmation.input" />
       </template>
       <template #footer>
@@ -244,25 +244,25 @@ const toolFailureHints: Readonly<Record<string, string>> = {
   SAND_AI_TOOL_UPSTREAM_REJECTED: '外部工具拒绝本次请求。请管理员核对连接认证与已启用工具配置。',
   SAND_AI_TOOL_RESPONSE_TOO_LARGE: '外部工具结果超过已启用大小限制。请管理员核对工具结果上限与服务配置。',
   SAND_AI_TOOL_RESPONSE_INVALID: '外部工具未返回合法的标准 JSON。请管理员核对所绑定接口的结果格式。',
-  SAND_AI_TOOL_RESPONSE_SCHEMA_INVALID: '外部工具结果不符合已启用输出 Schema。请管理员核对服务与固定工具版本。',
-  SAND_AI_MCP_PROTOCOL_MISMATCH: 'MCP 服务未完成要求的稳定协议。请管理员在“外部工具配置”核对连接并重新发现工具。',
-  SAND_AI_MCP_SESSION_INVALID: 'MCP 服务返回的会话标识无效。请管理员检查所绑定 MCP 服务的协议配置。',
-  SAND_AI_MCP_SSE_UNSUPPORTED: 'MCP 服务返回了当前不支持的流式响应。请管理员核对服务的响应模式。',
-  SAND_AI_MCP_RESPONSE_INVALID: 'MCP 服务返回的协议响应无效。请管理员检查所绑定服务。',
-  SAND_AI_MCP_DUPLICATE_JSON_MEMBER: 'MCP 响应包含重复 JSON 字段。请管理员核对服务输出格式。',
-  SAND_AI_MCP_RESPONSE_LIMIT_EXCEEDED: 'MCP 响应超过受管安全限制。请管理员核对服务输出与工具限制。',
-  SAND_AI_MCP_SERVER_MESSAGE_REJECTED: 'MCP 服务发送了不支持的主动消息。请管理员核对协议配置。',
-  SAND_AI_MCP_CURSOR_INVALID: 'MCP 工具目录的分页标识无效。请管理员核对服务目录接口。',
-  SAND_AI_MCP_CATALOG_LIMIT_EXCEEDED: 'MCP 工具目录超过受管安全限制。请管理员核对允许的工具范围。',
-  SAND_AI_MCP_SCHEMA_DRIFTED: 'MCP 工具定义在启用后发生变化。请在“外部工具配置”重新发现、核对并启用绑定新版本。',
+  SAND_AI_TOOL_RESPONSE_SCHEMA_INVALID: '外部工具结果不符合已启用输出参数结构。请管理员核对服务与固定工具版本。',
+  SAND_AI_MCP_PROTOCOL_MISMATCH: '外部工具服务未完成要求的稳定协议。请管理员在“外部工具配置”核对连接并重新发现工具。',
+  SAND_AI_MCP_SESSION_INVALID: '外部工具服务返回的会话标识无效。请管理员检查所绑定外部工具服务的协议配置。',
+  SAND_AI_MCP_SSE_UNSUPPORTED: '外部工具服务返回了当前不支持的流式响应。请管理员核对服务的响应模式。',
+  SAND_AI_MCP_RESPONSE_INVALID: '外部工具服务返回的协议响应无效。请管理员检查所绑定服务。',
+  SAND_AI_MCP_DUPLICATE_JSON_MEMBER: '外部工具服务响应包含重复 JSON 字段。请管理员核对服务输出格式。',
+  SAND_AI_MCP_RESPONSE_LIMIT_EXCEEDED: '外部工具服务响应超过受管安全限制。请管理员核对服务输出与工具限制。',
+  SAND_AI_MCP_SERVER_MESSAGE_REJECTED: '外部工具服务发送了不支持的主动消息。请管理员核对协议配置。',
+  SAND_AI_MCP_CURSOR_INVALID: '外部工具目录的分页标识无效。请管理员核对服务目录接口。',
+  SAND_AI_MCP_CATALOG_LIMIT_EXCEEDED: '外部工具目录超过受管安全限制。请管理员核对允许的工具范围。',
+  SAND_AI_MCP_SCHEMA_DRIFTED: '外部工具定义在启用后发生变化。请在“外部工具配置”重新发现、核对并启用绑定新版本。',
   SAND_AI_MCP_REGISTRY_DRIFTED: '本地只读注册定义在启用后发生变化。请管理员核对注册表并重新启用绑定固定版本。',
-  SAND_AI_MCP_STRUCTURED_RESULT_REQUIRED: 'MCP 工具没有返回要求的结构化结果。请管理员核对工具输出 Schema 与服务实现。',
+  SAND_AI_MCP_STRUCTURED_RESULT_REQUIRED: '外部工具没有返回要求的结构化结果。请管理员核对工具输出参数结构与服务实现。',
   SAND_AI_MCP_TOOL_NOT_DISPATCHED: '协议恢复未能确认业务工具派发。请保留原运行号并核对计量，不自行重新发送。',
-  SAND_AI_MCP_UPSTREAM_REJECTED: 'MCP 服务拒绝了协议请求。请管理员核对连接认证与服务协议。'
+  SAND_AI_MCP_UPSTREAM_REJECTED: '外部工具服务拒绝了协议请求。请管理员核对连接认证与服务协议。'
 }
 function failureHint(code: string | null): string {
   const hint = code ? toolFailureHints[code] ?? hintForRuntimeErrorCode(code) : undefined
-  return hint ?? '未能确认具体原因。请保留请求编号与运行号，使用当前工作负载 Bearer 读取原状态；请管理员核对连接、权限及计量。'
+  return hint ?? '未能确认具体原因。请保留请求编号与运行号，使用当前工作负载调用密钥读取原状态；请管理员核对连接、权限及计量。'
 }
 const runFailure = computed(() => {
   const value = run.value
@@ -341,7 +341,7 @@ watch([readerCode, readerVersion, readerKey, readerRunId], invalidateReader, { f
 const schemaState = computed(() => {
   if (!selectedSchema.value) return { schema: null, error: '' }
   try { return { schema: parseToolSchema(selectedSchema.value), error: '' } }
-  catch (cause) { return { schema: null, error: cause instanceof Error ? cause.message : '工具 Schema 无效' } }
+  catch (cause) { return { schema: null, error: cause instanceof Error ? cause.message : '工具参数结构无效' } }
 })
 const inputIssue = computed(() => {
   if (schemaState.value.error) return schemaState.value.error
@@ -414,7 +414,7 @@ async function restoreRecovery(current: number): Promise<void> {
         const item = validRecovery(JSON.parse(oldRaw), true)
         if (!item) throw new Error('invalid legacy recovery')
         lockRecovery(item)
-        recoveryNotice.value = '发现旧版原请求，原管理员及输入摘要未知。请使用当前 Bearer 只读找回；授权读取成功后才归入当前管理员与环境。'
+        recoveryNotice.value = '发现旧版原请求，原管理员及输入摘要未知。请使用当前调用密钥只读找回；授权读取成功后才归入当前管理员与环境。'
       } else recoveryNotice.value = '另有旧版原请求需要保留。当前原运行结束并明确开始新试用后，将提供旧请求的只读恢复入口。'
     }
     storageBlocked.value = false
@@ -575,7 +575,7 @@ async function submit(): Promise<void> {
     if (!currentIntent()) return
     const schema = parseToolSchema(published.input_schema)
     const issues = toolInputIssues(schema, intent.input)
-    if (issues.length) { error.value = `当前固定版本的输入 Schema 校验未通过：${issues.join('；')}。尚未提交试用。`; return }
+    if (issues.length) { error.value = `当前固定版本的输入参数结构校验未通过：${issues.join('；')}。尚未提交试用。`; return }
     const inputHash = await digest(JSON.stringify({ business_scope: intent.scope, input: intent.input }))
     if (!currentIntent()) return
     const accepted = await confirmIntent({ toolCode: intent.toolCode, toolVersion: intent.toolVersion, scope: intent.scope,
@@ -591,7 +591,7 @@ async function submit(): Promise<void> {
     acceptRun(result, expected, true)
   } catch (cause) {
     if (currentIntent()) error.value = confirmed ? requestFailure(cause)
-      : '当前授权下的固定工具版本或 Schema 未确认，尚未提交试用。请核对工具权限、启用版本和环境后重试。'
+      : '当前授权下的固定工具版本或参数结构未确认，尚未提交试用。请核对工具权限、启用版本和环境后重试。'
   } finally { if (currentIntent()) busy.value = false }
 }
 async function refresh(): Promise<void> {

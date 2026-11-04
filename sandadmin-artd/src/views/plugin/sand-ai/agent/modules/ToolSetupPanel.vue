@@ -58,10 +58,10 @@
         <ElFormItem label="连接认证">
           <ElRadioGroup v-model="authMode" :disabled="busy || mutationLocked || !!connection">
             <ElRadio value="none">无凭证</ElRadio>
-            <ElRadio value="bearer">Bearer</ElRadio>
+            <ElRadio value="bearer">调用密钥</ElRadio>
           </ElRadioGroup>
         </ElFormItem>
-        <ElFormItem v-if="authMode === 'bearer'" label="Bearer 密钥">
+        <ElFormItem v-if="authMode === 'bearer'" label="调用密钥">
           <ElInput v-model="credential" type="password" show-password :disabled="busy || mutationLocked || !!connection" autocomplete="off" placeholder="仅用于本次创建请求，发出时立即清空" />
         </ElFormItem>
         <ElFormItem>
@@ -82,7 +82,7 @@
           title="当前启用版本已绑定到本环境的另一连接，不能用所选连接再次绑定。" class="notice" />
         <ElFormItem label="工具类型">
           <ElRadioGroup v-model="adapter" :disabled="busy || mutationLocked || !!draft">
-            <ElRadio value="mcp_streamable_http">受管 MCP</ElRadio>
+            <ElRadio value="mcp_streamable_http">受管外部服务</ElRadio>
             <ElRadio value="standard_readonly_http">标准只读 HTTP</ElRadio>
           </ElRadioGroup>
         </ElFormItem>
@@ -90,16 +90,16 @@
           <ElFormItem>
             <ElButton :loading="busy" :disabled="busy || mutationLocked || !connection || environmentMismatch || !!draft || !!pending"
               @click="loadLatestMcp">读取已验证快照</ElButton>
-            <ElButton :loading="busy" :disabled="busy || mutationLocked || !connection || environmentMismatch || !!draft" @click="discover">发现本地允许的 MCP 工具</ElButton>
+            <ElButton :loading="busy" :disabled="busy || mutationLocked || !connection || environmentMismatch || !!draft" @click="discover">发现本地允许的外部工具</ElButton>
             <span v-if="discovery" class="step-result">快照 #{{ discovery.snapshot_id }} · {{ discovery.tools.length }} 个允许的工具</span>
           </ElFormItem>
           <ElAlert v-if="pending?.step === 'discovery' && !rejectedReceipt" type="warning" :closable="false" class="notice"
-            title="本次 MCP 发现结果与计量尚未确认"
+            title="本次外部工具发现结果与计量尚未确认"
             description="请读取原请求回执，不再次发起发现。下方若有快照，仅代表此前已确认的发现结果，不代表本次请求已完成。" />
-          <section v-if="discovery" aria-label="已确认 MCP 发现摘要" class="notice">
+          <section v-if="discovery" aria-label="已确认外部工具发现摘要" class="notice">
             <p>已确认发现：快照 #{{ discovery.snapshot_id }} · 状态 {{ discovery.state }} · 连接 #{{ discovery.connection_id }} / 修订 #{{ discovery.connection_revision_id }} · {{ discovery.tools.length }} 个允许的工具</p>
             <p>服务端返回的实际发现计量：</p>
-            <pre class="metering-summary" tabindex="0" aria-label="MCP 发现实际计量">{{ discoveryMetering(discovery.metering) }}</pre>
+            <pre class="metering-summary" tabindex="0" aria-label="外部工具发现实际计量">{{ discoveryMetering(discovery.metering) }}</pre>
             <p>计量仅展示已确认快照的返回值；未提供的计量或金额保持待核实，不据工具数量推算。</p>
           </section>
           <ElFormItem label="发现的工具">
@@ -108,15 +108,15 @@
                 :label="`${item.name} · ${item.code}`" :value="item.snapshot_item_id" />
             </ElSelect>
           </ElFormItem>
-          <p class="hint">工具代码和 Schema 由本地只读注册表与本次发现快照确定，远端声明不会自动获得只读权限。</p>
+          <p class="hint">工具代码和参数结构由本地只读注册表与本次发现快照确定，远端声明不会自动获得只读权限。</p>
         </template>
         <template v-else>
           <ElFormItem label="工具代码"><ElInput v-model.trim="toolForm.code" maxlength="64" :disabled="busy || mutationLocked || !!draft" placeholder="例如 external_lookup" /></ElFormItem>
           <ElFormItem label="工具名称"><ElInput v-model.trim="toolForm.name" maxlength="128" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
           <ElFormItem label="用途说明"><ElInput v-model="toolForm.description" maxlength="1000" type="textarea" :rows="2" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
-          <ElFormItem label="输入 Schema"><ElInput v-model="toolForm.inputSchema" type="textarea" :rows="5" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
-          <ElFormItem label="输出 Schema"><ElInput v-model="toolForm.outputSchema" type="textarea" :rows="5" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
-          <p class="hint">输入、输出 Schema 必须是关闭额外字段的 JSON 对象；启用后版本内容不原地修改。</p>
+          <ElFormItem label="输入参数结构"><ElInput v-model="toolForm.inputSchema" type="textarea" :rows="5" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
+          <ElFormItem label="输出参数结构"><ElInput v-model="toolForm.outputSchema" type="textarea" :rows="5" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
+          <p class="hint">输入、输出参数结构必须是关闭额外字段的 JSON 对象；启用后版本内容不原地修改。</p>
         </template>
         <ElFormItem label="结果复核"><ElSwitch v-model="reviewRequired" :disabled="busy || mutationLocked || !!draft" /></ElFormItem>
         <ElFormItem>
@@ -135,7 +135,7 @@
         <ElTag v-if="revoked" type="info">{{ revoked.code }} 已撤销</ElTag>
         <ElButton v-if="(bound || revoked) && !pending && !busy && !writeFlight" @click="nextSetup">配置另一个工具</ElButton>
       </ElSpace>
-      <p class="hint">启用和绑定后，到“外部工具试用”页签以工作负载 Bearer 验证实际权限、来源与费用。</p>
+      <p class="hint">启用和绑定后，到“外部工具试用”页签以工作负载调用密钥验证实际权限、来源与费用。</p>
     </template>
   </ElCard>
 </template>
@@ -432,7 +432,7 @@ function discoveryMetering(value: unknown): string {
 }
 
 function stepLabel(step: Step): string {
-  return ({ connection: '连接创建', discovery: 'MCP 发现', draft: '工具草稿', publish: '工具启用', bind: '环境绑定', revoke: '工具撤销' })[step]
+  return ({ connection: '连接创建', discovery: '外部工具发现', draft: '工具草稿', publish: '工具启用', bind: '环境绑定', revoke: '工具撤销' })[step]
 }
 
 async function perform<T>(step: Step, payload: object, call: (key: string) => Promise<T>): Promise<T | null> {
@@ -527,7 +527,7 @@ async function perform<T>(step: Step, payload: object, call: (key: string) => Pr
         ? '本页确认原请求尚未发送。原内容仅在内存保留；恢复浏览器存储后按原号发送，离开页面后仅能读取原回执。'
         : conflict
         ? `${conflict} 原请求结果仍需读取确认，当前请求键保持保留。`
-        : '结果尚未确认。请读取原请求结果；刷新后无需重新输入密钥或 Schema。'
+        : '结果尚未确认。请读取原请求结果；刷新后无需重新输入密钥或参数结构。'
     }
     return null
   } finally {
@@ -707,7 +707,7 @@ function objectSchema(value: string, label: string): Record<string, unknown> | n
       return parsed as Record<string, unknown>
     }
   } catch (cause) {
-    error.value = `${label}：${cause instanceof Error ? cause.message : 'Schema 无效'}`
+    error.value = `${label}：${cause instanceof Error ? cause.message : '参数结构无效'}`
     return null
   }
   error.value = `${label}必须是 JSON 对象`
@@ -784,8 +784,8 @@ async function createDraft(): Promise<void> {
     }
     return
   }
-  const inputSchema = objectSchema(toolForm.inputSchema, '输入 Schema')
-  const outputSchema = objectSchema(toolForm.outputSchema, '输出 Schema')
+  const inputSchema = objectSchema(toolForm.inputSchema, '输入参数结构')
+  const outputSchema = objectSchema(toolForm.outputSchema, '输出参数结构')
   if (!inputSchema || !outputSchema) return
   const payload = {
     environment_id: props.environmentId, adapter: 'standard_readonly_http' as const, code: toolForm.code.trim(), name: toolForm.name.trim(),

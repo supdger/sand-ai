@@ -2,12 +2,12 @@
   <section class="sample-files">
     <h4>{{ purpose === 'knowledge' ? '准备知识来源' : '准备样本材料' }}</h4>
     <p class="muted">使用上方同一应用的运行身份上传私有材料。后台登录不代替应用授权；
-      上传需 file.write，解析需 document_parse，读取需 file.read。{{ purpose === 'knowledge' ? '解析完成后，选用来源建立知识库草稿。' : '解析完成后，再将文件加入样本。' }}</p>
+      上传需文件写入权限，解析需文档读取权限，读取需文件读取权限。{{ purpose === 'knowledge' ? '解析完成后，选用来源建立知识库草稿。' : '解析完成后，再将文件加入样本。' }}</p>
     <ElSpace wrap>
       <PrivateFileUpload :bearer="bearer" :environment-id="environmentId"
         :disabled="!canWrite || files.length >= 100" @file="upsert"
         @busy="uploadBusy" @identity-denied="emit('identity-denied', $event)" />
-      <ElInputNumber v-model="lookupId" :min="1" :controls="false" placeholder="已有文件 ID" />
+      <ElInputNumber v-model="lookupId" :min="1" :controls="false" placeholder="已有文件编号" />
       <ElButton :disabled="!canRead || !lookupId || files.length >= 100" :loading="operation === 'read'" @click="lookup">读取已有文件</ElButton>
       <ElButton v-if="files.length" :disabled="!canRead" :loading="operation === 'refresh'" @click="refreshFiles()">刷新解析进度</ElButton>
     </ElSpace>
@@ -25,7 +25,7 @@
     <p v-else-if="!files.length" class="muted">{{ purpose === 'knowledge' ? '上传新资料，或按文件号读取已有资料；恢复旧 TXT 大块时重新上传原文件。' : '可上传一份 TXT 开始试用；扫描 PDF 和图片还需已配置的 OCR 能力。' }}</p>
     <ElTable v-if="files.length" :data="files" row-key="id" class="file-table">
       <ElTableColumn prop="original_name" label="材料" min-width="160" />
-      <ElTableColumn prop="id" label="文件 ID" width="100" />
+      <ElTableColumn prop="id" label="文件编号" width="100" />
       <ElTableColumn label="解析进度" min-width="180">
         <template #default="{ row }">
           <p>{{ parseLabel(row) }}</p>
@@ -252,7 +252,7 @@ async function lookup(): Promise<void> {
     const file = await fileApi.read(props.bearer, id, props.environmentId)
     if (current === generation) upsert(file, id)
   } catch (failure) {
-    if (current === generation) fail(failure, '读取材料失败，请核对文件 ID 和当前应用的读取授权。')
+    if (current === generation) fail(failure, '读取材料失败，请核对文件编号和当前应用的读取授权。')
   } finally {
     if (current === generation) {
       operation.value = ''

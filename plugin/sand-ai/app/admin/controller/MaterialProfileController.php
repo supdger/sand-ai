@@ -123,7 +123,7 @@ final class MaterialProfileController extends SandAiAdminController
             return $this->success($operation(), $message);
         } catch (ApiProblem $problem) {
             $code = in_array($problem->errorCode, ['SAND_AI_VALIDATION_ERROR', 'SAND_AI_SCHEMA_UNSUPPORTED'], true) ? 400 : 0;
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), $code);
+            throw $this->adminProblemException($problem, $code);
         }
     }
 }

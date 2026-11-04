@@ -62,7 +62,7 @@
       <ElTableColumn label="外部请求计量" min-width="170"><template #default="{ row }">{{ row.metering ? `${row.metering.quantity} 次外部请求；金额未定价` : '用量与金额尚未确认' }}</template></ElTableColumn>
       <ElTableColumn label="结果与工具来源" width="170"><template #default="{ row }"><ElButton link type="primary" :disabled="!apiKey?.trim()" @click="readTool(row.run_id)">按原执行读取</ElButton></template></ElTableColumn>
     </ElTable>
-    <p v-if="task.readonly_tool_runs?.length" class="hint">外部请求与模型 Token 分别计量，未定价不表示免费。这里只读取原工具执行，不再次调用工具。</p>
+    <p v-if="task.readonly_tool_runs?.length" class="hint">外部请求与模型词元分别计量，未定价不表示免费。这里只读取原工具执行，不再次调用工具。</p>
     <ElDialog v-model="toolVisible" title="只读工具的原执行结果与来源" width="min(720px, 92vw)" @closed="clearTool">
       <p v-if="toolLoading" role="status">正在核对任务与工具读取权限…</p>
       <ElAlert v-if="toolError" type="error" :title="toolError" :closable="false" />
@@ -123,15 +123,15 @@
     <ElDescriptions v-if="!modelCalls.length || !task.embedding_invocations?.length" :column="2" border>
       <ElDescriptionsItem v-if="!modelCalls.length" label="回答计量状态">{{ cost ? stateLabel(cost.usage.state) : '尚未读取' }}</ElDescriptionsItem>
       <ElDescriptionsItem v-if="!modelCalls.length" label="回答计量金额">{{ cost ? amountLabel(cost.price.metered_amount, cost.price.currency) : '未知' }}</ElDescriptionsItem>
-      <ElDescriptionsItem v-if="!modelCalls.length" label="回答输入 Token">{{ cost?.tokens.input_tokens ?? '未知' }}</ElDescriptionsItem>
-      <ElDescriptionsItem v-if="!modelCalls.length" label="回答输出 Token">{{ cost?.tokens.output_tokens ?? '未知' }}</ElDescriptionsItem>
+      <ElDescriptionsItem v-if="!modelCalls.length" label="回答输入词元">{{ cost?.tokens.input_tokens ?? '未知' }}</ElDescriptionsItem>
+      <ElDescriptionsItem v-if="!modelCalls.length" label="回答输出词元">{{ cost?.tokens.output_tokens ?? '未知' }}</ElDescriptionsItem>
       <ElDescriptionsItem v-if="!task.embedding_invocations?.length" label="查询向量计量状态">
         {{ task.embedding_usage_cost ? stateLabel(task.embedding_usage_cost.usage_state) : '尚无计量记录' }}
       </ElDescriptionsItem>
       <ElDescriptionsItem v-if="!task.embedding_invocations?.length" label="查询向量计量金额">
         {{ task.embedding_usage_cost ? amountLabel(task.embedding_usage_cost.metered_amount, task.embedding_usage_cost.currency) : '未知' }}
       </ElDescriptionsItem>
-      <ElDescriptionsItem v-if="!task.embedding_invocations?.length" label="查询向量 Token">{{ task.embedding_usage_cost?.total_tokens ?? '未知' }}</ElDescriptionsItem>
+      <ElDescriptionsItem v-if="!task.embedding_invocations?.length" label="查询向量词元">{{ task.embedding_usage_cost?.total_tokens ?? '未知' }}</ElDescriptionsItem>
       <ElDescriptionsItem v-if="!task.embedding_invocations?.length" label="查询向量价格版本">{{ task.embedding_usage_cost?.price_revision_id ?? '未确定' }}</ElDescriptionsItem>
     </ElDescriptions>
     <p v-if="!task.embedding_invocation" class="hint">本任务尚未登记查询向量子调用；词法检索可能无需查询向量，未登记不能用于推断整次任务免费。</p>
