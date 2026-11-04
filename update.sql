@@ -1081,7 +1081,9 @@ BEGIN
         ('202610300161_provider_identity_admin_scope','3d1561d6dab24098aa2978e5ee2522ac749edcdde0fdfba522983471b5e1b9ec'),
         ('202610310162_meeting_review_workflow','6b3d40ff99cce6e74233317731b41012c4db3128f1b5ef65f3ff1a7554f1e982'),
         ('202611010163_recovery_continuation_allowance','2c76a5cdc114c531b9892c2573d1ae7a5e85d6616b94810e950fbe55584ffbdc'),
-        ('202611030164_admin_menu_regroup','34ce09d82d637dd842661f1add75525403aae73df72e55c6e98135d75bc21251')
+        ('202611030164_admin_menu_regroup','34ce09d82d637dd842661f1add75525403aae73df72e55c6e98135d75bc21251'),
+        ('202611040165_ux_phase2','ed45df99ffabfba339fc2fa9f9f76b4091a86ea728bc39fb8485d0c2fb3cbaf2'),
+        ('202611040166_ux_p7_home_menu','c32960be032575b9b4fcf8d613007a25de2f5c752c3621f66244b025da151896')
     ) AS expected(version,checksum) ON expected.version=applied.version
     WHERE expected.version IS NULL OR applied.checksum IS DISTINCT FROM expected.checksum
     ORDER BY applied.version LIMIT 1;
@@ -14103,5 +14105,146 @@ $sand_ai_migration_0164$;
   INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611030164_admin_menu_regroup','34ce09d82d637dd842661f1add75525403aae73df72e55c6e98135d75bc21251',CURRENT_TIMESTAMP(0));
  END IF;
 END $sand_ai_upgrade_0164$;
+
+
+DO $sand_ai_upgrade_0165$
+BEGIN
+ IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611040165_ux_phase2' AND checksum IS DISTINCT FROM 'ed45df99ffabfba339fc2fa9f9f76b4091a86ea728bc39fb8485d0c2fb3cbaf2') THEN
+  RAISE EXCEPTION 'SandAI migration 165 checksum mismatch';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611040165_ux_phase2') THEN
+  EXECUTE $sand_ai_migration_0165$
+-- UX Phase 2 shared migration. Each work package appends its own idempotent
+-- DO block below; blocks are independent and may run in any order.
+
+-- P8 administrator trial channel permission seed: `sand_ai:trial:context`
+-- makes the POST /app/sand-ai/admin/trial/context endpoint grantable to
+-- administrator roles. The seed only declares the button permission; no role
+-- receives a grant here (the platform super-administrator already passes
+-- CheckAuth), and no navigation entry is added. The node hangs under the
+-- trial page when present, otherwise under the onboarding page or the SandAI
+-- root, so role configuration screens keep it grouped with trial surfaces.
+DO $ux_phase2_trial_permission$
+DECLARE
+    root_id bigint;
+    page_id bigint;
+    node_id bigint;
+    count_nodes integer;
+BEGIN
+    IF to_regclass('sand_ai_configuration_navigation_ownership') IS NULL THEN
+        RAISE EXCEPTION 'SandAI configuration navigation ownership is missing';
+    END IF;
+    LOCK TABLE sand_system_menu IN SHARE ROW EXCLUSIVE MODE;
+    SELECT count(*),min(id) INTO count_nodes,root_id FROM sand_system_menu
+    WHERE code='SandAI' AND parent_id=0 AND type=1 AND status=1 AND delete_time IS NULL;
+    IF count_nodes<>1 THEN
+        RAISE EXCEPTION 'SandAI root navigation is missing or duplicated';
+    END IF;
+
+    SELECT id INTO page_id FROM sand_system_menu
+    WHERE code IN ('SandAITaskTrial','SandAIOnboarding') AND type=2
+      AND status=1 AND delete_time IS NULL
+    ORDER BY CASE code WHEN 'SandAITaskTrial' THEN 0 ELSE 1 END, id
+    LIMIT 1;
+    page_id := COALESCE(page_id, root_id);
+
+    SELECT count(*),min(id) INTO count_nodes,node_id FROM sand_system_menu
+    WHERE code='sand_ai:trial:context' OR slug='sand_ai:trial:context';
+    IF count_nodes>1 THEN
+        RAISE EXCEPTION 'SandAI trial permission is duplicated';
+    END IF;
+    IF count_nodes=0 THEN
+        INSERT INTO sand_system_menu(parent_id,name,code,slug,type,path,component,icon,sort,is_hidden,status,create_time,update_time)
+        VALUES(page_id,'管理员试用身份','sand_ai:trial:context','sand_ai:trial:context',3,'','','',30,1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+        RETURNING id INTO node_id;
+        INSERT INTO sand_ai_configuration_navigation_ownership
+        SELECT 'menu',id,to_jsonb(menu)-ARRAY['id','create_time','update_time','created_by','updated_by']
+        FROM sand_system_menu menu WHERE id=node_id;
+    ELSIF NOT EXISTS(
+        SELECT 1 FROM sand_system_menu WHERE id=node_id AND code='sand_ai:trial:context'
+          AND slug='sand_ai:trial:context' AND type=3 AND status=1 AND delete_time IS NULL
+    ) THEN
+        RAISE EXCEPTION 'Existing SandAI trial permission is incompatible';
+    END IF;
+END
+$ux_phase2_trial_permission$;
+$sand_ai_migration_0165$;
+  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611040165_ux_phase2','ed45df99ffabfba339fc2fa9f9f76b4091a86ea728bc39fb8485d0c2fb3cbaf2',CURRENT_TIMESTAMP(0));
+ END IF;
+END $sand_ai_upgrade_0165$;
+
+
+DO $sand_ai_upgrade_0166$
+BEGIN
+ IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611040166_ux_p7_home_menu' AND checksum IS DISTINCT FROM 'c32960be032575b9b4fcf8d613007a25de2f5c752c3621f66244b025da151896') THEN
+  RAISE EXCEPTION 'SandAI migration 166 checksum mismatch';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611040166_ux_p7_home_menu') THEN
+  EXECUTE $sand_ai_migration_0166$
+-- UX Phase 2 P7: the merged home page replaces the old 概览 entry and the
+-- wizard folds into it. SandAIOverview is renamed to 首页 and repointed to
+-- the new component; its stored path becomes the absolute route /sand-ai/home,
+-- matching the 164 convention, so the menu entry renders the merged home.
+-- SandAIOnboarding leaves the visible navigation (is_hidden=1) while keeping
+-- its code, path and component, so the legacy route /sand-ai/onboarding stays
+-- directly reachable for bookmarks and advanced flows. Permission codes,
+-- slugs and role links are unchanged. The block is idempotent: re-running it
+-- converges to the same rows without duplicating menus or links.
+DO $ux_p7_home_menu$
+DECLARE
+    root_id bigint;
+    page_id bigint;
+    count_nodes integer;
+BEGIN
+    IF to_regclass('sand_ai_configuration_navigation_ownership') IS NULL THEN
+        RAISE EXCEPTION 'SandAI configuration navigation ownership is missing';
+    END IF;
+    LOCK TABLE sand_system_menu IN SHARE ROW EXCLUSIVE MODE;
+    SELECT count(*),min(id) INTO count_nodes,root_id FROM sand_system_menu
+    WHERE code='SandAI' AND parent_id=0 AND type=1 AND status=1 AND delete_time IS NULL;
+    IF count_nodes<>1 THEN
+        RAISE EXCEPTION 'SandAI root navigation is missing or duplicated';
+    END IF;
+
+    -- 首页: same entry node, new display name/component, absolute route.
+    SELECT count(*),min(id) INTO count_nodes,page_id FROM sand_system_menu
+    WHERE code='SandAIOverview' AND parent_id=root_id AND type=2
+      AND status=1 AND delete_time IS NULL;
+    IF count_nodes<>1 THEN
+        RAISE EXCEPTION 'SandAIOverview menu is missing or duplicated';
+    END IF;
+    UPDATE sand_system_menu
+    SET name='首页',
+        path='/sand-ai/home',
+        component='/plugin/sand-ai/home/index',
+        is_hidden=CASE WHEN is_hidden=0 THEN 2 ELSE is_hidden END,
+        update_time=CURRENT_TIMESTAMP
+    WHERE id=page_id
+      AND (name IS DISTINCT FROM '首页'
+        OR path IS DISTINCT FROM '/sand-ai/home'
+        OR component IS DISTINCT FROM '/plugin/sand-ai/home/index'
+        OR is_hidden=0);
+
+    -- 首次开通: hidden from navigation; code/path/component untouched so the
+    -- direct URL keeps resolving to the existing onboarding component.
+    SELECT count(*),min(id) INTO count_nodes,page_id FROM sand_system_menu
+    WHERE code='SandAIOnboarding' AND parent_id=root_id AND type=2
+      AND status=1 AND delete_time IS NULL;
+    IF count_nodes<>1 THEN
+        RAISE EXCEPTION 'SandAIOnboarding menu is missing or duplicated';
+    END IF;
+    UPDATE sand_system_menu
+    SET is_hidden=1,
+        update_time=CURRENT_TIMESTAMP
+    WHERE id=page_id AND is_hidden<>1;
+
+    -- Ownership snapshots stay immutable: updated pages keep their original
+    -- recorded definition, matching the append-only ownership contract.
+END
+$ux_p7_home_menu$;
+$sand_ai_migration_0166$;
+  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611040166_ux_p7_home_menu','c32960be032575b9b4fcf8d613007a25de2f5c752c3621f66244b025da151896',CURRENT_TIMESTAMP(0));
+ END IF;
+END $sand_ai_upgrade_0166$;
 
 COMMIT;

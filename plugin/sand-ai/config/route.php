@@ -3,6 +3,7 @@
 use plugin\sandadmin\app\middleware\CheckAuth;
 use plugin\sandadmin\app\middleware\CheckLogin;
 use plugin\sandadmin\app\middleware\SystemLog;
+use plugin\SandAi\app\admin\controller\AdminTrialController;
 use plugin\SandAi\app\admin\controller\AuditController;
 use plugin\SandAi\app\admin\controller\IndexController;
 use plugin\SandAi\app\admin\controller\InvocationController;
@@ -159,6 +160,7 @@ Route::group('/app/sand-ai/admin', function (): void {
     Route::get('/index', [IndexController::class, 'index']);
     Route::get('/provider/index', [ProviderController::class, 'index']);
     Route::get('/provider/read', [ProviderController::class, 'read']);
+    Route::get('/provider/guides', [ProviderController::class, 'guides']);
     Route::post('/provider/destroy', [ProviderController::class, 'destroy']);
     Route::get('/model/index', [ModelController::class, 'index']);
     Route::get('/model/read', [ModelController::class, 'read']);
@@ -175,6 +177,9 @@ Route::group('/app/sand-ai/admin', function (): void {
     Route::get('/usage/adjustment/index', [\plugin\SandAi\app\admin\controller\UsageAdjustmentController::class, 'index']);
     Route::get('/usage/adjustment/read', [\plugin\SandAi\app\admin\controller\UsageAdjustmentController::class, 'read']);
     Route::get('/audit/index', [AuditController::class, 'index']);
+    // Admin trial channel: backstage session exchanges for a short-lived
+    // SandIAM context. Admin group only; never on the public v1 surface.
+    Route::post('/trial/context', [AdminTrialController::class, 'context']);
 })->middleware([
     CheckLogin::class,
     CheckAuth::class,
@@ -189,6 +194,10 @@ Route::get('/app/sand-ai/admin/model/read-operation-by-request-key', [ModelContr
 Route::group('/app/sand-ai/admin/provider', function (): void {
     Route::post('/save', [ProviderController::class, 'save']);
     Route::post('/update', [ProviderController::class, 'update']);
+    // Test-connection accepts a `connection` secret or `provider_id`; the
+    // sensitive-request guard must stay outermost so the key never reaches
+    // auth, logging, or the controller post body.
+    Route::post('/test-connection', [ProviderController::class, 'testConnection']);
 })->middleware([OnboardingSensitiveRequestMiddleware::class, CheckLogin::class, CheckAuth::class]);
 
 Route::group('/app/sand-ai/admin/pricing/revision', function (): void {

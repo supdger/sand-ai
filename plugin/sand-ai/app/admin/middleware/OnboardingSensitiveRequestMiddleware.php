@@ -24,6 +24,13 @@ use Webman\MiddlewareInterface;
  */
 final class OnboardingSensitiveRequestMiddleware implements MiddlewareInterface
 {
+    /**
+     * Provider test-connection route. Its body may carry a `connection` secret
+     * or a `provider_id`; the connection must reach the request vault before
+     * auth, logging, or the controller can see the raw body.
+     */
+    public const TEST_CONNECTION_PATH = '/app/sand-ai/admin/provider/test-connection';
+
     public function process(Request $request, callable $handler): Response
     {
         // Workerman caches the original request after this handler returns.
@@ -53,6 +60,11 @@ final class OnboardingSensitiveRequestMiddleware implements MiddlewareInterface
                 if (array_key_exists('encrypted_config', $payload)) {
                     OnboardingRequestSecrets::store($request, $payload['encrypted_config']);
                 }
+            }
+            if ($request->path() === self::TEST_CONNECTION_PATH
+                && array_diff(array_keys($payload), ['connection', 'provider_id']) !== []) {
+                OnboardingRequestSecrets::redactRawBody($request);
+                return $this->rejectBeforeHandler($request, $payload, 'SAND_AI_VALIDATION_ERROR', '测试连接只接受连接信息或服务商编号');
             }
             $deploymentSave = $request->path() === '/app/sand-ai/admin/setup/deployment/save';
             if ($deploymentSave && array_diff(array_keys($payload), ['provider_id', 'provider', 'model_id', 'model', 'deployment_id', 'connection', 'remote_model', 'config']) !== []) {
