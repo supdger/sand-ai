@@ -1,3 +1,7 @@
+## 0.4.5 (release)
+
+- Admin UI fix only: the AI task submit form now sends the required `Idempotency-Key` header alongside `X-Request-Id` (same caller-retained key, matching agent.ts), fixing the guaranteed `SAND_AI_IDEMPOTENCY_KEY_REQUIRED` rejection on POST /api/sand-ai/v1/ai-tasks (ux_p2b acceptance defect D1). API contract doc corrected to name `Idempotency-Key` for ai-tasks; file upload/parse `X-Request-Id` semantics unchanged. SandIAM dependency pin stays on the 0.9.4 artifact (sand-iam-0.9.4.zip, sha256 bfa6e9e1); backend payload identical to 0.4.4.
+
 ## 0.4.4 (release)
 
 - Trial provisioning chain converged on the canonical entity path: SandIamAdminTrialEntityStore now resolves application/environment/credentials through AccessMatrixInput::DEFAULT_* instead of its own system/production/admin_trial chain, adopts an existing system application, reparents the admin_trial workload client into the prod environment, anchors against drift, and normalizes trial grant data_class to NULL in place (disabled/revoked grants are never resurrected). SandIAM dependency pin moves to the 0.9.4 artifact (sand-iam-0.9.4.zip, sha256 bfa6e9e1) carrying the matrix-side fix (matrixClientFor prefers the sand-ai business client; upsertGrant new grants get data_class=NULL).

@@ -14,7 +14,7 @@ export default {
       path: '/ai-tasks',
       apiKey,
       data: payload,
-      headers: { 'X-Request-Id': requestId }
+      headers: { 'X-Request-Id': requestId, 'Idempotency-Key': requestId }
     })
   }
 }
