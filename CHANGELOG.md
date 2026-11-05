@@ -1,5 +1,6 @@
 ## 0.4.9
 
+- SandAI 0.4.9 requires installed stable `supdger/sand-package` `>=0.2.22` (`HostFoundationCompatibility`; Sand Core stays `>=0.2.4`). `info.ini` `support` remains the SandAdmin host minimum `>=0.2.3`. The raise tracks `full_restart` for process registration in sand-package draft 0.2.22 (https://github.com/supdger/sand-package/pull/48).
 - Provider timeout migration: `sand_ai_provider.timeout_ms` column DEFAULT becomes 120000, and live rows still stored as 30000 (`delete_time IS NULL`) become 120000. Other timeouts, soft-deleted rows, deployment snapshots, and verification receipts stay unchanged. A later snapshot rebuild from the live provider treats a frozen timeout of 30000 as configuration drift. `install.sql` is regenerated from the migration sources. SandIAM dependency pin stays on the 0.9.5 artifact (sand-iam-0.9.5.zip, sha256 4088c451).
 
 ## 0.4.8 (release)

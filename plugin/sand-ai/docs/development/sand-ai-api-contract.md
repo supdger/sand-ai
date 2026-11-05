@@ -2644,7 +2644,7 @@ cleanup.resources.audio_chunks?: retained | pending | failed | purged | unconfir
 
 Webman 在 `autoload.files` 前读取进程配置。SandAI `config/process.php` 先通过固定相对路径 `require_once` 复用自身 `app/functions.php` 命名空间注册，再执行 foundation 守卫；后续宿主 `include_once` 不重复注册。该现有 loader 只注册 `plugin\SandAi\` 文件映射，不初始化数据库、密钥、业务服务或其他插件，不跳过版本未知／不足的拒绝门。
 
-SandAI 在本插件路由与进程登记前，通过 Composer `InstalledVersions::isInstalled()`／`getVersion()` 读取实际已安装 `supdger/sand-core` 与 `supdger/sand-package`。两者都须为稳定版本 `>=0.2.4`；无上界。缺失、版本未知、预发行或低于最低版本均不登记 SandAI 业务路由和 worker，不执行业务动作；此门仅限制 SandAI，不改变其他插件或宿主基础依赖，也不替代包内 `info.ini` 的宿主 support 判断。
+SandAI 在本插件路由与进程登记前，通过 Composer `InstalledVersions::isInstalled()`／`getVersion()` 读取实际已安装 `supdger/sand-core` 与 `supdger/sand-package`。Core 须为稳定版本 `>=0.2.4`，Package 须为稳定版本 `>=0.2.22`；无上界。`0.4.9` 提高 Package 下限，因为进程登记的 `full_restart` 落在 sand-package 草案 `0.2.22`。缺失、版本未知、预发行或低于最低版本均不登记 SandAI 业务路由和 worker，不执行业务动作；此门仅限制 SandAI，不改变其他插件或宿主基础依赖，也不替代包内 `info.ini` 的宿主 support 判断。
 
 拒绝时，原 `/api/sand-ai/**` 与 `/app/sand-ai/**` 入口返回原错误壳 HTTP／业务 `400`、`data.error_code=SAND_AI_HOST_FOUNDATION_INCOMPATIBLE`、`retryable=false` 和 `Cache-Control: no-store`，说明实际基础版本及管理员处理入口；进程配置同时写入不含凭据的兼容错误。错误入口仅返回兼容状态，不读取正文、返回历史成果、消费调用权限或触发外部动作。基础依赖补齐后，当前仍仅登记错误路由的进程返回 `SAND_AI_HOST_FOUNDATION_RELOAD_REQUIRED`，要求管理员通过宿主正式维护流程重载，不自动重载或改装依赖。
 
