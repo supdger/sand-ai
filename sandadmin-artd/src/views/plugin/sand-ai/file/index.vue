@@ -173,7 +173,14 @@
         :title="lastError.title"
         :description="lastError.description"
         @close="lastError = null"
-      />
+      >
+        <ElButton
+          v-if="lastError.title === 'SAND_AI_CAPABILITY_UNSUPPORTED'"
+          link
+          type="primary"
+          @click="router.push('/sand-ai/capability')"
+        >去能力配置补齐该能力</ElButton>
+      </ElAlert>
 
       <ArtTable row-key="id" :loading="busy !== ''" :data="recentFiles" :columns="columns" />
     </ElCard>
@@ -252,6 +259,7 @@
   import { readRuntimeBearer } from '../api/runtimeBearerSession'
   import { SandAiRuntimeError, newRuntimeRequestId } from '../api/runtime'
   import { hintForRuntimeErrorCode, toRuntimeUiError } from '../api/runtimeErrors'
+  import { errorDisplayText } from '../api/errorText'
   import type { RuntimeUiError } from '../api/runtimeErrors'
   import type { SandAiCleanupState, SandAiCleanupStatus, SandAiFile, SandAiTask } from '../api/types'
   import { runStateLabel } from '../api/displayLabels'
@@ -1114,7 +1122,7 @@
       if (current !== viewGeneration) return
       lastError.value = toUiError(error)
       if (error instanceof SandAiRuntimeError && error.errorCode) {
-        ElMessage.warning(hintForRuntimeErrorCode(error.errorCode) ?? error.message)
+        ElMessage.warning(hintForRuntimeErrorCode(error.errorCode) ?? errorDisplayText(error))
       }
     } finally {
       if (current === viewGeneration) busy.value = ''

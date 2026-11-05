@@ -70,7 +70,8 @@ export default {
     }
     return request.get<SandAiPage<SandAiUsage>>({
       url: `${ADMIN_API_PREFIX}/usage/index`,
-      params
+      params,
+      showErrorMessage: false
     })
   },
   summary(params: SandAiUsageSummaryQuery) {

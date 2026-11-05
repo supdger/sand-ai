@@ -93,6 +93,7 @@
   import { useAuth } from '@/hooks/core/useAuth'
   import { HttpError } from '@/utils/http/error'
   import { useUserStore } from '@/store/modules/user'
+  import { errorDisplayText } from '../../api/errorText'
   import budgetApi from '../../api/budget'
   import type { BudgetPolicy, BudgetScope, BudgetScopeKind, BudgetSummary } from '../../api/budget'
 
@@ -252,7 +253,7 @@
         if (cause instanceof HttpError && (cause.code === 401 || cause.code === 403)) {
           clearReadData()
           listError.value = '当前管理员无法读取此预算目标，已清除本抽屉旧数据。原草稿及未决操作继续保留。'
-        } else listError.value = cause instanceof Error ? cause.message : '读取预算版本失败'
+        } else listError.value = errorDisplayText(cause, '读取预算版本失败')
       }
     }
     finally { if (current(start) && generation === listGeneration) listLoading.value = false }
@@ -282,7 +283,7 @@
         if (cause instanceof HttpError && (cause.code === 401 || cause.code === 403)) {
           clearReadData()
           activeError.value = '当前管理员无法读取此预算目标，已清除本抽屉旧数据。原草稿及未决操作继续保留。'
-        } else activeError.value = cause instanceof Error ? cause.message : '读取当前预算失败'
+        } else activeError.value = errorDisplayText(cause, '读取当前预算失败')
       }
     }
     finally { if (current(start) && generation === activeGeneration) activeLoading.value = false }
@@ -307,7 +308,7 @@
         if (cause instanceof HttpError && (cause.code === 401 || cause.code === 403)) {
           clearReadData()
           policyError.value = '当前管理员无法读取此预算目标，已清除本抽屉旧数据。原草稿及未决操作继续保留。'
-        } else policyError.value = cause instanceof Error ? cause.message : '读取原预算版本失败'
+        } else policyError.value = errorDisplayText(cause, '读取原预算版本失败')
       }
     }
     finally { if (current(start) && generation === policyGeneration) policyLoading.value = false }
@@ -332,7 +333,7 @@
         if (cause instanceof HttpError && (cause.code === 401 || cause.code === 403)) {
           clearReadData()
           summaryError.value = '当前管理员无法读取此预算目标，已清除本抽屉旧数据。原草稿及未决操作继续保留。'
-        } else summaryError.value = cause instanceof Error ? cause.message : '读取原版本窗口失败'
+        } else summaryError.value = errorDisplayText(cause, '读取原版本窗口失败')
       }
     }
     finally { if (current(start) && generation === summaryGeneration) summaryLoading.value = false }

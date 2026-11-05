@@ -1928,7 +1928,7 @@
     },
     {
       "path": "app/Application/Onboarding/OnboardingPublicationService.php",
-      "sha256": "d382845fcd6b78afd7b5b686ed3e18644a368c6859ebc3b4b20eefd690bc8862"
+      "sha256": "a45b5ac6a248c67ffe03df427f2982e7f1122bd0de9162f9cc477056b86ffce5"
     },
     {
       "path": "app/Application/Onboarding/OnboardingRequestSecrets.php",

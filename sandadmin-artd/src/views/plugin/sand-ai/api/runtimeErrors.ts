@@ -32,12 +32,19 @@ export const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
   SAND_AI_RESOURCE_CONFLICT: '资源冲突（重复提交或状态不允许该操作）。',
   SAND_AI_TASK_UNSUPPORTED: 'Worker 不支持该任务类型。',
   SAND_AI_TASK_INVALID: '任务输入无效。',
-  SAND_AI_CAPABILITY_UNSUPPORTED: '已发布能力档未配置该能力/驱动。',
+  SAND_AI_CAPABILITY_UNSUPPORTED: '已启用的能力配置没有包含该能力。请到「高级 → 能力配置」为当前环境添加该能力并启用配置后重试。',
   SAND_AI_DATA_EGRESS_FORBIDDEN: '数据外发策略拒绝该驱动或 Provider。',
   SAND_AI_PROVIDER_CONFIG_INVALID: '服务商配置不可用（不回显密钥）。',
   SAND_AI_PROVIDER_UNAVAILABLE: '服务商暂不可用，可按 retryable 重试。',
   SAND_AI_PROVIDER_RATE_LIMITED: '服务商限流，可按 retryable 重试。',
   SAND_AI_PROVIDER_REJECTED: '服务商拒绝请求，不回显厂商原文。'
+}
+
+/** 服务端消息含中文才可回显（去稳定码前缀）；纯英文/机读串不上面界面文案。 */
+export function displayableRuntimeMessage(message: string | null | undefined): string | undefined {
+  if (!message) return undefined
+  const text = message.replace(/^[A-Z][A-Z0-9_]*:\s*/, '').trim()
+  return /[㐀-鿿豈-﫿]/.test(text) ? text : undefined
 }
 
 /**
@@ -58,11 +65,12 @@ export function hintForRuntimeErrorCode(errorCode: string | null | undefined): s
 export function toRuntimeUiError(error: unknown): RuntimeUiError {
   if (error instanceof SandAiRuntimeError) {
     const hint = hintForRuntimeErrorCode(error.errorCode)
+    // 冻结码优先给中文说明；无映射时仅回显中文原文，英文原文一律兜底、不进界面。
+    const displayText = hint ?? displayableRuntimeMessage(error.message) ?? '请求未完成，请稍后重试。'
     const parts = [
-      error.message,
+      displayText,
       error.errorCode ? `error_code=${error.errorCode}` : null,
-      error.requestId ? `request_id=${error.requestId}` : null,
-      hint
+      error.requestId ? `request_id=${error.requestId}` : null
     ].filter((part): part is string => typeof part === 'string' && part.length > 0)
     return {
       title: error.errorCode ?? '运行面错误',
@@ -71,6 +79,6 @@ export function toRuntimeUiError(error: unknown): RuntimeUiError {
   }
   return {
     title: '请求失败',
-    description: error instanceof Error ? error.message : '未知错误'
+    description: error instanceof Error ? (displayableRuntimeMessage(error.message) ?? '请求未完成，请稍后重试。') : '未知错误'
   }
 }

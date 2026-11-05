@@ -44,6 +44,7 @@
   import { computed, onBeforeUnmount, ref, watch } from 'vue'
   import { useAuth } from '@/hooks/core/useAuth'
   import { useAdminReadIdentity } from '../../composables/useAdminReadIdentity'
+  import { errorDisplayText } from '../../api/errorText'
   import comparisonApi from '../../api/cost-comparison'
   import type { CostComparison, CostComparisonSelection, ComparisonReason, ScenarioReason } from '../../api/cost-comparison'
   const props = defineProps<{ selection: CostComparisonSelection | null }>()
@@ -107,7 +108,7 @@
       const value = await comparisonApi.read({ environment_id: environment, current_invocation_id: current, baseline_invocation_id: baseline, ...(price === undefined ? {} : { current_price_revision_id: price }) })
       if (identity.current(owner) && requestId === generation && allowed.value) result.value = value
     } catch (failure) {
-      if (identity.current(owner) && requestId === generation && allowed.value) error.value = `费用比较读取失败：${failure instanceof Error ? failure.message : '后台未返回结果'}。请核对调用环境、归属及费用权限后重试。`
+      if (identity.current(owner) && requestId === generation && allowed.value) error.value = `费用比较读取失败：${errorDisplayText(failure, '后台未返回结果')}。请核对调用环境、归属及费用权限后重试。`
     } finally { if (identity.current(owner) && requestId === generation) loading.value = false }
   }
 </script>

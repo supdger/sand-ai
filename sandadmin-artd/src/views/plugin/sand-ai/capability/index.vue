@@ -244,6 +244,7 @@
   import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
   import { useUserStore } from '@/store/modules/user'
   import { readCapabilityProfileIntent, retainCapabilityProfileIntent, resolveCapabilityProfileIntent, type CapabilityProfileIntent } from '../api/capabilityProfileIntent'
+  import { errorDisplayText } from '../api/errorText'
   import { HttpError } from '@/utils/http/error'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { useRoute, useRouter } from 'vue-router'
@@ -310,7 +311,7 @@
     pending.value = null
     journalError.value = false
     try { pending.value = readCapabilityProfileIntent(adminId.value) }
-    catch (error) { journalError.value = true; errorMessage.value = error instanceof Error ? error.message : '无法读取原操作记录，写操作已锁定' }
+    catch (error) { journalError.value = true; errorMessage.value = errorDisplayText(error, '无法读取原操作记录，写操作已锁定') }
   }
   function persistIntent(operation: CapabilityProfileIntent, previous: CapabilityProfileIntent | null = null): void {
     retainCapabilityProfileIntent(operation, previous)
@@ -609,7 +610,7 @@
       if (current === applicationGeneration) {
         applications.value = []
         iamListError.value = 'applications'
-        errorMessage.value = error instanceof Error ? error.message : '读取应用失败，请重试'
+        errorMessage.value = errorDisplayText(error, '读取应用失败，请重试')
       }
     } finally {
       if (current === applicationGeneration) loadingApps.value = false
@@ -623,7 +624,7 @@
       if (epoch === identityEpoch) metadata.value = result
     } catch (error) {
       if (epoch !== identityEpoch) return
-      errorMessage.value = error instanceof Error ? error.message : '加载能力元数据失败'
+      errorMessage.value = errorDisplayText(error, '加载能力元数据失败')
     }
   }
 
@@ -653,7 +654,7 @@
     } catch (error) {
       if (current === environmentGeneration && selectedApplication === applicationId.value) {
         iamListError.value = 'environments'
-        errorMessage.value = error instanceof Error ? error.message : '读取环境失败，请重试'
+        errorMessage.value = errorDisplayText(error, '读取环境失败，请重试')
       }
     } finally {
       if (current === environmentGeneration) loadingEnvs.value = false

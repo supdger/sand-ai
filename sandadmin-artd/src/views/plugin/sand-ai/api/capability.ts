@@ -49,28 +49,32 @@ export type CapabilitySavePayload = {
 export default {
   metadata() {
     return request.get<SandAiCapabilityMetadata>({
-      url: `${ADMIN_API_PREFIX}/setup/capability/metadata`
+      url: `${ADMIN_API_PREFIX}/setup/capability/metadata`,
+      showErrorMessage: false
     })
   },
 
   readProfile(environmentId: number) {
     return request.get<{ profile: SandAiCapabilityProfile | null }>({
       url: `${ADMIN_API_PREFIX}/setup/capability/profile/read`,
-      params: { environment_id: environmentId }
+      params: { environment_id: environmentId },
+      showErrorMessage: false
     })
   },
 
   saveProfile(payload: CapabilitySavePayload) {
     return request.post<{ profile: SandAiCapabilityProfile }>({
       url: `${ADMIN_API_PREFIX}/setup/capability/profile/save`,
-      data: payload
+      data: payload,
+      showErrorMessage: false
     })
   },
 
   publishProfile(payload: { environment_id: number; id: number; expected_revision?: number }) {
     return request.post<{ profile: SandAiCapabilityProfile }>({
       url: `${ADMIN_API_PREFIX}/setup/capability/profile/publish`,
-      data: payload
+      data: payload,
+      showErrorMessage: false
     })
   }
 }

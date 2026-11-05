@@ -230,6 +230,7 @@
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { useAuth } from '@/hooks/core/useAuth'
   import { useUserStore } from '@/store/modules/user'
+  import { errorDisplayText } from '../../api/errorText'
   import budgetApi, { type BudgetDraft, type BudgetDraftNotSaved, type BudgetPolicy, type BudgetPolicyExpectation, type BudgetScope, type BudgetScopeKind, type BudgetSummary } from '../../api/budget'
   import iamApi, { type SandIamEnvironmentReference } from '../../api/iam'
 
@@ -477,7 +478,7 @@
       }
       saveStorageReady.value = true
     } catch (cause) {
-      saveRecoveryError.value = cause instanceof Error ? cause.message : '无法读取原保存请求记录；本次不会发送'
+      saveRecoveryError.value = errorDisplayText(cause, '无法读取原保存请求记录；本次不会发送')
     }
   }
   function persistPendingSaves(operations: PendingDraftSave[], actorId: number): void {
@@ -508,7 +509,7 @@
         : `原版本 #${current.id} 当前仍为${current.state === 'draft' ? '草稿' : '已启用'}，原${operation.action === 'publish' ? '启用' : '停用'}是否结束尚未确认；保留原记录，稍后只读核对，不重新发送。`
       if (sameScope(operation)) { invalidatePolicyViews(); await loadPolicies(page.value); await loadActive(true) }
     } catch (cause) {
-      if (live && adminId.value === actorId && generation === actorEpoch) changeRecoveryError.value = `${cause instanceof Error ? cause.message : '无法读取原版本'}；保留原操作记录，不重新发送。`
+      if (live && adminId.value === actorId && generation === actorEpoch) changeRecoveryError.value = `${errorDisplayText(cause, '无法读取原版本')}；保留原操作记录，不重新发送。`
     } finally { if (live && adminId.value === actorId && generation === actorEpoch && recoveringChangeId.value === operation.id) recoveringChangeId.value = null }
   }
   function decimalSix(value: string): string | null {
@@ -594,7 +595,7 @@
       }
     } catch (cause) {
       if (live && adminId.value === actorId && generation === actorEpoch)
-        saveRecoveryError.value = `${cause instanceof Error ? cause.message : '无法读取原保存收据'}；结果仍未确认，保留原请求号，不重新发送。`
+        saveRecoveryError.value = `${errorDisplayText(cause, '无法读取原保存收据')}；结果仍未确认，保留原请求号，不重新发送。`
     } finally {
       if (live && adminId.value === actorId && generation === actorEpoch && recoveringSaveKey.value === operation.requestKey) recoveringSaveKey.value = null
     }
@@ -632,7 +633,7 @@
       targetCount.value = reset ? rows.length : targetCount.value + rows.length
       targetTotal.value = count
     } catch (cause) {
-      if (live && epoch === targetEpoch) targetError.value = cause instanceof Error ? cause.message : '读取对象失败，请检查平台管理和 SandIAM 目录权限后重试'
+      if (live && epoch === targetEpoch) targetError.value = errorDisplayText(cause, '读取对象失败，请检查平台管理和 SandIAM 目录权限后重试')
     } finally { if (live && epoch === targetEpoch) targetLoading.value = false }
   }
 
@@ -650,7 +651,7 @@
       environmentCount.value = reset ? result.data.length : environmentCount.value + result.data.length
       environmentTotal.value = result.total
     } catch (cause) {
-      if (live && epoch === environmentEpoch && kind === scopeKind.value) environmentError.value = cause instanceof Error ? cause.message : '读取验证环境失败，请检查 SandIAM 环境权限'
+      if (live && epoch === environmentEpoch && kind === scopeKind.value) environmentError.value = errorDisplayText(cause, '读取验证环境失败，请检查 SandIAM 环境权限')
     } finally { if (live && epoch === environmentEpoch) environmentLoading.value = false }
   }
 
@@ -668,7 +669,7 @@
         || (!result.active && result.summary !== null)) throw new Error('当前预算状态未确认或与所选范围不一致')
       activeSummary.value = result.active ? result.summary : null
     } catch (cause) {
-      if (live && epoch === activeEpoch) activeError.value = cause instanceof Error ? cause.message : '读取当前预算失败'
+      if (live && epoch === activeEpoch) activeError.value = errorDisplayText(cause, '读取当前预算失败')
     } finally { if (live && epoch === activeEpoch) activeLoading.value = false }
   }
 
@@ -683,7 +684,7 @@
       if (!live || epoch !== listEpoch || !sameScope(scope)) return
       policies.value = result.data; page.value = nextPage; total.value = result.total
     } catch (cause) {
-      if (live && epoch === listEpoch) listError.value = cause instanceof Error ? cause.message : '读取预算版本失败'
+      if (live && epoch === listEpoch) listError.value = errorDisplayText(cause, '读取预算版本失败')
     } finally { if (live && epoch === listEpoch) listLoading.value = false }
   }
 
@@ -741,7 +742,7 @@
       await refreshSavedPolicy(receipt, actorId)
     } catch (cause) {
       if (live && adminId.value === actorId && generation === actorEpoch)
-        formError.value = `${cause instanceof Error ? cause.message : '保存结果未确认'}；保留原请求号，只读找回，不重复保存。`
+        formError.value = `${errorDisplayText(cause, '保存结果未确认')}；保留原请求号，只读找回，不重复保存。`
     }
     finally {
       writeFlight.value = false
@@ -792,7 +793,7 @@
     } catch (cause) {
       if (live && adminId.value === actorId && generation === actorEpoch) {
         changeRecoveryError.value = recorded
-          ? `${cause instanceof Error ? cause.message : '操作结果未确认'}；保留原版本，请只读核对，不重新发送。`
+          ? `${errorDisplayText(cause, '操作结果未确认')}；保留原版本，请只读核对，不重新发送。`
           : '无法保存原操作记录，本次未发送。请检查浏览器恢复记录是否可用。'
       }
     } finally {
@@ -811,7 +812,7 @@
       if (!live || epoch !== summaryEpoch || !sameScope(policy)) return
       if (result.policy.id !== policy.id || !sameScope(result.policy)) throw new Error('额度与所选预算版本不一致')
       summary.value = result
-    } catch (cause) { if (live && epoch === summaryEpoch) summaryError.value = cause instanceof Error ? cause.message : '读取预算额度失败' }
+    } catch (cause) { if (live && epoch === summaryEpoch) summaryError.value = errorDisplayText(cause, '读取预算额度失败') }
     finally { if (live && epoch === summaryEpoch) summaryLoadingId.value = null }
   }
 
