@@ -117,7 +117,12 @@
         :loading="busy === 'read' && !polling"
         :data="recentTasks"
         :columns="columns"
+        empty-text="当前调用身份下暂无可显示的任务记录"
       />
+      <p v-if="!recentTasks.length" class="task-footnote">
+        任务记录按调用身份隔离：其他会话或其他试用身份提交的任务不会出现在这里，不代表任务不存在。
+        已解析文件的内容请到<ElButton link type="primary" @click="router.push('/sand-ai/file')">文件页</ElButton>查看「解析出的文字」。
+      </p>
 
       <details v-if="authorizationIntents.length || authorizationStorageBlocked" class="task-alert task-recover" aria-label="原任务授权续接恢复">
         <summary>原授权续接请求尚待确认（查看详情）</summary>
@@ -655,7 +660,7 @@
 <script setup lang="ts">
   import '../components/sandAiPage.css'
   import { computed, h, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-  import { useRoute } from 'vue-router'
+  import { useRoute, useRouter } from 'vue-router'
   import { ElButton, ElMessage, ElMessageBox, ElSpace, ElSelectV2, ElPagination, ElCheckbox } from 'element-plus'
   import type { ColumnOption } from '@/types'
   import { useUserStore } from '@/store/modules/user'
@@ -2645,6 +2650,7 @@
   }
 
   const route = useRoute()
+  const router = useRouter()
   watch(() => route.query.id, (raw) => {
     ++viewGeneration
     stopPolling()

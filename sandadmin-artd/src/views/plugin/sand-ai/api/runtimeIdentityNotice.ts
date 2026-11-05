@@ -36,8 +36,8 @@ export function runtimeIdentityRefusalForCode(code: string | null): RuntimeIdent
       }
     case 'SAND_AI_SERVICE_ACTION_FORBIDDEN':
       return {
-        status: '当前服务动作未获授权',
-        description: '请由 SandIAM 管理员核对当前应用、环境和调用身份的 SandAI 服务授权，受众须为 SandAI。调整授权后重新取得运行身份；保留原请求号，不直接重发。',
+        status: '暂无权限查看该内容',
+        description: '该记录可能属于其他调用身份或已过期的试用会话；若确认由当前应用签发，请由 SandIAM 管理员核对服务授权。文件解析结果请到文件页查看；保留原请求号，不直接重发。',
         requiresReplacement: false
       }
     case 'SAND_AI_ENVIRONMENT_MISMATCH':
