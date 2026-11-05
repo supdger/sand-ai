@@ -1073,7 +1073,7 @@
     "plugin/sand-ai/app/admin/validate/ModelValidate.php": "76add254978efcfc69692205898bd662eca89378a9002aa50ef57f64ad461a23",
     "plugin/sand-ai/app/admin/validate/ProviderValidate.php": "7e7233b148fc4d34dc065acd5a041efb7af46c97f5095eb993113a601a1ca809",
     "plugin/sand-ai/app/functions.php": "1de4e8aac1e479bf0ea8c8230202c6000b394f2507db919a61be8b511a53a143",
-    "plugin/sand-ai/app/support/HostFoundationCompatibility.php": "c28fd11db5d0f76304a6605057f78417744eec37d75ac148b3f6a8332def0783",
+    "plugin/sand-ai/app/support/HostFoundationCompatibility.php": "0cddb3eab8448642ada4adf0943685329cafc4116ef1d05ec26d098ca89e1b59",
     "plugin/sand-ai/config.json": "1b80d3124af7aa6f1aad1e628d0e39ca5a5fd5e26a0939e93f0b3224a72f7452",
     "plugin/sand-ai/config/app.php": "215d3bf4503e4ef44755787463ff04a9546201d398ab98ce0f785b4e781a951e",
     "plugin/sand-ai/config/autoload.php": "c57f8b1bcd194cdd62f63bcb244234c7d47180c6cc251db82904325999ece498",
