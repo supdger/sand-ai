@@ -1,5 +1,17 @@
 <template>
   <div class="usage-cost-panel">
+    <ElCard v-if="canSummary" class="mb-3" shadow="never">
+      <div class="summary-top">
+        <p class="m-0 text-base summary-headline" role="status">
+          {{
+            summaryHeadline ||
+            (summaryLoading ? '正在读取近 30 天合计…' : '近 30 天合计：点击下方查看费用汇总明细')
+          }}
+        </p>
+        <p v-if="summaryError" class="m-0 text-sm" role="status">近 30 天合计读取失败：{{ summaryError }}</p>
+        <ElButton link type="primary" @click="scrollToSummary">查看费用汇总明细</ElButton>
+      </div>
+    </ElCard>
     <BudgetPolicyPanel v-if="hasAuth('sand_ai:budget:index')" />
     <InvocationCostPanel v-if="hasAuth('sand_ai:usage:cost')" />
     <CostComparisonPanel v-if="canCost" ref="comparisonPanel" :selection="comparisonSelection" />
@@ -111,7 +123,7 @@
         <ElButton type="primary" @click="handleSearch">应用筛选</ElButton>
       </div>
     </ElCard>
-    <ElCard v-if="canSummary" class="art-table-card" shadow="never">
+    <ElCard v-if="canSummary" id="usage-cost-summary" class="art-table-card" shadow="never">
       <h3 class="m-0 text-base">费用汇总</h3>
       <p class="mt-1 mb-0 text-sm text-gray-500">
         按上方筛选条件汇总不可变计量事件。资源、运行、版本和绑定按实际编号分组；缺少关联证据的事件显示为未归属。
@@ -1172,6 +1184,10 @@
     if (canEvents.value) resetSearchParams()
   }
 
+  function scrollToSummary(): void {
+    document.getElementById('usage-cost-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   function invalidateSummary(): void {
     ++summaryRequest
     summary.value = null
@@ -1442,6 +1458,13 @@
   /* This table lives in scrolling content, rather than a fixed-height table card. */
   .usage-events-table {
     height: auto !important;
+  }
+
+  .summary-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
   }
 
   .summary-headline {

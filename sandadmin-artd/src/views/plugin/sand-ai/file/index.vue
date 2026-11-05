@@ -75,7 +75,7 @@
               :loading="busy === 'parse-recovery'" @click="readOriginalParse(false)">按原请求只读找回</ElButton>
             <ElButton v-if="pendingParseSubmit?.taskId" :disabled="Boolean(busy) || !apiKey.trim()"
               @click="readOriginalParse(true)">刷新原解析任务</ElButton>
-            <ElButton v-if="parseRecoveredTask" :disabled="Boolean(busy)" @click="viewRecoveredParse">查看原任务与来源</ElButton>
+            <ElButton v-if="parseRecoveredTask" :disabled="Boolean(busy)" @click="viewRecoveredParse">{{ recoveredParseTextTarget() ? '查看解析出的文字' : '查看原任务与来源' }}</ElButton>
             <ElButton v-if="parseRecoveredTask?.state === 'failed'"
               :disabled="Boolean(busy) || !apiKey.trim() || !canRetryOriginalParse(parseRecoveredTask)" @click="retryOriginalParse">重试原解析任务</ElButton>
             <ElButton v-if="canRestartCanceledParse(parseRecoveredTask)"
@@ -113,7 +113,10 @@
           <details class="file-recover"><summary>技术详情</summary><p class="file-desc">{{ parseReaderResult.error_code }}</p></details>
         </template>
         <p class="file-desc">此结果未提供费用金额。请按原任务号查看成果、来源与实际费用记录；解析请求号不是费用记录号。</p>
-        <ElButton link type="primary" @click="viewKnownParse">查看原任务、成果与费用</ElButton>
+        <ElSpace wrap>
+          <ElButton v-if="knownParseTextTarget()" type="primary" :disabled="!apiKey.trim()" @click="viewKnownParseText">查看解析出的文字</ElButton>
+          <ElButton link type="primary" @click="viewKnownParse">查看原任务、成果与费用</ElButton>
+        </ElSpace>
       </section>
 
       <ElDivider content-position="left">找回录音转写</ElDivider>
@@ -175,7 +178,7 @@
         @close="lastError = null"
       >
         <ElButton
-          v-if="lastError.title === 'SAND_AI_CAPABILITY_UNSUPPORTED'"
+          v-if="lastError.code === 'SAND_AI_CAPABILITY_UNSUPPORTED'"
           link
           type="primary"
           @click="router.push('/sand-ai/capability')"
@@ -243,6 +246,16 @@
         <ElButton type="primary" :loading="busy === 'audio'" :disabled="Boolean(busy) || audioRecoveryLocked || (!pendingAudioSubmit && !!audioLookupKey.trim())" @click="handleAudioSubmit">提交转写</ElButton>
       </template>
     </ElDialog>
+
+    <FileParsedTextDrawer
+      :open="parsedTextTarget !== null"
+      :bearer="apiKey"
+      :file-id="parsedTextTarget?.fileId ?? null"
+      :parse-id="parsedTextTarget?.parseId ?? null"
+      :file-name="parsedTextTarget?.fileName"
+      @close="parsedTextTarget = null"
+      @access-denied="clearOnAccessDenied"
+    />
   </div>
 </template>
 
@@ -265,6 +278,7 @@
   import { runStateLabel } from '../api/displayLabels'
   import RuntimeApiKeyField from '../components/RuntimeApiKeyField.vue'
   import PrivateFileUpload from '../components/PrivateFileUpload.vue'
+  import FileParsedTextDrawer from '../components/FileParsedTextDrawer.vue'
 
   const router = useRouter()
   const userStore = useUserStore()
@@ -309,6 +323,7 @@
   const parseReaderTarget = ref<{ fileId: number; key: string } | null>(null)
   const parseReaderResult = ref<SandAiTask | null>(null)
   let parseReaderGeneration = 0
+  const parsedTextTarget = ref<{ fileId: number; parseId: number; fileName?: string } | null>(null)
   const pendingCleanup = reactive(new Set<number>())
   const cleanupFlights = reactive(new Set<number>())
   const cleanupConflicts = reactive(new Map<number, string>())
@@ -396,6 +411,7 @@
       parseReaderBusy.value = false
       parseReaderResult.value = null
     }
+    if (parsedTextTarget.value?.fileId === fileId) parsedTextTarget.value = null
   }
 
   function clearProtectedFileView(): void {
@@ -410,6 +426,7 @@
     parseReaderError.value = ''
     parseReaderFileId.value = undefined
     parseReaderKey.value = ''
+    parsedTextTarget.value = null
     fileEpochs.clear()
     recentFiles.value = []
     cleanupFileId.value = null
@@ -469,7 +486,19 @@
       prop: 'latest_parse',
       label: '解析摘要',
       minWidth: 220,
-      formatter: (row: SandAiFile) => formatParse(row)
+      formatter: (row: SandAiFile) => {
+        const target = parsedTextTargetForRow(row)
+        if (!target) return formatParse(row)
+        return h('span', [
+          formatParse(row),
+          ' ',
+          h(
+            ElButton,
+            { size: 'small', link: true, type: 'primary', onClick: () => openParsedText(target) },
+            () => '查看解析出的文字'
+          )
+        ])
+      }
     },
     {
       prop: 'task',
@@ -517,15 +546,27 @@
                 () => '转写录音'
               )]
             : []),
-          h(
-            ElButton,
-            {
-              size: 'small',
-              disabled: pendingCleanup.has(row.id) || isCleanupState(row.state) || !(lastTaskByFile.value[row.id] ?? row.latest_parse?.task),
-              onClick: () => goTask(row.id)
-            },
-            () => '看任务'
-          ),
+          ...(parsedTextTargetForRow(row)
+            ? [h(
+                ElButton,
+                {
+                  size: 'small',
+                  onClick: () => {
+                    const target = parsedTextTargetForRow(row)
+                    if (target) openParsedText(target)
+                  }
+                },
+                () => '查看解析内容'
+              )]
+            : [h(
+                ElButton,
+                {
+                  size: 'small',
+                  disabled: pendingCleanup.has(row.id) || isCleanupState(row.state) || !(lastTaskByFile.value[row.id] ?? row.latest_parse?.task),
+                  onClick: () => goTask(row.id)
+                },
+                () => '看任务'
+              )]),
           h(
             ElButton,
             {
@@ -577,6 +618,48 @@
     if (!parse) return '—'
     const err = parse.error_code ? ` · ${hintForRuntimeErrorCode(parse.error_code) ?? '错误码见原任务详情'}` : ''
     return `${parse.state} · ${parse.parser_code}@${parse.parser_version} · 来源块 ${parse.source_block_count}${err}`
+  }
+
+  /** 文件行已成功解析时给出「查看解析出的文字」目标；与凭证隔离的任务列表无关，同一文件即达。 */
+  function parsedTextTargetForRow(row: SandAiFile): { fileId: number; parseId: number; fileName?: string } | null {
+    if (pendingCleanup.has(row.id) || isCleanupState(row.state)) return null
+    const parse = row.latest_parse
+    if (parse?.state !== 'succeeded' || !Number.isSafeInteger(parse.id) || parse.id < 1) return null
+    return { fileId: row.id, parseId: parse.id, fileName: row.original_name }
+  }
+
+  function openParsedText(target: { fileId: number; parseId: number; fileName?: string } | null): void {
+    if (!target || !Number.isSafeInteger(target.fileId) || target.fileId < 1
+      || !Number.isSafeInteger(target.parseId) || target.parseId < 1) {
+      ElMessage.info('该文件没有可读取的解析内容。')
+      return
+    }
+    parsedTextTarget.value = { fileId: target.fileId, parseId: target.parseId, fileName: target.fileName }
+  }
+
+  /** 找回的原解析任务已成功时，改为直接读取该文件的解析文字，不再进凭证隔离下可能为空的任务页。 */
+  function recoveredParseTextTarget(): { fileId: number; parseId: number } | null {
+    const task = parseRecoveredTask.value
+    if (task?.state !== 'succeeded' || task.task_type !== 'file_parse' || task.resource_type !== 'file'
+      || !Number.isSafeInteger(task.resource_id) || task.resource_id < 1
+      || typeof task.file_parse_id !== 'number' || !Number.isSafeInteger(task.file_parse_id) || task.file_parse_id < 1) return null
+    return { fileId: task.resource_id, parseId: task.file_parse_id }
+  }
+
+  function knownParseTextTarget(): { fileId: number; parseId: number } | null {
+    const task = parseReaderResult.value
+    const target = parseReaderTarget.value
+    if (task?.state !== 'succeeded' || task.task_type !== 'file_parse' || task.resource_type !== 'file'
+      || !target || task.resource_id !== target.fileId
+      || typeof task.file_parse_id !== 'number' || !Number.isSafeInteger(task.file_parse_id) || task.file_parse_id < 1) return null
+    return { fileId: target.fileId, parseId: task.file_parse_id }
+  }
+
+  function viewKnownParseText(): void {
+    const target = knownParseTextTarget()
+    if (!target) return
+    const file = recentFiles.value.find(item => item.id === target.fileId)
+    openParsedText({ fileId: target.fileId, parseId: target.parseId, fileName: file?.original_name })
   }
 
   function toUiError(error: unknown): RuntimeUiError {
@@ -938,6 +1021,12 @@
   }
 
   function viewRecoveredParse(): void {
+    const target = recoveredParseTextTarget()
+    if (target) {
+      const file = recentFiles.value.find(item => item.id === target.fileId)
+      openParsedText({ fileId: target.fileId, parseId: target.parseId, fileName: file?.original_name })
+      return
+    }
     if (parseRecoveredTask.value) void router.push({ path: '/sand-ai/task', query: { id: String(parseRecoveredTask.value.id) } })
   }
 
@@ -1109,7 +1198,7 @@
       const code = task.error_code ?? file.latest_parse?.error_code
       const hint = hintForRuntimeErrorCode(code)
       if (code && hint) {
-        lastError.value = { title: code, description: hint }
+        lastError.value = { title: '解析未成功', description: hint, code }
         ElMessage.warning(hint)
       } else if (task.state === 'succeeded') {
         ElMessage.success(`解析任务 #${task.id} 已完成`)
