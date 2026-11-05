@@ -166,11 +166,28 @@ final class OnboardingPublicationService
             }
             $profileName = '首次开通默认聊天能力';
             $dataEgressPolicy = 'approved_cloud';
-            $desiredRoutes = $this->routeCompatibility->normalizeAndValidate([[
+            // 一键开通覆盖 UI 暴露的基础能力集（与 SandIAM 首页「允许使用」默认授权
+            // chat.complete + document_parse 一致）：document_parse 走本地
+            // native_document_parse 驱动，data_egress=local_only，不外发、零费用，
+            // 发布即可用，消除「文件解析」的隐藏配置步骤。
+            $desiredRoutes = $this->routeCompatibility->normalizeAndValidate([
+                [
+                    'capability_code' => 'chat', 'route_kind' => 'model_deployment', 'deployment_id' => $deploymentId,
+                    'driver_code' => null, 'priority' => 100, 'config' => [],
+                ],
+                [
+                    'capability_code' => 'document_parse', 'route_kind' => 'parse_driver', 'deployment_id' => null,
+                    'driver_code' => 'native_document_parse', 'priority' => 100, 'config' => [],
+                ],
+            ], $dataEgressPolicy, true, true);
+            $desiredConfiguration = CapabilityProfilePolicy::canonicalConfiguration($profileName, null, $dataEgressPolicy, $desiredRoutes);
+            // 旧版本一键开通只写 chat 单路由。识别同一默认档形状时按已完成处理、
+            // 不在绑定调用里静默改档；存量环境由「能力配置」显式补齐其余能力。
+            $legacyDesiredRoutes = $this->routeCompatibility->normalizeAndValidate([[
                 'capability_code' => 'chat', 'route_kind' => 'model_deployment', 'deployment_id' => $deploymentId,
                 'driver_code' => null, 'priority' => 100, 'config' => [],
             ]], $dataEgressPolicy, true, true);
-            $desiredConfiguration = CapabilityProfilePolicy::canonicalConfiguration($profileName, null, $dataEgressPolicy, $desiredRoutes);
+            $legacyDesiredConfiguration = CapabilityProfilePolicy::canonicalConfiguration($profileName, null, $dataEgressPolicy, $legacyDesiredRoutes);
             $published = CapabilityProfile::where('environment_id', $environmentId)
                 ->where('state', CapabilityProfilePolicy::PUBLISHED)->where('status', 1)->lock(true)->find();
             if ($published !== null) {
@@ -208,11 +225,14 @@ final class OnboardingPublicationService
                 )) {
                     throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'The published profile revision differs from its current routes');
                 }
-                if ($existingConfiguration === $desiredConfiguration) {
+                if ($existingConfiguration === $desiredConfiguration
+                    || $existingConfiguration === $legacyDesiredConfiguration) {
+                    // 与默认档（含旧版仅 chat 形状）完全一致 = 默认绑定已成立，幂等回放，
+                    // 已发布档保持原样不扩写。
                     return ['profile' => [
                         'id' => (int) $published->id, 'environment_id' => $environmentId, 'name' => (string) $published->getAttr('name'),
                         'revision' => (int) $published->revision, 'state' => (string) $published->state,
-                        'routes' => $desiredRoutes,
+                        'routes' => $existingNormalized,
                     ], 'idempotent_replay' => true];
                 }
                 throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'The environment profile differs from the exact default chat binding');
@@ -229,9 +249,10 @@ final class OnboardingPublicationService
                 'state' => CapabilityProfilePolicy::PUBLISHED,
                 'status' => 1,
             ]);
-            $route = $desiredRoutes[0];
-            unset($route['route_kind']);
-            CapabilityRoute::create(['profile_id' => (int) $profile->id, ...$route]);
+            foreach ($desiredRoutes as $route) {
+                unset($route['route_kind']);
+                CapabilityRoute::create(['profile_id' => (int) $profile->id, ...$route]);
+            }
             ConfigRevision::create([
                 'resource_type' => 'capability_profile', 'resource_id' => (int) $profile->id, 'revision' => 1,
                 'payload' => $desiredConfiguration,

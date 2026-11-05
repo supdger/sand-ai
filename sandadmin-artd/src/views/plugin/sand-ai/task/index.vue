@@ -667,6 +667,7 @@
   import { readRuntimeBearer } from '../api/runtimeBearerSession'
   import { newRuntimeRequestId, SandAiRuntimeError } from '../api/runtime'
   import { toRuntimeUiError } from '../api/runtimeErrors'
+  import { errorDisplayText } from '../api/errorText'
   import type { RuntimeUiError } from '../api/runtimeErrors'
   import type {
     SandAiCleanupState,
@@ -1742,7 +1743,7 @@
     } catch (error) {
       if (epoch === summaryModelsEpoch) {
         summaryModels.value = []
-        summaryModelsError.value = error instanceof Error ? error.message : '无法读取模型目录'
+        summaryModelsError.value = errorDisplayText(error, '无法读取模型目录')
       }
     } finally {
       if (epoch === summaryModelsEpoch) summaryModelsLoading.value = false

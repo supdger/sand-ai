@@ -96,7 +96,11 @@
           </ElSelect>
           <span v-if="environments.length <= 1" class="home-muted">{{ environmentLabel }}</span>
         </div>
-        <p v-if="!intent && applications.length && !environmentId" class="home-muted">
+        <p v-if="!intent && applications.length && !environmentId && environmentLoadFailed" class="home-muted">
+          应用环境列表读取失败，请点击「刷新」重试；读取失败不代表没有环境。
+          <ElButton link type="primary" :loading="loading" @click="loadAll">重试</ElButton>
+        </p>
+        <p v-else-if="!intent && applications.length && !environmentId" class="home-muted">
           还没有可用的应用环境。请先在「应用接入」创建应用与环境，再回来完成绑定。
           <ElButton link type="primary" @click="go('/sand-iam/application')">去应用接入</ElButton>
         </p>
@@ -247,6 +251,8 @@
   const applicationId = ref<number | ''>('')
   const environmentId = ref<number | ''>('')
   const iamChecked = ref(false)
+  // 读接口失败与「确认为空」分开：失败时给重试，不误报「没有应用环境」。
+  const environmentLoadFailed = ref(false)
 
   const guides = ref<ProviderGuide[]>([])
   const guideCode = ref('')
@@ -1000,14 +1006,16 @@
         // Zero-step first use: a fresh install materializes the default
         // organization/application/environment instead of sending the user
         // through a manual registration detour. Idempotent; a provisioning
-        // failure simply leaves the guided empty state.
+        // failure simply leaves the guided empty state — but the follow-up
+        // re-read is a real read: its failure must surface as 加载失败,
+        // not be mistaken for「没有应用」。
         try {
           await iamApi.ensureDefaultAccess()
-          apps = await iamApi.activeApplications()
-          if (!live || generation !== loadGeneration) return
         } catch {
-          // keep the empty list; the guided hint below still applies
+          // provisioning is best-effort; the re-read below decides the real state
         }
+        apps = await iamApi.activeApplications()
+        if (!live || generation !== loadGeneration) return
       }
       applications.value = apps
       if (!applicationId.value || !apps.some(item => item.id === applicationId.value)) {
@@ -1018,16 +1026,19 @@
           const envs = await iamApi.activeEnvironments(applicationId.value)
           if (!live || generation !== loadGeneration) return
           environments.value = envs
+          environmentLoadFailed.value = false
           if (!environmentId.value || !envs.some(item => item.id === environmentId.value)) {
             environmentId.value = envs[0]?.id ?? ''
           }
         } catch {
           environments.value = []
           environmentId.value = ''
+          environmentLoadFailed.value = true
         }
       } else {
         environments.value = []
         environmentId.value = ''
+        environmentLoadFailed.value = false
       }
       iamChecked.value = true
       await refreshStatus()
@@ -1062,9 +1073,11 @@
       try {
         const envs = await iamApi.activeEnvironments(selected)
         environments.value = envs
+        environmentLoadFailed.value = false
         environmentId.value = envs[0]?.id ?? ''
       } catch {
         environments.value = []
+        environmentLoadFailed.value = true
       }
     }
     statusValue.value = null

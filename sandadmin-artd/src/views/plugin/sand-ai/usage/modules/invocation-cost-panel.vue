@@ -28,6 +28,7 @@
   import { computed, onBeforeUnmount, ref, watch } from 'vue'
   import { useAuth } from '@/hooks/core/useAuth'
   import { useAdminReadIdentity } from '../../composables/useAdminReadIdentity'
+  import { errorDisplayText } from '../../api/errorText'
   import invocationApi from '../../api/invocation'
   import type { SandAiInvocationCost } from '../../api/types'
   import InvocationCostDetails from './invocation-cost-details.vue'
@@ -82,7 +83,7 @@
       if (identity.current(owner) && allowed.value && current === generation) cost.value = result
     } catch (failure) {
       if (identity.current(owner) && allowed.value && current === generation) {
-        const reason = failure instanceof Error ? failure.message : '后台未返回费用'
+        const reason = errorDisplayText(failure, '后台未返回费用')
         error.value = `费用查询失败：${reason}。请核对环境、请求号及费用查看权限后重试；不会重新发起调用。`
       }
     } finally {

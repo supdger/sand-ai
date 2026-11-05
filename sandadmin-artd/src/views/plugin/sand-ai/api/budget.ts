@@ -67,15 +67,16 @@ const prefix = `${ADMIN_API_PREFIX}/budget`
 
 export default {
   references(page: number) {
-    return request.get<{ models: SandAiPage<BudgetReference>; capabilities: { code: string; name: string }[] }>({ url: `${prefix}/references`, params: { page } })
+    return request.get<{ models: SandAiPage<BudgetReference>; capabilities: { code: string; name: string }[] }>({ url: `${prefix}/references`, params: { page }, showErrorMessage: false })
   },
   organizations(page: number) {
-    return request.get<SandAiPage<BudgetReference>>({ url: '/app/sand-iam/admin/organization/index', params: { page, limit: 100 } })
+    return request.get<SandAiPage<BudgetReference>>({ url: '/app/sand-iam/admin/organization/index', params: { page, limit: 100 }, showErrorMessage: false })
   },
   list(scope: BudgetScope, page: number) {
     return request.get<SandAiPage<BudgetPolicy>>({
       url: `${prefix}/policy/index`,
-      params: { ...scope, page, limit: 20 }
+      params: { ...scope, page, limit: 20 },
+      showErrorMessage: false
     })
   },
   readPolicy(id: number) {
@@ -97,21 +98,23 @@ export default {
   },
   publish(id: number, referenceEnvironmentId?: number, expectedPolicy?: BudgetPolicyExpectation) {
     return request.post<BudgetPolicy>({ url: `${prefix}/policy/publish`,
-      data: { id, reference_environment_id: referenceEnvironmentId, expected_policy: expectedPolicy } })
+      data: { id, reference_environment_id: referenceEnvironmentId, expected_policy: expectedPolicy }, showErrorMessage: false })
   },
   archive(id: number, referenceEnvironmentId?: number) {
-    return request.post<BudgetPolicy>({ url: `${prefix}/policy/archive`, data: { id, reference_environment_id: referenceEnvironmentId } })
+    return request.post<BudgetPolicy>({ url: `${prefix}/policy/archive`, data: { id, reference_environment_id: referenceEnvironmentId }, showErrorMessage: false })
   },
   summary(policyId: number) {
     return request.get<BudgetSummary>({
       url: `${prefix}/summary`,
-      params: { policy_id: policyId }
+      params: { policy_id: policyId },
+      showErrorMessage: false
     })
   },
   active(scope: BudgetScope) {
     return request.get<{ active: boolean; summary: BudgetSummary | null }>({
       url: `${prefix}/active`,
-      params: scope
+      params: scope,
+      showErrorMessage: false
     })
   }
 }

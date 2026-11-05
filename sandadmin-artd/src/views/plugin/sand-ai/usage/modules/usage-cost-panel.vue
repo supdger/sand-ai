@@ -469,6 +469,7 @@
   import { useTable } from '@/hooks/core/useTable'
   import { useAuth } from '@/hooks/core/useAuth'
   import { useAdminReadIdentity } from '../../composables/useAdminReadIdentity'
+  import { errorDisplayText } from '../../api/errorText'
   import usageApi from '../../api/usage'
   import type {
     SandAiUsageAllowedScope,
@@ -949,7 +950,7 @@
       if (identity.current(owner) && current === costGeneration && canCost.value && costOpen.value) cost.value = result
     } catch (failure) {
       if (identity.current(owner) && current === costGeneration && canCost.value && costOpen.value) {
-        const reason = failure instanceof Error ? failure.message : '后台未返回费用'
+        const reason = errorDisplayText(failure, '后台未返回费用')
         costError.value = `费用读取失败：${reason}。请核对调用归属与单次费用权限后重新查询。`
       }
     } finally {

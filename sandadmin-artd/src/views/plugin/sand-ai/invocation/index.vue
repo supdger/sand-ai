@@ -56,6 +56,7 @@
   import { useRoute } from 'vue-router'
   import { useTable } from '@/hooks/core/useTable'
   import invocationApi from '../api/invocation'
+  import { errorDisplayText } from '../api/errorText'
   import { runStateLabel } from '../api/displayLabels'
   import type { SandAiInvocation, SandAiInvocationCost, SandAiPageQuery } from '../api/types'
 
@@ -147,7 +148,7 @@
       if (requestId === costRequest) cost.value = result
     } catch (error) {
       if (requestId === costRequest) {
-        const reason = error instanceof Error ? error.message : '后台未返回费用'
+        const reason = errorDisplayText(error, '后台未返回费用')
         costError.value = `费用查询失败：${reason}。请核对调用归属及费用查看权限，关闭后按原调用重试；不会重新发起调用。`
       }
     } finally {

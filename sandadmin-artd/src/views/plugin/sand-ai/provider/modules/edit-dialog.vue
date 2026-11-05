@@ -141,6 +141,7 @@
   import providerApi from '../../api/provider'
   import { generateCatalogCode } from '../../api/catalogCode'
   import { HttpError } from '@/utils/http/error'
+  import { errorDisplayText } from '../../api/errorText'
   import type { DiscoveredModel, ProviderGuide } from '../../api/onboarding'
   import type { DataStatus, SandAiProvider, SandAiProviderWrite } from '../../api/types'
 
@@ -289,7 +290,7 @@
       if (error instanceof HttpError) {
         if (error.transport === 'timeout') message = '连接超时，请检查网络后重试'
         else if (error.transport === 'network') message = '网络不通，无法连接到服务器，请检查后重试'
-        else if (error.message) message = error.message.replace(/^[A-Z0-9_]+:\s*/, '')
+        else message = errorDisplayText(error, message)
       }
       testResult.value = { ok: false, message, models: [] }
     } finally {

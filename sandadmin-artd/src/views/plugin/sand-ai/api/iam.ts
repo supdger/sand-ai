@@ -36,7 +36,8 @@ async function readAllActive<T extends { readonly id: number; readonly status: D
   for (let page = 1; ; page++) {
     const result = await request.get<SandAiPage<T>>({
       url: `${SAND_IAM_ADMIN_PREFIX}/${path}/index`,
-      params: { ...filters, page, limit: 100 }
+      params: { ...filters, page, limit: 100 },
+      showErrorMessage: false
     })
     if (result.current_page !== page || !Number.isSafeInteger(result.total) || result.total < 0
       || !Array.isArray(result.data) || result.data.length > 100) {
@@ -65,7 +66,8 @@ export default {
   ensureDefaultAccess() {
     return request.post<unknown>({
       url: `${SAND_IAM_ADMIN_PREFIX}/access-matrix/ensure-defaults`,
-      data: {}
+      data: {},
+      showErrorMessage: false
     })
   },
 
@@ -82,20 +84,22 @@ export default {
   listApplications(params: { readonly page: number; readonly limit: number }) {
     return request.get<SandAiPage<SandIamApplicationReference>>({
       url: `${SAND_IAM_ADMIN_PREFIX}/application/index`,
-      params
+      params,
+      showErrorMessage: false
     })
   },
 
   listClients(params: { readonly application_id: number; readonly page: number; readonly limit: number }) {
     return request.get<SandAiPage<SandIamWorkloadClientReference>>({
-      url: `${SAND_IAM_ADMIN_PREFIX}/client/index`, params
+      url: `${SAND_IAM_ADMIN_PREFIX}/client/index`, params, showErrorMessage: false
     })
   },
 
   listEnvironments(params: { readonly page: number; readonly limit: number }) {
     return request.get<SandAiPage<SandIamEnvironmentReference>>({
       url: `${SAND_IAM_ADMIN_PREFIX}/environment/index`,
-      params
+      params,
+      showErrorMessage: false
     })
   }
 }

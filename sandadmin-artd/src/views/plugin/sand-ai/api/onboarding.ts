@@ -361,10 +361,10 @@ export default {
     })
   },
   guides() {
-    return request.get<SolutionGuideCatalog>({ url: `${setup}/onboarding/solution-guide/index` })
+    return request.get<SolutionGuideCatalog>({ url: `${setup}/onboarding/solution-guide/index`, showErrorMessage: false })
   },
   providerGuides() {
-    return request.get<{ guides: ProviderGuide[] }>({ url: `${setup}/onboarding/provider-guides` })
+    return request.get<{ guides: ProviderGuide[] }>({ url: `${setup}/onboarding/provider-guides`, showErrorMessage: false })
   },
   status(environmentId: number) {
     return request.get<OnboardingStatus>({

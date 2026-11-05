@@ -1,5 +1,6 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { requestAdminTrialContext } from '../api/adminTrial'
+import { errorDisplayText } from '../api/errorText'
 
 export type AdminTrialBearerState = 'idle' | 'loading' | 'ready' | 'unavailable'
 
@@ -12,10 +13,9 @@ function parseExpireTime(value: string): number {
   return Number.isNaN(parsed) ? 0 : parsed
 }
 
-/** 服务端报错按 "CODE: 中文" 约定返回；界面只展示中文引导。 */
+/** 服务端报错按 "CODE: 中文" 约定返回；界面只展示中文引导，英文原文不进界面。 */
 function displayMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : '暂时无法签发试用身份'
-  return message.replace(/^[A-Z][A-Z0-9_]*:\s*/, '')
+  return errorDisplayText(error, '暂时无法签发试用身份，请稍后重试或手动填写调用密钥')
 }
 
 /**
