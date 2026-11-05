@@ -77,6 +77,15 @@
         <ElAlert v-if="conflict" type="warning" :closable="false" :title="conflict" />
         <ElAlert v-if="message" :type="messageType" :closable="false" :title="message" />
 
+        <!-- 只读找回已确认可续办的原开通目标：从原部署/修订继续，绝不重发已确认的请求 -->
+        <section v-if="intentContinuable" class="home-section">
+          <h3>继续开通</h3>
+          <p class="home-muted">原开通进度已确认，继续完成启用与绑定；已发送的请求不会重复。</p>
+          <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'activate'"
+            :disabled="!canActivate" @click="activate">{{ activateLabel }}</ElButton>
+          <span v-if="progress" class="home-muted">{{ progress }}</span>
+        </section>
+
         <div v-if="!intent && applications.length" class="home-target">
           <span class="home-muted">绑定目标：</span>
           <ElSelect v-if="applications.length > 1" v-model="applicationId" class="home-target__select" @change="onApplicationChange">
@@ -335,8 +344,13 @@
 
   const canTest = computed(() => Boolean(baseUrl.value.trim() && apiKey.value.trim()) && !connectionInputError.value)
 
+  // 只读找回已确认事实后才可续办的阶段；*_unknown 阶段仍只允许找回，绝不重发已发送请求。
+  const intentContinuable = computed(() => intent.value !== null
+    && ['saved', 'tested', 'published'].includes(intent.value.phase))
+
   const canActivate = computed(() => {
-    if (busy.value || intent.value || intentStorageError.value || ambiguous.value || conflict.value) return false
+    if (busy.value || intentStorageError.value || ambiguous.value || conflict.value) return false
+    if (intent.value) return intentContinuable.value
     if (!environmentId.value || !chosenModel.value) return false
     if (!flags.value.provider) return Boolean(canTest.value)
     return true
@@ -387,6 +401,11 @@
   function notSubmittedProof(error: unknown): boolean {
     return error instanceof HttpError && error.code === 400 && isRecord(error.data)
       && error.data.submission_state === 'not_submitted' && error.data.retryable === false
+  }
+
+  /** 服务端确认原请求号没有对应落库记录：原保存未提交，等同未提交证明，可解除 save_unknown 锁。 */
+  function saveNotSubmittedProof(error: unknown): boolean {
+    return error instanceof HttpError && problemCode(error) === 'SAND_AI_RESOURCE_NOT_FOUND'
   }
 
   function conflictError(error: unknown): boolean {
@@ -734,7 +753,23 @@
       }
       let current = stored
       if (current.phase === 'save_unknown') {
-        const saved = await onboardingApi.readSavedDraftByKey(current.save_key)
+        let saved: DraftSave
+        try {
+          saved = await onboardingApi.readSavedDraftByKey(current.save_key)
+        } catch (error) {
+          // 服务端确认该请求号没有落库记录 = 原保存未提交，解锁后重新开通；
+          // 其余错误（漂移、冲突、不可读）保持锁定，只允许继续找回。
+          if (!saveNotSubmittedProof(error)) throw error
+          try {
+            resolveHomeActivationIntent(current)
+            intent.value = null
+          } catch {
+            intentStorageError.value = true
+          }
+          notice('未找到原保存记录，原请求没有提交。请重新填写后开通。', 'warning')
+          await refreshStatus()
+          return
+        }
         assertDraftMatchesIntent(saved, current)
         current = persistIntent({
           ...current,
