@@ -2399,8 +2399,16 @@
       "sha256": "2424da7332d9a1f7d20656e092ab4ffed05093833b041ad3bb88a7aed8dd4493"
     },
     {
+      "path": "app/Application/Trial/AdminTrialIamGateway.php",
+      "sha256": "4e7473dbee675a59ae9a37d7b884abf2de19f03cd49bf85ff38a4d0dbc0fa816"
+    },
+    {
       "path": "app/Application/Trial/AdminTrialRateLimiter.php",
       "sha256": "354d4a9da5c32eec19032f93b56402eaba8714da96daf2e47145d516eda9a362"
+    },
+    {
+      "path": "app/Application/Trial/AdminTrialService.php",
+      "sha256": "a5b0a479f93c3b0da4c87d68ebbc58db92f41e78fdd7033f345e730609443988"
     },
     {
       "path": "app/Application/Trial/SandIamAdminTrialEntityStore.php",
@@ -3080,7 +3088,7 @@
     },
     {
       "path": "app/Identity/Infrastructure/HostSandIamServiceCatalog.php",
-      "sha256": "c823824933bb14b96b2797ad32edf7e0f5b676efd513ba42acec458875d6ffaf"
+      "sha256": "065eea9296f71bea10530f6f67af483945b0a8dd69fde6f1445bb64f9ce50397"
     },
     {
       "path": "app/Identity/Infrastructure/HostSandIamSkillFactResolver.php",
