@@ -529,3 +529,30 @@ is_hidden=0 / status=1`；两个 B2 权限节点 parent=96（SandAITrial），
 - 未做浏览器实机渲染验收（转圈视觉以 element-plus 既有 `is-loading` 动画
   与宿主构建产物为准）；未提交推送、未打 tag、未建 PR。
 - vue-tsc 剩余 18 个基线错误属其它工作包/既有债，按要求未动。
+
+# WP-F3：WP-F2 提交后 release-payload 清单再生成（验收 F1 闭合）
+
+- 工作包：WP-F3（第二批收尾修复，固定模型 SWE-2）
+- 背景：WP-F1（`ff304d4`）重生成 `release-payload.json` 后，WP-F2
+  （`c3c78f5`）又改动了 `sandadmin-artd/src/views/plugin/sand-ai/trial/index.vue`，
+  清单内该文件 sha256 过期，`php tools/build-release-payload.php --check` exit 1。
+- 处置：`php tools/build-release-payload.php`（无 `--iam-bundle`，按
+  config.json 声明记录依赖摘要）重写 `release-payload.json`，成员数仍为
+  1427，diff 仅 `trial/index.vue` 一条 sha256 更新；`--check` 复核一致
+  （exit 0）。`host-payload.json` 验收方已复算 0 diff，本包未触碰。
+
+## 验证（实跑）
+
+| 命令 | 退出码 | 输出末段 |
+|---|---|---|
+| `php tools/build-release-payload.php --check`（修复前复现） | 1 | `失败：release-payload.json 与实际源码成员集合不一致` |
+| `php tools/build-release-payload.php`（重写） | 0 | `成功：…release-payload.json（1427 个成员）` |
+| `php tools/build-release-payload.php --check`（修复后） | 0 | `一致：1427 个成员` |
+
+- pre-commit（`scan_change_quality.py --repository-review`）：prepare →
+  /tmp 评审结论 → record → check 通过，未删 hook、未用 `--no-verify`、
+  未用 `git add -A`。
+
+## 未执行/未验证项
+
+- 未提交推送、未打 tag、未建 PR；仅本地 `fix/0410-phase2` 分支小粒度提交。
