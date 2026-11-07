@@ -430,6 +430,7 @@
   import { useUserStore } from '@/store/modules/user'
   import api from '../../api/consumerSkill'
   import { SandAiRuntimeError } from '../../api/runtime'
+  import { errorDisplayText } from '../../api/errorText'
   import type {
     SkillConsumerDeclaration,
     ConsumerSkillDetail,
@@ -912,7 +913,7 @@
       }
     } catch (cause) {
       if (current === generation) {
-        error.value = cause instanceof Error ? cause.message : '操作失败'
+        error.value = errorDisplayText(cause, '操作失败')
         if (
           cause instanceof SandAiRuntimeError &&
           (cause.httpStatus === 401 ||
@@ -1249,7 +1250,7 @@
       }
       let body: ConsumerSkillDraft
       try { body = draftPayload() } catch (cause) {
-        error.value = cause instanceof Error ? cause.message : '草稿无效'
+        error.value = errorDisplayText(cause, '草稿无效')
         return
       }
       const id = value.source_suggestion_id
@@ -1300,7 +1301,7 @@
       if (suggestion.value === source) cost.value = value
     } catch (cause) {
       if (current === generation && suggestion.value === source)
-        costError.value = cause instanceof Error ? cause.message : '费用读取失败'
+        costError.value = errorDisplayText(cause, '费用读取失败')
     } finally {
       if (current === generation) busyState.value = false
     }
@@ -1318,7 +1319,7 @@
       try {
         body = draftPayload()
       } catch (cause) {
-        error.value = cause instanceof Error ? cause.message : '草稿无效'
+        error.value = errorDisplayText(cause, '草稿无效')
         return
       }
       const replacement = draftReplacement.value
@@ -1564,7 +1565,7 @@
           result.value = null
           resultLocator.value = null
         }
-        runReadError.value = cause instanceof Error ? cause.message : '原调用读取失败；原请求键仍保留'
+        runReadError.value = errorDisplayText(cause, '原调用读取失败；原请求键仍保留')
       }
     } finally {
       if (readersLive && sequence === runReadSequence) runReadBusy.value = false
@@ -1608,7 +1609,7 @@
         if ((await digest(canonical(body))) !== target.input_hash)
           throw new Error('请提供与原意图完全相同的输入；改变输入不能使用原键')
       } catch (cause) {
-        error.value = cause instanceof Error ? cause.message : '原输入无效'
+        error.value = errorDisplayText(cause, '原输入无效')
         return
       }
       if (
@@ -1711,7 +1712,7 @@
     if (!original || !managementRecoverable.value || busy.value) return
     let target: ConsumerSkillReceiptTarget
     try { target = legacyOperationTarget(original) }
-    catch (cause) { error.value = cause instanceof Error ? cause.message : '请填写原操作目标'; return }
+    catch (cause) { error.value = errorDisplayText(cause, '请填写原操作目标'); return }
     await act(async (c) => {
       if (managementPending.value !== original) throw new Error('原管理请求或消费范围已改变')
       const receipt = await api.readOperationReceipt(c.token, c.declaration, target, original.key, original.input_sha256)
@@ -1782,7 +1783,7 @@
         flight
       )
     } catch (cause) {
-      error.value = cause instanceof Error ? cause.message : '无法确认原启用目标'
+      error.value = errorDisplayText(cause, '无法确认原启用目标')
     } finally {
       if (operationFlight.value === flight) operationFlight.value = null
     }
@@ -1823,7 +1824,7 @@
         flight
       )
     } catch (cause) {
-      error.value = cause instanceof Error ? cause.message : '无法确认原撤销目标'
+      error.value = errorDisplayText(cause, '无法确认原撤销目标')
     } finally {
       if (operationFlight.value === flight) operationFlight.value = null
     }
@@ -1872,7 +1873,7 @@
       // Ownership and original-key linkage are proven by the scoped server endpoint.
       cost.value = value
     } catch (cause) {
-      if (isCurrent()) costError.value = cause instanceof Error ? cause.message : '费用读取失败，原请求键仍保留'
+      if (isCurrent()) costError.value = errorDisplayText(cause, '费用读取失败，原请求键仍保留')
     } finally {
       if (readersLive && sequence === costReadSequence) costReadBusy.value = false
     }

@@ -166,6 +166,7 @@ import { useUserStore } from '@/store/modules/user'
 import iamApi, { type SandIamEnvironmentReference } from '../../api/iam'
 import knowledgeBaseApi, { type KnowledgeBaseRow, type KnowledgeSourceFile, type KnowledgeDraftInput, type KnowledgePublishRecoveryResult, type KnowledgePublishRejected } from '../../api/knowledgeBase'
 import { newRuntimeRequestId } from '../../api/runtime'
+import { errorDisplayText } from '../../api/errorText'
 import MaterialSampleFiles from '../../components/MaterialSampleFiles.vue'
 import RuntimeApiKeyField from '../../components/RuntimeApiKeyField.vue'
 import EmbeddingIndexPanel from './embedding-index-panel.vue'
@@ -234,7 +235,7 @@ const canSave = computed(() =>
 )
 
 function message(cause: unknown): string {
-  return cause instanceof Error ? cause.message : '知识库操作失败，请稍后重试'
+  return errorDisplayText(cause, '知识库操作失败，请稍后重试')
 }
 function resetForm(): void {
   code.value = ''; name.value = ''; description.value = ''

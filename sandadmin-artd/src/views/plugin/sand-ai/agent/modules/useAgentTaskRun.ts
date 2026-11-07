@@ -3,6 +3,7 @@ import { ElMessageBox } from 'element-plus'
 import agentApi from '../../api/agent'
 import taskApi from '../../api/task'
 import { SandAiRuntimeError, newRuntimeRequestId } from '../../api/runtime'
+import { errorDisplayText } from '../../api/errorText'
 import { isAgentReadDenied } from '../../api/agentEventReplay'
 import type { SandAiInvocationCost, SandAiTask } from '../../api/types'
 
@@ -210,7 +211,7 @@ export function useAgentTaskRun(apiKey: Ref<string>, onReadDenied?: () => void, 
       return true
     } catch (failure) {
       if (current === generation) {
-        error.value = failure instanceof Error ? failure.message : '任务读取失败，请刷新原任务'
+        error.value = errorDisplayText(failure, '任务读取失败，请刷新原任务')
         if (failure instanceof SandAiRuntimeError && isAgentReadDenied(failure.errorCode, failure.httpStatus)) {
           ++costGeneration
           task.value = null
@@ -265,7 +266,7 @@ export function useAgentTaskRun(apiKey: Ref<string>, onReadDenied?: () => void, 
           if (failure instanceof SandAiRuntimeError && isAgentReadDenied(failure.errorCode, failure.httpStatus)) {
             reset()
             onReadDenied?.()
-            error.value = failure.message || '当前身份或来源已无法读取原任务，已清除旧回答和费用。'
+            error.value = errorDisplayText(failure, '当前身份或来源已无法读取原任务，已清除旧回答和费用。')
             return
           }
           failed += 1
@@ -346,7 +347,7 @@ export function useAgentTaskRun(apiKey: Ref<string>, onReadDenied?: () => void, 
         reset()
         onReadDenied?.()
       }
-      error.value = failure instanceof Error ? failure.message : '操作结果未确认，请刷新原任务'
+      error.value = errorDisplayText(failure, '操作结果未确认，请刷新原任务')
       pollingNotice.value = '请只读刷新原任务确认实际状态；原任务号和已发生费用保留，不自动重复提交。'
     } finally {
       if (current === generation) taskBusy.value = false
@@ -373,7 +374,7 @@ export function useAgentTaskRun(apiKey: Ref<string>, onReadDenied?: () => void, 
       acceptTask(result)
     } catch (failure) {
       if (current === generation) {
-        error.value = failure instanceof Error ? failure.message : '操作结果未确认，请刷新原任务'
+        error.value = errorDisplayText(failure, '操作结果未确认，请刷新原任务')
       }
     } finally {
       if (current === generation) taskBusy.value = false
@@ -411,7 +412,7 @@ export function useAgentTaskRun(apiKey: Ref<string>, onReadDenied?: () => void, 
         reset()
         onReadDenied?.()
       }
-      error.value = failure instanceof Error ? failure.message : '原消息归属尚未确认，本次未发送续跑。'
+      error.value = errorDisplayText(failure, '原消息归属尚未确认，本次未发送续跑。')
       return
     } finally {
       if (current === generation) taskBusy.value = false
@@ -451,7 +452,7 @@ export function useAgentTaskRun(apiKey: Ref<string>, onReadDenied?: () => void, 
         reset()
         onReadDenied?.()
       }
-      error.value = failure instanceof Error ? failure.message : '续跑结果未确认'
+      error.value = errorDisplayText(failure, '续跑结果未确认')
       pollingNotice.value = '请刷新原任务确认续跑结果；本页保留原续跑请求号，不重复发送。'
     } finally {
       if (current === generation) taskBusy.value = false

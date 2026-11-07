@@ -202,6 +202,7 @@
     type KnowledgePublicationOperationReceipt
   } from '../../api/knowledgePublication'
   import { toRuntimeUiError, type RuntimeUiError } from '../../api/runtimeErrors'
+  import { errorDisplayText } from '../../api/errorText'
   import ConversationPanel from './conversation-panel.vue'
   import KnowledgeQueryPanel from './knowledge-query-panel.vue'
 
@@ -351,7 +352,7 @@
         && selectedBase.value?.version_id === base.version_id) trialResult.value = result
     } catch (cause) {
       if (live && epoch === trialEpoch) {
-        trialError.value = cause instanceof Error ? cause.message : '检索试用失败'
+        trialError.value = errorDisplayText(cause, '检索试用失败')
       }
     } finally {
       if (live && epoch === trialEpoch) trialLoading.value = false

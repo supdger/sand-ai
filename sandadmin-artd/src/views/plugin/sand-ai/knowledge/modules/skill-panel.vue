@@ -304,6 +304,7 @@
   import type { SandAiInvocationCost } from '../../api/types'
   import { readRuntimeBearer } from '../../api/runtimeBearerSession'
   import { newRuntimeRequestId } from '../../api/runtime'
+  import { errorDisplayText } from '../../api/errorText'
   import RuntimeApiKeyField from '../../components/RuntimeApiKeyField.vue'
   import skillApi, {
     type SkillCaseRow, type SkillDetail, type SkillRow, type SkillSource, type SkillTestResult
@@ -503,7 +504,7 @@
       if (result.invocation_request_id) void loadRuntimeCost(result, apiKey)
     } catch (cause) {
       if (current === runtimeGeneration) {
-        runtimeError.value = cause instanceof Error ? cause.message : '找回调用失败'
+        runtimeError.value = errorDisplayText(cause, '找回调用失败')
       }
     } finally {
       if (current === runtimeGeneration) runtimeBusyState.value = false
@@ -526,7 +527,7 @@
         && runtimeApiKey.value.trim() === apiKey) runtimeCost.value = cost
     } catch (cause) {
       if (current === runtimeCostGeneration && runtimeResult.value?.run_id === run.run_id) {
-        runtimeCostError.value = cause instanceof Error ? cause.message : '应用调用费用读取失败'
+        runtimeCostError.value = errorDisplayText(cause, '应用调用费用读取失败')
       }
     } finally {
       if (current === runtimeCostGeneration) runtimeCostLoading.value = false
@@ -547,7 +548,7 @@
     try {
       let input: Record<string, unknown>
       try { input = jsonObject(runtimeInput.value, '运行输入') } catch (cause) {
-        runtimeError.value = cause instanceof Error ? cause.message : '运行输入无效'
+        runtimeError.value = errorDisplayText(cause, '运行输入无效')
         return
       }
       const fingerprint = JSON.stringify({ code: skill.code, version, input, apiKey })
@@ -590,7 +591,7 @@
         if (result.invocation_request_id) void loadRuntimeCost(result, apiKey)
       } catch (cause) {
         if (current === runtimeGeneration) {
-          runtimeError.value = cause instanceof Error ? cause.message : '应用调用失败'
+          runtimeError.value = errorDisplayText(cause, '应用调用失败')
         }
       } finally {
         if (current === runtimeGeneration) runtimeBusyState.value = false
@@ -619,7 +620,7 @@
     } catch (cause) {
       if (current === costRequest && testResult.value?.run_id === run.run_id
         && testResult.value.invocation_request_id === requestId && environmentId.value === environment) {
-        testCostError.value = cause instanceof Error ? cause.message : '单次费用读取失败'
+        testCostError.value = errorDisplayText(cause, '单次费用读取失败')
       }
     } finally {
       if (current === costRequest) testCostLoading.value = false
@@ -726,7 +727,7 @@
   }
 
   function showError(cause: unknown): void {
-    error.value = cause instanceof Error ? cause.message : '请求失败，请稍后重试'
+    error.value = errorDisplayText(cause, '请求失败，请稍后重试')
   }
 
   async function loadEnvironments(reset = false): Promise<void> {
@@ -1184,7 +1185,7 @@
         pendingRuntimeRequestId.value = ''
         pendingRuntimeTarget.value = null
         pendingRuntime = null
-      } catch (cause) { if (current === runtimeGeneration) runtimeError.value = cause instanceof Error ? cause.message : '原失败读取未确认' }
+      } catch (cause) { if (current === runtimeGeneration) runtimeError.value = errorDisplayText(cause, '原失败读取未确认') }
       finally { if (current === runtimeGeneration) runtimeBusyState.value = false }
     } finally {
       if (operationFlight.value?.owner === flight) operationFlight.value = null

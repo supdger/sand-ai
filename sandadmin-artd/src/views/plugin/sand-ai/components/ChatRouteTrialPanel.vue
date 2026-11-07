@@ -111,6 +111,8 @@
   import chatApi, { type ChatInvocation, type ChatModel, type ChatPayload } from '../api/chat'
   import type { SandAiInvocationCost } from '../api/types'
   import { newRuntimeRequestId, SandAiRuntimeError } from '../api/runtime'
+  import { hintForRuntimeErrorCode } from '../api/runtimeErrors'
+  import { errorDisplayText } from '../api/errorText'
   import RuntimeApiKeyField from './RuntimeApiKeyField.vue'
 
   const props = defineProps<{ environmentId?: number }>()
@@ -237,10 +239,14 @@
   function message(value: unknown): string {
     if (value instanceof SandAiRuntimeError) {
       const guidance = guidanceFor(value.errorCode)
-      if (guidance) return `${guidance.message}（${value.errorCode}）`
-      return value.errorCode ? `请求失败，原因尚未确认（${value.errorCode}）` : '请求失败，原因尚未确认'
+      if (guidance) return guidance.message
+      if (value.errorCode) {
+        const hint = hintForRuntimeErrorCode(value.errorCode)
+        if (hint) return hint
+      }
+      return '请求失败，原因尚未确认，请稍后重试'
     }
-    return value instanceof Error ? value.message : '请求失败'
+    return errorDisplayText(value, '请求失败')
   }
   async function loadModels(): Promise<void> {
     if (busy.value || !bearer.value.trim()) return

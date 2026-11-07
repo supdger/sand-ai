@@ -125,6 +125,7 @@
     type KnowledgeEmbeddingRecovery
   } from '../../api/knowledgeBase'
   import { newRuntimeRequestId } from '../../api/runtime'
+  import { errorDisplayText } from '../../api/errorText'
 
   const props = defineProps<{ environmentId: number | null; bases: KnowledgeBaseRow[] }>()
   const { hasAuth } = useAuth()
@@ -396,7 +397,7 @@
     } finally { if (live && sequence === readerSequence) readerBusy.value = false }
   }
   function message(cause: unknown): string {
-    return cause instanceof Error ? cause.message : '索引操作失败，请稍后重试'
+    return errorDisplayText(cause, '索引操作失败，请稍后重试')
   }
   function showMoney(amount: string | null, currency: string | null): string {
     return amount === null

@@ -194,6 +194,7 @@ import { newRuntimeRequestId } from '../api/runtime'
 import { readMaterialSampleJournal, retainMaterialSampleIntent, resolveMaterialSampleIntent, type MaterialSampleIntent } from '../api/materialSetupIntent'
 import { saveRuntimeBearer } from '../api/runtimeBearerSession'
 import { SandAiRuntimeError } from '../api/runtime'
+import { errorDisplayText } from '../api/errorText'
 import taskApi, { type WorkflowRunWithReceiptRecovery, type TaskActionExpectation, type MaterialRetryExpectation } from '../api/task'
 import { beginMaterialTaskActionFlight, finishMaterialTaskActionFlight, materialTaskActionInFlight,
   readMaterialTaskAction, retainMaterialTaskAction, reconcileMaterialTaskAction } from '../api/materialTaskAction'
@@ -404,7 +405,7 @@ async function cancelMaterialRun(): Promise<void> {
   const snapshot = materialActionSnapshot(run)
   let expectation: TaskActionExpectation
   try { expectation = materialTaskExpectation(run) } catch (failure) {
-    cancelError.value = failure instanceof Error ? failure.message : '原任务执行代次尚未确认'
+    cancelError.value = errorDisplayText(failure, '原任务执行代次尚未确认')
     return
   }
   const beforeConfirm = generation
@@ -416,7 +417,7 @@ async function cancelMaterialRun(): Promise<void> {
     )
   } catch (failure) {
     if (failure !== 'cancel' && failure !== 'close' && beforeConfirm === generation) {
-      cancelError.value = failure instanceof Error ? failure.message : '取消确认未能打开'
+      cancelError.value = errorDisplayText(failure, '取消确认未能打开')
     }
     return
   } finally {
@@ -459,7 +460,7 @@ async function cancelMaterialRun(): Promise<void> {
     if (clearDeniedResult(failure)) return
     if (failure instanceof SandAiRuntimeError && [400, 404, 409, 422].includes(failure.httpStatus)
       && failure.errorCode !== null) cancelUnconfirmedTaskId.value = null
-    cancelError.value = failure instanceof Error ? failure.message : '取消结果未确认，请刷新原任务'
+    cancelError.value = errorDisplayText(failure, '取消结果未确认，请刷新原任务')
   } finally {
     finishMaterialTaskActionFlight(flight)
     if (current === generation && apiKey.value.trim() === credential && submitted.value?.runId === runId) {
@@ -519,7 +520,7 @@ async function readReceiptOutcome(): Promise<void> {
     reconcileMaterialTaskAction(task, userStore.info.id)
     workflowRun.value = { ...run, state: task.state, task }
   } catch (failure) {
-    if (current === generation && !clearDeniedResult(failure)) retryError.value = failure instanceof Error ? failure.message : '原任务读取失败'
+    if (current === generation && !clearDeniedResult(failure)) retryError.value = errorDisplayText(failure, '原任务读取失败')
   } finally {
     if (current === generation) { busy.value = false; void refreshRun() }
   }
@@ -561,8 +562,7 @@ async function recoverReviewReceipt(): Promise<void> {
       : task.state === 'failed' ? '汇总失败，已完成文件成果保留'
       : '恢复结果尚未确认，请只刷新原任务')
   } catch (failure) {
-    if (operation === generation && !clearDeniedResult(failure)) retryError.value = failure instanceof Error
-      ? failure.message : '恢复结果尚未确认，请只刷新原任务，不要再次提交'
+    if (operation === generation && !clearDeniedResult(failure)) retryError.value = errorDisplayText(failure, '恢复结果尚未确认，请只刷新原任务，不要再次提交')
   } finally {
     finishMaterialTaskActionFlight(flight)
     if (operation === generation) { busy.value = false; void refreshRun() }
@@ -632,7 +632,7 @@ async function retryFailedPart(): Promise<void> {
     ElMessage.success(`任务 #${taskId} 已重新入队`)
   } catch (failure) {
     if (current === generation && !clearDeniedResult(failure)) {
-      retryError.value = failure instanceof Error ? failure.message : '材料样本重试结果未确认，请只读刷新原任务'
+      retryError.value = errorDisplayText(failure, '材料样本重试结果未确认，请只读刷新原任务')
     }
   } finally {
     if (flight) finishMaterialTaskActionFlight(flight)
@@ -667,7 +667,7 @@ function addPreparedFile(fileId: number): void {
     fileIdsText.value = [...ids, fileId].join(', ')
     ElMessage.success(`文件 #${fileId} 已加入样本`)
   } catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '请先核对样本文件编号'
+    error.value = errorDisplayText(failure, '请先核对样本文件编号')
   }
 }
 
@@ -775,7 +775,7 @@ async function submit(): Promise<void> {
     if (current === generation && !clearDeniedResult(failure)) {
       error.value = failure instanceof SandAiRuntimeError && failure.errorCode === 'SAND_AI_SCHEMA_UNSUPPORTED'
         ? '样本配置未通过服务端校验。请返回上方核对「按项目整理」（每项最多 2000 字）、「要整理出的人、机构等」（每项最多 64 字）、「要额外整理的内容」的标识及版本，明确修正空白、控制字符和换行；保存为新修订后再运行样本。页面不会自动改写旧配置。'
-        : failure instanceof Error ? failure.message : '材料样本提交失败；结果未确认时请沿原请求键找回，不要重新创建付费请求。'
+        : errorDisplayText(failure, '材料样本提交失败；结果未确认时请沿原请求键找回，不要重新创建付费请求。')
     }
   } finally {
     finishMaterialTaskActionFlight(flight)
@@ -853,7 +853,7 @@ async function recover(): Promise<void> {
     if (current === generation) {
       if (!clearDeniedResult(failure)) {
         recoveryChecked.value = false
-        error.value = failure instanceof Error ? failure.message : '找回原样本失败'
+        error.value = errorDisplayText(failure, '找回原样本失败')
       }
     }
   } finally {
@@ -951,7 +951,7 @@ function clearDeniedResult(failure: unknown): boolean {
   scopeRef.value = ''
   snapshotRef.value = ''
   snapshotVersion.value = ''
-  error.value = failure.message
+  error.value = errorDisplayText(failure, '当前身份或来源已无法读取原样本，已清除旧结果。')
   return true
 }
 
@@ -1008,7 +1008,7 @@ async function refreshRun(): Promise<void> {
         quotaPollingBlocked = true
       }
       clearDeniedResult(failure)
-      error.value = failure instanceof Error ? failure.message : '读取材料样本结果失败'
+      error.value = errorDisplayText(failure, '读取材料样本结果失败')
     }
   } finally {
     if (current === generation && currentRead === readGeneration) reading.value = false
@@ -1028,7 +1028,7 @@ async function openSource(sourceBlockId: number): Promise<void> {
     if (current === sourceGeneration && submitted.value?.runId === runId) sourcePreview.value = source
   } catch (failure) {
     if (current === sourceGeneration && !clearDeniedResult(failure)) {
-      sourceError.value = failure instanceof Error ? failure.message : '读取来源失败'
+      sourceError.value = errorDisplayText(failure, '读取来源失败')
     }
   } finally {
     if (current === sourceGeneration) sourceLoading.value = false

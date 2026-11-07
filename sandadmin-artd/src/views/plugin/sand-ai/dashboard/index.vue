@@ -110,6 +110,7 @@
   import auditApi from '../api/audit'
   import type { SandAiAuditLog, SandAiInvocation } from '../api/types'
   import { runStateLabel, serviceActionLabel } from '../api/displayLabels'
+  import { errorDisplayText } from '../api/errorText'
   import { useSetupBootstrap } from '../composables/useSetupBootstrap'
 
   type SummaryCard = {
@@ -215,7 +216,7 @@
       recentInvocations.value = invocations.data
       recentAudits.value = audits.data
     } catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : '加载总览失败'
+      errorMessage.value = errorDisplayText(error, '加载总览失败')
     } finally {
       loading.value = false
     }

@@ -47,6 +47,7 @@ import { ElMessageBox } from 'element-plus'
 import { useAuth } from '@/hooks/core/useAuth'
 import { useUserStore } from '@/store/modules/user'
 import legalApi, { legalModes, type LegalConfig, type LegalMode, type LegalOperationReference, type LegalOperationReceipt, type LegalProfile } from '../api/legalAnalysis'
+import { errorDisplayText } from '../api/errorText'
 import LegalProfileEditor from './LegalProfileEditor.vue'
 import LegalAnalysisTrial from './LegalAnalysisTrial.vue'
 const props = defineProps<{ environmentId?: number }>()
@@ -130,7 +131,7 @@ async function load(): Promise<void> {
     if (trial.value && !profiles.value.some(item => item.id === trial.value?.id && item.state === 'published')) trial.value = null
     const original = pending.value
     if (original) await readOriginal(original,current)
-  } catch (failure) { if (sameScope(current)) error.value = failure instanceof Error ? failure.message : '读取配置或原操作失败，请保留原请求号' }
+  } catch (failure) { if (sameScope(current)) error.value = errorDisplayText(failure, '读取配置或原操作失败，请保留原请求号') }
   finally { requests.value-- }
 }
 async function recoverOriginal(): Promise<void> {
@@ -138,7 +139,7 @@ async function recoverOriginal(): Promise<void> {
   if (!current || !original || busy.value || !hasAuth('sand_ai:setup:legal-profile:read')) return
   requests.value++; error.value = ''
   try { await readOriginal(original,current) }
-  catch (failure) { if (sameScope(current)) error.value = failure instanceof Error ? failure.message : '原操作尚未确认，请保留原号继续只读查询' }
+  catch (failure) { if (sameScope(current)) error.value = errorDisplayText(failure, '原操作尚未确认，请保留原号继续只读查询') }
   finally { requests.value-- }
 }
 async function edit(row: LegalProfile, copy = false): Promise<void> {
@@ -150,7 +151,7 @@ async function edit(row: LegalProfile, copy = false): Promise<void> {
     if (!sameScope(current)) return
     if (result.profile.id !== row.id || result.profile.environment_id !== current.environmentId || result.profile.code !== row.code || result.profile.version !== row.version || !result.profile.config) throw new Error('配置目标或正文不一致，请刷新重试')
     editor.value = { template: result.profile.config, ...(copy ? {} : { profile: result.profile }) }
-  } catch (failure) { if (sameScope(current)) error.value = failure instanceof Error ? failure.message : '读取版本失败' }
+  } catch (failure) { if (sameScope(current)) error.value = errorDisplayText(failure, '读取版本失败') }
   finally { requests.value-- }
 }
 async function transition(row: LegalProfile, operation: 'publish' | 'revoke'): Promise<void> {
@@ -172,7 +173,7 @@ async function transition(row: LegalProfile, operation: 'publish' | 'revoke'): P
       await legalApi[operation](current.environmentId,target,original.request_key)
       if (sameScope(current)) await readOriginal(original,current)
     } finally { requests.value-- }
-  } catch (failure) { if (sameScope(current)) error.value = failure instanceof Error ? failure.message : '操作尚未确认，请保留原号，只读查询，不要重复提交' }
+  } catch (failure) { if (sameScope(current)) error.value = errorDisplayText(failure, '操作尚未确认，请保留原号，只读查询，不要重复提交') }
   finally { confirming.value = false; if (reloadWanted && requests.value === 0 && active) void load() }
 }
 function saved(): void { editor.value = null; void load() }

@@ -496,6 +496,7 @@
   import ChannelAgentRecoveryActions from './ChannelAgentRecoveryActions.vue'
   import iamApi, { type SandIamEnvironmentReference, type SandIamWorkloadClientReference } from '../../api/iam'
   import { newRuntimeRequestId, SandAiRuntimeError } from '../../api/runtime'
+  import { errorDisplayText } from '../../api/errorText'
   import { AgentReplayError, isAgentReadDenied } from '../../api/agentEventReplay'
 
   const props = defineProps<{ environment: SandIamEnvironmentReference | null }>()
@@ -717,7 +718,7 @@
       ElMessage.success('原渠道配置保存已确认；当前配置状态以重新读取的渠道记录为准')
       await load(page.value)
     } catch (failure) {
-      if (isCurrent()) credentialRecoveryError.value = `${failure instanceof Error ? failure.message : '原渠道配置结果尚未确认'}；保留原请求，只读找回。`
+      if (isCurrent()) credentialRecoveryError.value = `${errorDisplayText(failure, '原渠道配置结果尚未确认')}；保留原请求，只读找回。`
     } finally {
       if (identity === credentialIdentityEpoch && token === userStore.accessToken && credentialReadOwner === owner) {
         credentialReadOwner = null
@@ -941,14 +942,14 @@
       receiptRecoveryBusy.value === null && !receiptRecoveryInvalid.value && !receiptIntent(task.id) && deliveryRetryLockAvailable
   }
   function receiptRecoveryFailure(failure: unknown): string {
-    if (!(failure instanceof SandAiRuntimeError)) return failure instanceof Error ? failure.message : '恢复结果未确认'
+    if (!(failure instanceof SandAiRuntimeError)) return errorDisplayText(failure, '恢复结果未确认')
     const code = failure.errorCode && /^[A-Z0-9_]+$/.test(failure.errorCode) ? `（${failure.errorCode}）` : ''
     if ([401, 403].includes(failure.httpStatus) || [401, 403].includes(failure.businessCode))
       return `当前身份没有恢复或读取原结果的权限，请核对当前应用身份及授权${code}`
     const message = failure.errorCode === 'SAND_AI_RESOURCE_CONFLICT' ? '原任务状态或版本已变化，请刷新会话；此次意图仍须沿原号确认' :
       failure.errorCode === 'SAND_AI_DISPATCH_AMBIGUOUS' ? '原完成回执尚不可确认，不能恢复或重新生成' :
       failure.errorCode === 'SAND_AI_RESOURCE_NOT_FOUND' ? '当前范围未找到原任务或此次恢复收据，不能据此认定未提交' :
-      failure.errorCode === 'SAND_AI_SCOPE_SNAPSHOT_INVALID' ? '原来源或恢复依据不可确认，不能恢复原结果' : failure.message
+      failure.errorCode === 'SAND_AI_SCOPE_SNAPSHOT_INVALID' ? '原来源或恢复依据不可确认，不能恢复原结果' : errorDisplayText(failure, '恢复结果未确认')
     return `${message}${code}`
   }
   async function receiptIntentHash(key: string): Promise<string> {
@@ -1128,7 +1129,7 @@
       await confirmCredentialSave(reference)
     } catch (failure) {
       if (isCurrent()) message.value = sent
-        ? `${failure instanceof Error ? failure.message : '配置保存结果未知'}；已保留原请求，只读找回，不再次保存。`
+        ? `${errorDisplayText(failure, '配置保存结果未知')}；已保留原请求，只读找回，不再次保存。`
         : '本次配置尚未提交；恢复记录或原输入摘要无法安全准备。请核对浏览器会话存储，暂勿再次替换凭据。'
     } finally {
       credentialBodies.delete(owner)
@@ -1179,7 +1180,7 @@
             previewError.value = '此绑定已停用，原消息标识已保留。请核对绑定状态后再读取。'
         }
       }
-    } catch (failure) { if (current === epoch) error.value = failure instanceof Error ? failure.message : '渠道列表读取失败' }
+    } catch (failure) { if (current === epoch) error.value = errorDisplayText(failure, '渠道列表读取失败') }
     finally { if (current === epoch) loading.value = false }
   }
   async function loadAgents(): Promise<void> {
@@ -1193,7 +1194,7 @@
       agents.value.push(...result.data.filter(isPublishedAgent))
       agentPage.value += 1
       agentMore.value = agentPage.value * 100 < result.total
-    } catch (failure) { if (current === epoch && directory === directoryEpoch) error.value = failure instanceof Error ? failure.message : '智能体列表读取失败' }
+    } catch (failure) { if (current === epoch && directory === directoryEpoch) error.value = errorDisplayText(failure, '智能体列表读取失败') }
   }
   async function loadClients(): Promise<void> {
     const environment = props.environment
@@ -1206,7 +1207,7 @@
       clients.value.push(...result.data.filter(item => item.environment_id === environment.id && item.status === 1))
       clientPage.value += 1
       clientMore.value = clientPage.value * 100 < result.total
-    } catch (failure) { if (current === epoch && directory === directoryEpoch) error.value = failure instanceof Error ? failure.message : '调用身份读取失败' }
+    } catch (failure) { if (current === epoch && directory === directoryEpoch) error.value = errorDisplayText(failure, '调用身份读取失败') }
   }
   async function refreshBindingDirectory(): Promise<void> {
     if (!props.environment || directoryLoading.value || writing.value || pendingBindingMutation.value) return
@@ -1269,7 +1270,7 @@
       const result = await channelBindingApi.feishuStatus(environment.id, binding.channel_binding_id)
       if (current === statusEpoch && selectedBinding.value?.channel_binding_id === result.channel_binding_id) channelStatus.value = result
     } catch (failure) {
-      if (current === statusEpoch) statusError.value = failure instanceof Error ? failure.message : '渠道状态读取失败'
+      if (current === statusEpoch) statusError.value = errorDisplayText(failure, '渠道状态读取失败')
     } finally {
       if (current === statusEpoch) statusLoading.value = false
     }
@@ -1287,7 +1288,7 @@
         wecomStatus.value = result
       }
     } catch (failure) {
-      if (current === wecomStatusEpoch) wecomStatusError.value = failure instanceof Error ? failure.message : '企业微信状态读取失败'
+      if (current === wecomStatusEpoch) wecomStatusError.value = errorDisplayText(failure, '企业微信状态读取失败')
     } finally {
       if (current === wecomStatusEpoch) wecomStatusLoading.value = false
     }
@@ -1548,7 +1549,7 @@
           ? `（${failure.errorCode}）`
           : ''
       previewError.value = `${unauthorized ? '当前身份无法读取此绑定。请核对应用身份与绑定后再找回；系统不会重发消息。' : fallback}${code}`
-    } else previewError.value = failure instanceof Error ? failure.message : fallback
+    } else previewError.value = errorDisplayText(failure, fallback)
   }
   function validPreviewBinding(binding: ChannelBindingRow | null): binding is ChannelBindingRow {
     return (
@@ -1633,7 +1634,7 @@
       if (previewReadDenied(failure)) { clearDeniedPreview(); return }
       // Network and other protocol failures retain this original task's cursor and preview for a read-only reconnect.
       view.transport = 'disconnected'
-      view.error = failure instanceof Error ? failure.message : '读取生成中的回复已中断，请接续原任务。'
+      view.error = errorDisplayText(failure, '读取生成中的回复已中断，请接续原任务。')
     } finally {
       if (isCurrent()) {
         previewStreamViews.value = { ...previewStreamViews.value, [taskId]: { ...view, rounds: { ...view.rounds } } }
@@ -2046,7 +2047,7 @@
       deliveryTotal.value = result.total
       deliveryPage.value = targetPage
     } catch (failure) {
-      if (current === deliveryEpoch) deliveryError.value = failure instanceof Error ? failure.message : '回信状态读取失败'
+      if (current === deliveryEpoch) deliveryError.value = errorDisplayText(failure, '回信状态读取失败')
     } finally {
       if (current === deliveryEpoch) deliveryLoading.value = false
     }
@@ -2065,7 +2066,7 @@
       wecomDeliveryTotal.value = result.total
       wecomDeliveryPage.value = targetPage
     } catch (failure) {
-      if (current === wecomDeliveryEpoch) wecomDeliveryError.value = failure instanceof Error ? failure.message : '企业微信回信读取失败'
+      if (current === wecomDeliveryEpoch) wecomDeliveryError.value = errorDisplayText(failure, '企业微信回信读取失败')
     } finally {
       if (current === wecomDeliveryEpoch) wecomDeliveryLoading.value = false
     }
@@ -2159,7 +2160,7 @@
       ElMessage.success('已找回原重试受理回执，当前发送状态以回信记录为准')
       await refreshRetryDelivery(reference)
     } catch (failure) {
-      if (stillCurrent()) deliveryRecoveryError.value = `${failure instanceof Error ? failure.message : '原重试回执尚未找回'}；仍保留请求编号，请勿再次重试。`
+      if (stillCurrent()) deliveryRecoveryError.value = `${errorDisplayText(failure, '原重试回执尚未找回')}；仍保留请求编号，请勿再次重试。`
     } finally {
       if (stillCurrent()) deliveryRecoveringKey.value = ''
     }
@@ -2211,7 +2212,7 @@
       await refreshRetryDelivery(reference)
     } catch (failure) {
       if (stillCurrent()) {
-        const message = `${failure instanceof Error ? failure.message : '回信重试提交结果未确认'}；请沿请求编号找回，不要再次发送。`
+        const message = `${errorDisplayText(failure, '回信重试提交结果未确认')}；请沿请求编号找回，不要再次发送。`
         if (platform === 'wecom') wecomDeliveryError.value = message
         else deliveryError.value = message
       }
@@ -2253,7 +2254,7 @@
       ElMessage.success(item.operation === 'save' ? '原渠道绑定保存已确认' : '原渠道停用已确认')
       await load(1)
     } catch (failure) {
-      if (isCurrent()) error.value = `${failure instanceof Error ? failure.message : '原操作结果未确认'}；保留原请求，只读找回。`
+      if (isCurrent()) error.value = `${errorDisplayText(failure, '原操作结果未确认')}；保留原请求，只读找回。`
     } finally {
       if (identity === bindingIdentityEpoch && token === userStore.accessToken && bindingReadOwner === owner) {
         bindingReadOwner = null
@@ -2296,7 +2297,7 @@
     } catch (failure) {
       if (identity === bindingIdentityEpoch && token === userStore.accessToken &&
         (!reference || bindingIdentityCurrent(reference, identity, token))) {
-        error.value = `${failure instanceof Error ? failure.message : '渠道操作结果未确认'}；保留原请求，只读找回。`
+        error.value = `${errorDisplayText(failure, '渠道操作结果未确认')}；保留原请求，只读找回。`
       }
     } finally {
       if (bindingWriteOwner.value === owner) {

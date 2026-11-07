@@ -145,6 +145,7 @@
   import taskApi from '../../api/task'
   import toolTrial, { type ToolRunSummary } from '../../api/toolTrial'
   import { SandAiRuntimeError } from '../../api/runtime'
+  import { errorDisplayText } from '../../api/errorText'
   import { isAgentReadDenied } from '../../api/agentEventReplay'
   import { continuationReasonLabel } from './useAgentTaskRun'
   import type { SandAiInvocationCost, SandAiTask } from '../../api/types'
@@ -211,7 +212,7 @@
       const result = await toolTrial.read(credential, runId)
       if (current === toolEpoch && toolVisible.value && result.run_id === runId) toolResult.value = result
     } catch (failure) {
-      if (current === toolEpoch && !denyRead(failure)) toolError.value = failure instanceof Error ? failure.message : '工具结果读取失败，请刷新原任务'
+      if (current === toolEpoch && !denyRead(failure)) toolError.value = errorDisplayText(failure, '工具结果读取失败，请刷新原任务')
     } finally { if (current === toolEpoch) toolLoading.value = false }
   }
 

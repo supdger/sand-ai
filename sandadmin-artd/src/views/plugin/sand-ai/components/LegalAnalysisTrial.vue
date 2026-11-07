@@ -75,6 +75,7 @@ import fileApi from '../api/file'
 import taskApi from '../api/task'
 import { newRuntimeRequestId } from '../api/runtime'
 import { hintForRuntimeErrorCode } from '../api/runtimeErrors'
+import { errorDisplayText } from '../api/errorText'
 import { useUserStore } from '@/store/modules/user'
 import type { SandAiWorkflowRun, SandAiWorkflowSource } from '../api/types'
 import LegalAnalysisResult from './LegalAnalysisResult.vue'
@@ -215,7 +216,7 @@ async function previewSources(): Promise<void> {
     const result = await legalApi.snapshot(context.credential, fixed)
     if (current !== generation || !sameReadContext(context)) return
     preparedSources.value = fixed; snapshots.value = result.sources
-  } catch (failure) { if (current === generation && sameReadContext(context)) error.value = failure instanceof Error ? failure.message : '读取来源失败' }
+  } catch (failure) { if (current === generation && sameReadContext(context)) error.value = errorDisplayText(failure, '读取来源失败') }
   finally { release() }
 }
 function buildInput(): LegalRunInput {
@@ -235,7 +236,7 @@ async function submit(): Promise<void> {
   const adminId = userStore.info.id
   if (busy.value || reading.value || journalError.value || !apiKey.value.trim() || typeof adminId !== 'number' || !Number.isSafeInteger(adminId) || adminId < 1 || !userStore.accessToken || !!recoveryKey.value.trim() || (requestKey.value && !canReplayAuthorization.value)) return
   error.value = ''
-  try { if (!pending.value) pending.value = buildInput() } catch (failure) { error.value = failure instanceof Error ? failure.message : '请检查输入'; return }
+  try { if (!pending.value) pending.value = buildInput() } catch (failure) { error.value = errorDisplayText(failure, '请检查输入'); return }
   const input = pending.value
   if (!input) return
   const current = ++generation, context = captureReadContext(), release = beginFlight(), keyStore = storageKey.value
@@ -255,7 +256,7 @@ async function submit(): Promise<void> {
     if (!Number.isSafeInteger(result.run?.run_id) || result.run.run_id < 1) throw new Error('响应缺少运行标识，请用原请求号找回')
     runId.value = result.run.run_id
     void refreshRun()
-  } catch (failure) { if (current === generation && sameReadContext(context)) error.value = failure instanceof Error ? failure.message : '提交结果未确认，请找回原运行' }
+  } catch (failure) { if (current === generation && sameReadContext(context)) error.value = errorDisplayText(failure, '提交结果未确认，请找回原运行') }
   finally { release() }
 }
 function acceptRun(value: SandAiWorkflowRun): void {
@@ -276,7 +277,7 @@ async function recover(): Promise<void> {
   const current = ++generation, context = captureReadContext(), key = requestKey.value, release = beginFlight()
   clearTimer(); clearReadableContent(); reading.value = false; error.value = ''
   try { const result = await legalApi.recover(context.credential,key); if (current === generation && sameReadContext(context) && requestKey.value === key) { acceptRun(result); schedule() } }
-  catch (failure) { if (current === generation && sameReadContext(context) && requestKey.value === key) error.value = (failure instanceof Error ? failure.message : '找回失败') + '。原请求仍未确认，请保留原号继续只读查询，不重复提交。' }
+  catch (failure) { if (current === generation && sameReadContext(context) && requestKey.value === key) error.value = errorDisplayText(failure, '找回失败') + '。原请求仍未确认，请保留原号继续只读查询，不重复提交。' }
   finally { release() }
 }
 function schedule(): void { clearTimer(); if (run.value && document.visibilityState !== 'hidden' && (['authorization_pending', 'pending', 'queued', 'running', 'retrying', 'recovery_pending'].includes(run.value.state) || run.value.cost.state === 'pending')) timer = setTimeout(() => { void refreshRun() }, 4000) }
@@ -285,7 +286,7 @@ async function refreshRun(): Promise<void> {
   const current = generation; const id = runId.value
   clearTimer(); clearReadableContent(); reading.value = true
   try { const result = await taskApi.readWorkflow(apiKey.value, id); if (current !== generation) return; if (result.run_id !== id) throw new Error('运行标识不一致'); acceptRun(result); error.value = ''; schedule() }
-  catch (failure) { if (current === generation) { run.value = null; error.value = failure instanceof Error ? failure.message : '读取运行失败' } }
+  catch (failure) { if (current === generation) { run.value = null; error.value = errorDisplayText(failure, '读取运行失败') } }
   finally { if (current === generation) reading.value = false }
 }
 async function openSource(id: number): Promise<void> {
@@ -295,7 +296,7 @@ async function openSource(id: number): Promise<void> {
   const stillCurrent = () => current === sourceGeneration && context === generation && sameReadContext(readContext) && runId.value === originalRunId && run.value === originalRun
   sourceOpen.value = true; sourceBusy.value = true; sourceError.value = ''; sourcePreview.value = null
   try { const result = await taskApi.readWorkflowSource(readContext.credential, originalRunId, id, readContext.environmentId); if (stillCurrent() && run.value?.result) { if (result.source_block_id !== id) throw new Error('来源块标识不一致'); sourcePreview.value = result } }
-  catch (failure) { if (stillCurrent()) { run.value = null; sourcePreview.value = null; sourceError.value = failure instanceof Error ? failure.message : '读取来源失败' } }
+  catch (failure) { if (stillCurrent()) { run.value = null; sourcePreview.value = null; sourceError.value = errorDisplayText(failure, '读取来源失败') } }
   finally { if (current === sourceGeneration && context === generation && sameReadContext(readContext) && runId.value === originalRunId) sourceBusy.value = false }
 }
 function clearHistorySource(): void {
@@ -323,7 +324,7 @@ async function readHistory(): Promise<void> {
     validateHistoryRun(result)
     historyResolvedKey.value = key; historyRun.value = result
   } catch (failure) {
-    if (stillCurrent()) { historyRun.value = null; historyResolvedKey.value = ''; clearHistorySource(); historyError.value = failure instanceof Error ? failure.message : '历史原分析读取失败，未重新提交' }
+    if (stillCurrent()) { historyRun.value = null; historyResolvedKey.value = ''; clearHistorySource(); historyError.value = errorDisplayText(failure, '历史原分析读取失败，未重新提交') }
   } finally { if (stillCurrent()) historyReading.value = false }
 }
 async function openHistorySource(id: number): Promise<void> {
@@ -338,7 +339,7 @@ async function openHistorySource(id: number): Promise<void> {
     if (result.source_block_id !== id) throw new Error('历史来源块与所选引用不一致')
     historySourcePreview.value = result
   } catch (failure) {
-    if (stillCurrent()) { historyRun.value = null; historySourcePreview.value = null; historySourceError.value = failure instanceof Error ? failure.message : '历史私有来源无法读取；已清除原成果与来源正文' }
+    if (stillCurrent()) { historyRun.value = null; historySourcePreview.value = null; historySourceError.value = errorDisplayText(failure, '历史私有来源无法读取；已清除原成果与来源正文') }
   } finally { if (current === historySourceGeneration && epoch === historyGeneration && sameReadContext(context) && historyResolvedKey.value === key) historySourceBusy.value = false }
 }
 

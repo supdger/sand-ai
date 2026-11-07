@@ -50,6 +50,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import taskApi from '../api/task'
 import { SandAiRuntimeError } from '../api/runtime'
+import { errorDisplayText } from '../api/errorText'
 import type { SandAiMaterialFileResultPage, SandAiMaterialFileResultPageQuery, SandAiMaterialResultSection, SandAiWorkflowFileResult } from '../api/types'
 
 const props = defineProps<{
@@ -156,7 +157,7 @@ async function loadPage(nextOffset: number): Promise<void> {
     page.value = result
   } catch (failure) {
     if (request !== requestSequence) return
-    error.value = failure instanceof Error ? failure.message : '本页成果暂不可读'
+    error.value = errorDisplayText(failure, '本页成果暂不可读')
     if (failure instanceof SandAiRuntimeError
       && ([401, 403].includes(failure.httpStatus)
         || failure.errorCode === 'SAND_AI_CONTENT_PURGED'

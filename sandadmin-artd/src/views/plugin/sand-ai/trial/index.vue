@@ -208,6 +208,7 @@
     type TrialProviderOption
   } from '../api/trial'
   import { SAND_AI_PLUGIN_VERSION } from '../api/config'
+  import { hintForRuntimeErrorCode } from '../api/runtimeErrors'
   import { describeBoundaryFault } from '../composables/errorBoundary'
 
   const router = useRouter()
@@ -538,10 +539,12 @@
     return rawErrorMessage(error)
   }
 
-  /** 业务错误原样显示（去掉稳定码前缀）；非中文兜底为固定中文，不上英文代码。 */
+  /** 业务错误原样显示（去掉稳定码前缀）；非中文时回退冻结码中文映射，再兜底固定中文，不上英文代码。 */
   function chineseErrorText(error: unknown, fallback: string): string {
     const text = stripCodePrefix(backendMessage(error))
-    return /[一-鿿]/.test(text) ? text : fallback
+    if (/[一-鿿]/.test(text)) return text
+    const code = /^(?:SAND_AI|SAND_IAM)_[A-Z0-9_]+/.exec(rawErrorMessage(error))?.[0]
+    return hintForRuntimeErrorCode(code) ?? fallback
   }
 
   /** trialProblem 把服务商不可达映射为业务码 502；仅业务信封（transport 空）可判，真实 HTTP/传输层 502 归系统故障。 */

@@ -144,6 +144,7 @@
 import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import toolSetupApi, { type McpDiscovery, type ToolBound, type ToolConnectionRef, type ToolVersionCreated, type ToolOperationReceipt, type ToolOperation, type ToolOperationRejectedReceipt, type ConnectionWrite } from '../../api/toolSetup'
 import { newRuntimeRequestId } from '../../api/runtime'
+import { errorDisplayText } from '../../api/errorText'
 import { HttpError } from '@/utils/http/error'
 import { useUserStore } from '@/store/modules/user'
 import { useAuth } from '@/hooks/core/useAuth'
@@ -398,7 +399,7 @@ async function loadWorkspace(): Promise<void> {
     bound.value = result.draft !== null || bindingConflict.value ? null : result.binding
     saveToolCode(props.environmentId, connection.value.connection_id, code)
   } catch (cause) {
-    if (current === epoch) error.value = cause instanceof Error ? cause.message : '工具工作区读取失败'
+    if (current === epoch) error.value = errorDisplayText(cause, '工具工作区读取失败')
   } finally {
     if (current === epoch) busy.value = false
   }
@@ -416,7 +417,7 @@ async function loadLatestMcp(): Promise<void> {
     discovery.value = result
     snapshotItemId.value = null
   } catch (cause) {
-    if (current === epoch) error.value = cause instanceof Error ? cause.message : '已验证快照读取失败'
+    if (current === epoch) error.value = errorDisplayText(cause, '已验证快照读取失败')
   } finally {
     if (current === epoch) busy.value = false
   }
@@ -707,7 +708,7 @@ function objectSchema(value: string, label: string): Record<string, unknown> | n
       return parsed as Record<string, unknown>
     }
   } catch (cause) {
-    error.value = `${label}：${cause instanceof Error ? cause.message : '参数结构无效'}`
+    error.value = `${label}：${errorDisplayText(cause, '参数结构无效')}`
     return null
   }
   error.value = `${label}必须是 JSON 对象`

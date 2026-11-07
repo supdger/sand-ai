@@ -172,6 +172,7 @@ import { useUserStore } from '@/store/modules/user'
 import RuntimeApiKeyField from '../../components/RuntimeApiKeyField.vue'
 import conversationApi, { KnowledgeStreamConnectionError, type KnowledgeConversation, type KnowledgeConversationSummary, type KnowledgeSegment, type KnowledgeTurn } from '../../api/knowledgeConversation'
 import { newRuntimeRequestId, SandAiRuntimeError } from '../../api/runtime'
+import { errorDisplayText } from '../../api/errorText'
 import type { KnowledgePublication } from '../../api/knowledgePublication'
 import type { SandAiInvocationCost } from '../../api/types'
 import sourceApi, { knowledgeSourceReference, type KnowledgeSourceBody, type KnowledgeSourceReference } from '../../api/knowledgeSource'
@@ -772,7 +773,7 @@ async function recoverCreated(): Promise<void> {
     if (writeFlight.value === flight) writeFlight.value = null
   }
 }
-function message(cause: unknown): string { return cause instanceof Error ? cause.message : '请求失败' }
+function message(cause: unknown): string { return errorDisplayText(cause, '请求失败') }
 function sequenceLabel(sequences: number[]): string {
   return sequences.length ? sequences.map(sequence => `第 ${sequence} 轮`).join('、') : '无'
 }

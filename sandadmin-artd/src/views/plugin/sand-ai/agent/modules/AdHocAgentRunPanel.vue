@@ -69,6 +69,7 @@
   import agentApi from '../../api/agent'
   import taskApi, { type RuntimeChatModel } from '../../api/task'
   import { newRuntimeRequestId } from '../../api/runtime'
+  import { errorDisplayText } from '../../api/errorText'
   import RuntimeApiKeyField from '../../components/RuntimeApiKeyField.vue'
   import AgentRunDetails from './AgentRunDetails.vue'
   import { useAgentTaskRun } from './useAgentTaskRun'
@@ -152,7 +153,7 @@
     } catch (failure) {
       if (current === modelsEpoch) {
         models.value = []
-        modelsError.value = failure instanceof Error ? failure.message : '模型读取失败，请检查应用凭证和授权后重试'
+        modelsError.value = errorDisplayText(failure, '模型读取失败，请检查应用凭证和授权后重试')
       }
     } finally { if (current === modelsEpoch) modelsLoading.value = false }
   }
@@ -181,7 +182,7 @@
       cost.value = null
       await refresh()
     } catch (failure) {
-      if (current === epoch) error.value = failure instanceof Error ? failure.message : '提交结果未确认，请沿请求编号只读找回，暂勿重新提交'
+      if (current === epoch) error.value = errorDisplayText(failure, '提交结果未确认，请沿请求编号只读找回，暂勿重新提交')
     } finally { if (current === epoch) submitting.value = false }
   }
   function sourceDenied(): void { reset(); error.value = '当前工具或来源读取授权已失效，旧回答、来源和费用已清除。' }
@@ -219,7 +220,7 @@
       persistReference()
       await readTask(result.id)
     } catch (failure) {
-      if (current === epoch) error.value = failure instanceof Error ? failure.message : '原请求尚未找回，请继续读取原请求，暂勿重新提交'
+      if (current === epoch) error.value = errorDisplayText(failure, '原请求尚未找回，请继续读取原请求，暂勿重新提交')
     } finally { if (current === epoch) recovering.value = false }
   }
   async function readOriginalTask(): Promise<void> {
