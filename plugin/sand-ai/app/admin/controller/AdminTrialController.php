@@ -6,6 +6,7 @@ namespace plugin\SandAi\app\admin\controller;
 
 use app\Api\Support\ApiProblem;
 use app\Application\Trial\AdminTrialContextService;
+use app\Application\Trial\AdminTrialService;
 use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
 use support\Request;
@@ -39,6 +40,81 @@ final class AdminTrialController extends SandAiAdminController
         }
 
         return $this->success($result)->header('Cache-Control', 'no-store');
+    }
+
+    /**
+     * B2 "试一试": published chat-route projection for one manageable
+     * application. Read-only; requires sand_ai:trial:options.
+     */
+    #[Permission('SandAI 试用服务商选项', 'sand_ai:trial:options')]
+    public function options(Request $request): Response
+    {
+        $rawApplicationId = $request->get('application_id');
+        $applicationId = $this->trialApplicationId(is_scalar($rawApplicationId) ? (string) $rawApplicationId : '');
+        try {
+            $result = (new AdminTrialService())->options(
+                $applicationId,
+                $this->authenticatedAdminId(),
+                $this->adminInfo,
+            );
+        } catch (ApiProblem $problem) {
+            throw $this->trialProblem($problem);
+        }
+
+        return $this->success($result)->header('Cache-Control', 'no-store');
+    }
+
+    /**
+     * B2 "试一试": one-message chat through the managed workload binding and
+     * the full ChatGateway chain. Requires sand_ai:trial:chat plus a fresh
+     * Idempotency-Key; never provisions grants.
+     */
+    #[Permission('SandAI 试用对话', 'sand_ai:trial:chat')]
+    public function chat(Request $request): Response
+    {
+        $input = $request->post();
+        if (!is_array($input) || array_diff(array_keys($input), ['application_id', 'provider_id', 'message', 'model_id', 'max_output_tokens']) !== []) {
+            throw new ApiException('请求包含不支持的字段，请刷新后重试', 400);
+        }
+        try {
+            $result = (new AdminTrialService())->chat(
+                $input,
+                $this->authenticatedAdminId(),
+                $this->adminInfo,
+                $request,
+            );
+        } catch (ApiProblem $problem) {
+            throw $this->trialProblem($problem);
+        }
+
+        return $this->success($result)->header('Cache-Control', 'no-store');
+    }
+
+    private function trialApplicationId(string $raw): int
+    {
+        if (preg_match('/^[1-9][0-9]{0,18}$/', trim($raw)) !== 1) {
+            throw new ApiException('请先选择一个应用', 400);
+        }
+        return (int) trim($raw);
+    }
+
+    /** Trial endpoints answer with plain Chinese copy; codes stay internal. */
+    private function trialProblem(ApiProblem $problem): ApiException
+    {
+        $status = match ($problem->errorCode) {
+            'SAND_AI_TRIAL_APPLICATION_NOT_FOUND' => 404,
+            'SAND_AI_TRIAL_APPLICATION_FORBIDDEN',
+            'SAND_AI_TRIAL_NOT_GRANTED' => 403,
+            'SAND_AI_TRIAL_BINDING_AMBIGUOUS' => 409,
+            'SAND_AI_TRIAL_RATE_LIMITED' => 429,
+            'SAND_AI_TRIAL_IAM_UNAVAILABLE',
+            'SAND_AI_TRIAL_ISSUE_FAILED',
+            'SAND_AI_TRIAL_ROUTES_UNAVAILABLE' => 503,
+            'SAND_AI_TRIAL_PROVIDER_UNREACHABLE' => 502,
+            default => 400,
+        };
+        $message = trim($problem->getMessage());
+        return new ApiException($message !== '' ? $message : '试用请求未完成，请稍后重试', $status);
     }
 
     /**
