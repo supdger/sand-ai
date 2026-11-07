@@ -50,28 +50,15 @@
         :title="`${stateLabel(state)}版本已固定。需要调整时，选择「复制为新版本」。`" />
       <ElForm label-width="120px" class="form" @submit.prevent>
         <ElFormItem label="名称"><ElInput v-model.trim="name" maxlength="160" :disabled="locked" /></ElFormItem>
-        <ElFormItem label="代码"><ElInput v-model.trim="form.code" :disabled="locked || revision !== null" /></ElFormItem>
-        <ElFormItem label="版本"><ElInput v-model.trim="form.version" :disabled="locked || revision !== null" placeholder="1.0.0" /></ElFormItem>
-        <ElFormItem label="输出语言">
-          <ElSelect v-model="form.output_language" :disabled="locked">
-            <ElOption label="简体中文" value="zh-CN" /><ElOption label="English" value="en" />
-          </ElSelect>
+        <ElFormItem label="按项目整理">
+          <ElInput :model-value="classifications" @update:model-value="editList('document_classifications', $event)" type="textarea" :rows="2" :disabled="locked" placeholder="每行写一个要整理出的项目或类别，如合同、发票、情况说明；每项最多 2000 字" />
         </ElFormItem>
-        <ElFormItem label="材料分类"><ElInput :model-value="classifications" @update:model-value="editList('document_classifications', $event)" type="textarea" :rows="2" :disabled="locked" placeholder="每行一个中文分类，如合同、发票、情况说明；每项最多 2000 字" /></ElFormItem>
-        <ElFormItem label="实体类型"><ElInput :model-value="entities" @update:model-value="editList('entity_types', $event)" type="textarea" :rows="2" :disabled="locked" placeholder="每行一个中文类型，如人物、机构、地点；每项最多 64 字" /></ElFormItem>
-        <ElFormItem label="扩展字段"><ElInput :model-value="extensions" @update:model-value="editList('extension_fields', $event)" type="textarea" :rows="2" :disabled="locked" placeholder="每行一个英文字段代码，可留空" /></ElFormItem>
-        <ElFormItem label="跨文件复核输出">
-          <div>
-            <ElSelect v-model="reviewOutputStrategy" :disabled="locked">
-              <ElOption label="标准 JSON" value="neuron_json_extract_v1" />
-              <ElOption label="对象结构输出" value="neuron_zai_json_object_v1" />
-              <ElOption label="约束结构输出" value="neuron_openai_json_schema_v1" />
-            </ElSelect>
-            <p class="muted">对象结构输出或约束结构输出需模型支持对应协议。</p>
-          </div>
+        <ElFormItem label="要整理出的人、机构等">
+          <ElInput :model-value="entities" @update:model-value="editList('entity_types', $event)" type="textarea" :rows="2" :disabled="locked" placeholder="每行一个中文类型，如人物、机构、地点；每项最多 64 字" />
         </ElFormItem>
-        <ElFormItem label="提示词字符上限"><ElInputNumber v-model="form.max_prompt_characters" :min="1" :max="200000" :disabled="locked" /></ElFormItem>
-        <ElFormItem label="输出字符上限"><ElInputNumber v-model="form.max_output_characters" :min="1" :max="500000" :disabled="locked" /></ElFormItem>
+        <ElFormItem label="要额外整理的内容（可不填）">
+          <ElInput :model-value="extensions" @update:model-value="editList('extension_fields', $event)" type="textarea" :rows="2" :disabled="locked" placeholder="每行一项；留空表示不需要额外整理" />
+        </ElFormItem>
         <ElFormItem v-if="state === 'draft' && revision !== null" label="成功样本">
           <ElSpace wrap>
             <ElSelect v-model="sampleRunId" placeholder="选择当前修订的已完成样本" clearable
@@ -97,8 +84,30 @@
         </ElFormItem>
         <ElAlert v-if="validationMessage" :title="validationMessage"
           type="warning" :closable="false" />
+        <details class="material-advanced">
+          <summary>高级设置（开发者一般不用改）</summary>
+          <ElFormItem label="代码"><ElInput v-model.trim="form.code" :disabled="locked || revision !== null" /></ElFormItem>
+          <ElFormItem label="版本"><ElInput v-model.trim="form.version" :disabled="locked || revision !== null" placeholder="1.0.0" /></ElFormItem>
+          <ElFormItem label="输出语言">
+            <ElSelect v-model="form.output_language" :disabled="locked">
+              <ElOption label="简体中文" value="zh-CN" /><ElOption label="English" value="en" />
+            </ElSelect>
+          </ElFormItem>
+          <ElFormItem label="跨文件复核输出">
+            <div>
+              <ElSelect v-model="reviewOutputStrategy" :disabled="locked">
+                <ElOption label="标准输出" value="neuron_json_extract_v1" />
+                <ElOption label="对象结构输出" value="neuron_zai_json_object_v1" />
+                <ElOption label="约束结构输出" value="neuron_openai_json_schema_v1" />
+              </ElSelect>
+              <p class="muted">对象结构输出或约束结构输出需模型支持对应协议。</p>
+            </div>
+          </ElFormItem>
+          <ElFormItem label="提示词字符上限"><ElInputNumber v-model="form.max_prompt_characters" :min="1" :max="200000" :disabled="locked" /></ElFormItem>
+          <ElFormItem label="输出字符上限"><ElInputNumber v-model="form.max_output_characters" :min="1" :max="500000" :disabled="locked" /></ElFormItem>
+        </details>
       </ElForm>
-      <p class="muted">整理成果包含文档分类与标题、实体、事件、冲突、待核实项及扩展字段；每项可回到材料来源。
+      <p class="muted">整理成果包含文档分类与标题、实体、事件、冲突、待核实项及额外整理的内容；每项可回到材料来源。
         保存的代码、版本和修订决定本次样本使用哪份配置；已启用版本供应用按代码和版本调用。</p>
       <MaterialSampleRunner
         v-if="runnerTarget && typeof environmentId === 'number'"
@@ -373,23 +382,25 @@ const validationMessage = computed(() => {
   if (revision.value === null && profiles.value.some(item => item.code === form.code && item.version === form.version)) {
     return '此代码和版本已经存在。编辑已有草稿请从列表打开；创建新版本请更换版本号。'
   }
-  for (const [label, field] of [['材料分类', 'document_classifications'], ['实体类型', 'entity_types'],
-    ['扩展字段', 'extension_fields']] as const) {
-    const items = listValues(field)
-    if (label !== '扩展字段' && items.length === 0) return `请至少填写一个${label}。`
-    if (new Set(items).size !== items.length) return `${label}不能重复。`
-    const maximum = label === '材料分类' ? 2000 : 64
-    const invalidIndex = items.findIndex(item => item === '' || [...item].length > maximum
+  for (const spec of [
+    { field: 'document_classifications', label: '按项目整理', empty: '请至少填写一项要整理出的项目或类别。', max: 2000 },
+    { field: 'entity_types', label: '要整理出的人、机构等', empty: '请至少填写一项要整理出的人、机构等类型。', max: 64 },
+    { field: 'extension_fields', label: '要额外整理的内容', empty: '', max: 64 }
+  ] as const) {
+    const items = listValues(spec.field)
+    if (spec.empty !== '' && items.length === 0) return spec.empty
+    if (new Set(items).size !== items.length) return `「${spec.label}」不能重复填写。`
+    const invalidIndex = items.findIndex(item => item === '' || [...item].length > spec.max
       || /[\p{Cc}\p{Cs}\p{Zl}\p{Zp}]/u.test(item) || item !== item.trim())
     if (invalidIndex !== -1) {
-      const original = originalLists.value !== null && !editedLists[field]
+      const original = originalLists.value !== null && !editedLists[spec.field]
       const recovery = state.value === 'draft'
         ? '请明确编辑此字段，去除首尾空白、控制字符和空行；若原项内有换行，请核对后拆分为独立项。修正后保存草稿，再运行新修订的样本。'
         : '请复制为新版本，明确修正此字段，再保存草稿并重新运行样本；原版本不会自动修改。'
-      return `${original ? '已保存的配置中，' : ''}${label}第 ${invalidIndex + 1} 项无效：每项须为 1–${maximum} 个有效字符，不含控制字符、换行或首尾空白。${recovery}`
+      return `${original ? '已保存的配置中，' : ''}「${spec.label}」第 ${invalidIndex + 1} 项无效：每项须为 1–${spec.max} 个有效字符，不含控制字符、换行或首尾空白。${recovery}`
     }
-    if (label === '扩展字段' && items.some(item => !/^[a-z][a-z0-9_]{0,63}$/.test(item))) {
-      return '扩展字段须使用最多 64 个字符的小写英文字段代码，可包含数字和下划线。'
+    if (spec.field === 'extension_fields' && items.some(item => !/^[a-z][a-z0-9_]{0,63}$/.test(item))) {
+      return '「要额外整理的内容」每项需为简短英文标识：小写字母开头，仅含小写字母、数字和下划线，最多 64 个字符。'
     }
   }
   if (!Number.isInteger(form.max_prompt_characters) || form.max_prompt_characters < 1 || form.max_prompt_characters > 200000) {
@@ -970,3 +981,28 @@ async function revoke(): Promise<void> {
   if (current === generation && identity === originalIntentEpoch) await loadList()
 }
 </script>
+
+<style scoped>
+.material-editor .material-advanced {
+  margin: 4px 0 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  padding: 4px 16px 8px;
+}
+
+.material-editor .material-advanced > summary {
+  cursor: pointer;
+  padding: 8px 0;
+  font-size: 14px;
+  color: var(--el-text-color-primary);
+  list-style: none;
+}
+
+.material-editor .material-advanced > summary::before {
+  content: '▸ ';
+}
+
+.material-editor .material-advanced[open] > summary::before {
+  content: '▾ ';
+}
+</style>

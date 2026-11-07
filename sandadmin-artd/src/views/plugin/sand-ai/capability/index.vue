@@ -6,7 +6,7 @@
           <div>
             <h2 class="cap-title">{{ materialConfigurationPage ? '材料配置' : '能力配置' }}</h2>
             <p class="cap-desc">
-              为指定应用环境选择解析工具、模型和材料处理位置。仅配置本地文本解析时无需 API Key；AI 抽取仍需已启用模型。
+              为指定应用环境选择解析工具、模型和材料处理位置。仅配置本地文本解析时无需密钥；AI 抽取仍需已启用模型。
             </p>
           </div>
         
@@ -89,13 +89,13 @@
           <p v-if="revisionConflict && profileLoaded" class="cap-muted">
             服务端修订：{{ profile?.revision ?? '尚无配置' }}；
             名称：{{ profile?.name ?? '尚无配置' }}；
-            默认模型：{{ profile?.routes?.map(route => `${capabilityLabel(route.capability_code)} / ${routeKindLabel(route.route_kind)} / ${route.deployment_id ?? route.driver_code ?? '未设置'}`).join('、') || '无' }}。
+            默认模型：{{ profile?.routes?.map(route => `${capabilityLabel(route.capability_code)} / ${routeKindLabel(route.route_kind)} / ${route.deployment_id !== null && route.deployment_id !== undefined ? `部署 #${route.deployment_id}` : route.driver_code ? driverLabel(route.driver_code) : '未设置'}`).join('、') || '无' }}。
           </p>
           <ElAlert v-if="unsafeExistingConfig" type="warning" :closable="false"
             title="既有默认模型未提供可安全保留的空配置，或含已停用项。当前配置只读，请联系管理员核查读取接口或历史配置；此页不会覆盖保存。" />
           <ElForm :disabled="editBlocked" label-width="120px" class="cap-form" @submit.prevent>
             <ElFormItem label="配置名称">
-              <ElInput v-model="form.name" style="width: 360px" placeholder="如 default-capability" />
+              <ElInput v-model="form.name" style="width: 360px" placeholder="如 日常默认" />
             </ElFormItem>
             <ElFormItem label="模板">
               <ElSelect
@@ -141,7 +141,7 @@
 
           <p class="cap-muted">首次只需文档读取时，点击“添加文档读取”，保存并启用即可。该工具支持 TXT、文本型 PDF、DOCX 等，不调用模型；扫描件 OCR 和材料 AI 抽取需另行配置。</p>
           <ElTable :data="form.routes" border empty-text="暂无默认模型">
-            <ElTableColumn label="能力" min-width="160">
+            <ElTableColumn label="能力" min-width="140">
               <template #default="{ row }">
                 <ElSelect
                   v-model="row.capability_code"
@@ -158,10 +158,10 @@
                 </ElSelect>
               </template>
             </ElTableColumn>
-            <ElTableColumn label="处理方式" width="150">
+            <ElTableColumn label="处理方式" width="130">
               <template #default="{ row }">{{ routeKindLabel(row.route_kind) }}</template>
             </ElTableColumn>
-            <ElTableColumn label="模型部署" min-width="300">
+            <ElTableColumn label="模型部署" min-width="220">
               <template #default="{ row }">
                 <ElSelect v-if="usesDeployment(row)" v-model="row.deployment_id"
                   :disabled="editBlocked" filterable remote clearable :remote-method="(query: string) => searchDeployments(query, row)"
@@ -177,7 +177,7 @@
                 <p v-if="isLocalOcr(row) && !row.deployment_id" class="cap-muted">未绑定部署时费用保持未计价，硬预算请求会被拒绝。可先保存，配置并启用部署价格后再绑定。</p>
               </template>
             </ElTableColumn>
-            <ElTableColumn label="解析工具" min-width="180">
+            <ElTableColumn label="解析工具" min-width="160">
               <template #default="{ row }">
                 <ElSelect
                   v-if="row.route_kind === 'parse_driver' || row.route_kind === 'audio_driver'"
@@ -197,12 +197,12 @@
                 <span v-else class="cap-muted">—</span>
               </template>
             </ElTableColumn>
-            <ElTableColumn label="优先顺序" width="110">
+            <ElTableColumn label="优先顺序" width="90">
               <template #default="{ row }">
                 <ElInputNumber :disabled="editBlocked" v-model="row.priority" :min="1" :controls="false" class="cap-number" />
               </template>
             </ElTableColumn>
-            <ElTableColumn label="操作" width="90">
+            <ElTableColumn label="操作" width="80">
               <template #default="{ $index }">
                 <ElButton :disabled="editBlocked" link type="danger" @click="removeRoute($index)">删除</ElButton>
               </template>

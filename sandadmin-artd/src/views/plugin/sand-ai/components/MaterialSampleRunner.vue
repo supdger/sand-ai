@@ -35,7 +35,7 @@
         <ElInput v-model.trim="fileIdsText" :disabled="busy || !!submitted || !!recoveryKey" placeholder="上方加入的文件会显示在这里，也可填写 1–100 个已解析文件编号" />
       </ElFormItem>
       <ElFormItem label="业务范围">
-        <ElInput v-model.trim="scopeRef" :disabled="busy || !!recoveryKey" placeholder="应用中的业务范围引用，例如试用项目代码" />
+        <ElInput v-model.trim="scopeRef" :disabled="busy || !!recoveryKey" placeholder="应用中的业务范围引用，例如试用项目" />
       </ElFormItem>
       <ElFormItem label="资料快照">
         <ElInput v-model.trim="snapshotRef" :disabled="busy || !!recoveryKey" placeholder="应用中的资料快照引用" />
@@ -175,8 +175,8 @@
       <p v-if="sourceLoading">正在读取来源…</p>
       <ElAlert v-else-if="sourceError" type="error" :title="sourceError" :closable="false" />
       <template v-else-if="sourcePreview">
-        <p>文件 #{{ sourcePreview.file_id }} · {{ sourcePreview.locator_type }}
-          {{ JSON.stringify(sourcePreview.locator) }}</p>
+        <p>文件 #{{ sourcePreview.file_id }}</p>
+        <details class="muted"><summary>技术详情</summary><p>{{ sourcePreview.locator_type }} {{ JSON.stringify(sourcePreview.locator) }}</p></details>
         <MaterialSourceContent :source="sourcePreview" />
       </template>
     </ElDialog>
@@ -774,7 +774,7 @@ async function submit(): Promise<void> {
   } catch (failure) {
     if (current === generation && !clearDeniedResult(failure)) {
       error.value = failure instanceof SandAiRuntimeError && failure.errorCode === 'SAND_AI_SCHEMA_UNSUPPORTED'
-        ? '样本配置未通过服务端校验。请返回上方核对材料分类（每项最多 2000 字）、实体类型（每项最多 64 字）、扩展字段代码及版本，明确修正空白、控制字符和换行；保存为新修订后再运行样本。页面不会自动改写旧配置。'
+        ? '样本配置未通过服务端校验。请返回上方核对「按项目整理」（每项最多 2000 字）、「要整理出的人、机构等」（每项最多 64 字）、「要额外整理的内容」的标识及版本，明确修正空白、控制字符和换行；保存为新修订后再运行样本。页面不会自动改写旧配置。'
         : failure instanceof Error ? failure.message : '材料样本提交失败；结果未确认时请沿原请求键找回，不要重新创建付费请求。'
     }
   } finally {
