@@ -71,7 +71,11 @@
           <div class="knowledge-actions">
             <ElButton link type="primary" :loading="modelsLoading" @click="loadModels">刷新模型</ElButton>
           </div>
-          <p v-if="modelsError" class="knowledge-note">{{ modelsError }}。草稿仍可手动填写模型代码，启用需当前环境存在可用路由。</p>
+          <div v-if="modelsNotPublished" class="knowledge-note knowledge-note--action">
+            这个环境还没有启用的能力配置，请先去「能力配置」保存并启用。
+            <ElButton link type="primary" @click="router.push('/sand-ai/capability')">去能力配置</ElButton>
+          </div>
+          <p v-else-if="modelsError" class="knowledge-note">{{ modelsError }}。草稿仍可手动填写模型代码，启用需当前环境存在可用路由。</p>
         </ElFormItem>
         <ElFormItem label="参考知识库">
           <ElSelect v-model="form.knowledge_base_code" filterable allow-create default-first-option clearable
@@ -133,11 +137,13 @@
 <script setup lang="ts">
   import { useUserStore } from '@/store/modules/user'
   import { computed, onUnmounted, reactive, ref, watch } from 'vue'
+  import { useRouter } from 'vue-router'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import agentDefinitionApi, { type AgentDefinitionOperation, type AgentDefinitionOperationReceipt, type AgentDefinitionRejectedPublishReceipt, type AgentDraft, type AgentAvailableModel, type AgentContextTurnLimit, type AgentDefinitionRow, type AgentReadonlyToolSelection, type AgentVersionHistory } from '../../api/agentDefinition'
   import knowledgePublicationApi, { type ConsumerKnowledgePublication } from '../../api/knowledgePublication'
   import ReadonlyToolSelector from './ReadonlyToolSelector.vue'
   import { newRuntimeRequestId } from '../../api/runtime'
+  import { errorDisplayText } from '../../api/errorText'
 
   const versionsVisible = ref(false)
   const versions = ref<AgentVersionHistory[]>([])
@@ -148,6 +154,7 @@
   const versionOwner = ref<AgentDefinitionRow | null>(null)
   let versionsEpoch = 0
   const props = defineProps<{ environmentId: number | null }>()
+  const router = useRouter()
   const userStore = useUserStore()
   const operationJournalKey = 'sand-ai-agent-definition-operation-journal:v1'
   const operationLockAvailable = typeof navigator !== 'undefined' && !!navigator.locks
@@ -167,6 +174,8 @@
   const models = ref<AgentAvailableModel[]>([])
   const modelsLoading = ref(false)
   const modelsError = ref('')
+  // SAND_AI_CONFIGURATION_NOT_PUBLISHED：环境缺已发布能力配置，走专属引导而非错误文案直出
+  const modelsNotPublished = ref(false)
   let modelEpoch = 0
   const knowledge = ref<ConsumerKnowledgePublication[]>([])
   const knowledgeLoading = ref(false)
@@ -235,6 +244,7 @@
     const current = ++modelEpoch
     modelsLoading.value = true
     modelsError.value = ''
+    modelsNotPublished.value = false
     try {
       const result = await agentDefinitionApi.models(environmentId)
       if (current !== modelEpoch || props.environmentId !== environmentId) return
@@ -242,7 +252,14 @@
     } catch (failure) {
       if (current === modelEpoch) {
         models.value = []
-        modelsError.value = failure instanceof Error ? failure.message : '当前环境模型读取失败'
+        const rawMessage = failure instanceof Error ? failure.message : ''
+        if (/\bSAND_AI_CONFIGURATION_NOT_PUBLISHED\b/.test(rawMessage)) {
+          // 错误码与英文原因不上屏；原始信息只进 console 供排查
+          modelsNotPublished.value = true
+          console.error('[sand-ai] agent models unavailable: configuration not published', failure)
+        } else {
+          modelsError.value = errorDisplayText(failure, '当前环境模型读取失败')
+        }
       }
     } finally {
       if (current === modelEpoch) modelsLoading.value = false
@@ -593,6 +610,7 @@
     models.value = []
     modelsLoading.value = false
     modelsError.value = ''
+    modelsNotPublished.value = false
     knowledge.value = []
     knowledgePage = 0
     knowledgeMore.value = false
@@ -612,7 +630,7 @@
     loading.value = false; editingLoading.value = false
     versionsVisible.value = false; versions.value = []; versionOwner.value = null; versionsLoading.value = false
     rows.value = []; total.value = 0; error.value = ''; versionError.value = ''
-    models.value = []; modelsLoading.value = false; modelsError.value = ''
+    models.value = []; modelsLoading.value = false; modelsError.value = ''; modelsNotPublished.value = false
     knowledge.value = []; knowledgeLoading.value = false; knowledgeError.value = ''
     knowledgePage = 0; knowledgeMore.value = false
     newDraft()

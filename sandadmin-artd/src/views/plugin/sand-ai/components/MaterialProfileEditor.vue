@@ -77,7 +77,7 @@
             <ElButton type="primary" v-permission="'sand_ai:setup:material-profile:save'" :loading="busy"
               :disabled="locked || !canSave" @click="save">保存草稿</ElButton>
             <ElButton v-if="state === 'draft' && revision !== null" v-permission="'sand_ai:setup:material-profile:publish'"
-              type="success" :disabled="busy || operationFlight || !canPublish" @click="publish">核验样本并启用</ElButton>
+              :disabled="busy || operationFlight || !canPublish" @click="publish">核验样本并启用</ElButton>
             <ElButton v-if="state === 'published'" v-permission="'sand_ai:setup:material-profile:revoke'"
               type="danger" plain :disabled="busy || operationFlight || !!publicationIntent || !!revocationIntent || !!draftSaveIntent || intentStorageError" @click="revoke">撤销启用</ElButton>
           </ElSpace>

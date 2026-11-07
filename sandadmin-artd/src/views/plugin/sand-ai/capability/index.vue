@@ -221,7 +221,6 @@
             </ElButton>
             <ElButton
               v-permission="'sand_ai:setup:capability:publish'"
-              type="success"
               :disabled="editBlocked || Boolean(busy) || !profile || profile.state === 'published'"
               :loading="busy === 'publish'"
               @click="handlePublish"

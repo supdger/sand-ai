@@ -37,7 +37,7 @@
         <ElInput v-model="prompt" type="textarea" :rows="4" :disabled="locked" placeholder="填写本次聊天消息" />
       </ElFormItem>
       <ElFormItem>
-        <ElButton type="primary" native-type="submit" :disabled="!ready" :loading="busy === 'send'">
+        <ElButton native-type="submit" :disabled="!ready" :loading="busy === 'send'">
           发送一次聊天（可能产生费用）
         </ElButton>
       </ElFormItem>
