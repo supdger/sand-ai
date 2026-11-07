@@ -5,19 +5,29 @@ declare(strict_types=1);
 namespace app\Identity\Infrastructure;
 
 use app\Api\Support\ApiProblem;
+use ReflectionObject;
 use Throwable;
 
 /** Fixed SandAI declaration; SandIAM owns persistence and disabled-state policy. */
 final class HostSandIamServiceCatalog
 {
     private const SERVICE = ['code' => 'sand_ai', 'name' => 'SandAI'];
-    /** SandIAM B3 catalog group; persisted once the host port accepts it. */
+    /** SandIAM B3 catalog group (`sand_iam_service.group_name`, migration 044). */
     private const SERVICE_GROUP_NAME = 'AI 能力';
     /**
+     * Registered contract audience, aligned with SandIAM
+     * `AccessMatrixInput::DEFAULT_AUDIENCE`, `AdminTrialIamGateway::AUDIENCE`
+     * and `AdminTrialContextService::AUDIENCE`. A fresh install has no grant
+     * history for migration 044 to backfill `sand_iam_service.audience` from,
+     * so the declaration itself must carry it or the B3 capability directory
+     * cannot resolve a managed-client audience.
+     */
+    private const SERVICE_AUDIENCE = 'sand-ai';
+    /**
      * Chinese action descriptions declared for the SandIAM service catalog
-     * (WP-A1/B3). The runtime registration payload stays `code => name` so
-     * older SandIAM `ServiceCatalog` ports keep working unchanged; richer
-     * ports consume `serviceDeclaration()`/`actionDeclarations()`.
+     * (WP-A1/B3, `sand_iam_service_action.description`). Ports that accept the
+     * 0.9.7 declaration schema receive them through `actionDeclarations()`;
+     * older ports keep the legacy `code => name` payload.
      */
     private const ACTION_DETAILS = [
         'sand_ai.chat.complete' => '和 AI 对话',
@@ -83,15 +93,19 @@ final class HostSandIamServiceCatalog
     ];
 
     /**
-     * Rich service declaration for SandIAM catalog ports that accept metadata
-     * (WP-A1). Older ports keep receiving the legacy `code => name` payload
-     * through `register()`/`registerSkill()`/`registerAudio()`.
+     * Rich service declaration for sand-iam >=0.9.7 `ServiceCatalog` ports.
+     * The shape maps 1:1 onto the port schema: `group_name`/`audience` are
+     * persisted on `sand_iam_service`, action `description` values on
+     * `sand_iam_service_action` (both added by SandIAM migration 044).
      *
-     * @return array{code:string,name:string,group_name:string}
+     * @return array{code:string,name:string,group_name:string,audience:string}
      */
     public static function serviceDeclaration(): array
     {
-        return self::SERVICE + ['group_name' => self::SERVICE_GROUP_NAME];
+        return self::SERVICE + [
+            'group_name' => self::SERVICE_GROUP_NAME,
+            'audience' => self::SERVICE_AUDIENCE,
+        ];
     }
 
     /**
@@ -164,7 +178,8 @@ final class HostSandIamServiceCatalog
             throw new ApiProblem('SAND_AI_SERVICE_CATALOG_DISABLED', 'SandIAM service or action is disabled');
         }
         try {
-            $host->registerServiceActions(self::SERVICE, $actions);
+            [$service, $payloadActions] = $this->portPayload($host, $actions);
+            $host->registerServiceActions($service, $payloadActions);
         } catch (Throwable $exception) {
             if (str_contains($exception->getMessage(), 'SAND_IAM_SERVICE_CATALOG_DISABLED')) {
                 throw new ApiProblem('SAND_AI_SERVICE_CATALOG_DISABLED', 'SandIAM service or action is disabled');
@@ -196,8 +211,9 @@ final class HostSandIamServiceCatalog
             || !method_exists($host, 'inspectServiceActions')) {
             return $result;
         }
+        [$service, $payloadActions] = $this->portPayload($host, $actions);
         try {
-            $inspection = $host->inspectServiceActions(self::SERVICE, $actions);
+            $inspection = $host->inspectServiceActions($service, $payloadActions);
         } catch (Throwable) {
             throw new ApiProblem('SAND_AI_SERVICE_CATALOG_UNAVAILABLE', 'SandIAM service catalog inspection failed');
         }
@@ -225,6 +241,38 @@ final class HostSandIamServiceCatalog
             'action_statuses' => $inspection['action_statuses'],
             'can_register' => $canRegister,
         ];
+    }
+
+    /**
+     * Pick the payload shape the resolved port actually accepts.
+     *
+     * sand-iam >=0.9.7 `ServiceCatalog` persists `group_name`/`audience` on
+     * the service and `name`+`description` action maps. Older ports ignore
+     * unknown service keys but coerce array action values into the literal
+     * name "Array", so the rich shape is only sent to ports that provably
+     * declare the 0.9.7 schema — marked by the private `MAX_DESCRIPTION`
+     * constant and `optionalAudience()` helper that exist only there.
+     *
+     * @param array<string,string> $actions legacy `code => name` map
+     * @return array{0:array<string,mixed>,1:array<string,mixed>}
+     */
+    private function portPayload(object $host, array $actions): array
+    {
+        if (self::acceptsCatalogMetadata($host)) {
+            return [self::serviceDeclaration(), self::actionDeclarations($actions)];
+        }
+        return [self::SERVICE, $actions];
+    }
+
+    private static function acceptsCatalogMetadata(object $host): bool
+    {
+        try {
+            $reflection = new ReflectionObject($host);
+            return $reflection->hasConstant('MAX_DESCRIPTION')
+                && $reflection->hasMethod('optionalAudience');
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     private function catalog(): ?object

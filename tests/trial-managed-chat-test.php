@@ -153,8 +153,9 @@ $reflection = new ReflectionClass(HostSandIamServiceCatalog::class);
 $service = HostSandIamServiceCatalog::serviceDeclaration();
 ok(($service['code'] ?? null) === 'sand_ai'
     && ($service['name'] ?? null) === 'SandAI'
+    && ($service['audience'] ?? null) === 'sand-ai'
     && hasCjk((string) ($service['group_name'] ?? '')),
-    '目录声明：service 携带中文 group_name');
+    '目录声明：service 携带中文 group_name 与契约 audience');
 
 $groups = ['ACTIONS', 'SKILL_ACTIONS', 'AUDIO_ACTIONS'];
 $allCodes = [];
@@ -181,6 +182,99 @@ ok(($declarations['sand_ai.chat.complete']['description'] ?? null) === '和 AI �
     && ($declarations['sand_ai.custom']['description'] ?? null) === '自定义'
     && ($declarations['sand_ai.chat.complete']['name'] ?? null) === 'AI 对话',
     '目录声明：actionDeclarations 输出 name+description 且缺说明回退名称');
+
+// --- 生产 register/inspect 载荷形状 ------------------------------------------------
+// RichServiceCatalogPortFake carries the private MAX_DESCRIPTION constant and
+// optionalAudience() helper that only exist in the sand-iam >=0.9.7
+// ServiceCatalog, so HostSandIamServiceCatalog detects it as a rich port.
+trait ServiceCatalogPortFakeCalls
+{
+    /** @var list<array{service:array<string,mixed>,actions:array<string,mixed>}> */
+    public array $inspections = [];
+    /** @var list<array{service:array<string,mixed>,actions:array<string,mixed>}> */
+    public array $registrations = [];
+
+    public function inspectServiceActions(array $service, array $actions): array
+    {
+        $this->inspections[] = ['service' => $service, 'actions' => $actions];
+        return [
+            'service_code' => $service['code'],
+            'service_status' => 'missing',
+            'action_statuses' => array_fill_keys(array_keys($actions), 'missing'),
+            'can_register' => true,
+        ];
+    }
+
+    public function registerServiceActions(array $service, array $actions): void
+    {
+        $this->registrations[] = ['service' => $service, 'actions' => $actions];
+    }
+}
+
+final class RichServiceCatalogPortFake
+{
+    use ServiceCatalogPortFakeCalls;
+
+    private const MAX_DESCRIPTION = 512;
+
+    private function optionalAudience(mixed $value): mixed
+    {
+        return $value;
+    }
+}
+
+final class LegacyServiceCatalogPortFake
+{
+    use ServiceCatalogPortFakeCalls;
+}
+
+$richPort = new RichServiceCatalogPortFake();
+$richCatalog = new HostSandIamServiceCatalog($richPort);
+$preflight = $richCatalog->preflight();
+ok($preflight['port_available'] === true && $preflight['can_register'] === true,
+    '富端口：preflight 巡检可用且可注册');
+$registered = $richCatalog->register();
+ok($registered['registered'] === true && $registered['service_code'] === 'sand_ai',
+    '富端口：register 返回已登记');
+
+$richInspectionsRich = $richPort->inspections !== [];
+foreach ($richPort->inspections as $call) {
+    $chat = $call['actions']['sand_ai.chat.complete'] ?? null;
+    if (($call['service']['group_name'] ?? null) !== 'AI 能力'
+        || ($call['service']['audience'] ?? null) !== 'sand-ai'
+        || !is_array($chat) || ($chat['description'] ?? null) !== '和 AI 对话') {
+        $richInspectionsRich = false;
+    }
+}
+ok($richInspectionsRich, '富端口：全部 inspect 载荷携带 group_name/audience 与动作 description');
+
+$registerPayload = $richPort->registrations[0] ?? null;
+$registerChat = is_array($registerPayload) ? ($registerPayload['actions']['sand_ai.chat.complete'] ?? null) : null;
+ok(is_array($registerPayload)
+    && ($registerPayload['service']['group_name'] ?? null) === 'AI 能力'
+    && ($registerPayload['service']['audience'] ?? null) === 'sand-ai'
+    && is_array($registerChat)
+    && ($registerChat['name'] ?? null) === 'AI 对话'
+    && ($registerChat['description'] ?? null) === '和 AI 对话',
+    '富端口：register 载荷携带富 service 声明与动作 name+description');
+
+$legacyPort = new LegacyServiceCatalogPortFake();
+$legacyCatalog = new HostSandIamServiceCatalog($legacyPort);
+$legacyResult = $legacyCatalog->register();
+$legacyPayload = $legacyPort->registrations[0] ?? null;
+ok($legacyResult['registered'] === true
+    && is_array($legacyPayload)
+    && ($legacyPayload['service'] ?? null) === ['code' => 'sand_ai', 'name' => 'SandAI']
+    && ($legacyPayload['actions']['sand_ai.chat.complete'] ?? null) === 'AI 对话',
+    '旧端口：register 载荷保持 code/name 与 code=>name 旧形状');
+$legacyInspectRich = false;
+foreach ($legacyPort->inspections as $call) {
+    if (($call['service']['audience'] ?? null) === 'sand-ai'
+        || is_array($call['actions']['sand_ai.chat.complete'] ?? null)) {
+        $legacyInspectRich = true;
+    }
+}
+ok($legacyInspectRich === false, '旧端口：inspect 载荷不携带富声明字段');
 
 echo "----\n通过 {$passed}，失败 {$failed}\n";
 exit($failed === 0 ? 0 : 1);
