@@ -306,6 +306,8 @@ php webman sand-ai:security status
 
 **安全警告：此设置会降低安全防护，只放行你信任的服务地址。** 放行名单生效于全部 Provider 出站校验（首次开通测试与已保存服务商的运行时端点解析都遵守）。请只列入确有证据的最小网段（如代理 fake-IP 池 `198.18.0.0/15`），不要列入 `0.0.0.0/0` 或整段私网；配置变更后按宿主正常生命周期重载。修复代理 DNS 使其返回公网地址永远是首选路径，放行名单只是受控例外。
 
+渠道（飞书/企业微信）`api_base` 私有化部署地址走同一套出口闸门，但使用独立的渠道放行名单：`SAND_AI_CHANNEL_EGRESS_ALLOW_CIDRS`（默认空，与 `SAND_AI_EGRESS_ALLOW_CIDRS` 互不影响，渠道例外不会放宽服务商出口）。仅允许 HTTPS、443/8443 端口、拒绝 IP 字面量与本机/元数据域名；每次携带凭据的请求前重新解析并校验全部 DNS 应答，连接通过 `CURLOPT_RESOLVE` 固定到已校验地址（TLS/SNI 仍用原域名），可用 `SAND_AI_CHANNEL_PINNED_HOST` / `SAND_AI_CHANNEL_PINNED_IP` 做服务端 pin（与 Provider/工具 pin 同规则，不完整配置 fail-closed）。私有部署必须显式把解析网段列入渠道放行名单才可用。
+
 受管外部工具连接要求运维已核实的 `data_class`。新运行从不可变的连接修订冻结该分类，未分类的历史修订不能运行。派发、重放和结果读取都要求针对已持久化的工具运行取得 SandIAM 调用授权，且在每次外部请求前和返回结果前重新校验。
 
 当前状态：工具密钥 CLI 报告 ready 不代表 Worker 已加载或工具业务通过。详情见 [API 契约](plugin/sand-ai/docs/development/sand-ai-api-contract.md)；候选目录与文档读取的实证不替代正常安装、SandIAM 授权、计量与恢复验收。
