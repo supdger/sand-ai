@@ -12397,4 +12397,17 @@ $g2_trial_menu$;
 
 INSERT INTO sand_ai_schema_migration (version, checksum, applied_time) VALUES ('202611060169_g2_trial_menu', 'dd896d48e2a89f4931dc816881b067fa57a8d4e6e65abcca0b3cddf74be7a1dd', CURRENT_TIMESTAMP(0));
 
+-- Migration 202611070170_config_revision_published_at (sha256 a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11)
+-- 0.4.10 audit A4: sand_ai_config_revision gains the published_at audit
+-- timestamp that the capability-profile publish path and the onboarding
+-- publication paths already write (CapabilityProfileGateway,
+-- OnboardingPublicationService). Before this migration no persistent schema
+-- declared the column, so the ORM silently dropped the value on save. New
+-- publishes stamp it; existing rows keep NULL because their publish time was
+-- never recorded.
+ALTER TABLE sand_ai_config_revision
+    ADD COLUMN IF NOT EXISTS published_at timestamp(0) without time zone NULL;
+
+INSERT INTO sand_ai_schema_migration (version, checksum, applied_time) VALUES ('202611070170_config_revision_published_at', 'a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11', CURRENT_TIMESTAMP(0));
+
 COMMIT;
