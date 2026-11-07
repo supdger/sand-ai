@@ -138,7 +138,7 @@
             <!-- 发送中：仅停止等待，不代表服务端已取消 -->
             <ElCard v-if="sending" class="trial-card" shadow="never">
               <div class="trial-wait">
-                <ElSpin :size="22" />
+                <ElIcon class="is-loading" :size="22"><Loading /></ElIcon>
                 <span>正在等 AI 回复……</span>
               </div>
             </ElCard>
@@ -196,6 +196,7 @@
   import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
+  import { Loading } from '@element-plus/icons-vue'
   import { useAuth } from '@/hooks/core/useAuth'
   import { isHttpError } from '@/utils/http/error'
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
@@ -416,7 +417,9 @@
 
   /* ---------- 发送 / 停止 / 重发 ---------- */
 
-  function onPromptKeydown(event: KeyboardEvent): void {
+  function onPromptKeydown(event: Event | KeyboardEvent): void {
+    // ElInput 的 keydown 载荷类型为 Event | KeyboardEvent，先收窄再读键盘字段
+    if (!(event instanceof KeyboardEvent)) return
     if (event.key !== 'Enter' || event.shiftKey) return
     // 中文输入法组词中的 Enter（确认候选词）不触发发送
     if (event.isComposing || event.keyCode === 229) return
@@ -455,7 +458,7 @@
     const attemptProviderName = override?.providerName ?? provider.name
     retryAttempt.value = null
     const controller = new AbortController()
-    abortController.value = controller
+    abortController = controller
     sending.value = true
     clearConversation()
     try {
@@ -492,7 +495,7 @@
       }
     } finally {
       sending.value = false
-      if (abortController.value === controller) abortController.value = null
+      if (abortController === controller) abortController = null
     }
   }
 
