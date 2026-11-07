@@ -5,7 +5,7 @@
   "files": {
     "CHANGELOG.md": "041503731ed513b3fc4e91fae29f367a4d825d4a27168fd694690e612dc3e728",
     "LICENSE": "36cc6aebd8dfd4a2b772ba26399172051c007ceda352f3f95bac0d83ec35d2f7",
-    "README.md": "055f7b6e37ea1aaad5f7c6ea256302a790c10864ac20ba1f45f4bf379f3391d9",
+    "README.md": "15a267e708a39a0758a22802253939fcf0cbad01e3053d2591dec4cab17c404d",
     "app/Api/Controller/AgentController.php": "a8284016035506a7f076123d3e212bed701001dc8bf4f0198edef6e31caf1d63",
     "app/Api/Controller/AgentStreamController.php": "72502c5090b258f6ef8587c0cff70f746884e7eb4ba9f17904c9f6304717aa76",
     "app/Api/Controller/AiTaskController.php": "b1c9889bc6c75ac964a3216ad8fe5f509e8003eef519c192d16c798f1846bda4",
@@ -1089,7 +1089,7 @@
     "plugin/sand-ai/config/static.php": "c5b023864178f0e561b3e5e6377718dec0f906535a74065e19156996fb80b1f7",
     "plugin/sand-ai/config/translation.php": "9c5e46f72e820708b0f24e81d3cc00e53d8eea51079061ca2ec076921c3a2865",
     "plugin/sand-ai/config/view.php": "289d8999e82bb5920dab97d7a906f1476c49f6becd21a34f57391fbe9642376a",
-    "plugin/sand-ai/docs/architecture/sand-iam-access-boundary.md": "46224c085313a05d71be66a7efb8d6ab0a689b08f22e19d779a3f7d99533980f",
+    "plugin/sand-ai/docs/architecture/sand-iam-access-boundary.md": "68ece9b1d9be56f69c0fd47757ce3f439018924ff0364d1dd20961e60dfdb239",
     "plugin/sand-ai/docs/sandworkflow-consumption.md": "611cbdda90543a3639ebd1b9abb9d52e4843412286c0fc0fcd28eb1b013d425b",
     "plugin/sand-ai/info.ini": "a42777df5a258c3fae93c4fb9269a670f5bbabf18a5525ea8e98ad940200d775",
     "plugin/sand-ai/migrations/main-app/202608200000_create_main_application_baseline.pgsql": "9f49b93ae998206c88da49b5a08ab89963d18b938db11178b4a7e4d894699fec",

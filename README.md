@@ -32,7 +32,7 @@ SandAI 通过一个 SandPackage ZIP 安装，包含 PHP/Webman 后端、Vue 管�
 全文约定：
 
 - `NNN` 形式的三位编号指插件自带的 PostgreSQL 版本化迁移序号，文件在 `plugin/sand-ai/migrations/main-app/`，由 SandPackage 的正常升级流程按序执行；不手工 DDL，也不在运行时自动迁移。
-- 文档正文的唯一维护副本在 `plugin/sand-ai/docs/` 下并随统一安装包交付；仓库根 `docs/` 下的同名文件只是薄索引，本文档一律链接前者。
+- 文档正文的唯一维护副本在 `plugin/sand-ai/docs/` 下；其中 `docs/development/` 与 `docs/product/` 仅在源码仓维护、不进安装包，随统一安装包交付的只有 `docs/architecture/` 与 `docs/sandworkflow-consumption.md` 等少数文档。仓库根 `docs/` 下的同名文件只是薄索引，本文档一律链接前者。
 
 ## 能力与使用场景
 
@@ -193,7 +193,7 @@ SandAI 在转写前探测完整的私有音频文件，按向上取整到毫秒�
 
 ### 文档与构包
 
-完整安装 ZIP 包含[安装契约](plugin/sand-ai/docs/development/sand-ai-plugin-package-contract.md)、[API 契约](plugin/sand-ai/docs/development/sand-ai-api-contract.md)和 [SandWorkflow 消费指南](plugin/sand-ai/docs/sandworkflow-consumption.md)。这些是普通插件载荷下唯一维护的文档正文，其相对 IAM 链接在同一个 ZIP 内可解析；仓库根的源码文档路径只保留薄索引。
+完整安装 ZIP 随包交付的文档正文只有 [SandWorkflow 消费指南](plugin/sand-ai/docs/sandworkflow-consumption.md) 与 [IAM 接入边界](plugin/sand-ai/docs/architecture/sand-iam-access-boundary.md)；[安装契约](plugin/sand-ai/docs/development/sand-ai-plugin-package-contract.md) 与 [API 契约](plugin/sand-ai/docs/development/sand-ai-api-contract.md) 位于 `plugin/sand-ai/docs/development/`，仅在源码仓维护、不进安装包。随包文档的相对链接均指向同样随包的文件，在同一个 ZIP 内可解析；仓库根的源码文档路径只保留薄索引。
 
 包维护者使用稳定 SandPackage `>=0.2.24` 中的 `server/scripts/build-plugin-package.php` 构建该统一载荷，流程见[统一包构建入口](plugin/sand-ai/docs/development/sand-ai-plugin-package-contract.md#统一包构建入口)，覆盖应用文件、清单与依赖捆绑。
 
@@ -288,7 +288,7 @@ php webman sand-ai:security status
 
 迁移 `124` 通过正常安装／更新／卸载持久化该登记，本地规划另需迁移 `127`。新任务冻结 `meeting_capacity@2`，含确切路由、登记修订与可信环境归属；历史 `@1` 任务保留其原有的冻结／配置恢复行为。本地规划证据不计量 token，也不降低单独的保守财务预占。来源授权、完整覆盖、限额与不可变费用仍是执行闸门；该设置不是 IAM 授权。
 
-当前状态：本地规划变体是源码候选，正常安装、页面与业务验收仍待完成。确切端点见随包交付的 [API 契约](plugin/sand-ai/docs/development/sand-ai-api-contract.md#会议执行设置2026-10-04-冻结候选未安装)。
+当前状态：本地规划变体是源码候选，正常安装、页面与业务验收仍待完成。确切端点见源码仓维护的 [API 契约](plugin/sand-ai/docs/development/sand-ai-api-contract.md#会议执行设置2026-10-04-冻结候选未安装)（该文档仅在源码仓维护，不随安装包交付）。
 
 ### 受管文档工具
 

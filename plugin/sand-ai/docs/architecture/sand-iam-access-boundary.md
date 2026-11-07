@@ -1,7 +1,7 @@
 # SandIAM 与 SandAI 服务接入边界
 
-> 状态：需求与架构边界已确认；首期功能需求见
-> [SandIAM 产品需求](../product/sand-iam-product-requirements.md)
+> 状态：需求与架构边界已确认；首期功能需求见源码仓的
+> `plugin/sand-ai/docs/product/sand-iam-product-requirements.md`（`docs/product/` 不随安装包交付）
 > 确认日期：2026-08-04；2026-08-13 确认 SandAdmin 插件宿主、平台后台账号与应用用户身份域分离
 > 适用范围：Sand 平台、SandIAM、SandAI 以及默认应用等业务应用
 
