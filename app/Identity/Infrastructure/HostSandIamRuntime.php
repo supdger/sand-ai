@@ -31,6 +31,21 @@ final class HostSandIamRuntime
         return self::instance('plugin\\SandIam\\app\\runtime\\ServiceCatalog');
     }
 
+    /**
+     * SandIAM read-only grant query port (audit A3). Returns null when the
+     * plugin predates the port or the expected method is absent, so callers
+     * degrade fail-closed instead of reading `sand_iam_*` tables directly.
+     */
+    public static function serviceGrantQuery(): ?object
+    {
+        $instance = self::instance('plugin\\SandIam\\app\\runtime\\ServiceGrantQuery');
+        if ($instance === null || !method_exists($instance, 'hasActiveGrant')) {
+            return null;
+        }
+
+        return $instance;
+    }
+
     public static function invocationAuthorizer(): ?object
     {
         if (!class_exists(\plugin\SandIam\app\runtime\ServiceInvocationAuthorizer::class)

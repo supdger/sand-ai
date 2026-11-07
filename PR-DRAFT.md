@@ -27,8 +27,11 @@
   - Body 白名单：`application_id, provider_id, message, model_id?, max_output_tokens?`。
   - 链路：应用管理范围校验 → 托管绑定定位（0 个 → 中文「还没开通」；
     多个 → 409 冲突，绝不猜第一条）→ `sand_ai.chat.complete` 授权实时复核
-    （status=1、未 revoked、未过期、service/action 有效，镜像 SandIAM
-    `resolveServiceGrants`；网络策略与配额仍由 `issue`/`verifyForService` 强制）
+    （经 SandIAM 只读端口 `ServiceGrantQuery::hasActiveGrant` 委托判定，
+    status=1、未 revoked、未过期、service/action 有效的口径由 SandIAM
+    `resolveServiceGrants` 语义持有；端口缺失或调用失败降级为
+    `SAND_AI_TRIAL_IAM_UNAVAILABLE` fail-closed；网络策略与配额仍由
+    `issue`/`verifyForService` 强制）
     → `model_id` 缺省取该 provider 已发布路线中优先级最高者，显式值必须
     属于同 provider 同环境已发布路线 → 为托管客户端签发 300s context /
     330s credential（最小 actions 仅 `sand_ai.chat.complete`，不复用
@@ -66,7 +69,8 @@
 - 旧 `POST /app/sand-ai/admin/trial/context` 与 `/api/sand-ai/v1/*` 未改动。
 - 无 SandIAM 插件时新端点返回 503 中文提示，不影响其他功能。
 - SandIAM 侧仅消费既有模型/服务类与 `AdminOrganizationAccess`、
-  `CredentialIssuanceService`、`IdentityContextProvider`；不读写 SandIAM
+  `CredentialIssuanceService`、`IdentityContextProvider`、
+  `ServiceGrantQuery`（只读授权查询端口）；不读写 SandIAM
   业务表、不建授权。
 
 ## 实际执行命令与结果
@@ -84,9 +88,11 @@
 - 未做 PostgreSQL 集成测试：本机无可用 SandIAM+SandAI 运行时，
   options 投影、grant 复核、凭证签发、ChatGateway 全链仅有代码路径与
   单测覆盖；跨仓联调（WP-A1/B3 落地后）需补 fixture 验证。
-- `sand_iam_service_grant` 复核 SQL 与 SandIAM `resolveServiceGrants`
-  语义对齐但未含 network_policy/quota 预检（由 `issue`/`verifyForService`
-  兜底，失败时映射为中文拒绝）。
+- 授权复核已改走 SandIAM `ServiceGrantQuery` 只读端口（审计 A3 修复），
+  sand-ai 不再直读 `sand_iam_service_grant` 等表；端口未含
+  network_policy/quota 预检（由 `issue`/`verifyForService` 兜底，
+  失败时映射为中文拒绝），SandIAM 旧版缺端口时整体降级为
+  `SAND_AI_TRIAL_IAM_UNAVAILABLE`。
 - 「仅停止等待」：后端本期无取消端点；如需显式 stop 语义字段需前端包确认。
 - `AdminTrialService::chat` 的 `ChatGateway` 返回 `content` 在
   `content_purged` 场景为空串，前端需按 `idempotent_replay`/usage 兜底。

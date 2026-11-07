@@ -14,7 +14,6 @@ use plugin\SandIam\app\model\WorkloadClient;
 use plugin\SandIam\app\admin\support\AdminOrganizationAccess;
 use plugin\SandIam\app\model\Organization;
 use plugin\SandIam\app\service\CredentialIssuanceService;
-use think\facade\Db;
 use Throwable;
 
 /**
@@ -53,7 +52,8 @@ final class AdminTrialIamGateway
                 return false;
             }
         }
-        return HostSandIamRuntime::identityContextProvider() !== null;
+        return HostSandIamRuntime::identityContextProvider() !== null
+            && HostSandIamRuntime::serviceGrantQuery() !== null;
     }
 
     /**
@@ -126,31 +126,26 @@ final class AdminTrialIamGateway
     }
 
     /**
-     * Live grant recheck mirroring SandIAM `resolveServiceGrants`: the
-     * `sand_ai.chat.complete` grant must be active, unrevoked, unexpired, and
-     * backed by an active service/action. Network policy and quota remain
-     * enforced by `IdentityContextProvider::issue`/`verifyForService`.
+     * Live grant recheck delegated to the SandIAM read-only port
+     * `ServiceGrantQuery::hasActiveGrant`, which owns the
+     * `resolveServiceGrants` grant semantics (active, unrevoked, unexpired,
+     * backed by an enabled service/action). Network policy and quota remain
+     * enforced by `IdentityContextProvider::issue`/`verifyForService`. A
+     * missing port or a port failure degrades to
+     * `SAND_AI_TRIAL_IAM_UNAVAILABLE` (fail-closed), never a raw 500.
      */
     public function chatGrantActive(int $workloadClientId): bool
     {
         $this->assertAvailable();
-        $row = Db::connect('pgsql')->table('sand_iam_service_grant')->alias('g')
-            ->join('sand_iam_service_action a', 'a.id = g.service_action_id')
-            ->join('sand_iam_service s', 's.id = a.service_id')
-            ->where('g.workload_client_id', $workloadClientId)
-            ->where('g.audience', self::AUDIENCE)
-            ->where('g.status', 1)
-            ->whereNull('g.revoked_time')
-            ->where(static function ($query): void {
-                $query->whereNull('g.expire_time')->whereOr('g.expire_time', '>', date('Y-m-d H:i:s'));
-            })
-            ->where('s.code', self::SERVICE_CODE)
-            ->where('s.status', 1)
-            ->where('a.code', self::CHAT_ACTION)
-            ->where('a.status', 1)
-            ->field('g.id')
-            ->find();
-        return is_array($row) && (int) ($row['id'] ?? 0) > 0;
+        $query = HostSandIamRuntime::serviceGrantQuery();
+        if ($query === null) {
+            throw new ApiProblem('SAND_AI_TRIAL_IAM_UNAVAILABLE', '身份与授权组件（SandIAM）未安装或未启用，暂时无法使用试用功能');
+        }
+        try {
+            return $query->hasActiveGrant($workloadClientId, self::AUDIENCE, self::SERVICE_CODE, self::CHAT_ACTION) === true;
+        } catch (Throwable) {
+            throw new ApiProblem('SAND_AI_TRIAL_IAM_UNAVAILABLE', '身份与授权组件（SandIAM）暂时不可用，请稍后重试');
+        }
     }
 
     /**
