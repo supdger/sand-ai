@@ -1270,7 +1270,7 @@
     "sandadmin-artd/src/views/plugin/sand-ai/README.md": "6a194ec9107f03c65a1a4bed5b51a3d6135f350ff1bac0d35a0c069d1947ea4a",
     "sandadmin-artd/src/views/plugin/sand-ai/agent/index.vue": "8eefcddc72c391ed3e119fbec486704e9d5cdfd5d40ba7f87f921a1514fe9045",
     "sandadmin-artd/src/views/plugin/sand-ai/agent/modules/AdHocAgentRunPanel.vue": "2ab6ddc074a0eba5844ec92b205e8d371258ef38c091eeda9967d03d6783180c",
-    "sandadmin-artd/src/views/plugin/sand-ai/agent/modules/AgentDefinitionPanel.vue": "22dd39ec290e3b79b04511a31b51867336321668a3c5cfa14d2c10571332a21d",
+    "sandadmin-artd/src/views/plugin/sand-ai/agent/modules/AgentDefinitionPanel.vue": "0deebb320f46bb06acfe68d1ef7fa9f3d1813343d912d01935a74f9740fdc147",
     "sandadmin-artd/src/views/plugin/sand-ai/agent/modules/AgentRunDetails.vue": "6b1e06901e34b4c38ae3d3038c3be8a1a4c3e55b50f0f388a49abd35986e66e5",
     "sandadmin-artd/src/views/plugin/sand-ai/agent/modules/ChannelAgentRecoveryActions.vue": "99026aaabb27b964f74250e72ad101f004a3b85b19da0694f6b11c2c4a979d19",
     "sandadmin-artd/src/views/plugin/sand-ai/agent/modules/ChannelBindingPanel.vue": "ad27aa0269245cb77ece8ee0ad409de4dfa70b18f779be51ffee73ab123509d6",
