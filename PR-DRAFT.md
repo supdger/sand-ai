@@ -239,3 +239,108 @@ is_hidden=0 / status=1`；两个 B2 权限节点 parent=96（SandAITrial），
   egress 字段，本页按「原样显示后端白话原因」实现，未单独渲染
   proxy-hint-copy 的「重新测试/放行名单」交互；如后续后端补结构化
   字段需再接 `EgressBlockedHint` 同款卡片。
+
+---
+
+# WP-B2b：sand-ai 前端存量页面整改（H2/H3/H4/G1）
+
+分支 `fix/0410-phase2`，基于 WP-A2/WP-B2a 之上。本包只改
+`sandadmin-artd/src/views/plugin/sand-ai/` 前端视图与展示层，
+不改后端 PHP、不改菜单迁移、不动宿主共享表格实现。
+
+## H2 文件主视图（file/index.vue）
+
+- 主视图收敛为：调用密钥、上传文件、文件列表（文件 / 大小 /
+  处理进度 / 上传时间 / 操作）。
+- 「按编号查询」「长 TXT 来源与旧解析恢复」「找回文件解析」
+  「只读查询已有解析」「找回录音转写」「清理结果待确认 details」
+  全部移入默认折叠的「高级：按编号查询与找回恢复（一般不用）」
+  （原生 `<details>`，未删除任何恢复/找回/只读能力，绑定与
+  sessionStorage 幂等逻辑原样保留；原先重复渲染 3 份的清理
+  details 合并为 1 份）。
+- 锁定态（parse/audio/cleanup pending）在主视图保留一行中文提示，
+  指引用户到高级区核对，不再直接平铺表单。
+- 行内「操作」改为情境主操作 + 详情 + 刷新 + 删除：
+  已解析文件主操作为「查看结果」（原「查看解析出的文字」），
+  未解析显示「提交解析」，录音显示「转写录音」，失败/取消才显示
+  「继续原解析任务 / 核对取消后重新解析」，解析/转写中显示「看任务」；
+  其余解析、转写、清理状态入口移入新增「文件详情」弹窗
+  （ElDescriptions + 原操作按钮，disabled/loading 条件与原行一致）。
+- 列表不再平铺扩展名/格式/清理状态/解析摘要/任务列；解析摘要改用
+  `runStateLabel` 中文状态与 `hintForRuntimeErrorCode` 错误提示，
+  不再显示 `parser_code@parser_version` 原始串。
+
+## H3 响应式表格（1280/1440 静态处理）
+
+| 页面 | 处理 |
+|---|---|
+| file | 主表 10 列 → 5 列（文件/大小/处理进度/上传时间/操作，合计 min≈825px），次要列入详情弹窗 |
+| task | 主表 8 列收紧至 ≈920px；类型/资源/状态改中文标签（displayLabels 新增 taskType/resourceType 映射，未知值回退原值）；错误码列改 `hintForRuntimeErrorCode` 中文提示 + tooltip；步骤/文件/引用/音频分段子表同步收窄，来源引用列名 block/file/locator_type/locator → 来源块/文件/定位方式/定位详情 |
+| capability | 路由表 6 列 min 合计 990→≈810px（能力140/处理方式130/部署220/解析工具160/优先90/操作80） |
+| provider/model | 各 8 列收紧至 ≈910/≈830px，名称列加 overflow tooltip |
+| invocation | 9 列收紧至 ≈930px，错误码中文化 + tooltip |
+| audit | 8 列收紧至 ≈940px |
+| knowledge | 8 列收紧至 ≈900px，位置列加 tooltip |
+| usage（费用事件表） | 列多（≈28 列）但经 `ArtTableHeader` columnChecks 提供用户列显隐，且 ArtTable/ElTable 自带容器内横向滚动不裁剪；本包仅将面板内两个查询类实心按钮降为次级，未删列 |
+| trial | 表单页无数据表，既有响应式（760px 居中/flex-wrap/单列断点）保持 |
+
+未使用 `overflow-x:hidden`；长文本靠 `showOverflowTooltip`、
+`overflow-wrap`、列合并与详情弹窗承载。
+
+## H4 能力/材料配置中文化
+
+- capability/index.vue：说明文案「无需 API Key」→「无需密钥」；
+  配置名称占位改中文示例；修订冲突提示中的 `driver_code`
+  原始码改经 `driverLabel` 中文展示、部署号加「部署 #」前缀。
+- MaterialProfileEditor.vue：主表单只留 名称 / 「按项目整理」
+  （document_classifications）/「要整理出的人、机构等」
+  （entity_types）/「要额外整理的内容（可不填）」
+  （extension_fields）；代码、版本、输出语言、跨文件复核输出、
+  提示词/输出字符上限移入默认折叠「高级设置（开发者一般不用改）」。
+  「标准 JSON」选项改显示「标准输出」，`neuron_*` payload 值不变；
+  校验规则（小写字段码正则、必填、长度、去重）全部保留，
+  仅校验文案改用新标签。
+- MaterialSampleRunner.vue：来源弹窗的 `locator_type`+JSON 移入
+  「技术详情」折叠；服务端校验失败提示同步新标签；
+  「业务范围」占位去掉「代码」字样。
+- 历史配置字段名、payload、revision/幂等/撤销流程均未改动；
+  后端 `message` 原样透传未包裹。
+
+## G1 主按钮统一（每操作区至多一个实心主按钮）
+
+- file：行内「提交解析/转写录音」实心按钮全部移除（情境操作
+  统一默认按钮）；录音提交弹窗内「提交转写」保留为该弹窗唯一主按钮。
+- task：「查询」及详情区「使用当前授权继续原任务」「使用一次机会
+  恢复原 OCR 任务」「保存复核」「生成会议摘要」「纠正失败节点并继续」
+  均降为默认按钮；全页仅保留「提交 AI 任务」一个实心主按钮。
+- knowledge：「检索」降为默认，「用选中来源提交 AI」为唯一实心主按钮。
+- usage-cost-panel：「应用筛选」「查看费用汇总」降为默认
+  （查询类不与主操作竞争）。
+- capability：能力表单「保存草稿」为该表单区唯一实心主按钮；
+  「启用配置档」为 success 语义钮；MaterialProfileEditor 同理
+  （保存草稿 + 核验样本并启用 success）。
+- provider/model：各页仅「新增」一个实心主按钮；编辑/删除为
+  link/danger。invocation/audit/usage/index/trial 无新增实心按钮
+  冲突；trial 页实心按钮分属互斥状态（空态/错误态/发送）。
+- 组件级（DeploymentSetup/TrialPanel 等表单、弹窗、折叠区）各
+  操作区均至多一个实心主按钮，未做机械替换。
+
+## 实际执行命令与结果
+
+| 命令 | 退出码 | 输出尾部 |
+|---|---|---|
+| `php tools/frontend-gate.php . sand-ai` | 0 | `前端闸门：相对 import 解析 156 个文件 / 587 条相对 import` `前端闸门：通过` |
+| `python3 tools/scan_relative_imports.py …` | — | 本仓无此脚本；等价扫描已由 frontend-gate 覆盖（见上） |
+| 禁用词扫描（`198\.18\|fake-ip\|SSRF\|sk-\|api[_-]?key[:=]`，改动文件 diff） | 1（零命中） | 无输出 |
+
+## 未执行/未验证项与风险
+
+- `vue-tsc --noEmit` 未运行：本仓 `sandadmin-artd/` 仅视图源码树，
+  类型检查依赖宿主工程（同 WP-A2 说明）。
+- 未做浏览器实测：无运行中宿主/后端；1280/1440 无横向滚动为
+  静态列宽核算 + 既有响应式类复核，未截图/DOM 实测。
+- usage 费用事件表列数多，依赖既有列显隐开关与表格内部滚动；
+  如验收要求默认列进一步收敛，需产品确认可隐藏的次要维度。
+- 「按项目整理」为 document_classifications 的用户侧命名映射，
+  「要整理出的人、机构等」为 entity_types 的映射；字段与
+  payload 未变，若产品另有指定文案可再调。
