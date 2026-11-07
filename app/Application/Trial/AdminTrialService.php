@@ -117,7 +117,7 @@ final class AdminTrialService
                 $selection['model_code'],
                 [['role' => 'user', 'content' => trim($message)]],
                 $idempotencyRequestId,
-                UsageAttribution::fromIdentity($context, 'admin_trial', AdminTrialIamGateway::CHAT_ACTION),
+                self::chatAttribution($context),
                 $maxOutputTokens,
                 authorizePublicInvocation: $authorizeInvocation,
             );
@@ -236,6 +236,23 @@ final class AdminTrialService
             throw new ApiProblem('SAND_AI_TRIAL_ROUTES_UNAVAILABLE', '暂时无法读取这个应用的可用线路，请稍后重试');
         }
         return is_array($routes) ? $routes : [];
+    }
+
+    /**
+     * Usage attribution for a trial chat. A trial message is a real billable
+     * chat completion of the application, so `source_kind` must stay `chat`:
+     * it is persisted on `sand_ai_invocation_dispatch` and
+     * `sand_ai_usage_event` (whose CHECK whitelist has no `admin_trial`), and
+     * it is re-validated by `ChatInvocationFacts`/`InvocationReadFacts`,
+     * which only accept `chat` for the `chat` execution scope and
+     * `sand_ai.chat.complete` action. The trial origin stays distinguishable
+     * through the dedicated `admin_trial` SandIAM workload client, the
+     * `admin_trial:<id>` identity subject and the `admin_trial.context.issue`
+     * audit action — never through `source_kind`.
+     */
+    public static function chatAttribution(IdentityContext $context): UsageAttribution
+    {
+        return UsageAttribution::fromIdentity($context, 'chat', AdminTrialIamGateway::CHAT_ACTION);
     }
 
     /**

@@ -24,6 +24,9 @@ require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HostSandIamErrorMa
 require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HttpStreamAuthorizationScope.php';
 require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HostSandIamInvocationAuthorizer.php';
 require_once dirname(__DIR__) . '/app/Identity/Infrastructure/ChatInvocationAccessGuard.php';
+require_once dirname(__DIR__) . '/app/Identity/Infrastructure/ChatInvocationFacts.php';
+require_once dirname(__DIR__) . '/app/Identity/Infrastructure/InvocationReadFacts.php';
+require_once dirname(__DIR__) . '/app/Application/Usage/UsageAttribution.php';
 require_once dirname(__DIR__) . '/app/Application/Trial/AdminTrialIamGateway.php';
 require_once dirname(__DIR__) . '/app/Application/Trial/AdminTrialService.php';
 require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HostSandIamServiceCatalog.php';
@@ -35,7 +38,9 @@ use app\Application\Trial\AdminTrialRateLimiter;
 use app\Application\Trial\AdminTrialService;
 use app\Identity\Contract\IdentityContext;
 use app\Identity\Infrastructure\ChatInvocationAccessGuard;
+use app\Identity\Infrastructure\ChatInvocationFacts;
 use app\Identity\Infrastructure\HostSandIamInvocationAuthorizer;
+use app\Identity\Infrastructure\InvocationReadFacts;
 use app\Identity\Infrastructure\HostSandIamServiceCatalog;
 use support\Request as SupportRequest;
 
@@ -414,6 +419,63 @@ $ids = $projection->invoke(null, [3 => ['models' => []], 4 => ['models' => [8 =>
 ok($ids === [8], 'D-C3-02：空模型集服务商不产生伪 id');
 $ids = $projection->invoke(null, []);
 ok($ids === [], 'D-C3-02：空投影返回空集');
+
+// --- D-C4-01：试用 source_kind 与调用事实白名单一致 -------------------------
+// 真实宿主实测：dispatch 落库 source_kind='admin_trial' 而
+// ChatInvocationFacts 只接受 'chat'，导致 SAND_AI_INVOCATION_FACTS_UNVERIFIED。
+// 这里用同一归因对象驱动 facts 校验，证明「服务写入的 source_kind」与
+// 「facts 接受的 source_kind」一致。
+$trialAttribution = AdminTrialService::chatAttribution($trialIdentity);
+ok($trialAttribution->sourceKind === 'chat'
+    && $trialAttribution->serviceAction === 'sand_ai.chat.complete'
+    && $trialAttribution->capabilityCode === 'chat',
+    'D-C4-01：试用归因为 source_kind=chat（与公开 chat 派发同源）');
+
+// ChatGateway 对 publicChat scope 落库的 dispatch/usage 维度（无 DB，用持久化
+// 形状数组直接喂 facts 纯投影）。
+$chatFactsInvocation = [
+    'id' => 42,
+    'status' => 1,
+    'delete_time' => null,
+    'organization_id' => 7,
+    'application_id' => 9,
+    'environment_id' => 3,
+    'workload_client_id' => 11,
+    'data_class' => null,
+    'knowledge_publication_id' => null,
+    'knowledge_base_version_id' => null,
+    'knowledge_source_scope_sha256' => null,
+];
+$chatFactsDispatch = [
+    'invocation_id' => 42,
+    'environment_id' => 3,
+    'application_id' => 9,
+    'execution_scope' => 'chat',
+    'source_kind' => $trialAttribution->sourceKind,
+    'service_action' => $trialAttribution->serviceAction,
+];
+
+$chatFacts = ChatInvocationFacts::fromPersisted($chatFactsInvocation, $chatFactsDispatch, 42);
+ok(($chatFacts['resource_type'] ?? null) === 'sand_ai.chat_invocation'
+    && ($chatFacts['resource_ref'] ?? null) === '42'
+    && ($chatFacts['workload_client_id'] ?? null) === 11
+    && ($chatFacts['environment_id'] ?? null) === 3,
+    'D-C4-01：试用归因 source_kind 通过 ChatInvocationFacts 校验（dispatch 落库值=facts 接受值）');
+
+$readFacts = InvocationReadFacts::fromPersisted($chatFactsInvocation, $chatFactsDispatch, 42);
+ok(($readFacts['resource_type'] ?? null) === 'sand_ai.invocation'
+    && ($readFacts['resource_ref'] ?? null) === '42',
+    'D-C4-01：同一 dispatch 形状通过 InvocationReadFacts（结果/用量读取）校验');
+
+// 对照：修复前的 'admin_trial' 必须仍被拒绝，证明白名单未被放宽、缺陷语义未变。
+$rejectedDispatch = $chatFactsDispatch;
+$rejectedDispatch['source_kind'] = 'admin_trial';
+$problem = problemOf(static fn () => ChatInvocationFacts::fromPersisted($chatFactsInvocation, $rejectedDispatch, 42));
+ok($problem !== null && $problem['message'] === 'SAND_AI_INVOCATION_FACTS_UNVERIFIED',
+    'D-C4-01：旧值 admin_trial 仍被 facts 白名单拒绝（缺陷对照）');
+$problem = problemOf(static fn () => InvocationReadFacts::fromPersisted($chatFactsInvocation, $rejectedDispatch, 42));
+ok($problem !== null && $problem['message'] === 'SAND_AI_INVOCATION_FACTS_UNVERIFIED',
+    'D-C4-01：旧值 admin_trial 在读取 facts 同样被拒绝（缺陷对照）');
 
 echo "----\n通过 {$passed}，失败 {$failed}\n";
 exit($failed === 0 ? 0 : 1);
