@@ -11,6 +11,43 @@ use Throwable;
 final class HostSandIamServiceCatalog
 {
     private const SERVICE = ['code' => 'sand_ai', 'name' => 'SandAI'];
+    /** SandIAM B3 catalog group; persisted once the host port accepts it. */
+    private const SERVICE_GROUP_NAME = 'AI 能力';
+    /**
+     * Chinese action descriptions declared for the SandIAM service catalog
+     * (WP-A1/B3). The runtime registration payload stays `code => name` so
+     * older SandIAM `ServiceCatalog` ports keep working unchanged; richer
+     * ports consume `serviceDeclaration()`/`actionDeclarations()`.
+     */
+    private const ACTION_DETAILS = [
+        'sand_ai.chat.complete' => '和 AI 对话',
+        'sand_ai.agent.submit' => '提交智能体任务',
+        'sand_ai.agent.run' => '读取智能体来源',
+        'sand_ai.retrieval.search' => '检索私有来源',
+        'sand_ai.invocation.read' => '查看调用状态',
+        'sand_ai.usage.read' => '查看调用费用',
+        'sand_ai.knowledge.query' => '查询知识库',
+        'sand_ai.document_parse' => '解析私有文件',
+        'sand_ai.workflow.run' => '运行结构化工作流',
+        'sand_ai.workflow.read' => '查看结构化工作流结果',
+        'sand_ai.file.write' => '写入私有文件',
+        'sand_ai.file.read' => '读取私有文件',
+        'sand_ai.model.read' => '查看模型目录',
+        'sand_ai.task.read' => '查看任务结果',
+        'sand_ai.task.cancel' => '取消任务',
+        'sand_ai.task.retry' => '重试任务',
+        'sand_ai.tool.run' => '运行外部工具',
+        'sand_ai.tool.read' => '查看工具结果',
+        'sand_ai.skill.run' => '运行个人 Skill',
+        'sand_ai.skill.read' => '读取应用方法包',
+        'sand_ai.skill.manage' => '管理应用方法包与案例',
+        'sand_ai.skill.test' => '测试应用方法包并计费',
+        'sand_ai.skill.publish' => '发布、撤销及回退应用方法包',
+        'sand_ai.audio.transcription' => '音频转写',
+        'sand_ai.audio.review' => '音频片段复核',
+        'sand_ai.audio.speech' => '语音合成',
+        'sand_ai.audio.speech.read' => '查看语音合成结果',
+    ];
     private const ACTIONS = [
         'sand_ai.chat.complete' => 'AI 对话',
         'sand_ai.agent.submit' => '智能体提交',
@@ -44,6 +81,34 @@ final class HostSandIamServiceCatalog
         'sand_ai.audio.speech' => '语音合成',
         'sand_ai.audio.speech.read' => '语音合成结果读取',
     ];
+
+    /**
+     * Rich service declaration for SandIAM catalog ports that accept metadata
+     * (WP-A1). Older ports keep receiving the legacy `code => name` payload
+     * through `register()`/`registerSkill()`/`registerAudio()`.
+     *
+     * @return array{code:string,name:string,group_name:string}
+     */
+    public static function serviceDeclaration(): array
+    {
+        return self::SERVICE + ['group_name' => self::SERVICE_GROUP_NAME];
+    }
+
+    /**
+     * @param array<string,string> $actions legacy `code => name` map
+     * @return array<string,array{name:string,description:string}>
+     */
+    public static function actionDeclarations(array $actions): array
+    {
+        $declarations = [];
+        foreach ($actions as $code => $name) {
+            $declarations[$code] = [
+                'name' => $name,
+                'description' => self::ACTION_DETAILS[$code] ?? $name,
+            ];
+        }
+        return $declarations;
+    }
 
     public function __construct(private readonly ?object $hostCatalog = null)
     {
