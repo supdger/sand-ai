@@ -108,19 +108,19 @@
       apiFn: providerApi.list,
       apiParams: {},
       columnsFactory: () => [
-        { prop: 'id', label: '编号', width: 80, align: 'center' },
-        { prop: 'name', label: '名称', minWidth: 160 },
+        { prop: 'id', label: '编号', width: 70, align: 'center' },
+        { prop: 'name', label: '名称', minWidth: 140, showOverflowTooltip: true },
         {
           prop: 'adapter',
           label: '服务商类型',
-          minWidth: 160,
+          minWidth: 130,
           formatter: (row: SandAiProvider) => providerAdapterLabel(row.adapter)
         },
-        { prop: 'timeout_ms', label: '超时（毫秒）', width: 110, align: 'center' },
-        { prop: 'has_encrypted_config', label: '密钥', width: 100, useSlot: true },
-        { prop: 'status', label: '状态', width: 100, useSlot: true },
-        { prop: 'update_time', label: '更新时间', width: 180 },
-        { prop: 'operation', label: '操作', width: 140, fixed: 'right', useSlot: true }
+        { prop: 'timeout_ms', label: '超时（毫秒）', width: 100, align: 'center' },
+        { prop: 'has_encrypted_config', label: '密钥', width: 90, useSlot: true },
+        { prop: 'status', label: '状态', width: 90, useSlot: true },
+        { prop: 'update_time', label: '更新时间', width: 170 },
+        { prop: 'operation', label: '操作', width: 120, fixed: 'right', useSlot: true }
       ]
     }
   })

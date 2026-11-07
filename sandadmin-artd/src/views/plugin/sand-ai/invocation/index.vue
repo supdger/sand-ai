@@ -61,6 +61,7 @@
   import invocationApi from '../api/invocation'
   import { errorDisplayText } from '../api/errorText'
   import { runStateLabel } from '../api/displayLabels'
+  import { hintForRuntimeErrorCode } from '../api/runtimeErrors'
   import type { SandAiInvocation, SandAiInvocationCost, SandAiPageQuery } from '../api/types'
 
   const route = useRoute()
@@ -94,23 +95,24 @@
       apiFn: invocationApi.list,
       apiParams: {},
       columnsFactory: () => [
-        { prop: 'id', label: '编号', width: 80, align: 'center' },
-        { prop: 'request_id', label: '请求编号', minWidth: 160 },
-        { prop: 'environment_id', label: '环境', width: 130 },
-        { prop: 'model_id', label: '模型', width: 100 },
+        { prop: 'id', label: '编号', width: 70, align: 'center' },
+        { prop: 'request_id', label: '请求编号', minWidth: 140, showOverflowTooltip: true },
+        { prop: 'environment_id', label: '环境', width: 110 },
+        { prop: 'model_id', label: '模型', width: 90 },
         {
           prop: 'state',
           label: '状态',
-          width: 110,
+          width: 100,
           formatter: (row: SandAiInvocation) => runStateLabel(row.state)
         },
-        { prop: 'latency_ms', label: '耗时（毫秒）', width: 110 },
-        { prop: 'error_code', label: '错误码', minWidth: 140 },
-        { prop: 'request_at', label: '请求时间', width: 180 },
+        { prop: 'latency_ms', label: '耗时（毫秒）', width: 100 },
+        { prop: 'error_code', label: '错误', minWidth: 110, showOverflowTooltip: true,
+          formatter: (row: SandAiInvocation) => row.error_code ? (hintForRuntimeErrorCode(row.error_code) ?? row.error_code) : '—' },
+        { prop: 'request_at', label: '请求时间', width: 170 },
         {
           prop: 'cost_action',
           label: '费用',
-          width: 115,
+          width: 100,
           fixed: 'right',
           formatter: (row: SandAiInvocation) =>
             hasAuth('sand_ai:usage:cost')

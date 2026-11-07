@@ -21,7 +21,7 @@
           <ElFormItem label="按编号查询">
             <ElSpace wrap>
               <ElInputNumber v-model="lookupId" :min="1" :controls="false" placeholder="任务编号" />
-              <ElButton :loading="busy === 'read'" type="primary" @click="handleLookup">查询</ElButton>
+              <ElButton :loading="busy === 'read'" @click="handleLookup">查询</ElButton>
             </ElSpace>
           </ElFormItem>
         </ElForm>
@@ -168,7 +168,7 @@
             <ElAlert type="warning" :closable="false" title="原任务执行授权需要明确续接"
               description="原任务授权已暂停或过期。使用当前有效应用凭证明确继续时，服务端重新核验同一任务、来源和调用范围；页面不会自动续签。已完成节点、原来源版本和费用保留，结果待确认的节点仍只能找回原结果。" />
             <p class="task-footnote">{{ authorizationReason(activeTask) }}</p>
-            <ElButton type="primary" :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim() || !activeTask.authorization_continuation.available"
+            <ElButton :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim() || !activeTask.authorization_continuation.available"
               :loading="busy === 'authorization-continue' && mutationInFlight?.taskId === activeTask.id"
               @click="continueTaskAuthorization(activeTask.id)">使用当前授权继续原任务</ElButton>
             <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(activeTask.id)">查看原任务</ElButton>
@@ -177,7 +177,7 @@
             <p v-if="activeTask.ocr_before_dispatch_retry.consumed">原任务的一次 OCR 恢复机会已使用；后续状态请读取原任务确认。</p>
             <template v-else-if="canRetryOcrBeforeDispatch(activeTask)">
               <p>服务端确认原任务在发送 OCR 前耗尽尝试次数。可明确使用一次恢复机会，将同一文件、解析记录和任务重新入队；本次不创建新解析任务，之后实际 OCR 调用仍按当前授权与费用规则处理。</p>
-              <ElButton type="primary" :loading="Boolean(ocrRetryFlight)" :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim()" @click="retryOcrBeforeDispatch(activeTask.id)">使用一次机会恢复原 OCR 任务</ElButton>
+              <ElButton :loading="Boolean(ocrRetryFlight)" :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim()" @click="retryOcrBeforeDispatch(activeTask.id)">使用一次机会恢复原 OCR 任务</ElButton>
             </template>
             <p v-if="ocrRetryNotice" class="task-footnote">{{ ocrRetryNotice }}</p>
           </section>
@@ -427,7 +427,7 @@
                     所选范围是整段输入；填写说话人编号表示人工标注整段，不代表引擎已识别说话人。
                   </p>
                   <ElFormItem>
-                    <ElButton type="primary" :loading="mutationInFlight?.kind === 'review_save' && mutationInFlight.taskId === activeTask.id"
+                    <ElButton :loading="mutationInFlight?.kind === 'review_save' && mutationInFlight.taskId === activeTask.id"
                       :disabled="Boolean(busy) || newCallsBlocked || reviewSegmentIndex === null || !!activePendingReview || reviewNeedsRefresh.has(activeTask.id) || reviewRecoveryBlocked.has(activeTask.id)"
                       @click="saveAudioReview(activeTask.id)">保存复核</ElButton>
                   </ElFormItem>
@@ -487,7 +487,7 @@
                   <ElButton :loading="summaryModelsLoading" @click="loadSummaryModels">刷新模型</ElButton>
                 </ElFormItem>
                 <ElFormItem>
-                  <ElButton type="primary" :loading="mutationInFlight?.kind === 'summary_submit' && mutationInFlight.taskId === activeTask.id" :disabled="Boolean(busy) || newCallsBlocked || !!pendingSummary || !!summaryLookupKey.trim() || summaryStorageBlocked || Boolean(summaryReviewBlock(activeTask.id)) || !canSummarize(activeTask)"
+                  <ElButton :loading="mutationInFlight?.kind === 'summary_submit' && mutationInFlight.taskId === activeTask.id" :disabled="Boolean(busy) || newCallsBlocked || !!pendingSummary || !!summaryLookupKey.trim() || summaryStorageBlocked || Boolean(summaryReviewBlock(activeTask.id)) || !canSummarize(activeTask)"
                     @click="handleMeetingSummary(activeTask.id)">生成会议摘要</ElButton>
                 </ElFormItem>
               </ElForm>
@@ -521,7 +521,7 @@
           <section v-if="activeTask.meeting_output_correction" class="task-alert" aria-label="会议失败节点纠正">
             <p v-if="meetingCorrectionExpectation(activeTask)">节点 {{ activeTask.meeting_output_correction.node_code }} 的结果{{ activeTask.meeting_output_correction.reason === 'missing_sources' ? '缺少必填来源引用' : '包含重复来源引用' }}，未被接受。问题位置：{{ meetingCorrectionLocation(activeTask.meeting_output_correction.reason_path) }}。可明确纠正该失败节点并继续原摘要；这会新建一次付费尝试，已成功节点、旧结果和费用保留。</p>
             <p v-else>当前没有可明确纠正的失败节点。结果未知、执行中或其他失败查看原任务，不重新调用。</p>
-            <ElButton v-if="meetingCorrectionExpectation(activeTask)" type="primary"
+            <ElButton v-if="meetingCorrectionExpectation(activeTask)"
               :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim()"
               :loading="busy === 'meeting-correction'" @click="correctMeetingOutput(activeTask.id)">纠正失败节点并继续</ElButton>
           </section>
@@ -674,7 +674,8 @@
   import { beginMaterialTaskActionFlight, finishMaterialTaskActionFlight, materialTaskActionInFlight, pendingMaterialTaskActionIds, readMaterialTaskAction, retainMaterialTaskAction, reconcileMaterialTaskAction, type MaterialTaskAction } from '../api/materialTaskAction'
   import { readRuntimeBearer } from '../api/runtimeBearerSession'
   import { newRuntimeRequestId, SandAiRuntimeError } from '../api/runtime'
-  import { toRuntimeUiError } from '../api/runtimeErrors'
+  import { toRuntimeUiError, hintForRuntimeErrorCode } from '../api/runtimeErrors'
+  import { runStateLabel, taskTypeLabel, resourceTypeLabel } from '../api/displayLabels'
   import { errorDisplayText } from '../api/errorText'
   import type { RuntimeUiError } from '../api/runtimeErrors'
   import type {
@@ -1464,22 +1465,23 @@
   }
 
   const columns: ColumnOption<SandAiTask>[] = [
-    { prop: 'id', label: '编号', width: 80, align: 'center' },
-    { prop: 'task_type', label: '类型', minWidth: 120 },
-    { prop: 'resource_type', label: '资源', width: 110 },
-    { prop: 'resource_id', label: '资源编号', width: 100 },
-    { prop: 'state', label: '状态', width: 110 },
+    { prop: 'id', label: '编号', width: 70, align: 'center' },
+    { prop: 'task_type', label: '类型', minWidth: 110, formatter: (row) => taskTypeLabel(row.task_type) },
+    { prop: 'resource_type', label: '资源', width: 100, formatter: (row) => resourceTypeLabel(row.resource_type) },
+    { prop: 'resource_id', label: '资源编号', width: 90 },
+    { prop: 'state', label: '状态', width: 100, formatter: (row) => runStateLabel(row.state) },
     {
       prop: 'attempt_count',
       label: '尝试',
-      width: 100,
+      width: 90,
       formatter: (row) => `${row.attempt_count}/${row.max_attempts}`
     },
-    { prop: 'error_code', label: '错误码', minWidth: 140 },
+    { prop: 'error_code', label: '错误', minWidth: 120, showOverflowTooltip: true,
+      formatter: (row) => row.error_code ? (hintForRuntimeErrorCode(row.error_code) ?? row.error_code) : '—' },
     {
       prop: 'id',
       label: '操作',
-      width: 260,
+      width: 240,
       fixed: 'right',
       formatter: (row) =>
         h(ElSpace, { wrap: true }, () => [
@@ -1516,22 +1518,23 @@
   ]
 
   const stepColumns: ColumnOption<SandAiTaskStep>[] = [
-    { prop: 'code', label: '步骤', minWidth: 140 },
-    { prop: 'state', label: '状态', width: 110 },
-    { prop: 'attempt_count', label: '尝试', width: 90 },
-    { prop: 'error_code', label: '错误码', minWidth: 140 },
-    { prop: 'error_summary', label: '摘要', minWidth: 180 },
-    { prop: 'started_at', label: '开始', width: 170 },
-    { prop: 'completed_at', label: '完成', width: 170 }
+    { prop: 'code', label: '步骤', minWidth: 130 },
+    { prop: 'state', label: '状态', width: 100, formatter: (row) => runStateLabel(row.state) },
+    { prop: 'attempt_count', label: '尝试', width: 80 },
+    { prop: 'error_code', label: '错误', minWidth: 120, showOverflowTooltip: true,
+      formatter: (row) => row.error_code ? (hintForRuntimeErrorCode(row.error_code) ?? row.error_code) : '—' },
+    { prop: 'error_summary', label: '摘要', minWidth: 160 },
+    { prop: 'started_at', label: '开始', width: 160 },
+    { prop: 'completed_at', label: '完成', width: 160 }
   ]
 
   const fileColumns: ColumnOption<SandAiWorkflowFileState>[] = [
-    { prop: 'file_id', label: '文件编号', width: 110 },
-    { prop: 'analysis_state', label: '分析状态', width: 150 },
+    { prop: 'file_id', label: '文件编号', width: 100 },
+    { prop: 'analysis_state', label: '分析状态', width: 130, formatter: (row) => runStateLabel(row.analysis_state) },
     {
       prop: 'chunk_progress',
       label: '分段整理与来源覆盖',
-      minWidth: 340,
+      minWidth: 280,
       formatter: (row) => {
         const progress = row.chunk_progress
         if (!progress) return '未记录分块覆盖；沿原文件成果与来源查看'
@@ -1544,18 +1547,20 @@
         ])
       }
     },
-    { prop: 'attempt_count', label: '尝试', width: 90 },
-    { prop: 'error_code', label: '错误码', minWidth: 190 }
+    { prop: 'attempt_count', label: '尝试', width: 80 },
+    { prop: 'error_code', label: '错误', minWidth: 140, showOverflowTooltip: true,
+      formatter: (row) => row.error_code ? (hintForRuntimeErrorCode(row.error_code) ?? row.error_code) : '—' }
   ]
 
   const refColumns: ColumnOption<SandAiSourceReference>[] = [
-    { prop: 'source_block_id', label: 'block', width: 90 },
-    { prop: 'file_id', label: 'file', width: 90 },
-    { prop: 'locator_type', label: 'locator_type', width: 120 },
+    { prop: 'source_block_id', label: '来源块', width: 90 },
+    { prop: 'file_id', label: '文件', width: 80 },
+    { prop: 'locator_type', label: '定位方式', width: 110 },
     {
       prop: 'locator',
-      label: 'locator',
-      minWidth: 180,
+      label: '定位详情',
+      minWidth: 160,
+      showOverflowTooltip: true,
       formatter: (row) => JSON.stringify(row.locator)
     }
   ]

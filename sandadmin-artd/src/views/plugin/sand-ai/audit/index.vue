@@ -69,19 +69,19 @@
       apiFn: auditApi.list,
       apiParams: {},
       columnsFactory: () => [
-        { prop: 'id', label: '编号', width: 80, align: 'center' },
-        { prop: 'actor_type', label: '操作者类型', width: 110 },
-        { prop: 'actor_ref', label: '操作者编号', minWidth: 120 },
+        { prop: 'id', label: '编号', width: 70, align: 'center' },
+        { prop: 'actor_type', label: '操作者类型', width: 100 },
+        { prop: 'actor_ref', label: '操作者编号', minWidth: 100, showOverflowTooltip: true },
         {
           prop: 'action',
           label: '操作',
-          minWidth: 160,
+          minWidth: 140,
           formatter: (row: SandAiAuditLog) => serviceActionLabel(row.action)
         },
-        { prop: 'resource_type', label: '对象类型', width: 130 },
-        { prop: 'resource_id', label: '对象编号', width: 110 },
-        { prop: 'summary', label: '摘要', minWidth: 200, showOverflowTooltip: true },
-        { prop: 'create_time', label: '时间', width: 180 }
+        { prop: 'resource_type', label: '对象类型', width: 110 },
+        { prop: 'resource_id', label: '对象编号', width: 90 },
+        { prop: 'summary', label: '摘要', minWidth: 160, showOverflowTooltip: true },
+        { prop: 'create_time', label: '时间', width: 170 }
       ]
     }
   })

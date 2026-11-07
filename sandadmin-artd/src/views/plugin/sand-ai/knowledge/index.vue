@@ -35,14 +35,13 @@
                 @keyup.enter="handleSearch"
               />
               <ElInputNumber v-model="limit" :min="1" :max="20" :controls="false" />
-              <ElButton type="primary" :loading="busy" @click="handleSearch">检索</ElButton>
+              <ElButton :loading="busy" @click="handleSearch">检索</ElButton>
             </ElSpace>
           </ElFormItem>
           <ElFormItem>
             <ElSpace wrap>
               <ElButton
                 type="primary"
-                plain
                 :disabled="selectedIds.length === 0"
                 @click="() => goAiTask()"
               >
@@ -113,19 +112,20 @@
     { type: 'selection', width: 48 },
     { prop: 'source_block_id', label: '来源块', width: 90, align: 'center' },
     { prop: 'file_id', label: '文件', width: 90 },
-    { prop: 'locator_type', label: '定位方式', width: 120 },
+    { prop: 'locator_type', label: '定位方式', width: 100 },
     {
       prop: 'locator',
       label: '位置',
-      minWidth: 160,
+      minWidth: 140,
+      showOverflowTooltip: true,
       formatter: (row) => JSON.stringify(row.locator)
     },
-    { prop: 'score', label: '相关度', width: 100 },
-    { prop: 'excerpt', label: '摘录', minWidth: 280 },
+    { prop: 'score', label: '相关度', width: 90 },
+    { prop: 'excerpt', label: '摘录', minWidth: 240 },
     {
       prop: 'source_block_id',
       label: '操作',
-      width: 110,
+      width: 100,
       fixed: 'right',
       formatter: (row) =>
         h(

@@ -110,18 +110,18 @@
       apiFn: modelApi.list,
       apiParams: {},
       columnsFactory: () => [
-        { prop: 'id', label: '编号', width: 80, align: 'center' },
-        { prop: 'name', label: '名称', minWidth: 160 },
+        { prop: 'id', label: '编号', width: 70, align: 'center' },
+        { prop: 'name', label: '名称', minWidth: 140, showOverflowTooltip: true },
         {
           prop: 'type',
           label: '类型',
-          width: 110,
+          width: 100,
           formatter: (row: SandAiModel) => modelTypeLabel(row.type)
         },
-        { prop: 'capabilities', label: '能力', minWidth: 160, useSlot: true },
-        { prop: 'status', label: '状态', width: 100, useSlot: true },
-        { prop: 'update_time', label: '更新时间', width: 180 },
-        { prop: 'operation', label: '操作', width: 140, fixed: 'right', useSlot: true }
+        { prop: 'capabilities', label: '能力', minWidth: 140, useSlot: true },
+        { prop: 'status', label: '状态', width: 90, useSlot: true },
+        { prop: 'update_time', label: '更新时间', width: 170 },
+        { prop: 'operation', label: '操作', width: 120, fixed: 'right', useSlot: true }
       ]
     }
   })

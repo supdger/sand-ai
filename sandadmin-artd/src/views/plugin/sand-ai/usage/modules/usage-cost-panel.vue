@@ -120,7 +120,7 @@
             <ElOption v-for="(label, code) in sourceLabels" :key="code" :value="code" :label="label" />
           </ElSelect>
         </ElFormItem>
-        <ElButton type="primary" @click="handleSearch">应用筛选</ElButton>
+        <ElButton @click="handleSearch">应用筛选</ElButton>
       </div>
     </ElCard>
     <ElCard v-if="canSummary" id="usage-cost-summary" class="art-table-card" shadow="never">
@@ -185,7 +185,6 @@
         </p>
         <ElButton
           class="summary-range-submit"
-          type="primary"
           native-type="submit"
           :loading="summaryLoading"
           :disabled="summaryLoading"
