@@ -156,10 +156,7 @@ final class AdminTrialService
             }
         }
         $providerNames = $this->names(Provider::class, array_keys($byProvider));
-        $modelNames = $this->names(AiModel::class, array_keys(array_merge(...array_map(
-            static fn (array $entry): array => array_keys($entry['models']),
-            array_values($byProvider),
-        )) ?: []));
+        $modelNames = $this->names(AiModel::class, self::projectedModelIds($byProvider));
 
         $providers = [];
         foreach ($byProvider as $providerId => $entry) {
@@ -235,6 +232,24 @@ final class AdminTrialService
             throw new ApiProblem('SAND_AI_TRIAL_ROUTES_UNAVAILABLE', '暂时无法读取这个应用的可用线路，请稍后重试');
         }
         return is_array($routes) ? $routes : [];
+    }
+
+    /**
+     * Flatten the per-provider published model id sets for the name lookup.
+     * Route model ids are AiModel primary keys; array positions are never ids.
+     *
+     * @param array<int,array{models:array<int,int>}> $byProvider
+     * @return list<int>
+     */
+    private static function projectedModelIds(array $byProvider): array
+    {
+        $ids = [];
+        foreach ($byProvider as $entry) {
+            foreach (array_keys($entry['models']) as $modelId) {
+                $ids[] = $modelId;
+            }
+        }
+        return $ids;
     }
 
     /** @param class-string $class @param list<int> $ids @return array<int,string> */
