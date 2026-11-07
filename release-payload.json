@@ -1411,7 +1411,7 @@
     "sandadmin-artd/src/views/plugin/sand-ai/task/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "sandadmin-artd/src/views/plugin/sand-ai/task/MaterialResult.vue": "690041fd686ee6adac5fdd7606ab6f550f94dbaccdf070f9413732352520507a",
     "sandadmin-artd/src/views/plugin/sand-ai/task/index.vue": "4d1d3b70117bf831848b945e0a14bbefee88dc6a4d95fa03a0f960f0a43657fd",
-    "sandadmin-artd/src/views/plugin/sand-ai/trial/index.vue": "7f36f1a52a3cf98182aad6483db0e9b2b20c801dc247824ae2debcef45fdef6a",
+    "sandadmin-artd/src/views/plugin/sand-ai/trial/index.vue": "0a7a0352ef140361d3545d5ca06787571cf6cbd149c2da511a5e145f15650ae9",
     "sandadmin-artd/src/views/plugin/sand-ai/usage/index.vue": "0d7c5e47ad665569e4f29ea4d897f1c6edb28967ffaccc3bbb803f29be93df03",
     "sandadmin-artd/src/views/plugin/sand-ai/usage/modules/billing-cost-trace.vue": "bd693748c84c938f78c5d183d4d6a34083b91bc0904002aece3fb7be3ff56b0a",
     "sandadmin-artd/src/views/plugin/sand-ai/usage/modules/billing-history-browser.vue": "2c356cb0d83c707da4dcfec6a2e31c4d92ec345f034eecd6486e9582df385c71",
