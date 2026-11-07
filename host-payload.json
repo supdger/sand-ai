@@ -832,7 +832,7 @@
     },
     {
       "path": "app/Application/Audit/AuditDisplayDictionary.php",
-      "sha256": "5e6753ffb029096cddd0b414e2d2a5b27b5e494d568c2769ee542d45d8f76a50"
+      "sha256": "bb7004f6c54d6c1bb9b8c46c333e03ff5aa7bf0b0ec95f1bf4a927003d7e216d"
     },
     {
       "path": "app/Application/Billing/BillingAdminCredentialProvider.php",
@@ -1051,6 +1051,10 @@
       "sha256": "4726ae3483d478894f48ce994723ecd1594f112c9fb4738aac263278d7db2075"
     },
     {
+      "path": "app/Application/Channel/ChannelApiBasePolicy.php",
+      "sha256": "0982292466b995b0f15730c0a63407bb71db4afecf8da70ffaa8671163eb0bf0"
+    },
+    {
       "path": "app/Application/Channel/ChannelBindingGateway.php",
       "sha256": "cb2d62c7a6a323800bfbe3328bb3cf034505a4bd7b41261bb2c4497d9d228948"
     },
@@ -1108,7 +1112,7 @@
     },
     {
       "path": "app/Application/Channel/FeishuCredentialGateway.php",
-      "sha256": "5a403f04f29b56cc037077ce38eb2c6c3cee757febf8d88947fba57764dbba37"
+      "sha256": "eb59d7d7ce750b30027a8e3889398d5dd5df15176f87f529672216cb4bcc7e97"
     },
     {
       "path": "app/Application/Channel/FeishuCredentialRequestSecrets.php",
@@ -1120,7 +1124,7 @@
     },
     {
       "path": "app/Application/Channel/FeishuDeliveryGateway.php",
-      "sha256": "0b4f26d6e0df9008db9b8fa8fae7e7dd6d63582669b7146d8d75e00521d5a0d5"
+      "sha256": "dc8e15526d7efbee247ae50f85a0f1e1ac1a3b820bb5b2b21d4ba4393d8129c6"
     },
     {
       "path": "app/Application/Channel/FeishuEventDecoder.php",
@@ -1128,7 +1132,7 @@
     },
     {
       "path": "app/Application/Channel/FeishuMessageClient.php",
-      "sha256": "f34d1590dd93d956392ed62b59ff4223dddf28485350908540afb6c1a81b6566"
+      "sha256": "d8a94ed3ee9da4198839f4577111563fed12a225b34557e3a114ba0909b18769"
     },
     {
       "path": "app/Application/Channel/FeishuWebhookGateway.php",
@@ -1148,7 +1152,7 @@
     },
     {
       "path": "app/Application/Channel/WecomCredentialGateway.php",
-      "sha256": "a0d8f01a7649bfa0e90cf0b96c3bc25e187e65f209bfde49615590aeecfbfe94"
+      "sha256": "e920366d4a55a6e78e92d64c401d14c2b8612846d56d6c0a102db017a2d11412"
     },
     {
       "path": "app/Application/Channel/WecomCredentialRequestSecrets.php",
@@ -1160,7 +1164,7 @@
     },
     {
       "path": "app/Application/Channel/WecomDeliveryGateway.php",
-      "sha256": "3e569175ec7872fb3cdc5bb039830a8e186bf135874e3217b270503d4134a80b"
+      "sha256": "e5aa5b7036404837253771d708a72f9bec98a202e40ffe61b5784b74c9260ca9"
     },
     {
       "path": "app/Application/Channel/WecomEventDecoder.php",
@@ -1168,7 +1172,7 @@
     },
     {
       "path": "app/Application/Channel/WecomMessageClient.php",
-      "sha256": "c8cb52cd5cc25d601a0e426664d414b93d429e19abe352df86255e46348a55a1"
+      "sha256": "4a9cc41b6ab36fad69104c71ff395dbcb2ef1bf2cacaec9617b2f15529463143"
     },
     {
       "path": "app/Application/Channel/WecomWebhookGateway.php",
@@ -1520,7 +1524,7 @@
     },
     {
       "path": "app/Application/Gateway/RequestIdempotencyKey.php",
-      "sha256": "7062bf87934c770d37437d6719ddb976c216421fd7c56de4992507ecd257ddae"
+      "sha256": "75cb2594c6b28e297173bdeec8cc15be8fc094154addd9dd2bf13637a77d0493"
     },
     {
       "path": "app/Application/Gateway/RequestPayloadFingerprint.php",
@@ -1892,7 +1896,7 @@
     },
     {
       "path": "app/Application/Onboarding/EgressAllowlist.php",
-      "sha256": "646ed636171b5c4322ee2d86f7ce3f38ad39d11b25fa4445096d9af592778904"
+      "sha256": "461a7589572341ca496dbe32e4ca5e6fb69474833014a770e419081e4925268a"
     },
     {
       "path": "app/Application/Onboarding/EmbeddingVerificationFailure.php",
@@ -1952,7 +1956,7 @@
     },
     {
       "path": "app/Application/Onboarding/ProviderConnectionPolicy.php",
-      "sha256": "8260a13e547680301dfa90c669c2e0397e401cd1a46c2a4f7cfb92c814d4b4c6"
+      "sha256": "df55515a61339830917de4c09e5c08ec83e2e1a6ee16694e817e92016efcac9e"
     },
     {
       "path": "app/Application/Onboarding/ProviderGuideCatalog.php",
@@ -1961,6 +1965,10 @@
     {
       "path": "app/Application/Onboarding/ProviderTestConnectionRequest.php",
       "sha256": "57945962f16f3570d37b47488e639b2188449f07fa906b3e0debda30338ee4b8"
+    },
+    {
+      "path": "app/Application/Onboarding/PublicAddressPolicy.php",
+      "sha256": "3bf526dde44ed4025dee04ac924d39dd7a5097d9ebbf97ae6ab6a04103e47789"
     },
     {
       "path": "app/Application/Onboarding/RemoteModelIdentifier.php",
@@ -1980,7 +1988,7 @@
     },
     {
       "path": "app/Application/Onboarding/SystemHostResolver.php",
-      "sha256": "3b099ed985253b7c93a557c2b3a164293201bca151ef60e8053870d6e27e4956"
+      "sha256": "80e9fff954206f34a0683fe4d9a733dc958bee82d5013d15a45dc92de36b55e4"
     },
     {
       "path": "app/Application/Onboarding/TemporaryModelVerificationService.php",
@@ -2400,7 +2408,7 @@
     },
     {
       "path": "app/Application/Trial/AdminTrialIamGateway.php",
-      "sha256": "9cc329bed9de8da94ab49bdeb4793d104475503d48507dd4c7b18ddc58dd53e7"
+      "sha256": "5bdfb9c0807db6af4f62f903a1482e09ad19998bc695f7b2c4a24f9036c149f2"
     },
     {
       "path": "app/Application/Trial/AdminTrialRateLimiter.php",
@@ -2408,7 +2416,7 @@
     },
     {
       "path": "app/Application/Trial/AdminTrialService.php",
-      "sha256": "eaa73f6734f42721b32ca13cb5cb1c573d2a7f0f1315f2785b612c012be4c278"
+      "sha256": "021ac98f5bdaa8df50e11b22c8d2686d493f240ef09a9e89ec01ba4a20997c8a"
     },
     {
       "path": "app/Application/Trial/SandIamAdminTrialEntityStore.php",
