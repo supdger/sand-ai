@@ -344,3 +344,119 @@ is_hidden=0 / status=1`；两个 B2 权限节点 parent=96（SandAITrial），
 - 「按项目整理」为 document_classifications 的用户侧命名映射，
   「要整理出的人、机构等」为 entity_types 的映射；字段与
   payload 未变，若产品另有指定文案可再调。
+
+# WP-F1：WP-C1 取证修复（sand-ai 侧 HIGH/MEDIUM）
+
+- 工作包：WP-F1（第二批修复，固定模型 SWE-2）
+- 基线：`b757e0c`（fix/0410-phase2）；本包提交：`50d18c6`、`4a6111e`、`ff304d4`（另有本文档提交）
+- 对应 WP-C1 发现：HIGH-1、HIGH-2、HIGH-3、MEDIUM（config.json 依赖下限）
+
+## HIGH-1：富声明未接入生产注册路径
+
+- `HostSandIamServiceCatalog::registerActions()`/`inspectActions()` 原先固定发送
+  旧版 `self::SERVICE` + `code=>name` 载荷，`serviceDeclaration()`/
+  `actionDeclarations()` 仅被测试引用，导致 `sand_iam_service_action.description`
+  恒 NULL，B3 `visibleCatalog` 过滤全部 sand_ai 动作。
+- 修复：新增 `portPayload()` + `acceptsCatalogMetadata()`。解析到的宿主端口对象
+  经 `ReflectionObject` 探测 sand-iam >=0.9.7 `ServiceCatalog` 的声明 schema 标记
+  （私有常量 `MAX_DESCRIPTION` + 私有方法 `optionalAudience()`，仅 0.9.7 存在）：
+  - 富端口：发送 `serviceDeclaration()`（`code/name/group_name/audience`）与
+    `actionDeclarations()`（每动作 `name`+`description`）；
+  - 旧端口：保持 `['code','name']` + `code=>name` 字符串载荷——旧端口忽略多余
+    service 键，但会把数组动作值静默写成字面量 `"Array"`，因此必须探测而非
+    直接发送。
+- 影响面：`ServiceCatalogBootstrapService::bootstrap()`、
+  `AdminTrialContextService::ensureServiceCatalog()`、SetupController 的
+  preflight/register/registerSkill/registerAudio 全部经同一 `registerActions`/
+  `inspectActions` 路径，均自动获得富载荷。
+
+## HIGH-2：serviceDeclaration 缺 audience
+
+- `serviceDeclaration()` 增加 `audience => 'sand-ai'`（新私有常量
+  `SERVICE_AUDIENCE`），与 SandIAM `AccessMatrixInput::DEFAULT_AUDIENCE`、
+  `AdminTrialIamGateway::AUDIENCE`、`AdminTrialContextService::AUDIENCE` 及
+  §3.1 托管绑定约定一致。迁移 044 仅从历史 grant 回填
+  `sand_iam_service.audience`，全新安装为 NULL 时
+  `ApplicationCapabilityService::managedClientFor` 报「该服务尚未登记可用的
+  调用受众」；声明自带 audience 后 `persist()` 对已有服务行也会回写该列。
+
+## HIGH-3：host-payload.json / release-payload.json 过期
+
+- `host-payload.json` 缺 `app/Application/Trial/AdminTrialIamGateway.php` 与
+  `AdminTrialService.php` 条目，`HostSandIamServiceCatalog.php` 摘要过期。
+  仓库无 host-payload 生成工具（沙箱包 `HostPayloadManifest` 只校验不生成），
+  按既有格式（`schema:1`、`app`、按 path 排序的 `files[]`）以实际 `app/`+`config/`
+  全量文件重算 SHA-256 重写：1016 → 1018 条。已用 sand-package
+  `HostPayloadManifest::inspectDirectory` 实跑校验通过。
+- `release-payload.json`：`php tools/build-release-payload.php`（无
+  `--iam-bundle`，按 config.json 声明记录依赖摘要）重写，枚举 1427 个成员，
+  `--check` 复核一致。除本包改动外还带入此前漏更的 `install.sql`、
+  `AdminTrialController.php`、`config/route.php` 等摘要。
+
+## MEDIUM：plugin_dependencies.sand-iam 版本下限
+
+- 评估结论：升至 `0.9.7`。`PluginDependencyPolicy`/`InstallLogic` 将
+  `plugin_dependencies.*.version` 按最低版本校验
+  （`installedDependencyMeetsMinimum`），且捆绑工件名
+  `dependencies/sand-iam-<version>.zip` 随版本变化；B2/B3 依赖 sand-iam
+  0.9.7 的迁移 044 列与 `ServiceCatalog` 富声明 schema，低于下限的环境
+  必须先升级 sand-iam，故下限必须上调。
+- `config.json` 与 `plugin/sand-ai/config.json` 同步 `0.9.6 → 0.9.7`；
+  `sha256` 维持全零占位符（发布时回填，不伪造）。`HostFoundationCompatibility`
+  只门禁 sand-core/sand-package，与本项无联动。
+- `config.json` 的 `service_catalog` 声明保持 `service={code,name}` +
+  `actions=code=>name` 旧形状：sand-package `PluginServiceCatalogPolicy`
+  强制该 schema（service 恰好 code/name 两键、动作值必须字符串），安装期
+  登记仍走旧载荷；运行期 `HostSandIamServiceCatalog` 富登记会由
+  `persist()` 回写 group_name/audience/description。
+
+## sand-iam 端口字段对齐表（对照 0.9.7 `app/runtime/ServiceCatalog.php`）
+
+| 声明字段 | 端口接受面 | 持久化位置 | 本包取值 |
+|---|---|---|---|
+| service.code | 必填，`^[a-z0-9][a-z0-9_-]{1,63}$` | `sand_iam_service.code` | `sand_ai` |
+| service.name | 必填，非空 ≤128 无控制字符 | `sand_iam_service.name` | `SandAI` |
+| service.group_name | 可选 ≤128 无控制字符 | `sand_iam_service.group_name` | `AI 能力` |
+| service.audience | 可选 ≤128，`^[a-zA-Z0-9][a-zA-Z0-9._~-]*$` | `sand_iam_service.audience` | `sand-ai` |
+| actions `code=>string` | 旧形状，name 非空 ≤128 | `sand_iam_service_action.name` | 全部 27 动作中文名 |
+| actions `code=>{name,description}` | 0.9.7 形状，description 可选 ≤512 无控制字符 | `sand_iam_service_action.name/description` | name 沿用旧名，description 取 `ACTION_DETAILS`（缺省回退 name） |
+
+- 旧端口（0.9.6 及更早）对照：service 多余键被忽略；数组动作值会被
+  `(string)` 强转为 `"Array"` 静默落库——故旧端口一律发旧形状。
+- `persist()` 语义：新建行写入全部非空字段；已存在行始终回写 `name`，
+  仅当 `group_name`/`audience`/`description` 非空时回写对应列（旧声明
+  不会清掉新元数据）。
+
+## 测试与门禁（实跑）
+
+| 命令 | 退出码 | 输出末段 |
+|---|---|---|
+| `php -l app/Identity/Infrastructure/HostSandIamServiceCatalog.php` | 0 | `No syntax errors detected` |
+| `php -l tests/trial-managed-chat-test.php` | 0 | `No syntax errors detected` |
+| `php -l tools/build-package.php` | 0 | `No syntax errors detected` |
+| `php tests/trial-managed-chat-test.php` | 0 | `通过 37，失败 0`（新增 6 条：audience 断言 + 富/旧端口 inspect/register 载荷断言） |
+| `php tools/build-release-payload.php --check`（修复前复现） | 1 | `失败：release-payload.json 与实际源码成员集合不一致` |
+| `php tools/build-release-payload.php`（重写） | 0 | `成功：…（1427 个成员）` |
+| `php tools/build-release-payload.php --check`（修复后） | 0 | `一致：1427 个成员` |
+| `HostPayloadManifest::inspectDirectory(., 'sand-ai')`（sand-package 0.9.7 侧实跑） | 0 | `inspectDirectory OK: 1018 files` |
+| `php tools/build-install-sql.php --check` | 0 | `build-install-sql check ok 836082 bytes` |
+| `php tools/frontend-gate.php . sand-ai` | 0 | `前端闸门：相对 import 解析 156 个文件 / 587 条相对 import` `前端闸门：通过` |
+
+- pre-commit（`scan_change_quality.py --repository-review`）：每次提交前
+  prepare → 写 review 结论（/tmp，仓库外）→ record → check，三次提交均通过，
+  未删 hook、未用 `--no-verify`、未用 `git add -A`。
+
+## 遗留偏差与未验证项
+
+- 端口能力探测依赖 sand-iam `ServiceCatalog` 的私有成员名
+  （`MAX_DESCRIPTION`/`optionalAudience`）；若 sand-iam 后续重构内部实现而
+  保留 schema，探测会回退旧载荷（降级为不写元数据，不会写坏数据），需在
+  sand-iam 变更时复核。
+- 安装期 `preflightPluginServiceCatalog`/`registerServiceCatalog` 走
+  `config.json service_catalog` 旧形状（sand-package schema 限定），装完后
+  由 SandAI 运行期富登记回写元数据；B3 目录在首次 bootstrap/试用前可能短暂
+  为空目录，属既有时序。
+- `dependencies/sand-iam-0.9.7.zip` 真实工件与 sha256 待发布时由维护者提供；
+  构建闸门在此之前按设计 fail-closed。
+- 未做真实 PG 集成验证（B3 端点联调属 WP-A1/WP-C2 范围）；本包验证止于
+  载荷形状断言、清单校验与静态门禁。
