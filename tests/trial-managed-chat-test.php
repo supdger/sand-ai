@@ -18,6 +18,7 @@ require_once dirname(__DIR__) . '/app/Identity/Contract/IdentityContext.php';
 require_once dirname(__DIR__) . '/app/Identity/Contract/IdentityContextException.php';
 require_once dirname(__DIR__) . '/app/Application/Gateway/ChatCompletionOptions.php';
 require_once dirname(__DIR__) . '/app/Application/Gateway/ChatCompletionOptionsPolicy.php';
+require_once dirname(__DIR__) . '/app/Application/Gateway/RequestIdempotencyKey.php';
 require_once dirname(__DIR__) . '/app/Application/Trial/AdminTrialRateLimiter.php';
 require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HostSandIamRuntime.php';
 require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HostSandIamErrorMapper.php';
@@ -33,6 +34,7 @@ require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HostSandIamService
 require_once __DIR__ . '/stubs/SupportRequest.php';
 
 use app\Api\Support\ApiProblem;
+use app\Application\Gateway\RequestIdempotencyKey;
 use app\Application\Trial\AdminTrialIamGateway;
 use app\Application\Trial\AdminTrialRateLimiter;
 use app\Application\Trial\AdminTrialService;
@@ -476,6 +478,19 @@ ok($problem !== null && $problem['message'] === 'SAND_AI_INVOCATION_FACTS_UNVERI
 $problem = problemOf(static fn () => InvocationReadFacts::fromPersisted($chatFactsInvocation, $rejectedDispatch, 42));
 ok($problem !== null && $problem['message'] === 'SAND_AI_INVOCATION_FACTS_UNVERIFIED',
     'D-C4-01：旧值 admin_trial 在读取 facts 同样被拒绝（缺陷对照）');
+
+// --- A5：Idempotency-Key 签发前预检 -----------------------------------------
+// preflight() 与 required() 共用同一校验规则，但不需要已签发的 identity
+// context，因此 chat() 可在 SandIAM 签发凭证/写审计之前廉价拒绝缺失或畸形键。
+$preflightOk = new SupportRequest(['idempotency-key' => 'trial-key-0001']);
+$problem = problemOf(static fn () => RequestIdempotencyKey::preflight($preflightOk));
+ok($problem === null, 'A5：合法 Idempotency-Key 通过签发前预检');
+
+foreach ([[], ['idempotency-key' => '   '], ['idempotency-key' => 'bad key'], ['idempotency-key' => str_repeat('k', 513)]] as $index => $headers) {
+    $problem = problemOf(static fn () => RequestIdempotencyKey::preflight(new SupportRequest($headers)));
+    ok($problem !== null && $problem['code'] === 'SAND_AI_IDEMPOTENCY_KEY_REQUIRED',
+        'A5：缺失/畸形 Idempotency-Key 在签发前被拒 #' . $index);
+}
 
 echo "----\n通过 {$passed}，失败 {$failed}\n";
 exit($failed === 0 ? 0 : 1);

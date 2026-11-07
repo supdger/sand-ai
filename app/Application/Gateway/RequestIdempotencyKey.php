@@ -17,6 +17,17 @@ final class RequestIdempotencyKey
         return self::fromCallerKey((string) $request->header('idempotency-key', ''), $domain, $context);
     }
 
+    /**
+     * Cheap pre-issuance check of the raw caller header. The scope-bound
+     * derivation still requires the issued identity context, so callers run
+     * `required()` after issuance; this rejects missing or malformed keys
+     * before any credential or audit row is written.
+     */
+    public static function preflight(Request $request): void
+    {
+        self::headerValue($request);
+    }
+
     /** Derive the original request id without submitting another workload. */
     public static function fromCallerKey(string $key, string $domain, IdentityContext $context): string
     {

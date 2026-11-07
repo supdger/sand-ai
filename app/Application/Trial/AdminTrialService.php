@@ -38,10 +38,13 @@ final class AdminTrialService
     }
 
     /**
-     * GET /admin/trial/options projection. Only providers with at least one
-     * published `chat` route in the application's managed environment appear;
-     * names are the administrator-facing Chinese display names and ordering is
-     * stable (route priority, then id). No provider endpoint is probed.
+     * GET /admin/trial/options projection. Applies the same grant gate as
+     * `chat()`: without a managed binding or a live `chat` grant the endpoint
+     * refuses with SAND_AI_TRIAL_NOT_GRANTED instead of returning options that
+     * could never be sent. Only providers with at least one published `chat`
+     * route in the application's managed environment appear; names are the
+     * administrator-facing Chinese display names and ordering is stable
+     * (route priority, then id). No provider endpoint is probed.
      *
      * @return array{application:array{id:int,name:string},providers:list<array{id:int,name:string,models:list<array{id:int,name:string}>,default_model_id:int}>,default_max_output_tokens:int}
      */
@@ -49,11 +52,13 @@ final class AdminTrialService
     {
         $iam = $this->iam ?? new AdminTrialIamGateway();
         $application = $iam->requireManageableApplication($applicationId, $adminId, $adminInfo);
-        $binding = $iam->resolveManagedBinding($applicationId);
-        $providers = $binding === null ? [] : $this->providerProjection((int) $binding['environment_id']);
+        $binding = $iam->resolveManagedBinding($application['id']);
+        if ($binding === null || !$iam->chatGrantActive((int) $binding['workload_client_id'])) {
+            throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+        }
         return [
             'application' => ['id' => $application['id'], 'name' => $application['name']],
-            'providers' => $providers,
+            'providers' => $this->providerProjection((int) $binding['environment_id']),
             'default_max_output_tokens' => self::DEFAULT_MAX_OUTPUT_TOKENS,
         ];
     }
@@ -90,6 +95,10 @@ final class AdminTrialService
         $selection = $this->selectRoute($environmentId, $providerId, $modelId);
 
         $requestId = $this->requestId($adminId);
+        // Reject a missing/malformed Idempotency-Key before SandIAM issues a
+        // credential and writes its audit rows; the scope-bound derivation
+        // still runs after issuance via required().
+        RequestIdempotencyKey::preflight($request);
         $identity = $iam->issueChatIdentity(
             $workloadClientId,
             $application['organization_id'],
