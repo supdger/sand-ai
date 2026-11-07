@@ -36,7 +36,10 @@ final class AdminTrialController extends SandAiAdminController
                 $this->trialRequestId($request, $adminId),
             );
         } catch (ApiProblem $problem) {
-            throw new ApiException($problem->errorCode . ': ' . $problem->getMessage(), 400);
+            throw new ApiException(
+                $problem->errorCode . ': ' . $problem->getMessage(),
+                $problem->retryable ? 503 : 400,
+            );
         }
 
         return $this->success($result)->header('Cache-Control', 'no-store');
@@ -104,14 +107,17 @@ final class AdminTrialController extends SandAiAdminController
         $status = match ($problem->errorCode) {
             'SAND_AI_TRIAL_APPLICATION_NOT_FOUND' => 404,
             'SAND_AI_TRIAL_APPLICATION_FORBIDDEN',
-            'SAND_AI_TRIAL_NOT_GRANTED' => 403,
+            'SAND_AI_TRIAL_NOT_GRANTED',
+            'SAND_AI_TRIAL_ISSUE_NETWORK_FORBIDDEN' => 403,
             'SAND_AI_TRIAL_BINDING_AMBIGUOUS' => 409,
             'SAND_AI_TRIAL_RATE_LIMITED' => 429,
             'SAND_AI_TRIAL_IAM_UNAVAILABLE',
             'SAND_AI_TRIAL_ISSUE_FAILED',
             'SAND_AI_TRIAL_ROUTES_UNAVAILABLE' => 503,
             'SAND_AI_TRIAL_PROVIDER_UNREACHABLE' => 502,
-            default => 400,
+            // Retryable upstream/availability failures surface as 503, never
+            // as a client error; validation and authorization keep 400/4xx.
+            default => $problem->retryable ? 503 : 400,
         };
         $message = trim($problem->getMessage());
         return new ApiException($message !== '' ? $message : '试用请求未完成，请稍后重试', $status);

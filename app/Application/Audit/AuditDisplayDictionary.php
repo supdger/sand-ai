@@ -48,6 +48,7 @@ final class AuditDisplayDictionary
         'pricing.revision.publish' => '发布能力价格修订',
         'platform.validation.recorded' => '记录平台模型验证结果',
         'admin_trial.context.issue' => '签发管理员试用身份',
+        'admin_trial.access.denied' => '管理员试用授权被拒绝',
         // 预算
         'budget.policy.draft' => '保存预算策略草稿',
         'budget.policy.publish' => '发布预算策略',
@@ -276,6 +277,7 @@ final class AuditDisplayDictionary
         'pricing.revision.publish' => '已发布能力价格修订',
         'platform.validation.recorded' => '已记录平台模型验证结果',
         'admin_trial.context.issue' => '已签发管理员试用身份',
+        'admin_trial.access.denied' => '管理员试用授权被拒绝',
         'budget.policy.draft' => '已保存预算策略草稿',
         'budget.policy.publish' => '已发布预算策略',
         'budget_policy.archive' => '已归档预算策略',

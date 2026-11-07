@@ -492,5 +492,73 @@ foreach ([[], ['idempotency-key' => '   '], ['idempotency-key' => 'bad key'], ['
         'A5：缺失/畸形 Idempotency-Key 在签发前被拒 #' . $index);
 }
 
+// --- A10：试用幂等键按管理员隔离 ----------------------------------------------
+// 受管 workload client 由同一应用的所有管理员共享，derived key 必须额外
+// 绑定管理员身份，否则两个管理员复用同一 Idempotency-Key 会命中同一请求指纹。
+$trialKeyAdmin7 = RequestIdempotencyKey::fromCallerKey('shared-idem-key', 'chat', $trialIdentity, 'admin:7');
+$trialKeyAdmin7Replay = RequestIdempotencyKey::fromCallerKey('shared-idem-key', 'chat', $trialIdentity, 'admin:7');
+$trialKeyAdmin8 = RequestIdempotencyKey::fromCallerKey('shared-idem-key', 'chat', $trialIdentity, 'admin:8');
+$trialKeyLegacy = RequestIdempotencyKey::fromCallerKey('shared-idem-key', 'chat', $trialIdentity);
+ok($trialKeyAdmin7 === $trialKeyAdmin7Replay
+    && $trialKeyAdmin7 !== $trialKeyAdmin8
+    && $trialKeyAdmin7 !== $trialKeyLegacy
+    && $trialKeyLegacy === RequestIdempotencyKey::fromCallerKey('shared-idem-key', 'chat', $trialIdentity, ''),
+    'A10：同管理员幂等键稳定重放，跨管理员与通用派生互不冲突');
+
+// --- A12：签发失败按稳定错误码分类 --------------------------------------------
+// mapIssueFailure 只认消息开头的 SAND_IAM_* 码 token（与
+// HostSandIamErrorMapper 同一契约），松散子串不再误分类。
+$mapFailure = new ReflectionMethod(AdminTrialIamGateway::class, 'mapIssueFailure');
+$mapFailure->setAccessible(true);
+$gateway = new AdminTrialIamGateway();
+
+$denied = $mapFailure->invoke($gateway, new RuntimeException('SAND_IAM_SERVICE_ACTION_FORBIDDEN: ambiguous service action grant'));
+ok($denied instanceof ApiProblem && $denied->errorCode === 'SAND_AI_TRIAL_NOT_GRANTED',
+    'A12：动作授权拒绝按稳定码映射为未开通');
+$revoked = $mapFailure->invoke($gateway, new RuntimeException('SAND_IAM_CREDENTIAL_REVOKED'));
+ok($revoked instanceof ApiProblem && $revoked->errorCode === 'SAND_AI_TRIAL_NOT_GRANTED',
+    'A12：凭证吊销按稳定码映射为未开通');
+$network = $mapFailure->invoke($gateway, new RuntimeException('SAND_IAM_SERVICE_NETWORK_FORBIDDEN'));
+ok($network instanceof ApiProblem && $network->errorCode === 'SAND_AI_TRIAL_ISSUE_NETWORK_FORBIDDEN',
+    'A12：网络策略拒绝独立成码，不再误报为未开通');
+$looseForbidden = $mapFailure->invoke($gateway, new RuntimeException('upstream said FORBIDDEN somewhere'));
+ok($looseForbidden instanceof ApiProblem && $looseForbidden->errorCode === 'SAND_AI_TRIAL_ISSUE_FAILED'
+    && $looseForbidden->retryable === true,
+    'A12：非码前缀的 FORBIDDEN 字样回落为可重试签发失败');
+$midToken = $mapFailure->invoke($gateway, new RuntimeException('prefix SAND_IAM_SERVICE_ACTION_FORBIDDEN'));
+ok($midToken instanceof ApiProblem && $midToken->errorCode === 'SAND_AI_TRIAL_ISSUE_FAILED',
+    'A12：码 token 不在开头时不参与分类');
+
+// --- A8：试用授权拒绝写 SandAI 本地审计 ---------------------------------------
+// 网关是 final 且依赖 SandIAM 插件，完整链路由协调仓库的夹具套件覆盖；
+// 这里直接驱动审计助手，断言只写安全字段且可用性故障不产生审计行。
+$deniedRows = [];
+$deniedAuditSink = static function (array $entry) use (&$deniedRows): void {
+    $deniedRows[] = $entry;
+};
+$trialService = new AdminTrialService(null, null, $deniedAuditSink);
+$auditDenied = new ReflectionMethod(AdminTrialService::class, 'auditDeniedAccess');
+$auditDenied->setAccessible(true);
+
+$auditDenied->invoke($trialService, 7, 42, 'trial.chat',
+    new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能'), 55);
+ok(count($deniedRows) === 1
+    && $deniedRows[0]['actor_type'] === 'admin'
+    && $deniedRows[0]['actor_ref'] === '7'
+    && $deniedRows[0]['action'] === 'admin_trial.access.denied'
+    && $deniedRows[0]['resource_type'] === 'application'
+    && $deniedRows[0]['resource_id'] === 42
+    && ($deniedRows[0]['context']['endpoint'] ?? null) === 'trial.chat'
+    && ($deniedRows[0]['context']['reason_code'] ?? null) === 'SAND_AI_TRIAL_NOT_GRANTED'
+    && ($deniedRows[0]['context']['workload_client_id'] ?? null) === 55,
+    'A8：授权拒绝写入 SandAI 审计且只携带安全上下文字段');
+
+$deniedRows = [];
+$auditDenied->invoke($trialService, 7, 42, 'trial.chat',
+    new ApiProblem('SAND_AI_TRIAL_IAM_UNAVAILABLE', 'SandIAM 不可用'), 55);
+$auditDenied->invoke($trialService, 7, 42, 'trial.chat',
+    new ApiProblem('SAND_AI_TRIAL_ISSUE_FAILED', '签发失败', true), 55);
+ok($deniedRows === [], 'A8：可用性故障不写授权拒绝审计');
+
 echo "----\n通过 {$passed}，失败 {$failed}\n";
 exit($failed === 0 ? 0 : 1);

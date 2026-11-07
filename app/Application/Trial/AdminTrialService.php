@@ -13,6 +13,7 @@ use app\Application\Usage\UsageAttribution;
 use app\Identity\Contract\IdentityContext;
 use app\Identity\Infrastructure\ChatInvocationAccessGuard;
 use app\Infrastructure\Persistence\Model\AiModel;
+use app\Infrastructure\Persistence\Model\AuditLog;
 use app\Infrastructure\Persistence\Model\Provider;
 use support\Request;
 use Throwable;
@@ -30,10 +31,29 @@ final class AdminTrialService
     public const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
     private const MAX_MESSAGE_LENGTH = 32000;
 
-    /** @param CapabilityProfileResolver|null $routes injected for tests */
+    /**
+     * Error codes that represent an authorization denial worth a SandAI-side
+     * audit row. SandIAM owns the IAM audit log; this row lets SandAI
+     * operators reconcile denied trial probes (cross-tenant application ids,
+     * revoked or missing grants) without parsing HTTP logs. Availability
+     * failures stay unaudited — they are not authorization decisions.
+     */
+    private const DENIED_AUDIT_CODES = [
+        'SAND_AI_TRIAL_APPLICATION_NOT_FOUND' => true,
+        'SAND_AI_TRIAL_APPLICATION_FORBIDDEN' => true,
+        'SAND_AI_TRIAL_NOT_GRANTED' => true,
+        'SAND_AI_TRIAL_BINDING_AMBIGUOUS' => true,
+        'SAND_AI_TRIAL_ISSUE_NETWORK_FORBIDDEN' => true,
+    ];
+
+    /** @param CapabilityProfileResolver|null $routes injected for tests
+     * @param AdminTrialIamGateway|null $iam injected for tests
+     * @param callable(array<string,mixed>):void|null $deniedAudit SandAI-side
+     *        denial audit sink; production writes sand_ai_audit_log */
     public function __construct(
         private readonly ?CapabilityProfileResolver $routes = null,
         private readonly ?AdminTrialIamGateway $iam = null,
+        private readonly mixed $deniedAudit = null,
     ) {
     }
 
@@ -51,10 +71,16 @@ final class AdminTrialService
     public function options(int $applicationId, int $adminId, ?array $adminInfo): array
     {
         $iam = $this->iam ?? new AdminTrialIamGateway();
-        $application = $iam->requireManageableApplication($applicationId, $adminId, $adminInfo);
-        $binding = $iam->resolveManagedBinding($application['id']);
-        if ($binding === null || !$iam->chatGrantActive((int) $binding['workload_client_id'])) {
-            throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+        try {
+            $application = $iam->requireManageableApplication($applicationId, $adminId, $adminInfo);
+            $binding = $iam->resolveManagedBinding($application['id']);
+            if ($binding === null || !$iam->chatGrantActive((int) $binding['workload_client_id'])) {
+                throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+            }
+        } catch (ApiProblem $problem) {
+            $this->auditDeniedAccess($adminId, $applicationId, 'trial.options', $problem,
+                isset($binding['workload_client_id']) ? (int) $binding['workload_client_id'] : null);
+            throw $problem;
         }
         return [
             'application' => ['id' => $application['id'], 'name' => $application['name']],
@@ -80,16 +106,22 @@ final class AdminTrialService
             'model_id' => $modelId, 'max_output_tokens' => $maxOutputTokens] = self::normalizeChatInput($input);
 
         $iam = $this->iam ?? new AdminTrialIamGateway();
-        $application = $iam->requireManageableApplication($applicationId, $adminId, $adminInfo);
+        try {
+            $application = $iam->requireManageableApplication($applicationId, $adminId, $adminInfo);
 
-        $binding = $iam->resolveManagedBinding($application['id']);
-        if ($binding === null) {
-            throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
-        }
-        $environmentId = (int) $binding['environment_id'];
-        $workloadClientId = (int) $binding['workload_client_id'];
-        if (!$iam->chatGrantActive($workloadClientId)) {
-            throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+            $binding = $iam->resolveManagedBinding($application['id']);
+            if ($binding === null) {
+                throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+            }
+            $environmentId = (int) $binding['environment_id'];
+            $workloadClientId = (int) $binding['workload_client_id'];
+            if (!$iam->chatGrantActive($workloadClientId)) {
+                throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+            }
+        } catch (ApiProblem $problem) {
+            $this->auditDeniedAccess($adminId, $applicationId, 'trial.chat', $problem,
+                isset($binding['workload_client_id']) ? (int) $binding['workload_client_id'] : null);
+            throw $problem;
         }
 
         $selection = $this->selectRoute($environmentId, $providerId, $modelId);
@@ -99,16 +131,27 @@ final class AdminTrialService
         // credential and writes its audit rows; the scope-bound derivation
         // still runs after issuance via required().
         RequestIdempotencyKey::preflight($request);
-        $identity = $iam->issueChatIdentity(
-            $workloadClientId,
-            $application['organization_id'],
-            $application['id'],
-            (string) $request->getRemoteIp(),
-            $requestId,
-            'admin_trial:' . $adminId,
-        );
+        try {
+            $identity = $iam->issueChatIdentity(
+                $workloadClientId,
+                $application['organization_id'],
+                $application['id'],
+                (string) $request->getRemoteIp(),
+                $requestId,
+                'admin_trial:' . $adminId,
+            );
+        } catch (ApiProblem $problem) {
+            // Grant revocation or a network-policy denial surfacing at issue
+            // time is still an authorization denial and earns an audit row.
+            $this->auditDeniedAccess($adminId, $applicationId, 'trial.chat', $problem, $workloadClientId);
+            throw $problem;
+        }
         $context = $identity['identity'];
-        $idempotencyRequestId = RequestIdempotencyKey::required($request, 'chat', $context);
+        // The managed workload client is shared by every administrator of the
+        // application, so the derived key adds the admin id as a scope
+        // discriminator: two admins reusing the same Idempotency-Key and
+        // payload can no longer replay each other's invocation.
+        $idempotencyRequestId = RequestIdempotencyKey::required($request, 'chat', $context, 'admin:' . $adminId);
 
         // The administrator session header is never an invocation credential:
         // every attempt re-authorizes the issued workload context explicitly.
@@ -385,6 +428,49 @@ final class AdminTrialService
                 'SAND_AI_TRIAL_CHAT_FAILED', '这次试用没有成功，请稍后重试', $problem->retryable,
             ),
         };
+    }
+
+    /**
+     * Best-effort SandAI-side audit for trial authorization denials. Records
+     * actor/application/action/reason code only — never request payloads,
+     * messages or credentials — so the row reconciles with SandIAM's own
+     * denied audits. A failing audit sink never masks the ApiProblem.
+     */
+    private function auditDeniedAccess(int $adminId, int $applicationId, string $endpoint, ApiProblem $problem, ?int $workloadClientId = null): void
+    {
+        if (!isset(self::DENIED_AUDIT_CODES[$problem->errorCode])) {
+            return;
+        }
+        try {
+            $context = [
+                'endpoint' => $endpoint,
+                'reason_code' => $problem->errorCode,
+            ];
+            if ($workloadClientId !== null) {
+                $context['workload_client_id'] = $workloadClientId;
+            }
+            $this->writeDeniedAudit([
+                'actor_type' => 'admin',
+                'actor_ref' => (string) $adminId,
+                'action' => 'admin_trial.access.denied',
+                'resource_type' => 'application',
+                'resource_id' => $applicationId,
+                'summary' => '管理员试用授权被拒绝',
+                'context' => $context,
+            ]);
+        } catch (Throwable) {
+            // The audit sink must never mask the authorization failure itself.
+        }
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function writeDeniedAudit(array $entry): void
+    {
+        if (is_callable($this->deniedAudit)) {
+            ($this->deniedAudit)($entry);
+            return;
+        }
+        AuditLog::create($entry);
     }
 
     private function requestId(int $adminId): string

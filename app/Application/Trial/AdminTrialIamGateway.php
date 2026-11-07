@@ -218,14 +218,28 @@ final class AdminTrialIamGateway
         ];
     }
 
-    /** SandIAM denial during issuance maps to the shared "not opened" copy. */
+    /**
+     * SandIAM denials during issuance map to the shared "not opened" copy.
+     * Classification reads the stable leading `SAND_IAM_*` code token (the
+     * same contract HostSandIamErrorMapper uses), never loose substrings, so
+     * e.g. a network-policy denial can no longer masquerade as "not granted".
+     */
     private function mapIssueFailure(Throwable $exception): ApiProblem
     {
         $message = $exception->getMessage();
-        if (str_contains($message, 'FORBIDDEN') || str_contains($message, 'DENIED') || str_contains($message, 'REVOKED')) {
-            return new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+        if (preg_match('/\A(SAND_(?:IAM|AI)_[A-Z0-9_]+)(?::|\z)/', $message, $matches) === 1) {
+            $code = $matches[1];
+            if ($code === 'SAND_IAM_SERVICE_NETWORK_FORBIDDEN') {
+                return new ApiProblem(
+                    'SAND_AI_TRIAL_ISSUE_NETWORK_FORBIDDEN',
+                    '当前网络来源不允许签发试用身份，请稍后重试或改用调用密钥',
+                );
+            }
+            if (str_contains($code, 'FORBIDDEN') || str_contains($code, 'DENIED') || str_contains($code, 'REVOKED')) {
+                return new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+            }
         }
-        return new ApiProblem('SAND_AI_TRIAL_ISSUE_FAILED', '暂时无法发起试用对话，请稍后重试');
+        return new ApiProblem('SAND_AI_TRIAL_ISSUE_FAILED', '暂时无法发起试用对话，请稍后重试', true);
     }
 
     private function assertAvailable(): void
