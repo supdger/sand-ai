@@ -120,7 +120,7 @@
     },
     {
       "path": "app/Api/Support/ApiProblem.php",
-      "sha256": "f9f724037960f27e1dfffe8f8589a3bc667781d71de209787de39160a88a5417"
+      "sha256": "57c284fbf170c39a6cc9eda3ad99c76d1d20154c023b0b721ca59e3d2375c29d"
     },
     {
       "path": "app/Api/Support/ApiResponder.php",
@@ -1891,6 +1891,10 @@
       "sha256": "4001142452907ba25245c29ff43b1b57739fcbc39c8ad9d38132fca9ab743b07"
     },
     {
+      "path": "app/Application/Onboarding/EgressAllowlist.php",
+      "sha256": "646ed636171b5c4322ee2d86f7ce3f38ad39d11b25fa4445096d9af592778904"
+    },
+    {
       "path": "app/Application/Onboarding/EmbeddingVerificationFailure.php",
       "sha256": "99d523643f24004dfa365a17f39ea4934e9f66cea0e5401790d1cf6ac41d2fe6"
     },
@@ -1948,7 +1952,7 @@
     },
     {
       "path": "app/Application/Onboarding/ProviderConnectionPolicy.php",
-      "sha256": "515af3c540f616c3c9c8f775cbf4b9ce0b7e2acc76eca5ca27296ed4bdc8b856"
+      "sha256": "8260a13e547680301dfa90c669c2e0397e401cd1a46c2a4f7cfb92c814d4b4c6"
     },
     {
       "path": "app/Application/Onboarding/ProviderGuideCatalog.php",
@@ -2392,7 +2396,7 @@
     },
     {
       "path": "app/Application/Trial/AdminTrialEntityStore.php",
-      "sha256": "572c1d1b04c7333ef51a81eaab100ee70b16cd8709ca26c24e0df692fdc70efb"
+      "sha256": "2424da7332d9a1f7d20656e092ab4ffed05093833b041ad3bb88a7aed8dd4493"
     },
     {
       "path": "app/Application/Trial/AdminTrialRateLimiter.php",
@@ -2400,7 +2404,7 @@
     },
     {
       "path": "app/Application/Trial/SandIamAdminTrialEntityStore.php",
-      "sha256": "dcfb4157faeed6d12037563d4845b993785edc3f1537da25a8d1ea291c080c45"
+      "sha256": "4774198ff84e7e6e7c8057f302a100609aca4e6d68ba906916bff96067631597"
     },
     {
       "path": "app/Application/Usage/AdminValidationUsage.php",

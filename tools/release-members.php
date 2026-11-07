@@ -32,6 +32,17 @@ const SAND_AI_OPTIONAL_ROOT_FILES = [
     'release-build-contract.json',
 ];
 
+/**
+ * Archive prefixes deliberately kept out of the release ZIP even though the
+ * official builder would pack everything under plugin/<app>: development and
+ * product documents are source-only references, not runtime payload. Anything
+ * else under plugin/<app>/docs/ (e.g. docs/architecture/, docs/*.md) still ships.
+ */
+const SAND_AI_EXCLUDED_PAYLOAD_PREFIXES = [
+    'docs/development/',
+    'docs/product/',
+];
+
 /** Same exclusion rule as the builder's hasForbiddenPayloadComponent(). */
 function sandAiForbiddenPayloadComponent(string $relative): bool
 {
@@ -41,6 +52,21 @@ function sandAiForbiddenPayloadComponent(string $relative): bool
             return true;
         }
     }
+    return false;
+}
+
+/**
+ * Whether a path relative to a payload tree root falls into an excluded
+ * prefix (currently only plugin/<app>/docs/development|product).
+ */
+function sandAiExcludedPayloadPath(string $relative): bool
+{
+    foreach (SAND_AI_EXCLUDED_PAYLOAD_PREFIXES as $prefix) {
+        if (str_starts_with($relative, $prefix)) {
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -56,6 +82,9 @@ function sandAiAddPayloadTree(string $root, string $archiveRoot, array &$files):
     foreach ($iterator as $item) {
         $source = $item->getPathname();
         $relative = str_replace(DIRECTORY_SEPARATOR, '/', $iterator->getSubPathName());
+        if (sandAiExcludedPayloadPath($relative)) {
+            continue;
+        }
         $archive = $archiveRoot . '/' . $relative;
         if ($item->isLink() || is_link($source)) {
             throw new RuntimeException('载荷不能包含符号链接：' . $archive);
@@ -100,13 +129,13 @@ function sandAiDependencyBundle(array $config): array
 }
 
 /**
- * Enumerate the exact release ZIP member set.
+ * Enumerate the release manifest: every source member plus the dependency
+ * bundle identity declared by config.json (the artifact itself is external).
  *
- * @param string $root        Package source root (the sand-ai/ directory).
- * @param string $iamBundle   Externally injected dependency artifact path.
- * @return array<string,string> archive path => absolute source path, sorted by archive path
+ * @param string $root Package source root (the sand-ai/ directory).
+ * @return array{files: array<string,string>, dependency: array{name:string,version:string,sha256:string,archive:string}}
  */
-function sandAiReleaseMembers(string $root, string $iamBundle): array
+function sandAiReleaseManifest(string $root): array
 {
     $root = rtrim($root, '/');
     $rawConfig = file_get_contents($root . '/config.json');
@@ -133,12 +162,10 @@ function sandAiReleaseMembers(string $root, string $iamBundle): array
     }
 
     $bundle = sandAiDependencyBundle($config);
-    if (!is_file($iamBundle) || is_link($iamBundle)
-        || !hash_equals($bundle['sha256'], (string) hash_file('sha256', $iamBundle))) {
-        throw new RuntimeException('SandIAM ' . $bundle['version'] . ' 依赖工件缺失或摘要不符，请提供锁定公开工件');
-    }
-    $files[$bundle['archive']] = $iamBundle;
 
+    // The dependency artifact is enumerated but verified separately: the
+    // declared archive name and digest come from config.json while the
+    // external ZIP only exists when the maintainer supplies it.
     foreach (SAND_AI_OPTIONAL_ROOT_FILES as $name) {
         $path = $root . '/' . $name;
         if (file_exists($path) || is_link($path)) {
@@ -182,6 +209,27 @@ function sandAiReleaseMembers(string $root, string $iamBundle): array
         }
     }
 
+    ksort($files, SORT_STRING);
+    return ['files' => $files, 'dependency' => $bundle];
+}
+
+/**
+ * Enumerate the exact release ZIP member set.
+ *
+ * @param string $root        Package source root (the sand-ai/ directory).
+ * @param string $iamBundle   Externally injected dependency artifact path.
+ * @return array<string,string> archive path => absolute source path, sorted by archive path
+ */
+function sandAiReleaseMembers(string $root, string $iamBundle): array
+{
+    $manifest = sandAiReleaseManifest($root);
+    $bundle = $manifest['dependency'];
+    if (!is_file($iamBundle) || is_link($iamBundle)
+        || !hash_equals($bundle['sha256'], (string) hash_file('sha256', $iamBundle))) {
+        throw new RuntimeException('SandIAM ' . $bundle['version'] . ' 依赖工件缺失或摘要不符，请提供锁定公开工件');
+    }
+    $files = $manifest['files'];
+    $files[$bundle['archive']] = $iamBundle;
     ksort($files, SORT_STRING);
     return $files;
 }
