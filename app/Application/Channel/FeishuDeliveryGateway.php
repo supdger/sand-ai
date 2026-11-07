@@ -53,6 +53,9 @@ final class FeishuDeliveryGateway
                 'SAND_AI_RESOURCE_NOT_FOUND', 'SAND_AI_SCOPE_SNAPSHOT_INVALID',
                 'SAND_AI_INVOCATION_FACTS_UNVERIFIED', 'SAND_AI_SOURCE_UNVERIFIED',
                 'SAND_AI_CHANNEL_DELIVERY_INVALID', 'SAND_AI_SERVICE_ACTION_FORBIDDEN',
+                // A forbidden api_base or malformed channel allowlist is a
+                // deterministic config denial; retrying cannot fix it.
+                'SAND_AI_CHANNEL_API_BASE_FORBIDDEN', 'SAND_AI_EGRESS_ALLOWLIST_INVALID',
             ], true);
             $code = $exception instanceof ApiProblem ? $exception->errorCode : 'SAND_AI_CHANNEL_DELIVERY_UNAVAILABLE';
             if ($code === 'SAND_AI_CHANNEL_DELIVERY_UNCERTAIN') {

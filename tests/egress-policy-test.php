@@ -17,20 +17,38 @@ require_once dirname(__DIR__) . '/app/Api/Support/ApiProblem.php';
 require_once dirname(__DIR__) . '/app/Application/Onboarding/HostResolver.php';
 require_once dirname(__DIR__) . '/app/Application/Onboarding/VerifiedEndpoint.php';
 require_once dirname(__DIR__) . '/app/Application/Onboarding/EgressAllowlist.php';
+require_once dirname(__DIR__) . '/app/Application/Onboarding/PublicAddressPolicy.php';
 require_once dirname(__DIR__) . '/app/Application/Onboarding/ProviderConnectionPolicy.php';
 require_once dirname(__DIR__) . '/app/Application/Onboarding/OnboardingHttpResponse.php';
 require_once dirname(__DIR__) . '/app/Application/Onboarding/OnboardingHttpTransport.php';
 require_once dirname(__DIR__) . '/app/Application/Onboarding/RemoteModelIdentifier.php';
 require_once dirname(__DIR__) . '/app/Application/Onboarding/OpenAiCompatibleOnboardingClient.php';
+require_once dirname(__DIR__) . '/app/Application/Channel/ChannelApiBase.php';
+require_once dirname(__DIR__) . '/app/Application/Channel/ChannelApiBasePolicy.php';
+require_once dirname(__DIR__) . '/app/Application/Channel/FeishuMessageClient.php';
+require_once dirname(__DIR__) . '/app/Application/Channel/WecomMessageClient.php';
 
 use app\Api\Support\ApiProblem;
+use app\Application\Channel\ChannelApiBasePolicy;
+use app\Application\Channel\FeishuMessageClient;
+use app\Application\Channel\WecomMessageClient;
 use app\Application\Onboarding\EgressAllowlist;
 use app\Application\Onboarding\HostResolver;
 use app\Application\Onboarding\OnboardingHttpResponse;
 use app\Application\Onboarding\OnboardingHttpTransport;
 use app\Application\Onboarding\OpenAiCompatibleOnboardingClient;
 use app\Application\Onboarding\ProviderConnectionPolicy;
+use app\Application\Onboarding\PublicAddressPolicy;
 use app\Application\Onboarding\VerifiedEndpoint;
+
+/** Webman \Log facade stand-in: the WeCom client logs transport facts. */
+final class Log
+{
+    /** @param mixed ...$args */
+    public static function error(mixed ...$args): void
+    {
+    }
+}
 
 final class FixtureResolver implements HostResolver
 {
@@ -109,8 +127,9 @@ ok($problem !== null
     && $problem['code'] === 'SAND_AI_ONBOARDING_CONNECTION_FORBIDDEN'
     && ($problem['details']['reason_code'] ?? null) === 'resolved_address_blocked'
     && ($problem['details']['service_host'] ?? null) === 'open.example.test'
-    && ($problem['details']['blocked_address'] ?? null) === '198.18.0.123',
-    '默认：公网域解析进 198.18.0.0/15 仍被阻断并带结构化标记');
+    && ($problem['details']['blocked_range'] ?? null) === '198.18.0.0/15'
+    && !isset($problem['details']['blocked_address']),
+    '默认：公网域解析进 198.18.0.0/15 仍被阻断并带结构化标记（不回显解析 IP）');
 
 $problem = problemOf(static function (): void {
     policy(['127.0.0.1'], EgressAllowlist::fromString(''))->normalize(connection());
@@ -243,6 +262,19 @@ $problem = problemOf(static function (): void {
 ok($problem !== null && $problem['code'] === 'SAND_AI_ONBOARDING_CONNECTION_FORBIDDEN',
     'IPv6：放行名单按地址族匹配，IPv4 段不误放 IPv6 地址');
 
+// --- A11：阻断详情只回网段标识，不回显解析地址 ------------------------------
+ok(PublicAddressPolicy::blockedRange('198.18.0.123') === '198.18.0.0/15'
+    && PublicAddressPolicy::blockedRange('10.1.2.3') === '10.0.0.0/8'
+    && PublicAddressPolicy::blockedRange('169.254.169.254') === '169.254.0.0/16'
+    && PublicAddressPolicy::blockedRange('::1') === 'non_global_unicast'
+    && PublicAddressPolicy::blockedRange('2001:db8::1') === '2001:db8::/32'
+    && PublicAddressPolicy::blockedRange('8.8.8.8') === null
+    && PublicAddressPolicy::blockedRange('2606:4700:4700::1111') === null
+    && PublicAddressPolicy::isPublic('8.8.8.8') === true
+    && PublicAddressPolicy::isPublic('198.18.0.123') === false
+    && PublicAddressPolicy::isPublic('not-an-ip') === false,
+    'A11：blockedRange 给出网段标识且 isPublic 语义与原分类一致');
+
 // --- 重定向边界 -------------------------------------------------------------
 $transport = new FixtureTransport(new OnboardingHttpResponse(302, '{"location":"https://internal.example.test"}'));
 $client = new OpenAiCompatibleOnboardingClient(policy(['8.8.8.8'], EgressAllowlist::fromString('')), $transport);
@@ -261,6 +293,119 @@ try {
 } catch (Throwable) {
     ok(false, '放行名单下发现请求发往已校验端点');
 }
+
+// --- A7：渠道 api_base 出站校验 ---------------------------------------------
+function channelPolicy(array $addresses, ?EgressAllowlist $allowlist): ChannelApiBasePolicy
+{
+    return new ChannelApiBasePolicy(new FixtureResolver($addresses), $allowlist);
+}
+
+$endpoint = channelPolicy(['8.8.8.8'], EgressAllowlist::fromString(''))
+    ->verify(null, 'https://open.feishu.cn');
+ok($endpoint->baseUrl === 'https://open.feishu.cn'
+    && $endpoint->curlResolveEntry() === 'open.feishu.cn:443:8.8.8.8',
+    '渠道：缺省 api_base 回落官方地址并固定到已校验解析地址');
+
+$endpoint = channelPolicy(['8.8.8.8'], EgressAllowlist::fromString(''))
+    ->verify('https://feishu.corp.example.com:8443/', 'https://open.feishu.cn');
+ok($endpoint->baseUrl === 'https://feishu.corp.example.com:8443'
+    && $endpoint->curlResolveEntry() === 'feishu.corp.example.com:8443:8.8.8.8',
+    '渠道：私有部署 api_base 允许 8443 端口并按实际端口固定解析');
+
+foreach ([
+    'https://192.168.1.10',
+    'https://169.254.169.254',
+    'https://[::1]',
+    'https://localhost',
+    'https://api.localhost',
+    'https://metadata.google.internal',
+    'https://feishu.corp.example.com:8080',
+    'https://user:pass@feishu.corp.example.com',
+    'http://feishu.corp.example.com',
+] as $index => $badBase) {
+    $problem = problemOf(static function () use ($badBase): void {
+        channelPolicy(['8.8.8.8'], EgressAllowlist::fromString(''))->verify($badBase, 'https://open.feishu.cn');
+    });
+    ok($problem !== null
+        && in_array($problem['code'], ['SAND_AI_CHANNEL_API_BASE_FORBIDDEN', 'SAND_AI_CHANNEL_DELIVERY_INVALID'], true),
+        '渠道：非法 api_base 被拒 #' . $index . '（' . $badBase . '）');
+}
+
+$problem = problemOf(static function (): void {
+    channelPolicy(['10.0.0.5'], EgressAllowlist::fromString(''))->verify('https://feishu.corp.example.com', 'https://open.feishu.cn');
+});
+ok($problem !== null
+    && $problem['code'] === 'SAND_AI_CHANNEL_API_BASE_FORBIDDEN'
+    && ($problem['details']['reason_code'] ?? null) === 'channel_api_base_blocked'
+    && ($problem['details']['api_host'] ?? null) === 'feishu.corp.example.com'
+    && ($problem['details']['blocked_range'] ?? null) === '10.0.0.0/8'
+    && !isset($problem['details']['blocked_address'])
+    && !in_array('10.0.0.5', $problem['details'], true),
+    '渠道：公网域解析进私网被阻断且不回显解析 IP');
+
+$endpoint = channelPolicy(['10.0.0.5'], EgressAllowlist::fromString('10.0.0.0/8'))
+    ->verify('https://feishu.corp.example.com', 'https://open.feishu.cn');
+ok($endpoint->connectionAddress() === '10.0.0.5',
+    '渠道：显式渠道放行名单列入私网网段后私有部署放行');
+
+$problem = problemOf(static function (): void {
+    channelPolicy(['10.0.0.5'], EgressAllowlist::fromString('198.18.0.0/15'))
+        ->verify('https://feishu.corp.example.com', 'https://open.feishu.cn');
+});
+ok($problem !== null && $problem['code'] === 'SAND_AI_CHANNEL_API_BASE_FORBIDDEN',
+    '渠道：未列入的私网网段不放行（渠道名单独立于服务商名单）');
+
+$problem = problemOf(static function (): void {
+    channelPolicy([], EgressAllowlist::fromString(''))->verify('https://feishu.corp.example.com', 'https://open.feishu.cn');
+});
+ok($problem !== null && $problem['code'] === 'SAND_AI_CHANNEL_API_BASE_DNS_UNAVAILABLE',
+    '渠道：DNS 无记录是独立可重试错误');
+
+// --- A7：消息客户端在携带凭据前执行同一出口闸门 ------------------------------
+$feishuCalls = 0;
+$feishuPost = static function (string $url, array $headers, array $body) use (&$feishuCalls): array {
+    $feishuCalls++;
+    if (str_contains($url, 'tenant_access_token')) {
+        return ['status' => 200, 'body' => ['code' => 0, 'tenant_access_token' => 'fixture-token']];
+    }
+    return ['status' => 200, 'body' => ['code' => 0, 'data' => ['message_id' => 'om_fixture_1']]];
+};
+$feishu = new FeishuMessageClient($feishuPost, channelPolicy(['8.8.8.8'], EgressAllowlist::fromString('')));
+$sent = $feishu->sendText('fixture-app', 'fixture-secret', 'oc_fixture', '你好',
+    '01234567-89ab-cdef-0123-456789abcdef', null, 'https://feishu.corp.example.com');
+ok($sent['message_id'] === 'om_fixture_1' && $feishuCalls === 2,
+    '渠道：合法 api_base 下飞书客户端完成令牌与消息两次调用');
+
+$feishuCalls = 0;
+$problem = problemOf(static function () use ($feishuPost, &$feishuCalls): void {
+    (new FeishuMessageClient($feishuPost, channelPolicy(['169.254.169.254'], EgressAllowlist::fromString(''))))
+        ->sendText('fixture-app', 'fixture-secret', 'oc_fixture', '你好',
+            '01234567-89ab-cdef-0123-456789abcdef', null, 'https://feishu.corp.example.com');
+});
+ok($problem !== null && $problem['code'] === 'SAND_AI_CHANNEL_API_BASE_FORBIDDEN' && $feishuCalls === 0,
+    '渠道：被拦 api_base 在携带 app_secret 前被拒绝，传输零调用');
+
+$wecomCalls = 0;
+$wecomRequest = static function (string $url, ?array $body, bool $messagePost) use (&$wecomCalls): array {
+    $wecomCalls++;
+    if (str_contains($url, 'gettoken')) {
+        return ['errcode' => 0, 'access_token' => 'fixture-token'];
+    }
+    return ['errcode' => 0];
+};
+$wecom = new WecomMessageClient($wecomRequest, channelPolicy(['8.8.8.8'], EgressAllowlist::fromString('')));
+$wecom->sendText('fixture-corp', 'fixture-secret', '1000001', 'fixture-user', '你好', null,
+    'https://wecom.corp.example.com:8443');
+ok($wecomCalls === 2, '渠道：合法 api_base 下企业微信客户端完成令牌与消息两次调用');
+
+$wecomCalls = 0;
+$problem = problemOf(static function () use ($wecomRequest, &$wecomCalls): void {
+    (new WecomMessageClient($wecomRequest, channelPolicy(['192.168.0.9'], EgressAllowlist::fromString(''))))
+        ->sendText('fixture-corp', 'fixture-secret', '1000001', 'fixture-user', '你好', null,
+            'https://wecom.corp.example.com');
+});
+ok($problem !== null && $problem['code'] === 'SAND_AI_CHANNEL_API_BASE_FORBIDDEN' && $wecomCalls === 0,
+    '渠道：被拦 api_base 在携带 corp_secret 前被拒绝，传输零调用');
 
 echo "----\n通过 {$passed}，失败 {$failed}\n";
 exit($failed === 0 ? 0 : 1);

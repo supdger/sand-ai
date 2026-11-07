@@ -23,7 +23,7 @@
     <ElAlert type="warning" :closable="false" title="此设置会降低安全防护，只放行你信任的服务地址。" class="egress-hint__alert" />
     <p class="egress-hint__text">放行名单由宿主服务器管理员在运行环境配置 <code>SAND_AI_EGRESS_ALLOW_CIDRS</code>（逗号分隔的网段），保存后按宿主正常流程重新加载服务。</p>
     <p class="egress-hint__text">请只列入确有证据的最小网段；让代理软件返回真实地址、或把该服务设为「直连」，永远是首选路径，放行名单只是受控例外。</p>
-    <p class="egress-hint__text">点〔复制问题信息〕把本次被拦截的地址交给宿主管理员，即可确定需要列入的网段。</p>
+    <p class="egress-hint__text">点〔复制问题信息〕把本次被拦截的网段交给宿主管理员，即可确定需要列入的放行名单。</p>
     <template #footer>
       <ElButton @click="allowlistOpen = false">知道了</ElButton>
     </template>
@@ -38,7 +38,7 @@
     modelValue: boolean
     /** 服务商显示名，拼进标题「连不上{服务商名}」 */
     serviceName: string
-    /** 后端返回的脱敏字段：serviceHost 可展示，blockedAddress 仅进复制信息 */
+    /** 后端返回的脱敏字段：serviceHost 可展示，blockedRange 仅进复制信息 */
     details: EgressBlockedDetails
   }>()
   const emit = defineEmits<{

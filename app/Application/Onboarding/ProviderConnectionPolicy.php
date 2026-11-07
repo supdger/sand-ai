@@ -70,17 +70,19 @@ final class ProviderConnectionPolicy
         // CIDR ranges, never a whole class of reserved space.
         $allowlist = $this->allowlist ?? EgressAllowlist::fromEnvironment();
         foreach ($addresses as $address) {
-            if (!$this->isPublicAddress($address) && !$allowlist->allows($address)) {
+            if (!PublicAddressPolicy::isPublic($address) && !$allowlist->allows($address)) {
                 throw new ApiProblem(
                     'SAND_AI_ONBOARDING_CONNECTION_FORBIDDEN',
                     '服务地址解析到了不允许访问的网络地址',
                     false,
                     [
                         // Sanitized fields for the admin hint: the entered public
-                        // hostname and the single blocked resolved address.
+                        // hostname and the reserved range that blocked the
+                        // resolved address. The resolved IP itself is internal
+                        // network detail and is never echoed to the frontend.
                         'reason_code' => 'resolved_address_blocked',
                         'service_host' => $host,
-                        'blocked_address' => $address,
+                        'blocked_range' => PublicAddressPolicy::blockedRange($address) ?? 'reserved',
                     ],
                 );
             }
@@ -124,62 +126,5 @@ final class ProviderConnectionPolicy
     private function isIpLiteral(string $host): bool
     {
         return filter_var(trim($host, '[]'), FILTER_VALIDATE_IP) !== false;
-    }
-
-    private function isPublicAddress(string $address): bool
-    {
-        $packed = inet_pton($address);
-        if ($packed === false) {
-            return false;
-        }
-        if (strlen($packed) === 4) {
-            return !$this->matchesAnyCidr($address, [
-                ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
-                ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24],
-                ['192.31.196.0', 24], ['192.52.193.0', 24], ['192.88.99.0', 24], ['192.168.0.0', 16],
-                ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 4],
-                ['240.0.0.0', 4],
-            ]);
-        }
-        if (strlen($packed) !== 16 || !$this->matchesCidr($address, '2000::', 3)) {
-            return false;
-        }
-
-        return !$this->matchesAnyCidr($address, [
-            ['2001::', 23], ['2001:2::', 48], ['2001:10::', 28], ['2001:20::', 28],
-            ['2001:db8::', 32], ['2002::', 16], ['3fff::', 20],
-        ]);
-    }
-
-    /** @param list<array{0: string, 1: int}> $cidrs */
-    private function matchesAnyCidr(string $address, array $cidrs): bool
-    {
-        foreach ($cidrs as [$network, $prefix]) {
-            if ($this->matchesCidr($address, $network, $prefix)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function matchesCidr(string $address, string $network, int $prefix): bool
-    {
-        $addressBytes = inet_pton($address);
-        $networkBytes = inet_pton($network);
-        if ($addressBytes === false || $networkBytes === false || strlen($addressBytes) !== strlen($networkBytes)) {
-            return false;
-        }
-        $wholeBytes = intdiv($prefix, 8);
-        $remainingBits = $prefix % 8;
-        if (substr($addressBytes, 0, $wholeBytes) !== substr($networkBytes, 0, $wholeBytes)) {
-            return false;
-        }
-        if ($remainingBits === 0) {
-            return true;
-        }
-
-        $mask = (0xff << (8 - $remainingBits)) & 0xff;
-        return (ord($addressBytes[$wholeBytes]) & $mask) === (ord($networkBytes[$wholeBytes]) & $mask);
     }
 }

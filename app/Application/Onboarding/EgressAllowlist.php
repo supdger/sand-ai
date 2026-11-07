@@ -45,9 +45,11 @@ final class EgressAllowlist
     /**
      * Parses a comma/whitespace separated CIDR list. An empty string yields an
      * empty allowlist. Any malformed entry rejects the entire configuration so
-     * a typo cannot silently narrow or widen the intended ranges.
+     * a typo cannot silently narrow or widen the intended ranges. $source names
+     * the environment variable the list came from so the error points at the
+     * right knob (provider vs channel egress lists are separate).
      */
-    public static function fromString(string $raw): self
+    public static function fromString(string $raw, string $source = self::ENVIRONMENT_VARIABLE): self
     {
         $entries = preg_split('/[\s,]+/', trim($raw), -1, PREG_SPLIT_NO_EMPTY);
         if (!is_array($entries)) {
@@ -58,16 +60,16 @@ final class EgressAllowlist
         foreach ($entries as $entry) {
             if (strlen($entry) > 64
                 || preg_match('/\A([0-9A-Fa-f:.]+)\/(\d{1,3})\z/', $entry, $match) !== 1) {
-                throw self::invalid($entry);
+                throw self::invalid($entry, $source);
             }
             $network = inet_pton($match[1]);
             if ($network === false) {
-                throw self::invalid($entry);
+                throw self::invalid($entry, $source);
             }
             $prefix = (int) $match[2];
             $bits = strlen($network) * 8;
             if ($prefix > $bits) {
-                throw self::invalid($entry);
+                throw self::invalid($entry, $source);
             }
             // Normalize host bits away so `198.18.0.123/15` means `198.18.0.0/15`.
             $masked = substr($network, 0, intdiv($prefix, 8));
@@ -113,11 +115,11 @@ final class EgressAllowlist
         return false;
     }
 
-    private static function invalid(string $entry): ApiProblem
+    private static function invalid(string $entry, string $source): ApiProblem
     {
         return new ApiProblem(
             'SAND_AI_EGRESS_ALLOWLIST_INVALID',
-            '放行名单配置包含无效网段，请宿主管理员检查 ' . self::ENVIRONMENT_VARIABLE . ' 后重载',
+            '放行名单配置包含无效网段，请宿主管理员检查 ' . $source . ' 后重载',
             false,
             ['reason_code' => 'egress_allowlist_invalid'],
         );

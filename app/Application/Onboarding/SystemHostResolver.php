@@ -17,7 +17,7 @@ final class SystemHostResolver implements HostResolver
         // back to a possibly intercepted system resolver.
         // Only code-owned server namespaces are supported. Connection/request
         // input cannot select environment keys or supply a pin.
-        if (!in_array($this->pinEnvironmentPrefix, ['SAND_AI_PROVIDER', 'SAND_AI_TOOL'], true)) {
+        if (!in_array($this->pinEnvironmentPrefix, ['SAND_AI_PROVIDER', 'SAND_AI_TOOL', 'SAND_AI_CHANNEL'], true)) {
             return [];
         }
         $pinnedHost = env($this->pinEnvironmentPrefix . '_PINNED_HOST', null);
