@@ -1,7 +1,8 @@
 <template>
-  <!-- 恒单元素根：宿主 <Transition mode="out-in"> 只能为元素根做 leave 过渡，
-       fragment 根会让 afterLeave 永不触发、内容区永久空白。fault 只切内部内容。 -->
   <div :class="fault ? 'sand-ai-page sand-ai-boundary' : undefined">
+    <!-- 恒单元素根：宿主 <Transition mode="out-in"> 只能为元素根做 leave 过渡，
+         fragment 根会让 afterLeave 永不触发、内容区永久空白。fault 只切内部内容。
+         注释必须位于 div 内部：template 下只能有一个根元素。 -->
     <ElResult v-if="fault" icon="error" title="系统出了点问题，请稍后再试。">
       <template #extra>
         <ElSpace direction="vertical" :size="12">
