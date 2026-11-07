@@ -1,5 +1,5 @@
 import request from '@/utils/http'
-import { ADMIN_API_PREFIX, USE_SCHEMA_MOCK } from './config'
+import { ADMIN_API_PREFIX } from './config'
 import type { SandAiInvocationCost } from './types'
 
 export type CostComparisonQuery = {
@@ -49,7 +49,6 @@ export type CostComparisonSelection = {
 }
 export default {
   read(params: CostComparisonQuery): Promise<CostComparison> {
-    if (USE_SCHEMA_MOCK) return Promise.reject(new Error('费用比较需要连接真实后台，模拟数据不能证明可比条件'))
     return request.get<CostComparison>({
       url: `${ADMIN_API_PREFIX}/usage/comparison`, params, showErrorMessage: false
     })

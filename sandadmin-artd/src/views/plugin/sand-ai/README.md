@@ -7,7 +7,7 @@
 - 契约文档：`docs/development/sand-ai-api-contract.md`
 - API 前缀：`/app/sand-ai/admin/...`
 - 权限标识：`sand_ai:<resource>:<action>`
-- 开关：`api/config.ts` → `USE_SCHEMA_MOCK=false`
+- API：仅真实后台 `api/config.ts` → `ADMIN_API_PREFIX`（前端 mock 通路已移除）
 - 开发入口：`http://127.0.0.1:3007`（勿用 3006）
 - 开发代理：`VITE_API_PROXY_URL=http://127.0.0.1:8788`
 - 开发菜单：`VITE_ACCESS_MODE=frontend`
