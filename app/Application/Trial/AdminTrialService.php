@@ -10,6 +10,7 @@ use app\Application\Capability\CapabilityProfileResolver;
 use app\Application\Gateway\ChatGateway;
 use app\Application\Gateway\RequestIdempotencyKey;
 use app\Application\Usage\UsageAttribution;
+use app\Identity\Contract\IdentityContext;
 use app\Identity\Infrastructure\ChatInvocationAccessGuard;
 use app\Infrastructure\Persistence\Model\AiModel;
 use app\Infrastructure\Persistence\Model\Provider;
@@ -100,12 +101,15 @@ final class AdminTrialService
         $context = $identity['identity'];
         $idempotencyRequestId = RequestIdempotencyKey::required($request, 'chat', $context);
 
-        $guard = new ChatInvocationAccessGuard();
-        $authorizeInvocation = static function (int $invocationId) use ($guard, $request, $context, $requestId): void {
-            // Every attempt re-authorizes through SandIAM, so a grant revoked
-            // between issuance and dispatch is still denied before provider IO.
-            $guard->authorize($request, $context, $invocationId, $requestId);
-        };
+        // The administrator session header is never an invocation credential:
+        // every attempt re-authorizes the issued workload context explicitly.
+        $authorizeInvocation = self::trialAuthorizeCallback(
+            new ChatInvocationAccessGuard(),
+            'Bearer ' . $identity['context'],
+            (string) $request->getRemoteIp(),
+            $context,
+            $requestId,
+        );
 
         try {
             $result = (new ChatGateway())->complete(
@@ -232,6 +236,27 @@ final class AdminTrialService
             throw new ApiProblem('SAND_AI_TRIAL_ROUTES_UNAVAILABLE', '暂时无法读取这个应用的可用线路，请稍后重试');
         }
         return is_array($routes) ? $routes : [];
+    }
+
+    /**
+     * Pre-dispatch re-authorization bound to the issued workload context. The
+     * signed context is passed explicitly (`Bearer <context>`) so the
+     * administrator session header is never consulted; SandIAM still verifies
+     * the signature, grant, quota, network policy and data class on every
+     * attempt through `authorizeInvocation`.
+     *
+     * @return callable(int):void
+     */
+    public static function trialAuthorizeCallback(
+        ChatInvocationAccessGuard $guard,
+        string $signedContext,
+        string $sourceIp,
+        IdentityContext $identity,
+        string $requestId,
+    ): callable {
+        return static function (int $invocationId) use ($guard, $signedContext, $sourceIp, $identity, $requestId): void {
+            $guard->authorizeSigned($signedContext, $sourceIp, $identity, $invocationId, $requestId);
+        };
     }
 
     /**

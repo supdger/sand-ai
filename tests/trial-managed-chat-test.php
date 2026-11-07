@@ -13,19 +13,31 @@ declare(strict_types=1);
  */
 
 require_once dirname(__DIR__) . '/app/Api/Support/ApiProblem.php';
+require_once dirname(__DIR__) . '/app/Api/Support/IdentityContextProblem.php';
+require_once dirname(__DIR__) . '/app/Identity/Contract/IdentityContext.php';
+require_once dirname(__DIR__) . '/app/Identity/Contract/IdentityContextException.php';
 require_once dirname(__DIR__) . '/app/Application/Gateway/ChatCompletionOptions.php';
 require_once dirname(__DIR__) . '/app/Application/Gateway/ChatCompletionOptionsPolicy.php';
 require_once dirname(__DIR__) . '/app/Application/Trial/AdminTrialRateLimiter.php';
 require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HostSandIamRuntime.php';
+require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HostSandIamErrorMapper.php';
+require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HttpStreamAuthorizationScope.php';
+require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HostSandIamInvocationAuthorizer.php';
+require_once dirname(__DIR__) . '/app/Identity/Infrastructure/ChatInvocationAccessGuard.php';
 require_once dirname(__DIR__) . '/app/Application/Trial/AdminTrialIamGateway.php';
 require_once dirname(__DIR__) . '/app/Application/Trial/AdminTrialService.php';
 require_once dirname(__DIR__) . '/app/Identity/Infrastructure/HostSandIamServiceCatalog.php';
+require_once __DIR__ . '/stubs/SupportRequest.php';
 
 use app\Api\Support\ApiProblem;
 use app\Application\Trial\AdminTrialIamGateway;
 use app\Application\Trial\AdminTrialRateLimiter;
 use app\Application\Trial\AdminTrialService;
+use app\Identity\Contract\IdentityContext;
+use app\Identity\Infrastructure\ChatInvocationAccessGuard;
+use app\Identity\Infrastructure\HostSandIamInvocationAuthorizer;
 use app\Identity\Infrastructure\HostSandIamServiceCatalog;
+use support\Request as SupportRequest;
 
 $passed = 0;
 $failed = 0;
@@ -275,6 +287,133 @@ foreach ($legacyPort->inspections as $call) {
     }
 }
 ok($legacyInspectRich === false, '旧端口：inspect 载荷不携带富声明字段');
+
+// --- D-C3-01：试用授权显式使用签发 context，不读 HTTP 头 -------------------
+// 录制型 host authorizer：HostSandIamInvocationAuthorizer 对 host 端口做
+// method_exists 鸭子类型探测，注入假实现即可在无 SandIAM/DB 下断言
+// 「哪个签名上下文、哪个动作、哪个资源键」真正进入授权链。
+final class RecordingHostInvocationAuthorizer
+{
+    /** @var list<array<string,mixed>> */
+    public array $calls = [];
+
+    public function __construct(private readonly IdentityContext $identity)
+    {
+    }
+
+    /** @return array<string,mixed> */
+    private function decision(string $actionCode, string $audience, string $operationId): array
+    {
+        return [
+            'authorization_id' => 101,
+            'grant_id' => 55,
+            'context_id' => 'ctx-recording-1',
+            'replayed' => false,
+            'data_class' => null,
+            'operation_id' => $operationId,
+            'service_code' => 'sand_ai',
+            'audience' => $audience,
+            'action_code' => $actionCode,
+            'organization_id' => (int) $this->identity->organizationId,
+            'application_id' => (int) $this->identity->applicationId,
+            'environment_id' => $this->identity->environmentId,
+            'workload_client_id' => (int) $this->identity->workloadClientId,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    public function authorizeInvocation(
+        string $signedContext, string $serviceCode, string $audience, string $actionCode,
+        string $resolverCode, string $resourceKey, string $sourceIp, string $operationId, string $auditRequestId,
+    ): array {
+        $this->calls[] = [
+            'kind' => 'authorize',
+            'signed_context' => $signedContext,
+            'service_code' => $serviceCode,
+            'audience' => $audience,
+            'action_code' => $actionCode,
+            'resolver_code' => $resolverCode,
+            'resource_key' => $resourceKey,
+            'source_ip' => $sourceIp,
+            'operation_id' => $operationId,
+        ];
+        return $this->decision($actionCode, $audience, $operationId);
+    }
+
+    /** @return array<string,mixed> */
+    public function revalidateInvocation(
+        int $authorizationId, string $signedContext, string $serviceCode, string $audience,
+        string $actionCode, string $resolverCode, string $resourceKey, string $sourceIp, string $auditRequestId,
+    ): array {
+        $this->calls[] = [
+            'kind' => 'revalidate',
+            'authorization_id' => $authorizationId,
+            'signed_context' => $signedContext,
+        ];
+        return $this->decision($actionCode, $audience, 'chat-invocation:revalidate');
+    }
+}
+
+$trialIdentity = new IdentityContext('7', '9', 3, '11', 'sand-ai', ['sand_ai.chat.complete'], time() + 300);
+$trialRequestId = 'atrial-chat:1:0123456789abcdef';
+$trialHost = new RecordingHostInvocationAuthorizer($trialIdentity);
+$trialGuard = new ChatInvocationAccessGuard(new HostSandIamInvocationAuthorizer($trialHost));
+
+// 试用链路：trialAuthorizeCallback 产出的派发前回调必须把签发的 workload
+// context（而非管理员会话头）交给 SandIAM authorizeInvocation 全链复核。
+$authorizeTrial = AdminTrialService::trialAuthorizeCallback(
+    $trialGuard, 'Bearer issued.workload.context', '203.0.113.10', $trialIdentity, $trialRequestId,
+);
+$authorizeTrial(42);
+ok(count($trialHost->calls) === 1
+    && $trialHost->calls[0]['kind'] === 'authorize'
+    && $trialHost->calls[0]['signed_context'] === 'issued.workload.context'
+    && $trialHost->calls[0]['action_code'] === 'sand_ai.chat.complete'
+    && $trialHost->calls[0]['resolver_code'] === 'sand_ai.chat_invocation'
+    && $trialHost->calls[0]['resource_key'] === '42'
+    && $trialHost->calls[0]['source_ip'] === '203.0.113.10',
+    'D-C3-01：试用回调把签发 context 显式交给 SandIAM 授权（resource=invocation id）');
+
+$problem = problemOf(static function () use ($trialGuard, $trialIdentity, $trialRequestId): void {
+    $trialGuard->authorizeSigned('issued-no-bearer-prefix', '203.0.113.10', $trialIdentity, 43, $trialRequestId);
+});
+ok($problem !== null && $problem['code'] === 'SAND_AI_AUTHENTICATION_FAILED',
+    'D-C3-01：缺 Bearer 前缀的 context 在授权层被拒绝');
+
+// 公开 API 路径不变：authorize() 仍从 HTTP Authorization 头取上下文，并保留
+// x-request-id 与服务端 requestId 的一致性约束。
+$publicRequest = new SupportRequest([
+    'authorization' => 'Bearer public.workload.context',
+    'x-request-id' => $trialRequestId,
+]);
+$trialGuard->authorize($publicRequest, $trialIdentity, 44, $trialRequestId);
+ok(count($trialHost->calls) === 2
+    && $trialHost->calls[1]['signed_context'] === 'public.workload.context'
+    && $trialHost->calls[1]['resource_key'] === '44',
+    '公开路径：authorize() 仍从 HTTP 头取签名上下文');
+
+$mismatchedRequest = new SupportRequest([
+    'authorization' => 'Bearer public.workload.context',
+    'x-request-id' => 'otherrequestid01',
+]);
+$problem = problemOf(static fn () => $trialGuard->authorize($mismatchedRequest, $trialIdentity, 45, $trialRequestId));
+ok($problem !== null && $problem['code'] === 'SAND_AI_IDENTITY_CONTEXT_UNAVAILABLE',
+    '公开路径：x-request-id 与服务端 requestId 不一致仍被拒绝');
+
+// --- D-C3-02：options 模型名投影收集模型 id 而非位置序号 ---------------------
+$projection = new ReflectionMethod(AdminTrialService::class, 'projectedModelIds');
+$projection->setAccessible(true);
+$ids = $projection->invoke(null, [
+    1 => ['models' => [10 => 1, 42 => 2]],
+    2 => ['models' => [7 => 1]],
+]);
+ok($ids === [10, 42, 7], 'D-C3-02：多服务商多模型投影返回真实模型 id（非位置序号）');
+$ids = $projection->invoke(null, [5 => ['models' => [99 => 1]]]);
+ok($ids === [99], 'D-C3-02：单服务商单模型投影返回模型 id');
+$ids = $projection->invoke(null, [3 => ['models' => []], 4 => ['models' => [8 => 1]]]);
+ok($ids === [8], 'D-C3-02：空模型集服务商不产生伪 id');
+$ids = $projection->invoke(null, []);
+ok($ids === [], 'D-C3-02：空投影返回空集');
 
 echo "----\n通过 {$passed}，失败 {$failed}\n";
 exit($failed === 0 ? 0 : 1);
