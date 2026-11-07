@@ -173,6 +173,9 @@ final class SetupController extends SandAiAdminController
                 $this->capabilityActor(),
             ), '部署草稿已保存');
         } catch (ApiProblem $problem) {
+            if ($problem->details !== []) {
+                return $this->problemDetailsResponse($problem);
+            }
             throw $this->onboardingProblemException($problem);
         }
     }
@@ -216,6 +219,9 @@ final class SetupController extends SandAiAdminController
                 (string) $this->authenticatedAdminId(),
             ));
         } catch (ApiProblem $problem) {
+            if ($problem->details !== []) {
+                return $this->problemDetailsResponse($problem);
+            }
             throw $this->onboardingProblemException($problem);
         }
     }
@@ -429,6 +435,9 @@ final class SetupController extends SandAiAdminController
             }
             $models = $this->onboardingClient()->discover($connection);
         } catch (ApiProblem $problem) {
+            if ($problem->details !== []) {
+                return $this->problemDetailsResponse($problem);
+            }
             throw $this->onboardingProblemException($problem);
         }
 
@@ -461,6 +470,9 @@ final class SetupController extends SandAiAdminController
                 trim((string) $request->header('Idempotency-Key', '')), (int) $actorRef, $this->requestId($request),
             );
         } catch (ApiProblem $problem) {
+            if ($problem->details !== []) {
+                return $this->problemDetailsResponse($problem);
+            }
             throw $this->onboardingProblemException($problem);
         }
 

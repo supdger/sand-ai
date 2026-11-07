@@ -21,8 +21,10 @@ final class ProviderConnectionPolicy
         'X-Project',
     ];
 
-    public function __construct(private readonly HostResolver $resolver)
-    {
+    public function __construct(
+        private readonly HostResolver $resolver,
+        private readonly ?EgressAllowlist $allowlist = null,
+    ) {
     }
 
     /**
@@ -63,9 +65,24 @@ final class ProviderConnectionPolicy
         if ($addresses === []) {
             throw new ApiProblem('SAND_AI_ONBOARDING_DNS_UNAVAILABLE', '无法解析服务商地址，请确认地址后重试', true);
         }
+        // The deny list still governs every resolved address; an administrator
+        // allowlist only excuses an address that matches one of its explicit
+        // CIDR ranges, never a whole class of reserved space.
+        $allowlist = $this->allowlist ?? EgressAllowlist::fromEnvironment();
         foreach ($addresses as $address) {
-            if (!$this->isPublicAddress($address)) {
-                throw new ApiProblem('SAND_AI_ONBOARDING_CONNECTION_FORBIDDEN', '服务地址解析到了不允许访问的网络地址');
+            if (!$this->isPublicAddress($address) && !$allowlist->allows($address)) {
+                throw new ApiProblem(
+                    'SAND_AI_ONBOARDING_CONNECTION_FORBIDDEN',
+                    '服务地址解析到了不允许访问的网络地址',
+                    false,
+                    [
+                        // Sanitized fields for the admin hint: the entered public
+                        // hostname and the single blocked resolved address.
+                        'reason_code' => 'resolved_address_blocked',
+                        'service_host' => $host,
+                        'blocked_address' => $address,
+                    ],
+                );
             }
         }
 

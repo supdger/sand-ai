@@ -93,6 +93,9 @@ final class ProviderController extends SandAiAdminController
             $connection = $source['connection'] ?? $this->savedConnection((int) $source['provider_id']);
             $models = $this->onboardingClient()->discover($connection);
         } catch (ApiProblem $problem) {
+            if ($problem->details !== []) {
+                return $this->problemDetailsResponse($problem);
+            }
             throw $this->testConnectionProblem($problem);
         }
 

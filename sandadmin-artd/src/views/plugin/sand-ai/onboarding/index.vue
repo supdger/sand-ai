@@ -410,12 +410,21 @@
           </section>
         </template>
       </ElCard>
+      <EgressBlockedHint
+        v-if="egressHint"
+        :model-value="true"
+        :service-name="providerName.trim() || '该服务'"
+        :details="egressHint"
+        @update:model-value="(value: boolean) => { if (!value) egressHint = null }"
+        @retry="() => { egressHint = null; void discover() }"
+      />
     </div>
   </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
+  import EgressBlockedHint from '../components/EgressBlockedHint.vue'
 import '../components/sandAiPage.css'
 import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -424,6 +433,7 @@ import { HttpError } from '@/utils/http/error'
 import { useUserStore } from '@/store/modules/user'
 import iamApi, { type SandIamApplicationReference, type SandIamEnvironmentReference } from '../api/iam'
 import onboardingApi, { type AudioRuntimeMetadata, type DiscoveredModel, type DraftSave, type NewDeployment, type ProviderConnectionHeader, type ProviderGuide, type PublishedDeployment, type ReasoningEffort, type SkillOutputStrategy, type ServiceCatalogPreflight, type SolutionGuide, type Verification, type VerificationFailure, type VerificationFailureReason } from '../api/onboarding'
+import { egressBlockedDetails, type EgressBlockedDetails } from '../api/egressBlocked'
 import capabilityApi from '../api/capability'
 import { readOnboardingBindingIntent, retainOnboardingBindingIntent, resolveOnboardingBindingIntent, type OnboardingBindingIntent } from '../api/onboardingBindingIntent'
 import MaterialProfileEditor from '../components/MaterialProfileEditor.vue'
@@ -533,6 +543,7 @@ function openChatTrial(): void {
 }
 watch(environmentId, () => { materialReadyEnvironmentId.value = null }, { flush: 'sync' })
 const providerName = ref('')
+const egressHint = ref<EgressBlockedDetails | null>(null)
 const baseUrl = ref('')
 const apiKey = ref('')
 const providerTimeoutSeconds = ref(120)
@@ -1517,7 +1528,12 @@ async function discover(): Promise<void> {
       models.value = result.models
       notice(result.models.length ? '已发现模型；也可以手动填写其他模型标识。' : '服务商未返回模型列表，请从控制台取得聊天模型标识后手动填写；保存草稿后仍需验证。', 'success')
     } catch (error) {
-      if (current === epoch && generation === discoveryGeneration) notice(discoveryFailureNotice(error), 'warning')
+      const blocked = egressBlockedDetails(error)
+      if (blocked !== null) {
+        if (current === epoch && generation === discoveryGeneration) egressHint.value = blocked
+      } else if (current === epoch && generation === discoveryGeneration) {
+        notice(discoveryFailureNotice(error), 'warning')
+      }
     } finally {
       if (current === epoch) busy.value = ''
     }

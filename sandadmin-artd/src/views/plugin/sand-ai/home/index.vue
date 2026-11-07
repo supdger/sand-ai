@@ -186,6 +186,14 @@
           </details>
         </div>
       </ElCard>
+      <EgressBlockedHint
+        v-if="egressHint"
+        :model-value="true"
+        :service-name="guide?.name || '该服务'"
+        :details="egressHint"
+        @update:model-value="(value: boolean) => { if (!value) egressHint = null }"
+        @retry="() => { egressHint = null; egressHintRetry?.() }"
+      />
     </div>
   </SandAiErrorBoundary>
 </template>
@@ -211,6 +219,8 @@
     type VerificationFailureReason
   } from '../api/onboarding'
   import providerApi from '../api/provider'
+  import { egressBlockedDetails, type EgressBlockedDetails } from '../api/egressBlocked'
+  import EgressBlockedHint from '../components/EgressBlockedHint.vue'
   import modelApi from '../api/model'
   import capabilityApi from '../api/capability'
   import usageApi from '../api/usage'
@@ -263,6 +273,12 @@
   const baseUrl = ref('')
   const connectionOk = ref(false)
   const discoveredModels = ref<string[]>([])
+  const egressHint = ref<EgressBlockedDetails | null>(null)
+  const egressHintRetry = ref<(() => void) | null>(null)
+  function openEgressHint(blocked: EgressBlockedDetails, retry: () => void): void {
+    egressHint.value = blocked
+    egressHintRetry.value = retry
+  }
   const remoteModel = ref('')
   const remoteModelManual = ref('')
   const manualModel = ref(false)
@@ -927,7 +943,12 @@
       discoveredModels.value = result.models.map(item => item.remote_model).filter(Boolean)
       notice(result.models.length ? '连接成功，已找到可用模型。' : '连接成功；服务商未返回模型列表，请手动填写模型标识。', 'success')
     } catch (error) {
-      notice(probeFailureText(error, '连接测试未完成，请检查接口地址和 API Key。'), 'warning')
+      const blocked = egressBlockedDetails(error)
+      if (blocked !== null) {
+        openEgressHint(blocked, () => void testConnection())
+      } else {
+        notice(probeFailureText(error, '连接测试未完成，请检查接口地址和 API Key。'), 'warning')
+      }
     } finally {
       busy.value = ''
     }
@@ -948,7 +969,12 @@
         notice('服务商未返回模型列表，请手动填写模型标识。', 'warning')
       }
     } catch (error) {
-      notice(probeFailureText(error, '未能读取可用模型，请稍后重试或手动填写模型标识。'), 'warning')
+      const blocked = egressBlockedDetails(error)
+      if (blocked !== null) {
+        openEgressHint(blocked, () => void loadProviderModels())
+      } else {
+        notice(probeFailureText(error, '未能读取可用模型，请稍后重试或手动填写模型标识。'), 'warning')
+      }
     } finally {
       busy.value = ''
     }

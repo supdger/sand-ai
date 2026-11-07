@@ -103,9 +103,9 @@ SandAI 通过一个 SandPackage ZIP 安装，包含 PHP/Webman 后端、Vue 管�
 
 ### 宿主基础依赖
 
-需要已有的 SandAdmin `>=0.2.3` PostgreSQL 宿主。安装前由宿主管理员通过根 Composer 的正式依赖管理确认 Sand Core 稳定版 `>=0.2.4`、SandPackage 稳定版 `>=0.2.23`；业务插件最低依赖为 SandIAM `>=0.8.4`，随包提供的 `0.8.6` ZIP 与摘要用于确认工件身份。
+需要已有的 SandAdmin `>=0.2.3` PostgreSQL 宿主。安装前由宿主管理员通过根 Composer 的正式依赖管理确认 Sand Core 稳定版 `>=0.2.4`、SandPackage 稳定版 `>=0.2.24`；业务插件最低依赖为 SandIAM `>=0.9.6`，随包捆绑声明的 `0.9.6` ZIP 与摘要用于确认工件身份。
 
-SandAI `0.4.9` 把已安装 SandPackage 的最低稳定版定为 `>=0.2.23`，因为进程登记的 `full_restart` 落在 sand-package 草案 `0.2.23`（[sand-package#48](https://github.com/supdger/sand-package/pull/48)）。SandPackage `0.2.7` 仍是自动安装 IAM 后的加载续接、CLI 重载修复，以及完整插件 ZIP 16 MiB 压缩上限的来源，见[公开发行](https://github.com/supdger/sand-package/releases/tag/0.2.7)；它不再满足 `0.4.9` 的加载门。这三个产品的版本号分别判断，SandAdmin 的最低宿主声明保持 `>=0.2.3`。
+SandAI `0.4.10` 把已安装 SandPackage 的最低稳定版定为 `>=0.2.24`；`0.2.23` 起进程登记的 `full_restart` 落在 sand-package（[sand-package#48](https://github.com/supdger/sand-package/pull/48)），`0.2.24` 继续承接该修复线。SandPackage `0.2.7` 仍是自动安装 IAM 后的加载续接、CLI 重载修复，以及完整插件 ZIP 16 MiB 压缩上限的来源，见[公开发行](https://github.com/supdger/sand-package/releases/tag/0.2.7)；它不再满足 `0.4.10` 的加载门。这三个产品的版本号分别判断，SandAdmin 的最低宿主声明保持 `>=0.2.3`。
 
 SandAI 的加载守卫读取 Composer `InstalledVersions` 中实际安装的 Core 与 Package 版本；不足、未知或预发行版本只阻止本插件的路由与 worker 登记，其他插件不受影响。该守卫不是安装 SQL 前的版本预检，也不会自动更新宿主依赖。详见[统一安装包契约](plugin/sand-ai/docs/development/sand-ai-plugin-package-contract.md#宿主基础依赖最低条件)。
 
@@ -113,7 +113,7 @@ SandAI 的加载守卫读取 Composer `InstalledVersions` 中实际安装的 Cor
 
 ### 安装步骤
 
-1. 先由宿主管理员确认 Core `>=0.2.4`、Package `>=0.2.23` 并完成正常重载，再安装、配置 SandIAM，通过 SandPackage 安装完整 SandAI ZIP；按安装契约完成管理端加载和运行准备。
+1. 先由宿主管理员确认 Core `>=0.2.4`、Package `>=0.2.24` 并完成正常重载，再安装、配置 SandIAM，通过 SandPackage 安装完整 SandAI ZIP；按安装契约完成管理端加载和运行准备。
 2. 打开 **开始使用 SandAI**，检查 SandIAM 连接并登记所需服务动作。可以先配置无需模型 API Key 的本地文本解析。
 3. 要使用聊天，在页面填写服务商提供的连接地址、API Key 和模型标识，保存草稿、验证并发布模型连接，再为目标应用环境绑定聊天能力。验证会调用服务商，可能产生费用。
 4. 由 SandIAM 管理员为应用的工作负载客户端授予所需服务动作；接入开发者按 [API 契约](plugin/sand-ai/docs/development/sand-ai-api-contract.md)使用授权上下文调用接口，例如 `POST /api/sand-ai/v1/chat/completions`。
@@ -195,11 +195,11 @@ SandAI 在转写前探测完整的私有音频文件，按向上取整到毫秒�
 
 完整安装 ZIP 包含[安装契约](plugin/sand-ai/docs/development/sand-ai-plugin-package-contract.md)、[API 契约](plugin/sand-ai/docs/development/sand-ai-api-contract.md)和 [SandWorkflow 消费指南](plugin/sand-ai/docs/sandworkflow-consumption.md)。这些是普通插件载荷下唯一维护的文档正文，其相对 IAM 链接在同一个 ZIP 内可解析；仓库根的源码文档路径只保留薄索引。
 
-包维护者使用稳定 SandPackage `>=0.2.23` 中的 `server/scripts/build-plugin-package.php` 构建该统一载荷，流程见[统一包构建入口](plugin/sand-ai/docs/development/sand-ai-plugin-package-contract.md#统一包构建入口)，覆盖应用文件、清单与依赖捆绑。
+包维护者使用稳定 SandPackage `>=0.2.24` 中的 `server/scripts/build-plugin-package.php` 构建该统一载荷，流程见[统一包构建入口](plugin/sand-ai/docs/development/sand-ai-plugin-package-contract.md#统一包构建入口)，覆盖应用文件、清单与依赖捆绑。
 
 ### 隔离宿主的输入
 
-为隔离宿主准备时，向包维护者取得确切的 SandAI ZIP 及其可信登记摘要，向宿主运维取得已有的 PostgreSQL 数据库和宿主 URL。当前 [config.json](config.json) 以 `version` 与 `sha256` 标识捆绑的 SandIAM `0.8.6` 工件身份，对应[稳定版 v0.8.6 ZIP](https://github.com/supdger/sand-iam/releases/download/v0.8.6/sand-iam-0.8.6.zip)；这些值只标识一个确切的安装工件，SandAI 要求 SandIAM `>=0.8.4` 且不设上限。请使用匹配的可信依赖捆绑、具备下述能力的稳定 SandPackage 安装器 `>=0.2.23`，以及已核对兼容性的宿主版本。上述任一输入缺失时，在安装前停止。
+为隔离宿主准备时，向包维护者取得确切的 SandAI ZIP 及其可信登记摘要，向宿主运维取得已有的 PostgreSQL 数据库和宿主 URL。当前 [config.json](config.json) 以 `version` 与 `sha256` 标识捆绑的 SandIAM `0.9.6` 工件身份；这些值只标识一个确切的安装工件，SandAI 要求已安装 SandIAM `>=0.9.6`。请使用匹配的可信依赖捆绑、具备下述能力的稳定 SandPackage 安装器 `>=0.2.24`，以及已核对兼容性的宿主版本。上述任一输入缺失时，在安装前停止。
 
 历史构包与安装证据：
 
@@ -215,13 +215,13 @@ SandAI 在转写前探测完整的私有音频文件，按向上取整到毫秒�
 
 当前源码候选在两份 `info.ini` 中都声明 `support = ">=0.2.3"`。官方构包器必须收到 `0.2.3` 作为 `host_min` 并省略 `host_max`；这两个字段属于生成的 catalog 发行条目，不属于 `config.json` 或 `release-payload.json`。旧的 `>=0.1.0` 声明对当前源码候选已撤回。
 
-历史开发基线是 SandAdmin 发行版 `0.2.3`、Sand Core/SandPackage `0.2.4`、SandIAM `0.8.4`。标准宿主在其根 Composer 依赖与锁文件中持有基础包；当前前提是稳定版 Sand Core `>=0.2.4` 与稳定版 SandPackage `>=0.2.23`；SandAI 不把它们作为业务插件安装，也不新增第二套基础依赖树。
+历史开发基线是 SandAdmin 发行版 `0.2.3`、Sand Core/SandPackage `0.2.4`、SandIAM `0.8.4`。标准宿主在其根 Composer 依赖与锁文件中持有基础包；当前前提是稳定版 Sand Core `>=0.2.4` 与稳定版 SandPackage `>=0.2.24`；SandAI 不把它们作为业务插件安装，也不新增第二套基础依赖树。
 
 SandPackage 用 `plugin.sandadmin.app.version`（当前冻结运行源报告 `0.2.4`）核对 `info.ini` 的 `support`，该值与 SandAdmin 仓库的发行 tag 不同。这项既有检查强制执行已声明的宿主范围。
 
-SandAI 另外用 Composer `InstalledVersions` 实现自己的加载守卫：已安装的 Core 必须是稳定版 `>=0.2.4`，已安装的 Package 必须是稳定版 `>=0.2.23`。该加载闸门不是安装器在执行 SQL 前的版本预检。缺失、未知、预发行或版本不足只阻止 SandAI 的路由与 worker 登记，其他插件不受影响。该源码实现未经运行时验证，也没有新增包清单的兼容性字段。最低声明与已知开发基线都不构成当前候选或更高宿主版本的兼容性验收。
+SandAI 另外用 Composer `InstalledVersions` 实现自己的加载守卫：已安装的 Core 必须是稳定版 `>=0.2.4`，已安装的 Package 必须是稳定版 `>=0.2.24`。该加载闸门不是安装器在执行 SQL 前的版本预检。缺失、未知、预发行或版本不足只阻止 SandAI 的路由与 worker 登记，其他插件不受影响。该源码实现未经运行时验证，也没有新增包清单的兼容性字段。最低声明与已知开发基线都不构成当前候选或更高宿主版本的兼容性验收。
 
-捆绑的 SandIAM `0.8.6` 工件仍绑定在 `config.json` 声明的 SHA-256 上，其工件身份不设兼容性上限；SandAI 要求已安装的 SandIAM `>=0.8.4`。早期 SandPackage 安装器把已安装插件版本与捆绑版本做完全相等比较，会拒绝更高的已安装 SandIAM；SandPackage `0.2.13` 把该检查改为 `InstallLogic::installedDependencyMeetsMinimum()` 的最低版本比较，`0.2.14` 修正了大数值字段的比较，因此更高的已安装 SandIAM 现在可以通过，无需降级或重装。捆绑 ZIP 的版本与 SHA-256 仍与已声明的工件身份完全比对。早期的宿主与包结果仅作历史记录。
+捆绑的 SandIAM `0.9.6` 工件仍绑定在 `config.json` 声明的 SHA-256 上，其工件身份不设兼容性上限；SandAI 要求已安装的 SandIAM `>=0.9.6`。早期 SandPackage 安装器把已安装插件版本与捆绑版本做完全相等比较，会拒绝更高的已安装 SandIAM；SandPackage `0.2.13` 把该检查改为 `InstallLogic::installedDependencyMeetsMinimum()` 的最低版本比较，`0.2.14` 修正了大数值字段的比较，因此更高的已安装 SandIAM 现在可以通过，无需降级或重装。捆绑 ZIP 的版本与 SHA-256 仍与已声明的工件身份完全比对。早期的宿主与包结果仅作历史记录。
 
 SandPackage 只检查确切声明的版本，不接受兼容区间。保留的仅源码 `0.7.6` 捆绑是历史升级输入，已从当前安装 ZIP 中排除，不满足当前候选；请先通过 SandIAM 自身的安装器升级，再安装当前 SandAI 候选。
 
@@ -258,7 +258,7 @@ php webman sand-ai:security status
 
 ### host-payload.json 与安装器要求
 
-`host-payload.json` 声明每个打包的 `app/` 与 `config/sand_ai_*.php` 文件及其 SHA-256 摘要。它是安装器的输入，要求该安装器支持逐文件归属、冲突检查、升级恢复与卸载。SandAI `0.4.9` 要求的安装器是稳定 SandPackage `>=0.2.23`（`host-payload` 能力自 `0.2.7` 起存在；`0.4.9` 另外要求进程登记 `full_restart`）。ZIP 与源码层面的计划都不能证明某个宿主已经安装了这些应用服务。
+`host-payload.json` 声明每个打包的 `app/` 与 `config/sand_ai_*.php` 文件及其 SHA-256 摘要。它是安装器的输入，要求该安装器支持逐文件归属、冲突检查、升级恢复与卸载。SandAI `0.4.10` 要求的安装器是稳定 SandPackage `>=0.2.24`（`host-payload` 能力自 `0.2.7` 起存在；`0.4.10` 另外要求进程登记 `full_restart`）。ZIP 与源码层面的计划都不能证明某个宿主已经安装了这些应用服务。
 
 安装前请锁定 SandAdmin 与 SandPackage 的修订版本，并按所选包记录核对确切的 SandAI ZIP SHA-256。使用支持 `plugin_dependencies`、`service_catalog` 与 `host-payload.json` 的安装器，走普通的包上传／安装生命周期。仅通过元数据校验不能证明依赖兼容或真实宿主安装。
 
@@ -296,13 +296,23 @@ php webman sand-ai:security status
 
 宿主运维可成对配置私有进程变量 `SAND_AI_TOOL_PINNED_HOST` / `SAND_AI_TOOL_PINNED_IP`，与 Provider 的同类变量分开。只有带时间和来源的公开 DNS 证据可作为配置依据；地址仍须经过公网 HTTPS/443 与 TLS 校验。非法或不完整的配置会拒绝请求，不自动换地址。保存后通过宿主正常生命周期加载，应用请求不能传入 pin。
 
+### 出站地址放行名单（管理员显式收窄默认防护）
+
+服务商连接测试、模型发现、验证与所有经 `ProviderConnectionPolicy` 校验的出站地址默认拒绝解析到内网、回环、元数据或保留网段的结果。本机代理（Clash/Surge 类）的 fake-IP 池会把 `open.bigmodel.cn` 等公网域解析到 `198.18.0.0/15`，此时连接被正确拦截，管理页提示管理员在代理软件中把该域设为「直连」或暂时关闭代理。
+
+确认确属可信解析结果后，宿主管理员可在宿主 `.env` 显式收窄默认防护：
+
+- `SAND_AI_EGRESS_ALLOW_CIDRS`：逗号分隔的 CIDR 放行名单，默认空。只有解析地址落入明确列出的网段才放行；未列入的私网、回环、元数据与其他保留网段继续阻断，名单存在本身不放行任何类别。条目会被规范化（`198.18.0.123/15` 视为 `198.18.0.0/15`）；任一条目非法时整个配置拒绝生效，并以 `SAND_AI_EGRESS_ALLOWLIST_INVALID` 明确报错，不静默部分应用。
+
+**安全警告：此设置会降低安全防护，只放行你信任的服务地址。** 放行名单生效于全部 Provider 出站校验（首次开通测试与已保存服务商的运行时端点解析都遵守）。请只列入确有证据的最小网段（如代理 fake-IP 池 `198.18.0.0/15`），不要列入 `0.0.0.0/0` 或整段私网；配置变更后按宿主正常生命周期重载。修复代理 DNS 使其返回公网地址永远是首选路径，放行名单只是受控例外。
+
 受管外部工具连接要求运维已核实的 `data_class`。新运行从不可变的连接修订冻结该分类，未分类的历史修订不能运行。派发、重放和结果读取都要求针对已持久化的工具运行取得 SandIAM 调用授权，且在每次外部请求前和返回结果前重新校验。
 
 当前状态：工具密钥 CLI 报告 ready 不代表 Worker 已加载或工具业务通过。详情见 [API 契约](plugin/sand-ai/docs/development/sand-ai-api-contract.md)；候选目录与文档读取的实证不替代正常安装、SandIAM 授权、计量与恢复验收。
 
 ### 服务目录预检与注册
 
-使用支持 `plugin_dependencies`、`service_catalog` 与 `host-payload.json` 的稳定 SandPackage `>=0.2.23` 时，安装会校验锁定的 SandIAM 捆绑，在其缺失且数据库为全新时先安装它，然后检查已安装版本并预览已声明的服务动作。随后安装 SandAI，并通过 SandIAM 的官方 catalog 端口注册 `sand_ai` 服务以及 `config.json` 中声明的全部动作。注册会创建缺失的条目；已停用的服务或动作会阻止安装，且永不自动恢复。注册不签发授权。
+使用支持 `plugin_dependencies`、`service_catalog` 与 `host-payload.json` 的稳定 SandPackage `>=0.2.24` 时，安装会校验锁定的 SandIAM 捆绑，在其缺失且数据库为全新时先安装它，然后检查已安装版本并预览已声明的服务动作。随后安装 SandAI，并通过 SandIAM 的官方 catalog 端口注册 `sand_ai` 服务以及 `config.json` 中声明的全部动作。注册会创建缺失的条目；已停用的服务或动作会阻止安装，且永不自动恢复。注册不签发授权。
 
 已获授权的 SandAI 管理员可在安装后检查 `GET /app/sand-ai/admin/setup/service-catalog/preflight`。另一个 `POST /app/sand-ai/admin/setup/service-catalog/register` 端点仍可用于对未使用该安装器的安装做显式目录修复。Skill 与音频有用于同一目的的独立预检与注册端点。
 

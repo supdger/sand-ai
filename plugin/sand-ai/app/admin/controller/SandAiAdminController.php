@@ -8,6 +8,7 @@ use app\Api\Support\ApiProblem;
 use plugin\sandadmin\app\cache\UserInfoCache;
 use plugin\sandadmin\basic\BaseController;
 use plugin\sandadmin\exception\ApiException;
+use support\Response;
 
 abstract class SandAiAdminController extends BaseController
 {
@@ -43,6 +44,20 @@ abstract class SandAiAdminController extends BaseController
         }
 
         return null;
+    }
+
+    /**
+     * Problems that carry sanitized machine-readable details are rendered
+     * inside the JSON envelope (business code 400) so the admin frontend can
+     * branch on `data.reason_code` without parsing contract text.
+     */
+    protected function problemDetailsResponse(ApiProblem $problem): Response
+    {
+        return json([
+            'code' => 400,
+            'message' => $problem->errorCode . ': ' . $problem->getMessage(),
+            'data' => $problem->details,
+        ], JSON_UNESCAPED_UNICODE);
     }
 
     protected function authenticatedAdminId(): int
