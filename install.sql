@@ -12205,4 +12205,20 @@ $ux_p7_home_menu$;
 
 INSERT INTO sand_ai_schema_migration (version, checksum, applied_time) VALUES ('202611040166_ux_p7_home_menu', 'c32960be032575b9b4fcf8d613007a25de2f5c752c3621f66244b025da151896', CURRENT_TIMESTAMP(0));
 
+-- Migration 202611050167_provider_timeout_default (sha256 9345f4b253fe6013c3c04d5f1dfcbf96572d6d2848932314884fbe1d0e2fe66e)
+-- 0.4.9: sand_ai_provider.timeout_ms column DEFAULT becomes 120000.
+-- Rows that still store the historical default 30000 and are not soft-deleted
+-- (delete_time IS NULL) become 120000. Any other timeout_ms stays unchanged.
+-- Soft-deleted rows keep both timeout_ms and delete_time. Deployment snapshots
+-- and verification receipts are not rewritten.
+ALTER TABLE sand_ai_provider ALTER COLUMN timeout_ms SET DEFAULT 120000;
+
+UPDATE sand_ai_provider
+SET timeout_ms = 120000,
+    update_time = CURRENT_TIMESTAMP(0)
+WHERE timeout_ms = 30000
+  AND delete_time IS NULL;
+
+INSERT INTO sand_ai_schema_migration (version, checksum, applied_time) VALUES ('202611050167_provider_timeout_default', '9345f4b253fe6013c3c04d5f1dfcbf96572d6d2848932314884fbe1d0e2fe66e', CURRENT_TIMESTAMP(0));
+
 COMMIT;

@@ -9,7 +9,7 @@ use Composer\InstalledVersions;
 /** SandAI-only loading gate; never installs or changes a host dependency. */
 final class HostFoundationCompatibility
 {
-    private const MINIMUMS = ['supdger/sand-core' => '0.2.4', 'supdger/sand-package' => '0.2.7'];
+    private const MINIMUMS = ['supdger/sand-core' => '0.2.4', 'supdger/sand-package' => '0.2.23'];
 
     /** @return array{ready:bool,message:string} */
     public static function status(): array

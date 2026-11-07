@@ -2,7 +2,7 @@
 
 ## 统一包构建入口
 
-发布维护者使用正常 Composer 消费的公开 SandPackage `>=0.2.7` 发行包中的 CLI `server/scripts/build-plugin-package.php`。下面的路径由维护者按实际检出位置填写，输出目录应为本次构建独占目录：
+发布维护者使用正常 Composer 消费的稳定 SandPackage `>=0.2.23` 中的 CLI `server/scripts/build-plugin-package.php`。下面的路径由维护者按实际检出位置填写，输出目录应为本次构建独占目录：
 
 ```sh
 php "$SANDPACKAGE_SOURCE/server/scripts/build-plugin-package.php" \
@@ -19,11 +19,11 @@ php "$SANDPACKAGE_SOURCE/server/scripts/build-plugin-package.php" \
 
 ## 宿主基础依赖最低条件
 
-SandAdmin 宿主支持仍为 `>=0.2.3`，两份 `info.ini` 和 builder 的 `host_min=0.2.3` 不变。宿主根 Composer 管理的基础包分别要求正式稳定版 Sand Core `>=0.2.4`、SandPackage `>=0.2.7`；业务插件最低依赖 SandIAM `>=0.8.4`，不设置上限；当前 bundle 仍以精确版本 `0.8.6` 与声明 SHA 识别工件。SandPackage 的 `plugin_dependencies` 字段只接受该工件身份。历史上安装器用精确相等判断已安装插件版本，因而会拒绝较新 IAM；该缺陷已由 SandPackage `0.2.13` 修复，`InstallLogic::installedDependencyMeetsMinimum()` 改为最低版本比较，`0.2.14` 进一步修正超大数字段的比较误判。已安装 SandIAM 只需满足声明最低版本即可通过，不降级也不重装；随包 ZIP 的 version/SHA 与候选身份仍精确校验。SandAI 不因此添加未定义的范围字段。不要用 Package 的版号替换宿主支持范围，或把基础包加入 `plugin_dependencies`／另一套 Composer 树。
+SandAdmin 宿主支持仍为 `>=0.2.3`，两份 `info.ini` 和 builder 的 `host_min=0.2.3` 不变。宿主根 Composer 管理的基础包分别要求正式稳定版 Sand Core `>=0.2.4`、SandPackage `>=0.2.23`；业务插件最低依赖 SandIAM `>=0.8.4`，不设置上限；当前 bundle 仍以精确版本 `0.8.6` 与声明 SHA 识别工件。SandPackage 的 `plugin_dependencies` 字段只接受该工件身份。历史上安装器用精确相等判断已安装插件版本，因而会拒绝较新 IAM；该缺陷已由 SandPackage `0.2.13` 修复，`InstallLogic::installedDependencyMeetsMinimum()` 改为最低版本比较，`0.2.14` 进一步修正超大数字段的比较误判。已安装 SandIAM 只需满足声明最低版本即可通过，不降级也不重装；随包 ZIP 的 version/SHA 与候选身份仍精确校验。SandAI 不因此添加未定义的范围字段。不要用 Package 的版号替换宿主支持范围，或把基础包加入 `plugin_dependencies`／另一套 Composer 树。
 
 [SandPackage 0.2.7](https://github.com/supdger/sand-package/releases/tag/0.2.7) 沿用自动安装 IAM 后的正式加载续接和 Recover CLI 重载目标修复（[#22](https://github.com/supdger/sand-package/issues/22)、[#23](https://github.com/supdger/sand-package/issues/23)），并把完整插件 ZIP 的构包、上传与在线下载统一到 16 MiB 压缩上限。本候选完整载荷超过旧 5 MiB 上限，不能由 `0.2.6` 安装器消费。管理员在首次安装或恢复前，先沿宿主根 Composer 的正常依赖维护流程满足该最低条件，并完成正常重载。按稳定版本与最低版本比较判断后续版本，不使用已测版本白名单。
 
-`HostFoundationCompatibility` 使用 Composer InstalledVersions 分别比较两项最低条件，版本不足、未知或预发行时只阻止 SandAI 路由和 worker 登记，并在提示中报告各包实际最低条件及当前版本。它不是安装 SQL 前的硬门，不代表旧安装器会自动升级自己。`config.json` 不新增未定义的安装器版本字段。基础依赖守卫由当前候选 `0.2.23` 继续交付；最低版本与业务依赖不变。本候选包含上述 Skill 轮次迁移 154，源码、迁移执行、运行加载及生命周期验证分别记录。
+`HostFoundationCompatibility` 使用 Composer InstalledVersions 分别比较两项最低条件，版本不足、未知或预发行时只阻止 SandAI 路由和 worker 登记，并在提示中报告各包实际最低条件及当前版本。它不是安装 SQL 前的硬门，不代表旧安装器会自动升级自己。`config.json` 不新增未定义的安装器版本字段。SandAI `0.4.9` 把 `supdger/sand-package` 的最低稳定版定为 `>=0.2.23`（Core 仍为 `>=0.2.4`），因为进程登记的 `full_restart` 落在 sand-package 草案 `0.2.23`（[sand-package#48](https://github.com/supdger/sand-package/pull/48)）。`info.ini` 的 `support` 仍只表示宿主 SandAdmin `>=0.2.3`，不改写为 Package 版号。
 
 ## 1. 单一产品与源码归属
 
