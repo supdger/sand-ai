@@ -1,663 +1,666 @@
 <template>
-  <div class="sand-ai-page">
-    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
-      <div class="task-header">
-        <div>
-          <h2 class="task-title">任务与会议试用</h2>
-          <p class="task-desc">
-            查询、取消和重试任务；查看材料的逐文件进度、最终成果、来源与计量。
-          </p>
+  <SandAiErrorBoundary>
+    <div class="sand-ai-page">
+      <ElCard class="art-table-card sand-ai-page-card" shadow="never">
+        <div class="task-header">
+          <div>
+            <h2 class="task-title">任务与会议试用</h2>
+            <p class="task-desc">
+              查询、取消和重试任务；查看材料的逐文件进度、最终成果、来源与计量。
+            </p>
+          </div>
         </div>
-      </div>
 
-      <ElForm label-width="110px" class="task-cred" @submit.prevent>
-        <RuntimeApiKeyField
-          v-model="apiKey"
-          :trial-actions="['sand_ai.task.read', 'sand_ai.task.cancel', 'sand_ai.task.retry', 'sand_ai.audio.transcription', 'sand_ai.audio.review', 'sand_ai.chat.complete', 'sand_ai.workflow.read', 'sand_ai.model.read', 'sand_ai.invocation.read', 'sand_ai.usage.read']"
-          placeholder="当前应用的调用密钥"
+        <ElForm label-width="110px" class="task-cred" @submit.prevent>
+          <RuntimeApiKeyField
+            v-model="apiKey"
+            :trial-actions="['sand_ai.task.read', 'sand_ai.task.cancel', 'sand_ai.task.retry', 'sand_ai.audio.transcription', 'sand_ai.audio.review', 'sand_ai.chat.complete', 'sand_ai.workflow.read', 'sand_ai.model.read', 'sand_ai.invocation.read', 'sand_ai.usage.read']"
+            placeholder="当前应用的调用密钥"
+          />
+          <p class="task-footnote">查询、取消、重试分别需要允许使用“任务结果读取”“任务取消”“任务重试”；读取或重试还会核验原任务对应的服务权限。</p>
+          <ElFormItem label="按编号查询">
+            <ElSpace wrap>
+              <ElInputNumber v-model="lookupId" :min="1" :controls="false" placeholder="任务编号" />
+              <ElButton :loading="busy === 'read'" type="primary" @click="handleLookup">查询</ElButton>
+            </ElSpace>
+          </ElFormItem>
+        </ElForm>
+
+        <ElDivider content-position="left">找回会议摘要</ElDivider>
+        <details v-if="pendingSummary" class="task-alert task-recover">
+          <summary>{{ pendingSummary.summaryTaskId ? '原摘要任务尚待核对' : '上次摘要提交结果尚未确认' }}（查看详情）</summary>
+          <p class="task-footnote">原摘要音频 #{{ pendingSummary.audioTaskId }} · 冻结复核版本 {{ pendingSummary.reviewRevision ?? '未记录（仅按请求编号找回）' }}</p>
+          <ElAlert type="warning" :closable="false" class="task-alert"
+            :title="pendingSummary.summaryTaskId ? `原摘要任务 #${pendingSummary.summaryTaskId} 尚待核对。读取原任务，不会新建摘要或重复调用。` : '上次摘要提交结果尚未确认。请保留请求编号找回；未确认前不能新建摘要。'" />
+        </details>
+        <ElForm label-width="110px" class="task-cred" @submit.prevent>
+          <ElFormItem label="原音频任务编号">
+            <ElInputNumber v-model="summaryLookupAudioId" :min="1" :controls="false" :disabled="Boolean(busy) || !!pendingSummary" />
+          </ElFormItem>
+          <ElFormItem label="原摘要请求编号">
+            <ElInput v-model.trim="summaryLookupKey" :disabled="Boolean(busy) || !!pendingSummary" maxlength="512"
+              placeholder="原生成摘要时的请求编号；找回使用当前调用密钥" />
+          </ElFormItem>
+          <ElFormItem>
+            <ElSpace wrap>
+              <ElButton :loading="busy === 'summary-recovery'" :disabled="Boolean(busy) || !apiKey.trim() || !summaryLookupAudioId || !summaryLookupKey.trim()"
+                @click="recoverMeetingSummary">按原请求找回</ElButton>
+              <ElButton v-if="pendingSummary?.summaryTaskId" :disabled="Boolean(busy) || !apiKey.trim()"
+                @click="refreshOne(pendingSummary.summaryTaskId)">读取原摘要任务</ElButton>
+            </ElSpace>
+          </ElFormItem>
+        </ElForm>
+
+        <ElDivider content-position="left">提交 AI 任务</ElDivider>
+        <ElForm label-width="110px" class="task-ai" @submit.prevent>
+          <ElFormItem label="聊天模型">
+            <ElSelect v-model="aiForm.model" filterable allow-create default-first-option clearable
+              :loading="summaryModelsLoading" placeholder="选择已启用聊天模型" style="width: 280px">
+              <ElOption v-for="model in summaryModels" :key="model.id" :label="model.name"
+                :value="model.code" />
+            </ElSelect>
+            <ElButton :loading="summaryModelsLoading" @click="loadSummaryModels">刷新模型</ElButton>
+          </ElFormItem>
+          <p v-if="summaryModelsError" class="task-footnote">
+            模型目录暂不可读：{{ summaryModelsError }}。可输入已启用模型；查看目录需单独允许使用“模型目录读取”。
+          </p>
+          <ElFormItem label="用户消息">
+            <ElInput
+              v-model="aiForm.content"
+              type="textarea"
+              :rows="3"
+              placeholder="用户消息"
+              style="max-width: 640px"
+            />
+          </ElFormItem>
+          <ElFormItem label="来源块">
+            <ElInput
+              v-model="aiForm.sourceBlockIdsText"
+              placeholder="可选，逗号分隔的来源块编号，如 1,2,3"
+              style="width: 360px"
+            />
+          </ElFormItem>
+          <ElFormItem>
+            <ElSpace wrap>
+              <ElButton type="primary" :disabled="Boolean(busy) || newCallsBlocked" :loading="busy === 'submit'" @click="handleAiSubmit">
+                提交 AI 任务
+              </ElButton>
+              <ElButton :disabled="!polling" @click="stopPolling">停止轮询</ElButton>
+              <ElTag v-if="polling" type="warning" effect="plain">轮询中…</ElTag>
+            </ElSpace>
+          </ElFormItem>
+        </ElForm>
+
+        <ElAlert
+          v-if="lastError"
+          class="task-alert"
+          type="error"
+          :closable="true"
+          :title="lastError.title"
+          :description="lastError.description"
+          @close="lastError = null"
         />
-        <p class="task-footnote">查询、取消、重试分别需要允许使用“任务结果读取”“任务取消”“任务重试”；读取或重试还会核验原任务对应的服务权限。</p>
-        <ElFormItem label="按编号查询">
-          <ElSpace wrap>
-            <ElInputNumber v-model="lookupId" :min="1" :controls="false" placeholder="任务编号" />
-            <ElButton :loading="busy === 'read'" type="primary" @click="handleLookup">查询</ElButton>
-          </ElSpace>
-        </ElFormItem>
-      </ElForm>
 
-      <ElDivider content-position="left">找回会议摘要</ElDivider>
-      <details v-if="pendingSummary" class="task-alert task-recover">
-        <summary>{{ pendingSummary.summaryTaskId ? '原摘要任务尚待核对' : '上次摘要提交结果尚未确认' }}（查看详情）</summary>
-        <p class="task-footnote">原摘要音频 #{{ pendingSummary.audioTaskId }} · 冻结复核版本 {{ pendingSummary.reviewRevision ?? '未记录（仅按请求编号找回）' }}</p>
-        <ElAlert type="warning" :closable="false" class="task-alert"
-          :title="pendingSummary.summaryTaskId ? `原摘要任务 #${pendingSummary.summaryTaskId} 尚待核对。读取原任务，不会新建摘要或重复调用。` : '上次摘要提交结果尚未确认。请保留请求编号找回；未确认前不能新建摘要。'" />
-      </details>
-      <ElForm label-width="110px" class="task-cred" @submit.prevent>
-        <ElFormItem label="原音频任务编号">
-          <ElInputNumber v-model="summaryLookupAudioId" :min="1" :controls="false" :disabled="Boolean(busy) || !!pendingSummary" />
-        </ElFormItem>
-        <ElFormItem label="原摘要请求编号">
-          <ElInput v-model.trim="summaryLookupKey" :disabled="Boolean(busy) || !!pendingSummary" maxlength="512"
-            placeholder="原生成摘要时的请求编号；找回使用当前调用密钥" />
-        </ElFormItem>
-        <ElFormItem>
-          <ElSpace wrap>
-            <ElButton :loading="busy === 'summary-recovery'" :disabled="Boolean(busy) || !apiKey.trim() || !summaryLookupAudioId || !summaryLookupKey.trim()"
-              @click="recoverMeetingSummary">按原请求找回</ElButton>
-            <ElButton v-if="pendingSummary?.summaryTaskId" :disabled="Boolean(busy) || !apiKey.trim()"
-              @click="refreshOne(pendingSummary.summaryTaskId)">读取原摘要任务</ElButton>
-          </ElSpace>
-        </ElFormItem>
-      </ElForm>
+        <details v-if="mutationInFlight || newCallsBlocked" class="task-alert task-recover">
+          <summary>原操作尚待确认，当前不能新建调用（查看详情）</summary>
+          <ElAlert type="warning" :closable="false" class="task-alert"
+            title="原操作尚待确认；可继续查看历史、成果、来源和费用，当前不能新建调用">
+            <p v-if="mutationInFlight">原任务 #{{ mutationInFlight.taskId }} · {{ materialActionLabel(mutationInFlight.kind) }}进行中。查看请求完成不会解除原操作锁。</p>
+            <ElSpace wrap>
+              <ElButton v-for="id in pendingMaterialTaskIds" :key="id" :disabled="busy === 'read'" @click="refreshOne(id)">查看原任务 #{{ id }}</ElButton>
+              <ElButton v-if="mutationInFlight && !pendingMaterialTaskIds.includes(mutationInFlight.taskId)" :disabled="busy === 'read'" @click="refreshOne(mutationInFlight.taskId)">查看原任务 #{{ mutationInFlight.taskId }}</ElButton>
+            </ElSpace>
+          </ElAlert>
+        </details>
 
-      <ElDivider content-position="left">提交 AI 任务</ElDivider>
-      <ElForm label-width="110px" class="task-ai" @submit.prevent>
-        <ElFormItem label="聊天模型">
-          <ElSelect v-model="aiForm.model" filterable allow-create default-first-option clearable
-            :loading="summaryModelsLoading" placeholder="选择已启用聊天模型" style="width: 280px">
-            <ElOption v-for="model in summaryModels" :key="model.id" :label="model.name"
-              :value="model.code" />
-          </ElSelect>
-          <ElButton :loading="summaryModelsLoading" @click="loadSummaryModels">刷新模型</ElButton>
-        </ElFormItem>
-        <p v-if="summaryModelsError" class="task-footnote">
-          模型目录暂不可读：{{ summaryModelsError }}。可输入已启用模型；查看目录需单独允许使用“模型目录读取”。
+        <ArtTable
+          row-key="id"
+          :loading="busy === 'read' && !polling"
+          :data="recentTasks"
+          :columns="columns"
+          empty-text="当前调用身份下暂无可显示的任务记录"
+        />
+        <p v-if="!recentTasks.length" class="task-footnote">
+          任务记录按调用身份隔离：其他会话或其他试用身份提交的任务不会出现在这里，不代表任务不存在。
+          已解析文件的内容请到<ElButton link type="primary" @click="router.push('/sand-ai/file')">文件页</ElButton>查看「解析出的文字」。
         </p>
-        <ElFormItem label="用户消息">
-          <ElInput
-            v-model="aiForm.content"
-            type="textarea"
-            :rows="3"
-            placeholder="用户消息"
-            style="max-width: 640px"
-          />
-        </ElFormItem>
-        <ElFormItem label="来源块">
-          <ElInput
-            v-model="aiForm.sourceBlockIdsText"
-            placeholder="可选，逗号分隔的来源块编号，如 1,2,3"
-            style="width: 360px"
-          />
-        </ElFormItem>
-        <ElFormItem>
-          <ElSpace wrap>
-            <ElButton type="primary" :disabled="Boolean(busy) || newCallsBlocked" :loading="busy === 'submit'" @click="handleAiSubmit">
-              提交 AI 任务
-            </ElButton>
-            <ElButton :disabled="!polling" @click="stopPolling">停止轮询</ElButton>
-            <ElTag v-if="polling" type="warning" effect="plain">轮询中…</ElTag>
-          </ElSpace>
-        </ElFormItem>
-      </ElForm>
 
-      <ElAlert
-        v-if="lastError"
-        class="task-alert"
-        type="error"
-        :closable="true"
-        :title="lastError.title"
-        :description="lastError.description"
-        @close="lastError = null"
-      />
+        <details v-if="authorizationIntents.length || authorizationStorageBlocked" class="task-alert task-recover" aria-label="原任务授权续接恢复">
+          <summary>原授权续接请求尚待确认（查看详情）</summary>
+          <ElAlert type="warning" :closable="false" title="原授权续接请求尚待确认"
+            description="原任务和请求编号已保留，不自动更新授权或再次派发。请使用原任务所属应用的当前有效凭证先读取原任务；读取状态变化不会确认此请求。按请求编号继续时，已应用的意图只返回原任务，未应用的意图仍会重新核验当前授权。" />
+          <p v-for="intent in authorizationIntents" :key="intent.key">
+            原任务 #{{ intent.taskId }} · 原续接请求 {{ intent.key }}
+            <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(intent.taskId)">查看原任务</ElButton>
+            <ElButton :loading="busy === 'authorization-continue' && mutationInFlight?.taskId === intent.taskId"
+              :disabled="Boolean(busy) || mutationInFlight !== null || materialStorageUnconfirmed || pendingMaterialTaskIds.length > 0 || authorizationStorageBlocked || !apiKey.trim()"
+              @click="continueTaskAuthorization(intent.taskId, true)">按请求编号确认并继续</ElButton>
+          </p>
+          <p v-if="authorizationStorageBlocked" class="task-footnote">原续接记录无法安全读取或保存，暂不发送续接。请保留当前会话；恢复会话存储后重新读取原记录。</p>
+          <ElButton v-if="authorizationStorageBlocked" :disabled="Boolean(busy)" @click="restoreAuthorizationIntents">重新读取原续接记录</ElButton>
+        </details>
 
-      <details v-if="mutationInFlight || newCallsBlocked" class="task-alert task-recover">
-        <summary>原操作尚待确认，当前不能新建调用（查看详情）</summary>
-        <ElAlert type="warning" :closable="false" class="task-alert"
-          title="原操作尚待确认；可继续查看历史、成果、来源和费用，当前不能新建调用">
-          <p v-if="mutationInFlight">原任务 #{{ mutationInFlight.taskId }} · {{ materialActionLabel(mutationInFlight.kind) }}进行中。查看请求完成不会解除原操作锁。</p>
-          <ElSpace wrap>
-            <ElButton v-for="id in pendingMaterialTaskIds" :key="id" :disabled="busy === 'read'" @click="refreshOne(id)">查看原任务 #{{ id }}</ElButton>
-            <ElButton v-if="mutationInFlight && !pendingMaterialTaskIds.includes(mutationInFlight.taskId)" :disabled="busy === 'read'" @click="refreshOne(mutationInFlight.taskId)">查看原任务 #{{ mutationInFlight.taskId }}</ElButton>
-          </ElSpace>
-        </ElAlert>
-      </details>
+        <details v-if="meetingCorrectionIntents.length || meetingCorrectionStorageBlocked" class="task-alert task-recover" aria-label="原会议节点纠正请求">
+          <summary>原会议节点纠正请求尚待确认（查看详情）</summary>
+          <ElAlert type="warning" :closable="false" title="原会议节点纠正请求尚待确认"
+            description="保留原任务、失败节点和请求编号。查看任务不会解除此记录；按请求编号继续时，已受理的请求只找回原任务，未受理的请求可能调用模型并计费。" />
+          <p v-for="intent in meetingCorrectionIntents" :key="intent.key">
+            原任务 #{{ intent.taskId }} · 节点 {{ intent.body.node_code }} · 请求 {{ intent.key }}
+            <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(intent.taskId)">查看原任务</ElButton>
+            <ElButton :disabled="Boolean(busy) || mutationInFlight !== null || meetingCorrectionStorageBlocked || ocrRetryStorageBlocked || ocrRetryPending.length > 0 || materialStorageUnconfirmed || pendingMaterialTaskIds.length > 0 || authorizationStorageBlocked || authorizationIntents.length > 0 || !apiKey.trim()"
+              @click="correctMeetingOutput(intent.taskId, intent.key)">按请求编号确认并继续</ElButton>
+          </p>
+          <p v-if="meetingCorrectionStorageBlocked">原纠正记录无法安全确认，暂不发送。请保留原会话和请求编号。</p>
+          <ElButton v-if="meetingCorrectionStorageBlocked" :disabled="Boolean(busy)" @click="restoreMeetingCorrectionIntents">重新读取原纠正记录</ElButton>
+        </details>
 
-      <ArtTable
-        row-key="id"
-        :loading="busy === 'read' && !polling"
-        :data="recentTasks"
-        :columns="columns"
-        empty-text="当前调用身份下暂无可显示的任务记录"
-      />
-      <p v-if="!recentTasks.length" class="task-footnote">
-        任务记录按调用身份隔离：其他会话或其他试用身份提交的任务不会出现在这里，不代表任务不存在。
-        已解析文件的内容请到<ElButton link type="primary" @click="router.push('/sand-ai/file')">文件页</ElButton>查看「解析出的文字」。
-      </p>
-
-      <details v-if="authorizationIntents.length || authorizationStorageBlocked" class="task-alert task-recover" aria-label="原任务授权续接恢复">
-        <summary>原授权续接请求尚待确认（查看详情）</summary>
-        <ElAlert type="warning" :closable="false" title="原授权续接请求尚待确认"
-          description="原任务和请求编号已保留，不自动更新授权或再次派发。请使用原任务所属应用的当前有效凭证先读取原任务；读取状态变化不会确认此请求。按请求编号继续时，已应用的意图只返回原任务，未应用的意图仍会重新核验当前授权。" />
-        <p v-for="intent in authorizationIntents" :key="intent.key">
-          原任务 #{{ intent.taskId }} · 原续接请求 {{ intent.key }}
-          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(intent.taskId)">查看原任务</ElButton>
-          <ElButton :loading="busy === 'authorization-continue' && mutationInFlight?.taskId === intent.taskId"
-            :disabled="Boolean(busy) || mutationInFlight !== null || materialStorageUnconfirmed || pendingMaterialTaskIds.length > 0 || authorizationStorageBlocked || !apiKey.trim()"
-            @click="continueTaskAuthorization(intent.taskId, true)">按请求编号确认并继续</ElButton>
-        </p>
-        <p v-if="authorizationStorageBlocked" class="task-footnote">原续接记录无法安全读取或保存，暂不发送续接。请保留当前会话；恢复会话存储后重新读取原记录。</p>
-        <ElButton v-if="authorizationStorageBlocked" :disabled="Boolean(busy)" @click="restoreAuthorizationIntents">重新读取原续接记录</ElButton>
-      </details>
-
-      <details v-if="meetingCorrectionIntents.length || meetingCorrectionStorageBlocked" class="task-alert task-recover" aria-label="原会议节点纠正请求">
-        <summary>原会议节点纠正请求尚待确认（查看详情）</summary>
-        <ElAlert type="warning" :closable="false" title="原会议节点纠正请求尚待确认"
-          description="保留原任务、失败节点和请求编号。查看任务不会解除此记录；按请求编号继续时，已受理的请求只找回原任务，未受理的请求可能调用模型并计费。" />
-        <p v-for="intent in meetingCorrectionIntents" :key="intent.key">
-          原任务 #{{ intent.taskId }} · 节点 {{ intent.body.node_code }} · 请求 {{ intent.key }}
-          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(intent.taskId)">查看原任务</ElButton>
-          <ElButton :disabled="Boolean(busy) || mutationInFlight !== null || meetingCorrectionStorageBlocked || ocrRetryStorageBlocked || ocrRetryPending.length > 0 || materialStorageUnconfirmed || pendingMaterialTaskIds.length > 0 || authorizationStorageBlocked || authorizationIntents.length > 0 || !apiKey.trim()"
-            @click="correctMeetingOutput(intent.taskId, intent.key)">按请求编号确认并继续</ElButton>
-        </p>
-        <p v-if="meetingCorrectionStorageBlocked">原纠正记录无法安全确认，暂不发送。请保留原会话和请求编号。</p>
-        <ElButton v-if="meetingCorrectionStorageBlocked" :disabled="Boolean(busy)" @click="restoreMeetingCorrectionIntents">重新读取原纠正记录</ElButton>
-      </details>
-
-      <details v-if="ocrRetryPending.length || ocrRetryStorageBlocked" class="task-alert task-recover" aria-label="原 OCR 恢复请求">
-        <summary>原 OCR 恢复请求待确认（查看详情）</summary>
-        <ElAlert type="warning" :closable="false" title="原 OCR 恢复请求待确认" description="保留原任务和请求编号，找回；不会重发恢复或重新解析文件。" />
-        <ElButton v-for="intent in ocrRetryPending" :key="`read:${intent.task_id}`" :disabled="Boolean(busy) || Boolean(ocrRetryFlight) || !apiKey.trim()" @click="refreshOne(intent.task_id)">找回原任务 #{{ intent.task_id }}</ElButton>
-        <template v-for="intent in ocrRetryPending" :key="`release:${intent.task_id}`">
-          <ElButton v-if="canReleaseOcrRetry(intent)" :disabled="Boolean(busy) || Boolean(ocrRetryFlight)" @click="releaseOcrRetryIntent(intent)">{{ intent.phase === 'rejected' || rejectedOcrRetryKeys.has(intent.key) ? '解除已明确拒绝的恢复意图' : '解除确认未发送的恢复意图' }}</ElButton>
-        </template>
-        <p v-if="ocrRetryNotice" class="task-footnote">{{ ocrRetryNotice }}</p>
-      </details>
-      <div v-if="activeTask" class="task-detail">
-        <section v-if="activeTask.authorization_continuation?.required" class="task-alert" aria-label="原任务授权暂停">
-          <ElAlert type="warning" :closable="false" title="原任务执行授权需要明确续接"
-            description="原任务授权已暂停或过期。使用当前有效应用凭证明确继续时，服务端重新核验同一任务、来源和调用范围；页面不会自动续签。已完成节点、原来源版本和费用保留，结果待确认的节点仍只能找回原结果。" />
-          <p class="task-footnote">{{ authorizationReason(activeTask) }}</p>
-          <ElButton type="primary" :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim() || !activeTask.authorization_continuation.available"
-            :loading="busy === 'authorization-continue' && mutationInFlight?.taskId === activeTask.id"
-            @click="continueTaskAuthorization(activeTask.id)">使用当前授权继续原任务</ElButton>
-          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(activeTask.id)">查看原任务</ElButton>
-        </section>
-        <section v-if="activeTask.task_type === 'file_parse' && activeTask.ocr_before_dispatch_retry" class="task-alert" aria-label="OCR 发送前失败恢复">
-          <p v-if="activeTask.ocr_before_dispatch_retry.consumed">原任务的一次 OCR 恢复机会已使用；后续状态请读取原任务确认。</p>
-          <template v-else-if="canRetryOcrBeforeDispatch(activeTask)">
-            <p>服务端确认原任务在发送 OCR 前耗尽尝试次数。可明确使用一次恢复机会，将同一文件、解析记录和任务重新入队；本次不创建新解析任务，之后实际 OCR 调用仍按当前授权与费用规则处理。</p>
-            <ElButton type="primary" :loading="Boolean(ocrRetryFlight)" :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim()" @click="retryOcrBeforeDispatch(activeTask.id)">使用一次机会恢复原 OCR 任务</ElButton>
+        <details v-if="ocrRetryPending.length || ocrRetryStorageBlocked" class="task-alert task-recover" aria-label="原 OCR 恢复请求">
+          <summary>原 OCR 恢复请求待确认（查看详情）</summary>
+          <ElAlert type="warning" :closable="false" title="原 OCR 恢复请求待确认" description="保留原任务和请求编号，找回；不会重发恢复或重新解析文件。" />
+          <ElButton v-for="intent in ocrRetryPending" :key="`read:${intent.task_id}`" :disabled="Boolean(busy) || Boolean(ocrRetryFlight) || !apiKey.trim()" @click="refreshOne(intent.task_id)">找回原任务 #{{ intent.task_id }}</ElButton>
+          <template v-for="intent in ocrRetryPending" :key="`release:${intent.task_id}`">
+            <ElButton v-if="canReleaseOcrRetry(intent)" :disabled="Boolean(busy) || Boolean(ocrRetryFlight)" @click="releaseOcrRetryIntent(intent)">{{ intent.phase === 'rejected' || rejectedOcrRetryKeys.has(intent.key) ? '解除已明确拒绝的恢复意图' : '解除确认未发送的恢复意图' }}</ElButton>
           </template>
           <p v-if="ocrRetryNotice" class="task-footnote">{{ ocrRetryNotice }}</p>
-        </section>
-        <section aria-label="任务清理状态">
-          <h3 class="task-detail__title">任务清理状态</h3>
-          <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(activeTask.id)">刷新原任务清理状态</ElButton>
-          <ElDescriptions :column="2" border>
-            <ElDescriptionsItem label="清理状态">{{ cleanupStateLabel(activeTask.cleanup?.state) }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="完成时间">{{ activeTask.cleanup?.completed_at ?? '未确认' }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="来源内容">{{ activeTask.cleanup ? (activeTask.cleanup.source_available ? '清理未阻断，仍需来源授权与解析' : '此视图不可用') : '未确认' }}</ElDescriptionsItem>
-            <ElDescriptionsItem v-for="resource in cleanupResourceLabels" :key="resource.key" :label="resource.label">{{ cleanupStateLabel(activeTask.cleanup?.resources[resource.key]) }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="现存来源块数">{{ activeTask.cleanup?.source_block_count ?? '未确认' }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="现存解析记录数">{{ activeTask.cleanup?.parse_record_count ?? '未确认' }}</ElDescriptionsItem>
-          </ElDescriptions>
-          <p class="task-footnote">以上只表示原任务记录提供的清理证据，未确认不表示已清理。任务成果已清理不证明原文件、派生文本或知识库向量全部清理。费用与最小历史保留不表示已计价或零费用，金额按原费用记录查看。</p>
-        </section>
-
-        <ElAlert v-if="activeTask.task_type === 'file_parse' && activeTask.state === 'canceled'" type="info" :closable="false"
-          title="原解析已取消，不能作为失败任务重试；取消不代表没有费用。"
-          :description="activeTask.parse_restart?.allowed === true
-            ? '当前证据确认原任务未发送 OCR 请求，可在文件中心核对该文件后显式重新解析；新任务使用当前配置并单独计量。'
-            : '当前没有完整的未派发证明。请保留原任务核对；已有或结果不明的 OCR 请求不能通过新解析绕过。'" class="task-alert" />
-        <h3 class="task-detail__title">任务 #{{ activeTask.id }} 步骤</h3>
-        <ArtTable
-          row-key="code"
-          :data="activeTask.steps ?? []"
-          :columns="stepColumns"
-          empty-text="暂无步骤（查询详情后显示）"
-        />
-
-        <template v-if="activeTask.task_type === 'structured_workflow'">
-          <details v-if="materialActions.has(activeTask.id)" class="task-alert task-recover">
-            <summary>原材料任务操作尚待确认（查看详情）</summary>
-            <ElAlert type="warning" :closable="false" title="原材料任务操作尚待确认" class="task-alert">
-              <p>原任务 #{{ activeTask.id }} · {{ materialActionLabel(materialActions.get(activeTask.id)?.kind) }}结果未确认。
-                请查看原任务；本任务暂不能再次取消、重试或恢复结果。</p>
-              <ElButton :disabled="Boolean(busy)" @click="refreshOne(activeTask.id)">读取原任务结果</ElButton>
-            </ElAlert>
-          </details>
-          <ElAlert v-if="activeTask.state === 'canceled'" type="info" :closable="false"
-            title="材料处理已取消；已完成文件成果和已发生费用保留"
-            description="取消后的原任务不能作为失败任务重试。原调用结果未知时，请继续读取原任务核对。" class="task-alert" />
-          <section v-if="activeTask.receipt_only_recovery?.target === 'cross_file_review'" class="task-review">
-            <p>原跨文件复核可用恢复机会：{{ activeTask.receipt_only_recovery.attempt_count }} /
-              {{ activeTask.receipt_only_recovery.max_attempts }} 已使用。恢复只使用已有结果，不发起新模型调用。</p>
-            <ElButton :loading="mutationInFlight?.kind === 'receipt' && mutationInFlight.taskId === activeTask.id"
-              :disabled="Boolean(busy) || newCallsBlocked || materialChunkUnconfirmed || !activeTask.receipt_only_recovery.available || materialActions.has(activeTask.id)"
-              @click="recoverMaterialReceipt(activeTask.id)">仅恢复原跨文件复核结果</ElButton>
-            <p v-if="!activeTask.receipt_only_recovery.available" class="task-footnote">
-              当前结果不可恢复。请读取原任务核对，不要重新提交材料或更换恢复请求。
-            </p>
+        </details>
+        <div v-if="activeTask" class="task-detail">
+          <section v-if="activeTask.authorization_continuation?.required" class="task-alert" aria-label="原任务授权暂停">
+            <ElAlert type="warning" :closable="false" title="原任务执行授权需要明确续接"
+              description="原任务授权已暂停或过期。使用当前有效应用凭证明确继续时，服务端重新核验同一任务、来源和调用范围；页面不会自动续签。已完成节点、原来源版本和费用保留，结果待确认的节点仍只能找回原结果。" />
+            <p class="task-footnote">{{ authorizationReason(activeTask) }}</p>
+            <ElButton type="primary" :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim() || !activeTask.authorization_continuation.available"
+              :loading="busy === 'authorization-continue' && mutationInFlight?.taskId === activeTask.id"
+              @click="continueTaskAuthorization(activeTask.id)">使用当前授权继续原任务</ElButton>
+            <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(activeTask.id)">查看原任务</ElButton>
           </section>
-          <ElAlert
-            v-if="workflowError"
-            type="warning"
-            :closable="false"
-            title="材料运行详情暂不可读"
-            :description="workflowError.description"
-            class="task-alert"
+          <section v-if="activeTask.task_type === 'file_parse' && activeTask.ocr_before_dispatch_retry" class="task-alert" aria-label="OCR 发送前失败恢复">
+            <p v-if="activeTask.ocr_before_dispatch_retry.consumed">原任务的一次 OCR 恢复机会已使用；后续状态请读取原任务确认。</p>
+            <template v-else-if="canRetryOcrBeforeDispatch(activeTask)">
+              <p>服务端确认原任务在发送 OCR 前耗尽尝试次数。可明确使用一次恢复机会，将同一文件、解析记录和任务重新入队；本次不创建新解析任务，之后实际 OCR 调用仍按当前授权与费用规则处理。</p>
+              <ElButton type="primary" :loading="Boolean(ocrRetryFlight)" :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim()" @click="retryOcrBeforeDispatch(activeTask.id)">使用一次机会恢复原 OCR 任务</ElButton>
+            </template>
+            <p v-if="ocrRetryNotice" class="task-footnote">{{ ocrRetryNotice }}</p>
+          </section>
+          <section aria-label="任务清理状态">
+            <h3 class="task-detail__title">任务清理状态</h3>
+            <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(activeTask.id)">刷新原任务清理状态</ElButton>
+            <ElDescriptions :column="2" border>
+              <ElDescriptionsItem label="清理状态">{{ cleanupStateLabel(activeTask.cleanup?.state) }}</ElDescriptionsItem>
+              <ElDescriptionsItem label="完成时间">{{ activeTask.cleanup?.completed_at ?? '未确认' }}</ElDescriptionsItem>
+              <ElDescriptionsItem label="来源内容">{{ activeTask.cleanup ? (activeTask.cleanup.source_available ? '清理未阻断，仍需来源授权与解析' : '此视图不可用') : '未确认' }}</ElDescriptionsItem>
+              <ElDescriptionsItem v-for="resource in cleanupResourceLabels" :key="resource.key" :label="resource.label">{{ cleanupStateLabel(activeTask.cleanup?.resources[resource.key]) }}</ElDescriptionsItem>
+              <ElDescriptionsItem label="现存来源块数">{{ activeTask.cleanup?.source_block_count ?? '未确认' }}</ElDescriptionsItem>
+              <ElDescriptionsItem label="现存解析记录数">{{ activeTask.cleanup?.parse_record_count ?? '未确认' }}</ElDescriptionsItem>
+            </ElDescriptions>
+            <p class="task-footnote">以上只表示原任务记录提供的清理证据，未确认不表示已清理。任务成果已清理不证明原文件、派生文本或知识库向量全部清理。费用与最小历史保留不表示已计价或零费用，金额按原费用记录查看。</p>
+          </section>
+
+          <ElAlert v-if="activeTask.task_type === 'file_parse' && activeTask.state === 'canceled'" type="info" :closable="false"
+            title="原解析已取消，不能作为失败任务重试；取消不代表没有费用。"
+            :description="activeTask.parse_restart?.allowed === true
+              ? '当前证据确认原任务未发送 OCR 请求，可在文件中心核对该文件后显式重新解析；新任务使用当前配置并单独计量。'
+              : '当前没有完整的未派发证明。请保留原任务核对；已有或结果不明的 OCR 请求不能通过新解析绕过。'" class="task-alert" />
+          <h3 class="task-detail__title">任务 #{{ activeTask.id }} 步骤</h3>
+          <ArtTable
+            row-key="code"
+            :data="activeTask.steps ?? []"
+            :columns="stepColumns"
+            empty-text="暂无步骤（查询详情后显示）"
           />
-          <template v-if="workflowRun?.workflow.code === 'material_analysis'">
-            <h3 class="task-detail__title">材料文件进度</h3>
-            <details v-if="materialChunkUnconfirmed" class="task-alert task-recover">
-              <summary>原分块调用结果待确认（查看详情）</summary>
-              <ElAlert type="warning" :closable="false" class="task-alert"
-                title="原分块调用结果待确认"
-                description="请查看原任务找回调用结果；不要重新提交材料或更换请求编号。已完成分段保留，当前不能重试或恢复跨文件结果。">
-                <ElButton :disabled="Boolean(busy)" @click="refreshOne(activeTask.id)">查看原任务</ElButton>
+
+          <template v-if="activeTask.task_type === 'structured_workflow'">
+            <details v-if="materialActions.has(activeTask.id)" class="task-alert task-recover">
+              <summary>原材料任务操作尚待确认（查看详情）</summary>
+              <ElAlert type="warning" :closable="false" title="原材料任务操作尚待确认" class="task-alert">
+                <p>原任务 #{{ activeTask.id }} · {{ materialActionLabel(materialActions.get(activeTask.id)?.kind) }}结果未确认。
+                  请查看原任务；本任务暂不能再次取消、重试或恢复结果。</p>
+                <ElButton :disabled="Boolean(busy)" @click="refreshOne(activeTask.id)">读取原任务结果</ElButton>
               </ElAlert>
             </details>
-            <ArtTable
-              row-key="file_id"
-              :data="workflowRun.file_states"
-              :columns="fileColumns"
-              empty-text="暂无固定文件"
+            <ElAlert v-if="activeTask.state === 'canceled'" type="info" :closable="false"
+              title="材料处理已取消；已完成文件成果和已发生费用保留"
+              description="取消后的原任务不能作为失败任务重试。原调用结果未知时，请继续读取原任务核对。" class="task-alert" />
+            <section v-if="activeTask.receipt_only_recovery?.target === 'cross_file_review'" class="task-review">
+              <p>原跨文件复核可用恢复机会：{{ activeTask.receipt_only_recovery.attempt_count }} /
+                {{ activeTask.receipt_only_recovery.max_attempts }} 已使用。恢复只使用已有结果，不发起新模型调用。</p>
+              <ElButton :loading="mutationInFlight?.kind === 'receipt' && mutationInFlight.taskId === activeTask.id"
+                :disabled="Boolean(busy) || newCallsBlocked || materialChunkUnconfirmed || !activeTask.receipt_only_recovery.available || materialActions.has(activeTask.id)"
+                @click="recoverMaterialReceipt(activeTask.id)">仅恢复原跨文件复核结果</ElButton>
+              <p v-if="!activeTask.receipt_only_recovery.available" class="task-footnote">
+                当前结果不可恢复。请读取原任务核对，不要重新提交材料或更换恢复请求。
+              </p>
+            </section>
+            <ElAlert
+              v-if="workflowError"
+              type="warning"
+              :closable="false"
+              title="材料运行详情暂不可读"
+              :description="workflowError.description"
+              class="task-alert"
             />
-            <p v-if="workflowRun.file_states.some(file => file.chunk_progress?.state === 'failed')"
-              class="task-footnote">确认失败后可沿原任务重试失败文件；已完成分段沿原记录恢复，不重复调用模型。文件完成与成果仍以原文件状态和封存结果为准。</p>
-            <p v-if="workflowRun.cross_file_review" class="task-footnote">
-              跨文件核对：{{ workflowRun.cross_file_review.state }} ·
-              尝试 {{ workflowRun.cross_file_review.attempt_count }}
-              <span v-if="workflowRun.cross_file_review.error_code">
-                · {{ workflowRun.cross_file_review.error_code }}
-              </span>
-            </p>
-            <template v-if="workflowRun.file_results?.length">
-              <h3 class="task-detail__title">已完成文件成果</h3>
-              <ElCollapse v-model="materialResultFileId" accordion>
-                <ElCollapseItem
-                  v-for="fileResult in workflowRun.file_results"
-                  :key="fileResult.file_id"
-                  :title="`文件 #${fileResult.file_id} · 尝试 ${fileResult.attempt_count} · ${fileResult.citations.length} 个来源`"
-                  :name="fileResult.file_id"
-                >
-                  <MaterialFileResultPages v-if="fileResult.paged && materialResultFileId === fileResult.file_id"
-                    :bearer="apiKey" :owner-id="userStore.info.id" :run-id="workflowRun.run_id"
-                    :task-id="activeTask.id" :file-result="fileResult"
-                    @open-source="openWorkflowSource" @clear-source="clearWorkflowSource" @access-denied="clearOnAccessDenied" />
-                  <MaterialResult v-else-if="!fileResult.paged" :payload="fileResult.result.payload"
-                    :citations="fileResult.citations" @open-source="openWorkflowSource" />
-                  <p
-                    v-for="citation in fileResult.citations"
-                    :key="`${citation.field_path}:${citation.source_block_id}`"
-                    class="task-footnote"
+            <template v-if="workflowRun?.workflow.code === 'material_analysis'">
+              <h3 class="task-detail__title">材料文件进度</h3>
+              <details v-if="materialChunkUnconfirmed" class="task-alert task-recover">
+                <summary>原分块调用结果待确认（查看详情）</summary>
+                <ElAlert type="warning" :closable="false" class="task-alert"
+                  title="原分块调用结果待确认"
+                  description="请查看原任务找回调用结果；不要重新提交材料或更换请求编号。已完成分段保留，当前不能重试或恢复跨文件结果。">
+                  <ElButton :disabled="Boolean(busy)" @click="refreshOne(activeTask.id)">查看原任务</ElButton>
+                </ElAlert>
+              </details>
+              <ArtTable
+                row-key="file_id"
+                :data="workflowRun.file_states"
+                :columns="fileColumns"
+                empty-text="暂无固定文件"
+              />
+              <p v-if="workflowRun.file_states.some(file => file.chunk_progress?.state === 'failed')"
+                class="task-footnote">确认失败后可沿原任务重试失败文件；已完成分段沿原记录恢复，不重复调用模型。文件完成与成果仍以原文件状态和封存结果为准。</p>
+              <p v-if="workflowRun.cross_file_review" class="task-footnote">
+                跨文件核对：{{ workflowRun.cross_file_review.state }} ·
+                尝试 {{ workflowRun.cross_file_review.attempt_count }}
+                <span v-if="workflowRun.cross_file_review.error_code">
+                  · {{ workflowRun.cross_file_review.error_code }}
+                </span>
+              </p>
+              <template v-if="workflowRun.file_results?.length">
+                <h3 class="task-detail__title">已完成文件成果</h3>
+                <ElCollapse v-model="materialResultFileId" accordion>
+                  <ElCollapseItem
+                    v-for="fileResult in workflowRun.file_results"
+                    :key="fileResult.file_id"
+                    :title="`文件 #${fileResult.file_id} · 尝试 ${fileResult.attempt_count} · ${fileResult.citations.length} 个来源`"
+                    :name="fileResult.file_id"
                   >
-                    {{ citation.field_path }} · 来源块 #{{ citation.source_block_id }} ·
-                    {{ citation.locator_type }} {{ JSON.stringify(citation.locator) }}
-                    <ElButton link type="primary" @click="openWorkflowSource(citation.source_block_id)">查看文字</ElButton>
-                  </p>
-                </ElCollapseItem>
-              </ElCollapse>
+                    <MaterialFileResultPages v-if="fileResult.paged && materialResultFileId === fileResult.file_id"
+                      :bearer="apiKey" :owner-id="userStore.info.id" :run-id="workflowRun.run_id"
+                      :task-id="activeTask.id" :file-result="fileResult"
+                      @open-source="openWorkflowSource" @clear-source="clearWorkflowSource" @access-denied="clearOnAccessDenied" />
+                    <MaterialResult v-else-if="!fileResult.paged" :payload="fileResult.result.payload"
+                      :citations="fileResult.citations" @open-source="openWorkflowSource" />
+                    <p
+                      v-for="citation in fileResult.citations"
+                      :key="`${citation.field_path}:${citation.source_block_id}`"
+                      class="task-footnote"
+                    >
+                      {{ citation.field_path }} · 来源块 #{{ citation.source_block_id }} ·
+                      {{ citation.locator_type }} {{ JSON.stringify(citation.locator) }}
+                      <ElButton link type="primary" @click="openWorkflowSource(citation.source_block_id)">查看文字</ElButton>
+                    </p>
+                  </ElCollapseItem>
+                </ElCollapse>
+              </template>
+              <h3 class="task-detail__title">最终材料成果</h3>
+              <template v-if="workflowRun.result">
+                <ElAlert
+                  v-if="workflowRun.artifact?.review_required"
+                  title="成果包含待核实项，请按来源复核后使用"
+                  type="warning"
+                  :closable="false"
+                />
+                <p class="task-footnote">
+                  {{ workflowRun.result.schema.code }} · {{ workflowRun.result.schema.version }}
+                </p>
+                <MaterialResult :payload="workflowRun.result.payload" :citations="workflowRun.citations" @open-source="openWorkflowSource" />
+                <h3 class="task-detail__title">最终成果来源</h3>
+                <ArtTable
+                  :row-key="workflowCitationKey"
+                  :data="workflowRun.citations"
+                  :columns="workflowCitationColumns"
+                  empty-text="最终成果无字段来源"
+                />
+              </template>
+              <p v-else class="task-footnote">最终成果尚未生成；已封存文件可在上方查看。</p>
+              <h3 class="task-detail__title">本次材料运行计量</h3>
+              <p class="task-footnote">
+                用量状态：{{ usageStateLabel(workflowRun.usage.state) }}
+                <span v-if="workflowRun.usage.total_tokens !== null">
+                  · {{ workflowRun.usage.total_tokens }} 词元
+                </span>
+                <span v-if="workflowRun.usage.attempt_count !== undefined">
+                  · 调用尝试 {{ workflowRun.usage.attempt_count }} 次
+                  · 计量事件 {{ workflowRun.usage.event_count }} 条
+                  · 缺失 {{ workflowRun.usage.missing_event_count }} 条
+                </span>
+              </p>
+              <p class="task-footnote">
+                费用状态：{{ costStateLabel(workflowRun.cost.state) }}
+                <span v-if="workflowRun.cost.metered_amount !== null && workflowRun.cost.currency">
+                  · {{ workflowRun.cost.metered_amount }} {{ workflowRun.cost.currency }}
+                </span>
+                <span v-if="workflowRun.cost.unpriced_count">
+                  · 未定价 {{ workflowRun.cost.unpriced_count }} 条
+                </span>
+              </p>
+              <p v-if="workflowRun.cost.by_currency && Object.keys(workflowRun.cost.by_currency).length"
+                 class="task-footnote">
+                已知分币种金额：
+                <span v-for="(amount, currency) in workflowRun.cost.by_currency" :key="currency">
+                  {{ amount }} {{ currency }}
+                </span>
+              </p>
             </template>
-            <h3 class="task-detail__title">最终材料成果</h3>
-            <template v-if="workflowRun.result">
+          </template>
+
+          <template v-if="activeTask.task_type === 'audio_transcription'">
+            <h3 class="task-detail__title">音频转写</h3>
+            <template v-if="activeTask.result?.schema?.code === 'sand_ai.audio_transcription'">
               <ElAlert
-                v-if="workflowRun.artifact?.review_required"
-                title="成果包含待核实项，请按来源复核后使用"
+                v-if="activeTask.result.review_required"
+                title="转写内容需人工复核后使用"
                 type="warning"
                 :closable="false"
               />
               <p class="task-footnote">
-                {{ workflowRun.result.schema.code }} · {{ workflowRun.result.schema.version }}
+                音频时长：{{ activeTask.result.usage?.audio_seconds ?? '未知' }} 秒
               </p>
-              <MaterialResult :payload="workflowRun.result.payload" :citations="workflowRun.citations" @open-source="openWorkflowSource" />
-              <h3 class="task-detail__title">最终成果来源</h3>
-              <ArtTable
-                :row-key="workflowCitationKey"
-                :data="workflowRun.citations"
-                :columns="workflowCitationColumns"
-                empty-text="最终成果无字段来源"
+              <ElAlert
+                v-if="hasInputRangeTranscript"
+                title="这是整段音频的转写，时间仅表示输入范围。引擎未提供句子时间或说话人区分；请从整段音频回听核对。"
+                type="info"
+                :closable="false"
               />
-            </template>
-            <p v-else class="task-footnote">最终成果尚未生成；已封存文件可在上方查看。</p>
-            <h3 class="task-detail__title">本次材料运行计量</h3>
-            <p class="task-footnote">
-              用量状态：{{ usageStateLabel(workflowRun.usage.state) }}
-              <span v-if="workflowRun.usage.total_tokens !== null">
-                · {{ workflowRun.usage.total_tokens }} 词元
-              </span>
-              <span v-if="workflowRun.usage.attempt_count !== undefined">
-                · 调用尝试 {{ workflowRun.usage.attempt_count }} 次
-                · 计量事件 {{ workflowRun.usage.event_count }} 条
-                · 缺失 {{ workflowRun.usage.missing_event_count }} 条
-              </span>
-            </p>
-            <p class="task-footnote">
-              费用状态：{{ costStateLabel(workflowRun.cost.state) }}
-              <span v-if="workflowRun.cost.metered_amount !== null && workflowRun.cost.currency">
-                · {{ workflowRun.cost.metered_amount }} {{ workflowRun.cost.currency }}
-              </span>
-              <span v-if="workflowRun.cost.unpriced_count">
-                · 未定价 {{ workflowRun.cost.unpriced_count }} 条
-              </span>
-            </p>
-            <p v-if="workflowRun.cost.by_currency && Object.keys(workflowRun.cost.by_currency).length"
-               class="task-footnote">
-              已知分币种金额：
-              <span v-for="(amount, currency) in workflowRun.cost.by_currency" :key="currency">
-                {{ amount }} {{ currency }}
-              </span>
-            </p>
-          </template>
-        </template>
-
-        <template v-if="activeTask.task_type === 'audio_transcription'">
-          <h3 class="task-detail__title">音频转写</h3>
-          <template v-if="activeTask.result?.schema?.code === 'sand_ai.audio_transcription'">
-            <ElAlert
-              v-if="activeTask.result.review_required"
-              title="转写内容需人工复核后使用"
-              type="warning"
-              :closable="false"
-            />
-            <p class="task-footnote">
-              音频时长：{{ activeTask.result.usage?.audio_seconds ?? '未知' }} 秒
-            </p>
-            <ElAlert
-              v-if="hasInputRangeTranscript"
-              title="这是整段音频的转写，时间仅表示输入范围。引擎未提供句子时间或说话人区分；请从整段音频回听核对。"
-              type="info"
-              :closable="false"
-            />
-            <p class="task-footnote">
-              转写计量金额：
-              <template v-if="activeTask.audio_usage_cost?.state === 'priced'">
-                {{ activeTask.audio_usage_cost.metered_amount }}
-                {{ activeTask.audio_usage_cost.currency }}
-                · 价格版本 #{{ activeTask.audio_usage_cost.price_revision_id }}
-              </template>
-              <template v-else-if="activeTask.audio_usage_cost?.state === 'unpriced'">未配置价格</template>
-              <template v-else>暂不可确认</template>
-            </p>
-            <ArtTable
-              row-key="start_ms"
-              :data="activeTask.result.segments ?? []"
-              :columns="audioSegmentColumns"
-              empty-text="暂无可读转写段落"
-            />
-            <p v-if="activeTask.result.warnings?.length" class="task-footnote">
-              转写提示：{{ activeTask.result.warnings.map(audioWarningLabel).join('、') }}
-            </p>
-            <ElButton v-if="activeTask.state === 'succeeded'" :loading="busy === 'review-read'"
-              :disabled="Boolean(busy)" @click="loadAudioReviews(activeTask.id)">读取片段复核</ElButton>
-              <ElAlert v-if="reviewRecoveryBlocked.has(activeTask.id)" type="warning" :closable="false" title="原复核元数据暂不可确认，当前不能新建复核或摘要；请恢复浏览器会话存储后重新读取片段复核。" />
-              <ElAlert v-if="activePendingReview" type="warning" :closable="false"
-                title="原复核保存结果尚未确认">
-                <p>原片段 #{{ activePendingReview.index }}，原版本 {{ activePendingReview.revision }}。
-                  请按请求编号找回；无需原正文，本任务暂不能提交另一份复核。</p>
-                <ElButton :loading="busy === 'review-recovery'" :disabled="Boolean(busy) || materialTaskActionInFlight() || !apiKey.trim()"
-                  @click="recoverAudioReview(activeTask.id)">找回本次复核</ElButton>
-              </ElAlert>
-            <section v-if="audioReview?.taskId === activeTask.id" class="task-review">
               <p class="task-footnote">
-                当前复核版本 {{ audioReview.revision }}。修订会保留原始转写和音频时间来源；
-                操作者归属记录为当前应用的工作负载。原始说话人、识别置信度与引擎提示保留供回听核对，
-                不因保存文字而成为已验证事实。
+                转写计量金额：
+                <template v-if="activeTask.audio_usage_cost?.state === 'priced'">
+                  {{ activeTask.audio_usage_cost.metered_amount }}
+                  {{ activeTask.audio_usage_cost.currency }}
+                  · 价格版本 #{{ activeTask.audio_usage_cost.price_revision_id }}
+                </template>
+                <template v-else-if="activeTask.audio_usage_cost?.state === 'unpriced'">未配置价格</template>
+                <template v-else>暂不可确认</template>
               </p>
-              <p v-if="hasInputRangeReview" class="task-footnote">
-                整段转写只能修订文字和一个说话人编号。保存后保留原输入范围和来源引用，不能拆分或修改时间；
-                多位说话人的对话请在文字中人工注明，不能据此确定逐句时间。
+              <ArtTable
+                row-key="start_ms"
+                :data="activeTask.result.segments ?? []"
+                :columns="audioSegmentColumns"
+                empty-text="暂无可读转写段落"
+              />
+              <p v-if="activeTask.result.warnings?.length" class="task-footnote">
+                转写提示：{{ activeTask.result.warnings.map(audioWarningLabel).join('、') }}
               </p>
-              <ElSpace wrap>
-                <ElButton :loading="busy === 'audio-source'" :disabled="Boolean(busy)"
-                  @click="loadAudioSource(activeTask.id)">加载私有音频</ElButton>
-                <ElButton :disabled="reviewSegmentIndex === null || Boolean(busy)"
-                  @click="playReviewSegment(activeTask.id)">从所选片段回听</ElButton>
-              </ElSpace>
-              <audio v-if="audioSource?.taskId === activeTask.id" ref="audioPlayer"
-                class="task-review__player" controls :src="audioSource.url" preload="metadata" />
-              <ElForm inline @submit.prevent>
-                <ElFormItem label="片段">
-                  <ElSelectV2 v-model="reviewSegmentIndex" :options="reviewSegmentOptions" filterable
-                    placeholder="搜索片段文字、时间或说话人" style="width: 420px"
-                    @change="selectReviewSegment" />
-                </ElFormItem>
-                <ElFormItem label="复核文字">
-                  <ElInput v-model="reviewText" type="textarea" :rows="2" maxlength="10000"
-                    :disabled="Boolean(busy) || selectedReviewPending" @input="retainReviewDraft"
-                    placeholder="按音频回听修订；留空表示该段仍无可用文字" style="width: 420px" />
-                </ElFormItem>
-                <ElFormItem label="说话人编号">
-                  <ElInput v-model="reviewSpeaker" maxlength="16" placeholder="speaker_1；留空为未知"
-                    :disabled="Boolean(busy) || selectedReviewPending" @input="retainReviewDraft"
-                    style="width: 200px" />
-                </ElFormItem>
-                <p v-if="selectedReviewLocator?.granularity === 'input_range_only'" class="task-footnote">
-                  所选范围是整段输入；填写说话人编号表示人工标注整段，不代表引擎已识别说话人。
+              <ElButton v-if="activeTask.state === 'succeeded'" :loading="busy === 'review-read'"
+                :disabled="Boolean(busy)" @click="loadAudioReviews(activeTask.id)">读取片段复核</ElButton>
+                <ElAlert v-if="reviewRecoveryBlocked.has(activeTask.id)" type="warning" :closable="false" title="原复核元数据暂不可确认，当前不能新建复核或摘要；请恢复浏览器会话存储后重新读取片段复核。" />
+                <ElAlert v-if="activePendingReview" type="warning" :closable="false"
+                  title="原复核保存结果尚未确认">
+                  <p>原片段 #{{ activePendingReview.index }}，原版本 {{ activePendingReview.revision }}。
+                    请按请求编号找回；无需原正文，本任务暂不能提交另一份复核。</p>
+                  <ElButton :loading="busy === 'review-recovery'" :disabled="Boolean(busy) || materialTaskActionInFlight() || !apiKey.trim()"
+                    @click="recoverAudioReview(activeTask.id)">找回本次复核</ElButton>
+                </ElAlert>
+              <section v-if="audioReview?.taskId === activeTask.id" class="task-review">
+                <p class="task-footnote">
+                  当前复核版本 {{ audioReview.revision }}。修订会保留原始转写和音频时间来源；
+                  操作者归属记录为当前应用的工作负载。原始说话人、识别置信度与引擎提示保留供回听核对，
+                  不因保存文字而成为已验证事实。
                 </p>
+                <p v-if="hasInputRangeReview" class="task-footnote">
+                  整段转写只能修订文字和一个说话人编号。保存后保留原输入范围和来源引用，不能拆分或修改时间；
+                  多位说话人的对话请在文字中人工注明，不能据此确定逐句时间。
+                </p>
+                <ElSpace wrap>
+                  <ElButton :loading="busy === 'audio-source'" :disabled="Boolean(busy)"
+                    @click="loadAudioSource(activeTask.id)">加载私有音频</ElButton>
+                  <ElButton :disabled="reviewSegmentIndex === null || Boolean(busy)"
+                    @click="playReviewSegment(activeTask.id)">从所选片段回听</ElButton>
+                </ElSpace>
+                <audio v-if="audioSource?.taskId === activeTask.id" ref="audioPlayer"
+                  class="task-review__player" controls :src="audioSource.url" preload="metadata" />
+                <ElForm inline @submit.prevent>
+                  <ElFormItem label="片段">
+                    <ElSelectV2 v-model="reviewSegmentIndex" :options="reviewSegmentOptions" filterable
+                      placeholder="搜索片段文字、时间或说话人" style="width: 420px"
+                      @change="selectReviewSegment" />
+                  </ElFormItem>
+                  <ElFormItem label="复核文字">
+                    <ElInput v-model="reviewText" type="textarea" :rows="2" maxlength="10000"
+                      :disabled="Boolean(busy) || selectedReviewPending" @input="retainReviewDraft"
+                      placeholder="按音频回听修订；留空表示该段仍无可用文字" style="width: 420px" />
+                  </ElFormItem>
+                  <ElFormItem label="说话人编号">
+                    <ElInput v-model="reviewSpeaker" maxlength="16" placeholder="speaker_1；留空为未知"
+                      :disabled="Boolean(busy) || selectedReviewPending" @input="retainReviewDraft"
+                      style="width: 200px" />
+                  </ElFormItem>
+                  <p v-if="selectedReviewLocator?.granularity === 'input_range_only'" class="task-footnote">
+                    所选范围是整段输入；填写说话人编号表示人工标注整段，不代表引擎已识别说话人。
+                  </p>
+                  <ElFormItem>
+                    <ElButton type="primary" :loading="mutationInFlight?.kind === 'review_save' && mutationInFlight.taskId === activeTask.id"
+                      :disabled="Boolean(busy) || newCallsBlocked || reviewSegmentIndex === null || !!activePendingReview || reviewNeedsRefresh.has(activeTask.id) || reviewRecoveryBlocked.has(activeTask.id)"
+                      @click="saveAudioReview(activeTask.id)">保存复核</ElButton>
+                  </ElFormItem>
+                </ElForm>
+                <p v-if="selectedReviewDraft" class="task-footnote">
+                  此片段有未保存草稿（原复核版本 {{ selectedReviewDraft.revision }}，当前版本 {{ audioReview.revision }}）。
+                  重新读取和切换任务后会在本页面恢复；请按当前音频和版本确认后保存。离开页面或切换身份会清除草稿。
+                </p>
+                <p v-if="reviewNeedsRefresh.has(activeTask.id)" class="task-footnote">
+                  本次复核未保存，草稿已保留。请点击“读取片段复核”取得当前版本，再确认草稿并保存。
+                </p>
+                <h4>当前复核转写</h4>
+                <ElSpace wrap>
+                  <ElInput v-model="reviewSearch" clearable placeholder="搜索复核文字或说话人"
+                    aria-label="搜索复核片段" style="width: 300px" />
+                  <ElCheckbox v-model="reviewOnlyUnresolved">仅看无可用文字、说话人未知或有引擎提示的片段</ElCheckbox>
+                </ElSpace>
+                <p class="task-footnote">
+                  共 {{ audioReview.segments.length }} 个片段，符合筛选 {{ filteredReviewSegments.length }} 个。
+                  筛选只改变显示范围，不删除片段，也不改变摘要使用的完整复核版本。
+                </p>
+                <ElTable :data="visibleReviewSegments" size="small" empty-text="没有符合筛选的片段">
+                  <ElTableColumn label="音频范围" min-width="230">
+                    <template #default="{ row }">{{ audioRangeLabel(row.start_ms, row.end_ms, reviewLocator(row.segment_index)) }}</template>
+                  </ElTableColumn>
+                  <ElTableColumn label="说话人" min-width="130">
+                    <template #default="{ row }">{{ row.speaker || '未知' }}</template>
+                  </ElTableColumn>
+                  <ElTableColumn label="原始说话人" min-width="130">
+                    <template #default="{ row }">{{ row.original_speaker || '未提供' }}</template>
+                  </ElTableColumn>
+                  <ElTableColumn label="原始识别置信度" min-width="150">
+                    <template #default="{ row }">{{ audioConfidenceLabel(row.confidence, row.warnings) }}</template>
+                  </ElTableColumn>
+                  <ElTableColumn label="复核提示" min-width="220">
+                    <template #default="{ row }">{{ row.warnings.map(audioWarningLabel).join('、') || '—' }}</template>
+                  </ElTableColumn>
+                  <ElTableColumn label="原始转写" prop="original_text" min-width="260" />
+                  <ElTableColumn label="复核文字" prop="text" min-width="300" />
+                  <ElTableColumn label="操作" width="110">
+                    <template #default="{ row }">
+                      <ElButton :disabled="Boolean(busy)" @click="editReviewSegment(row.segment_index)">复核此段</ElButton>
+                    </template>
+                  </ElTableColumn>
+                </ElTable>
+                <ElPagination v-model:current-page="reviewPage" :page-size="REVIEW_PAGE_SIZE"
+                  :total="filteredReviewSegments.length" layout="total, prev, pager, next, jumper"
+                  aria-label="复核片段分页" />
+              </section>
+              <ElForm v-if="activeTask.state === 'succeeded'" inline @submit.prevent>
+                <ElFormItem label="摘要模型">
+                  <ElSelect v-model="summaryModel" :disabled="Boolean(busy) || !!pendingSummary" filterable allow-create default-first-option clearable
+                    :loading="summaryModelsLoading" placeholder="选择已启用聊天模型" style="width: 280px">
+                    <ElOption v-for="model in summaryModels" :key="model.id" :label="model.name"
+                      :value="model.code" />
+                  </ElSelect>
+                  <ElButton :loading="summaryModelsLoading" @click="loadSummaryModels">刷新模型</ElButton>
+                </ElFormItem>
                 <ElFormItem>
-                  <ElButton type="primary" :loading="mutationInFlight?.kind === 'review_save' && mutationInFlight.taskId === activeTask.id"
-                    :disabled="Boolean(busy) || newCallsBlocked || reviewSegmentIndex === null || !!activePendingReview || reviewNeedsRefresh.has(activeTask.id) || reviewRecoveryBlocked.has(activeTask.id)"
-                    @click="saveAudioReview(activeTask.id)">保存复核</ElButton>
+                  <ElButton type="primary" :loading="mutationInFlight?.kind === 'summary_submit' && mutationInFlight.taskId === activeTask.id" :disabled="Boolean(busy) || newCallsBlocked || !!pendingSummary || !!summaryLookupKey.trim() || summaryStorageBlocked || Boolean(summaryReviewBlock(activeTask.id)) || !canSummarize(activeTask)"
+                    @click="handleMeetingSummary(activeTask.id)">生成会议摘要</ElButton>
                 </ElFormItem>
               </ElForm>
-              <p v-if="selectedReviewDraft" class="task-footnote">
-                此片段有未保存草稿（原复核版本 {{ selectedReviewDraft.revision }}，当前版本 {{ audioReview.revision }}）。
-                重新读取和切换任务后会在本页面恢复；请按当前音频和版本确认后保存。离开页面或切换身份会清除草稿。
+              <p v-if="activeTask.state === 'succeeded' && summaryReviewBlock(activeTask.id)" class="task-footnote">{{ summaryReviewBlock(activeTask.id) }}</p>
+              <p v-if="summaryStorageBlocked" class="task-footnote">摘要请求编号的会话存储暂不可确认，当前不能新建摘要；请恢复会话存储后重新进入页面。</p>
+              <p v-if="activeTask.state === 'succeeded'" class="task-footnote">
+                摘要使用{{ audioReview?.taskId === activeTask.id ? `复核版本 ${audioReview.revision}` : '原始转写' }}，
+                并产生独立计费任务；原音频须允许经批准的云端处理，当前身份还须具备聊天与音频允许使用。
               </p>
-              <p v-if="reviewNeedsRefresh.has(activeTask.id)" class="task-footnote">
-                本次复核未保存，草稿已保留。请点击“读取片段复核”取得当前版本，再确认草稿并保存。
+              <p v-if="activeTask.state === 'succeeded' && summaryModelsError" class="task-footnote">
+                模型目录读取失败：{{ summaryModelsError }}。可继续手动输入已启用模型代码，或为该应用允许使用“模型目录读取”后刷新。
               </p>
-              <h4>当前复核转写</h4>
-              <ElSpace wrap>
-                <ElInput v-model="reviewSearch" clearable placeholder="搜索复核文字或说话人"
-                  aria-label="搜索复核片段" style="width: 300px" />
-                <ElCheckbox v-model="reviewOnlyUnresolved">仅看无可用文字、说话人未知或有引擎提示的片段</ElCheckbox>
-              </ElSpace>
-              <p class="task-footnote">
-                共 {{ audioReview.segments.length }} 个片段，符合筛选 {{ filteredReviewSegments.length }} 个。
-                筛选只改变显示范围，不删除片段，也不改变摘要使用的完整复核版本。
+              <p v-if="activeTask.state === 'succeeded' && !canSummarize(activeTask)" class="task-footnote">
+                这份音频没有可用的转写文字，请先按时间回听。
               </p>
-              <ElTable :data="visibleReviewSegments" size="small" empty-text="没有符合筛选的片段">
-                <ElTableColumn label="音频范围" min-width="230">
-                  <template #default="{ row }">{{ audioRangeLabel(row.start_ms, row.end_ms, reviewLocator(row.segment_index)) }}</template>
-                </ElTableColumn>
-                <ElTableColumn label="说话人" min-width="130">
-                  <template #default="{ row }">{{ row.speaker || '未知' }}</template>
-                </ElTableColumn>
-                <ElTableColumn label="原始说话人" min-width="130">
-                  <template #default="{ row }">{{ row.original_speaker || '未提供' }}</template>
-                </ElTableColumn>
-                <ElTableColumn label="原始识别置信度" min-width="150">
-                  <template #default="{ row }">{{ audioConfidenceLabel(row.confidence, row.warnings) }}</template>
-                </ElTableColumn>
-                <ElTableColumn label="复核提示" min-width="220">
-                  <template #default="{ row }">{{ row.warnings.map(audioWarningLabel).join('、') || '—' }}</template>
-                </ElTableColumn>
-                <ElTableColumn label="原始转写" prop="original_text" min-width="260" />
-                <ElTableColumn label="复核文字" prop="text" min-width="300" />
-                <ElTableColumn label="操作" width="110">
-                  <template #default="{ row }">
-                    <ElButton :disabled="Boolean(busy)" @click="editReviewSegment(row.segment_index)">复核此段</ElButton>
-                  </template>
-                </ElTableColumn>
-              </ElTable>
-              <ElPagination v-model:current-page="reviewPage" :page-size="REVIEW_PAGE_SIZE"
-                :total="filteredReviewSegments.length" layout="total, prev, pager, next, jumper"
-                aria-label="复核片段分页" />
-            </section>
-            <ElForm v-if="activeTask.state === 'succeeded'" inline @submit.prevent>
-              <ElFormItem label="摘要模型">
-                <ElSelect v-model="summaryModel" :disabled="Boolean(busy) || !!pendingSummary" filterable allow-create default-first-option clearable
-                  :loading="summaryModelsLoading" placeholder="选择已启用聊天模型" style="width: 280px">
-                  <ElOption v-for="model in summaryModels" :key="model.id" :label="model.name"
-                    :value="model.code" />
-                </ElSelect>
-                <ElButton :loading="summaryModelsLoading" @click="loadSummaryModels">刷新模型</ElButton>
-              </ElFormItem>
-              <ElFormItem>
-                <ElButton type="primary" :loading="mutationInFlight?.kind === 'summary_submit' && mutationInFlight.taskId === activeTask.id" :disabled="Boolean(busy) || newCallsBlocked || !!pendingSummary || !!summaryLookupKey.trim() || summaryStorageBlocked || Boolean(summaryReviewBlock(activeTask.id)) || !canSummarize(activeTask)"
-                  @click="handleMeetingSummary(activeTask.id)">生成会议摘要</ElButton>
-              </ElFormItem>
-            </ElForm>
-            <p v-if="activeTask.state === 'succeeded' && summaryReviewBlock(activeTask.id)" class="task-footnote">{{ summaryReviewBlock(activeTask.id) }}</p>
-            <p v-if="summaryStorageBlocked" class="task-footnote">摘要请求编号的会话存储暂不可确认，当前不能新建摘要；请恢复会话存储后重新进入页面。</p>
-            <p v-if="activeTask.state === 'succeeded'" class="task-footnote">
-              摘要使用{{ audioReview?.taskId === activeTask.id ? `复核版本 ${audioReview.revision}` : '原始转写' }}，
-              并产生独立计费任务；原音频须允许经批准的云端处理，当前身份还须具备聊天与音频允许使用。
-            </p>
-            <p v-if="activeTask.state === 'succeeded' && summaryModelsError" class="task-footnote">
-              模型目录读取失败：{{ summaryModelsError }}。可继续手动输入已启用模型代码，或为该应用允许使用“模型目录读取”后刷新。
-            </p>
-            <p v-if="activeTask.state === 'succeeded' && !canSummarize(activeTask)" class="task-footnote">
-              这份音频没有可用的转写文字，请先按时间回听。
-            </p>
+            </template>
+            <p v-else class="task-footnote">转写结果尚未生成或暂不可读。</p>
           </template>
-          <p v-else class="task-footnote">转写结果尚未生成或暂不可读。</p>
-        </template>
 
-        <section v-if="activeTask.summary_progress">
-          <h3 class="task-detail__title">会议摘要进度</h3>
-          <p class="task-footnote">
-            节点 {{ activeTask.summary_progress.completed_nodes }}/{{ activeTask.summary_progress.planned_nodes }} 已完成
-            · 失败 {{ activeTask.summary_progress.failed_nodes }}
-            · 来源片段 {{ activeTask.summary_progress.covered_segments }}/{{ activeTask.summary_progress.total_segments }} 已纳入
-            <span v-if="activeTask.summary_progress.active_node_code">
-              · 当前节点 {{ activeTask.summary_progress.active_node_code }}
-            </span>
-          </p>
-        </section>
-        <section v-if="activeTask.meeting_output_correction" class="task-alert" aria-label="会议失败节点纠正">
-          <p v-if="meetingCorrectionExpectation(activeTask)">节点 {{ activeTask.meeting_output_correction.node_code }} 的结果{{ activeTask.meeting_output_correction.reason === 'missing_sources' ? '缺少必填来源引用' : '包含重复来源引用' }}，未被接受。问题位置：{{ meetingCorrectionLocation(activeTask.meeting_output_correction.reason_path) }}。可明确纠正该失败节点并继续原摘要；这会新建一次付费尝试，已成功节点、旧结果和费用保留。</p>
-          <p v-else>当前没有可明确纠正的失败节点。结果未知、执行中或其他失败查看原任务，不重新调用。</p>
-          <ElButton v-if="meetingCorrectionExpectation(activeTask)" type="primary"
-            :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim()"
-            :loading="busy === 'meeting-correction'" @click="correctMeetingOutput(activeTask.id)">纠正失败节点并继续</ElButton>
-        </section>
-        <section v-if="meetingNodeCost">
-          <h3 class="task-detail__title">会议摘要费用</h3>
-          <p v-if="meetingNodeCost.calls.length === 0" class="task-footnote">尚无已记录调用，费用待确认。</p>
-          <template v-else>
-            <p v-for="total in meetingNodeCost.totals" :key="total.currency ?? '_unknown_'" class="task-footnote">
-              {{ total.currency ?? '币种未确认' }}：
-              <template v-if="total.metered_amount !== null && total.currency">
-                累计已确认 {{ total.metered_amount }} {{ total.currency }}
-              </template>
-              <template v-else>累计金额未知或待结算</template>
-              · 词元 {{ total.total_tokens ?? '未测得' }}
+          <section v-if="activeTask.summary_progress">
+            <h3 class="task-detail__title">会议摘要进度</h3>
+            <p class="task-footnote">
+              节点 {{ activeTask.summary_progress.completed_nodes }}/{{ activeTask.summary_progress.planned_nodes }} 已完成
+              · 失败 {{ activeTask.summary_progress.failed_nodes }}
+              · 来源片段 {{ activeTask.summary_progress.covered_segments }}/{{ activeTask.summary_progress.total_segments }} 已纳入
+              <span v-if="activeTask.summary_progress.active_node_code">
+                · 当前节点 {{ activeTask.summary_progress.active_node_code }}
+              </span>
             </p>
-            <details>
-              <summary>查看 {{ meetingNodeCost.calls.length }} 次节点调用费用</summary>
-              <p v-for="call in meetingNodeCost.calls" :key="call.invocation_id" class="task-footnote">
-                {{ call.node_code }} · 调用 #{{ call.invocation_id }}：
-                <template v-if="call.metered_amount !== null && call.currency">
-                  {{ call.metered_amount }} {{ call.currency }}
+          </section>
+          <section v-if="activeTask.meeting_output_correction" class="task-alert" aria-label="会议失败节点纠正">
+            <p v-if="meetingCorrectionExpectation(activeTask)">节点 {{ activeTask.meeting_output_correction.node_code }} 的结果{{ activeTask.meeting_output_correction.reason === 'missing_sources' ? '缺少必填来源引用' : '包含重复来源引用' }}，未被接受。问题位置：{{ meetingCorrectionLocation(activeTask.meeting_output_correction.reason_path) }}。可明确纠正该失败节点并继续原摘要；这会新建一次付费尝试，已成功节点、旧结果和费用保留。</p>
+            <p v-else>当前没有可明确纠正的失败节点。结果未知、执行中或其他失败查看原任务，不重新调用。</p>
+            <ElButton v-if="meetingCorrectionExpectation(activeTask)" type="primary"
+              :disabled="Boolean(busy) || newCallsBlocked || !apiKey.trim()"
+              :loading="busy === 'meeting-correction'" @click="correctMeetingOutput(activeTask.id)">纠正失败节点并继续</ElButton>
+          </section>
+          <section v-if="meetingNodeCost">
+            <h3 class="task-detail__title">会议摘要费用</h3>
+            <p v-if="meetingNodeCost.calls.length === 0" class="task-footnote">尚无已记录调用，费用待确认。</p>
+            <template v-else>
+              <p v-for="total in meetingNodeCost.totals" :key="total.currency ?? '_unknown_'" class="task-footnote">
+                {{ total.currency ?? '币种未确认' }}：
+                <template v-if="total.metered_amount !== null && total.currency">
+                  累计已确认 {{ total.metered_amount }} {{ total.currency }}
                 </template>
-                <template v-else-if="call.pricing_state === 'unpriced'">未计价</template>
-                <template v-else>金额未知或待结算</template>
-                · 词元 {{ call.total_tokens ?? '未测得' }}
-                · 价格版本 #{{ call.price_revision_id ?? '未知' }}
+                <template v-else>累计金额未知或待结算</template>
+                · 词元 {{ total.total_tokens ?? '未测得' }}
               </p>
-            </details>
-          </template>
-        </section>
-        <p v-else-if="legacyMeetingCost" class="task-footnote">
-          旧摘要单次调用费用：
-          <template v-if="legacyMeetingCost.metered_amount !== null && legacyMeetingCost.currency">
-            {{ legacyMeetingCost.metered_amount }} {{ legacyMeetingCost.currency }}
-            · 价格版本 #{{ legacyMeetingCost.price_revision_id ?? '未知' }}
-          </template>
-          <template v-else>金额未知或待结算</template>
-          · 词元 {{ legacyMeetingCost.total_tokens ?? '未测得' }}
-        </p>
-        <template v-if="activeTask.result?.meeting_summary_error">
-          <h3 class="task-detail__title">会议摘要</h3>
-          <ElAlert title="模型本次未生成可引用的摘要；本次调用可能已产生费用。请核对转写后发起新请求。" type="warning" :closable="false" />
-        </template>
-        <template v-else-if="displayedMeetingResult?.meeting_summary">
-          <h3 class="task-detail__title">会议摘要 #{{ displayedMeetingTask?.id }}</h3>
-          <ElAlert title="摘要和转写均需人工复核后使用" type="warning" :closable="false" />
-          <p class="task-footnote">
-            来源：音频任务 #{{ displayedMeetingResult.audio_task_id }}
-            · 复核版本 {{ displayedMeetingResult.audio_review_revision ?? '未提供' }}
+              <details>
+                <summary>查看 {{ meetingNodeCost.calls.length }} 次节点调用费用</summary>
+                <p v-for="call in meetingNodeCost.calls" :key="call.invocation_id" class="task-footnote">
+                  {{ call.node_code }} · 调用 #{{ call.invocation_id }}：
+                  <template v-if="call.metered_amount !== null && call.currency">
+                    {{ call.metered_amount }} {{ call.currency }}
+                  </template>
+                  <template v-else-if="call.pricing_state === 'unpriced'">未计价</template>
+                  <template v-else>金额未知或待结算</template>
+                  · 词元 {{ call.total_tokens ?? '未测得' }}
+                  · 价格版本 #{{ call.price_revision_id ?? '未知' }}
+                </p>
+              </details>
+            </template>
+          </section>
+          <p v-else-if="legacyMeetingCost" class="task-footnote">
+            旧摘要单次调用费用：
+            <template v-if="legacyMeetingCost.metered_amount !== null && legacyMeetingCost.currency">
+              {{ legacyMeetingCost.metered_amount }} {{ legacyMeetingCost.currency }}
+              · 价格版本 #{{ legacyMeetingCost.price_revision_id ?? '未知' }}
+            </template>
+            <template v-else>金额未知或待结算</template>
+            · 词元 {{ legacyMeetingCost.total_tokens ?? '未测得' }}
           </p>
-          <p class="task-footnote">{{ meetingReviewVersionNotice }}</p>
-          <ElButton v-if="activeTask.id !== displayedMeetingResult.audio_task_id"
-            :loading="busy === 'summary-audio-review'" :disabled="Boolean(busy) || !apiKey.trim()"
-            @click="openMeetingAudioReview">读取当前复核并打开原音频任务</ElButton>
-          <p v-else class="task-footnote">
-            上方可复核原音频并生成当前版本摘要；下方保留这份旧摘要的文字和原版本来源，不随复核修改。
-          </p>
-          <audio v-if="audioSource?.taskId === displayedMeetingResult.audio_task_id" ref="audioPlayer"
-            class="task-review__player" controls :src="audioSource?.url" preload="metadata" />
-          <section v-if="displayedMeetingResult.unrecognized_audio_ranges?.length">
-            <h4>待回听音频</h4>
-            <p class="task-footnote">以下时段没有识别出文字，未作为摘要事实来源。请结合原音频复核。</p>
-            <p v-for="range in displayedMeetingResult.unrecognized_audio_ranges" :key="`${range.start_ms}-${range.end_ms}`">
-              {{ audioTime(range.start_ms) }}–{{ audioTime(range.end_ms) }}
-              <ElButton link type="primary" :disabled="Boolean(busy) || !displayedMeetingResult.audio_task_id"
-                @click="playMeetingSource(displayedMeetingResult.audio_task_id, range.start_ms)">回听</ElButton>
+          <template v-if="activeTask.result?.meeting_summary_error">
+            <h3 class="task-detail__title">会议摘要</h3>
+            <ElAlert title="模型本次未生成可引用的摘要；本次调用可能已产生费用。请核对转写后发起新请求。" type="warning" :closable="false" />
+          </template>
+          <template v-else-if="displayedMeetingResult?.meeting_summary">
+            <h3 class="task-detail__title">会议摘要 #{{ displayedMeetingTask?.id }}</h3>
+            <ElAlert title="摘要和转写均需人工复核后使用" type="warning" :closable="false" />
+            <p class="task-footnote">
+              来源：音频任务 #{{ displayedMeetingResult.audio_task_id }}
+              · 复核版本 {{ displayedMeetingResult.audio_review_revision ?? '未提供' }}
             </p>
-          </section>
-          <section v-for="section in meetingSummarySections" :key="section.key">
-            <h4>{{ section.label }}</h4>
-            <p v-if="!displayedMeetingResult.meeting_summary[section.key].length" class="task-footnote">暂无可确认内容</p>
-            <div v-for="(claim, index) in displayedMeetingResult.meeting_summary[section.key]" :key="`${section.key}-${index}`">
-              <p>{{ claim.text }}</p>
-              <p class="task-footnote">
-                来源：
-                <span v-for="reference in claim.references" :key="reference.segment_id">
-                  {{ reference.segment_id }}
-                  {{ audioRangeLabel(reference.source.locator.start_ms, reference.source.locator.end_ms, reference.source.locator) }}
-                  <span v-if="reference.source.locator.granularity === 'input_range_only'">
-                    （仅能定位整段输入，无法确定这项内容的具体发生时间）
-                  </span>
-                  <ElButton link type="primary" :disabled="Boolean(busy) || !displayedMeetingResult.audio_task_id"
-                    @click="playMeetingSource(displayedMeetingResult.audio_task_id, reference.source.locator.start_ms)">
-                    回听来源
-                  </ElButton>
-                </span>
+            <p class="task-footnote">{{ meetingReviewVersionNotice }}</p>
+            <ElButton v-if="activeTask.id !== displayedMeetingResult.audio_task_id"
+              :loading="busy === 'summary-audio-review'" :disabled="Boolean(busy) || !apiKey.trim()"
+              @click="openMeetingAudioReview">读取当前复核并打开原音频任务</ElButton>
+            <p v-else class="task-footnote">
+              上方可复核原音频并生成当前版本摘要；下方保留这份旧摘要的文字和原版本来源，不随复核修改。
+            </p>
+            <audio v-if="audioSource?.taskId === displayedMeetingResult.audio_task_id" ref="audioPlayer"
+              class="task-review__player" controls :src="audioSource?.url" preload="metadata" />
+            <section v-if="displayedMeetingResult.unrecognized_audio_ranges?.length">
+              <h4>待回听音频</h4>
+              <p class="task-footnote">以下时段没有识别出文字，未作为摘要事实来源。请结合原音频复核。</p>
+              <p v-for="range in displayedMeetingResult.unrecognized_audio_ranges" :key="`${range.start_ms}-${range.end_ms}`">
+                {{ audioTime(range.start_ms) }}–{{ audioTime(range.end_ms) }}
+                <ElButton link type="primary" :disabled="Boolean(busy) || !displayedMeetingResult.audio_task_id"
+                  @click="playMeetingSource(displayedMeetingResult.audio_task_id, range.start_ms)">回听</ElButton>
               </p>
-            </div>
-          </section>
-        </template>
-        <template v-else-if="activeTask.task_type === 'file_parse'">
-          <FileParseSources v-if="activeTask.state === 'succeeded' && activeTask.resource_type === 'file'"
-            :bearer="apiKey" :owner-id="userStore.info.id" :task-id="activeTask.id"
-            :file-id="activeTask.resource_id" :parse-id="activeTask.file_parse_id"
-            :source-available="activeTask.cleanup?.source_available !== false"
-            @access-denied="clearOnAccessDenied" />
-          <p v-else class="task-footnote">文件解析尚未成功，不能作为可读取的解析来源；请核对原任务状态。</p>
-        </template>
-        <template v-else-if="activeTask.task_type !== 'audio_transcription' && activeTask.task_type !== 'structured_workflow'">
-        <h3 class="task-detail__title">结果</h3>
-        <ElInput
-          type="textarea"
-          :rows="5"
-          readonly
-          :model-value="activeTask.result?.output?.content ?? ''"
-          placeholder="完成后显示生成内容（不回显 prompt）"
-        />
-        <p v-if="activeTask.result?.review_required !== undefined" class="task-footnote">
-          review_required={{ activeTask.result.review_required }}
-        </p>
+            </section>
+            <section v-for="section in meetingSummarySections" :key="section.key">
+              <h4>{{ section.label }}</h4>
+              <p v-if="!displayedMeetingResult.meeting_summary[section.key].length" class="task-footnote">暂无可确认内容</p>
+              <div v-for="(claim, index) in displayedMeetingResult.meeting_summary[section.key]" :key="`${section.key}-${index}`">
+                <p>{{ claim.text }}</p>
+                <p class="task-footnote">
+                  来源：
+                  <span v-for="reference in claim.references" :key="reference.segment_id">
+                    {{ reference.segment_id }}
+                    {{ audioRangeLabel(reference.source.locator.start_ms, reference.source.locator.end_ms, reference.source.locator) }}
+                    <span v-if="reference.source.locator.granularity === 'input_range_only'">
+                      （仅能定位整段输入，无法确定这项内容的具体发生时间）
+                    </span>
+                    <ElButton link type="primary" :disabled="Boolean(busy) || !displayedMeetingResult.audio_task_id"
+                      @click="playMeetingSource(displayedMeetingResult.audio_task_id, reference.source.locator.start_ms)">
+                      回听来源
+                    </ElButton>
+                  </span>
+                </p>
+              </div>
+            </section>
+          </template>
+          <template v-else-if="activeTask.task_type === 'file_parse'">
+            <FileParseSources v-if="activeTask.state === 'succeeded' && activeTask.resource_type === 'file'"
+              :bearer="apiKey" :owner-id="userStore.info.id" :task-id="activeTask.id"
+              :file-id="activeTask.resource_id" :parse-id="activeTask.file_parse_id"
+              :source-available="activeTask.cleanup?.source_available !== false"
+              @access-denied="clearOnAccessDenied" />
+            <p v-else class="task-footnote">文件解析尚未成功，不能作为可读取的解析来源；请核对原任务状态。</p>
+          </template>
+          <template v-else-if="activeTask.task_type !== 'audio_transcription' && activeTask.task_type !== 'structured_workflow'">
+          <h3 class="task-detail__title">结果</h3>
+          <ElInput
+            type="textarea"
+            :rows="5"
+            readonly
+            :model-value="activeTask.result?.output?.content ?? ''"
+            placeholder="完成后显示生成内容（不回显 prompt）"
+          />
+          <p v-if="activeTask.result?.review_required !== undefined" class="task-footnote">
+            review_required={{ activeTask.result.review_required }}
+          </p>
 
-        <h3 class="task-detail__title">来源引用</h3>
-        <ArtTable
-          row-key="source_block_id"
-          :data="activeTask.result?.source_references ?? []"
-          :columns="refColumns"
-          empty-text="暂无来源引用"
-        />
+          <h3 class="task-detail__title">来源引用</h3>
+          <ArtTable
+            row-key="source_block_id"
+            :data="activeTask.result?.source_references ?? []"
+            :columns="refColumns"
+            empty-text="暂无来源引用"
+          />
+          </template>
+        </div>
+      </ElCard>
+      <ElDialog v-model="sourceOpen" title="材料来源文字" width="640px" destroy-on-close @closed="clearWorkflowSource">
+        <p v-if="sourceLoading" class="task-footnote">正在核验并读取来源…</p>
+        <ElAlert v-else-if="sourceError" type="error" :title="sourceError" :closable="false" />
+        <template v-else-if="sourcePreview">
+          <p class="task-footnote">
+            文件 #{{ sourcePreview.file_id }} · 来源块 #{{ sourcePreview.source_block_id }} ·
+            {{ sourcePreview.locator_type }} {{ JSON.stringify(sourcePreview.locator) }}
+          </p>
+          <p class="task-footnote">引用字段：{{ sourcePreview.field_paths.join('、') }}</p>
+          <MaterialSourceContent :source="sourcePreview" />
         </template>
-      </div>
-    </ElCard>
-    <ElDialog v-model="sourceOpen" title="材料来源文字" width="640px" destroy-on-close @closed="clearWorkflowSource">
-      <p v-if="sourceLoading" class="task-footnote">正在核验并读取来源…</p>
-      <ElAlert v-else-if="sourceError" type="error" :title="sourceError" :closable="false" />
-      <template v-else-if="sourcePreview">
-        <p class="task-footnote">
-          文件 #{{ sourcePreview.file_id }} · 来源块 #{{ sourcePreview.source_block_id }} ·
-          {{ sourcePreview.locator_type }} {{ JSON.stringify(sourcePreview.locator) }}
-        </p>
-        <p class="task-footnote">引用字段：{{ sourcePreview.field_paths.join('、') }}</p>
-        <MaterialSourceContent :source="sourcePreview" />
-      </template>
-    </ElDialog>
-  </div>
+      </ElDialog>
+    </div>
+  </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
+  import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import { computed, h, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'

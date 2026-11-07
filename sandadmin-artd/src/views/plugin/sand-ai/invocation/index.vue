@@ -1,53 +1,56 @@
 <template>
-  <div class="sand-ai-page">
-    <sa-search-bar
-      v-model="searchForm"
-      label-width="90px"
-      :show-expand="false"
-      @reset="handleReset"
-      @search="handleSearch"
-    >
-      <el-col :xs="24" :sm="12" :md="8" :lg="6">
-        <el-form-item label="请求编号" prop="request_id">
-          <el-input v-model="searchForm.request_id" clearable placeholder="按请求编号" />
-        </el-form-item>
-      </el-col>
-      <el-col :xs="24" :sm="12" :md="8" :lg="6">
-        <el-form-item label="状态" prop="state">
-          <el-select v-model="searchForm.state" clearable placeholder="全部">
-            <el-option label="排队中" value="queued" />
-            <el-option label="进行中" value="running" />
-            <el-option label="成功" value="succeeded" />
-            <el-option label="失败" value="failed" />
-            <el-option label="已取消" value="canceled" />
-          </el-select>
-        </el-form-item>
-      </el-col>
-    </sa-search-bar>
+  <SandAiErrorBoundary>
+    <div class="sand-ai-page">
+      <sa-search-bar
+        v-model="searchForm"
+        label-width="90px"
+        :show-expand="false"
+        @reset="handleReset"
+        @search="handleSearch"
+      >
+        <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-form-item label="请求编号" prop="request_id">
+            <el-input v-model="searchForm.request_id" clearable placeholder="按请求编号" />
+          </el-form-item>
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-form-item label="状态" prop="state">
+            <el-select v-model="searchForm.state" clearable placeholder="全部">
+              <el-option label="排队中" value="queued" />
+              <el-option label="进行中" value="running" />
+              <el-option label="成功" value="succeeded" />
+              <el-option label="失败" value="failed" />
+              <el-option label="已取消" value="canceled" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+      </sa-search-bar>
 
-    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
-      <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData" />
+      <ElCard class="art-table-card sand-ai-page-card" shadow="never">
+        <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData" />
 
-      <ArtTable
-        row-key="id"
-        :loading="loading"
-        :data="data"
-        :columns="columns"
-        empty-text="这里显示每次 AI 调用及其费用；产生调用后可在此追踪"
-        :pagination="pagination"
-        @pagination:size-change="handleSizeChange"
-        @pagination:current-change="handleCurrentChange"
-      />
-    </ElCard>
-    <ElDialog v-model="costOpen" title="单次费用" width="680px" @close="closeCost">
-      <div v-if="costLoading" v-loading="costLoading" class="min-h-24" />
-      <ElAlert v-else-if="costError" :title="costError" type="warning" :closable="false" />
-      <InvocationCostDetails v-else-if="cost" :cost="cost" />
-    </ElDialog>
-  </div>
+        <ArtTable
+          row-key="id"
+          :loading="loading"
+          :data="data"
+          :columns="columns"
+          empty-text="这里显示每次 AI 调用及其费用；产生调用后可在此追踪"
+          :pagination="pagination"
+          @pagination:size-change="handleSizeChange"
+          @pagination:current-change="handleCurrentChange"
+        />
+      </ElCard>
+      <ElDialog v-model="costOpen" title="单次费用" width="680px" @close="closeCost">
+        <div v-if="costLoading" v-loading="costLoading" class="min-h-24" />
+        <ElAlert v-else-if="costError" :title="costError" type="warning" :closable="false" />
+        <InvocationCostDetails v-else-if="cost" :cost="cost" />
+      </ElDialog>
+    </div>
+  </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
+  import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import InvocationCostDetails from '../usage/modules/invocation-cost-details.vue'
   import { useAuth } from '@/hooks/core/useAuth'

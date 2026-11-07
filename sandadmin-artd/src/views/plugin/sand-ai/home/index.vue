@@ -1,194 +1,197 @@
 <template>
-  <div class="sand-ai-page">
-    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
-      <div class="home-head">
-        <div>
-          <h2 class="home-title">AI 能力</h2>
-          <p class="home-desc">让本系统和应用使用 AI 对话、读取文档。跟着下面几步即可。</p>
+  <SandAiErrorBoundary>
+    <div class="sand-ai-page">
+      <ElCard class="art-table-card sand-ai-page-card" shadow="never">
+        <div class="home-head">
+          <div>
+            <h2 class="home-title">AI 能力</h2>
+            <p class="home-desc">让本系统和应用使用 AI 对话、读取文档。跟着下面几步即可。</p>
+          </div>
+          <ElButton :loading="loading" type="primary" @click="loadAll">刷新</ElButton>
         </div>
-        <ElButton :loading="loading" type="primary" @click="loadAll">刷新</ElButton>
-      </div>
 
-      <p v-if="bootstrapNotice" class="home-bootstrap">
-        {{ bootstrapNotice.message }}
-        <ElButton v-if="bootstrapNotice.retryable" link type="primary" :loading="bootstrapBusy" @click="retryBootstrap">重试</ElButton>
-      </p>
+        <p v-if="bootstrapNotice" class="home-bootstrap">
+          {{ bootstrapNotice.message }}
+          <ElButton v-if="bootstrapNotice.retryable" link type="primary" :loading="bootstrapBusy" @click="retryBootstrap">重试</ElButton>
+        </p>
 
-      <div v-if="loading" class="home-body">
-        <ElSkeleton :rows="6" animated />
-      </div>
-
-      <ElResult v-else-if="loadError" icon="error" title="加载失败" :sub-title="loadError">
-        <template #extra>
-          <ElButton type="primary" @click="loadAll">重试</ElButton>
-        </template>
-      </ElResult>
-
-      <!-- 已完成：状态面板 -->
-      <div v-else-if="completed" class="home-body">
-        <ElAlert type="success" :closable="false" title="AI 对话已经可以使用。" />
-        <ElDescriptions :column="1" border class="home-panel">
-          <ElDescriptionsItem label="默认模型">
-            <span class="home-panel__value">{{ panel.modelName || '读取中…' }}</span>
-            <ElButton link type="primary" @click="go('/sand-ai/onboarding')">更换</ElButton>
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="本月花费">
-            <span class="home-panel__value">{{ panel.monthCost }}</span>
-            <ElButton link type="primary" @click="go('/sand-ai/usage')">查看费用</ElButton>
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="今日调用">
-            <span class="home-panel__value">{{ panel.todayCalls }}</span>
-            <ElButton link type="primary" @click="go('/sand-ai/invocation')">查看调用记录</ElButton>
-          </ElDescriptionsItem>
-          <ElDescriptionsItem label="使用中的应用">
-            <span class="home-panel__value">{{ panel.applications }}</span>
-            <ElButton link type="primary" @click="go('/sand-iam/application')">管理</ElButton>
-          </ElDescriptionsItem>
-        </ElDescriptions>
-        <ElSpace wrap>
-          <ElButton type="primary" @click="showTrial = !showTrial">{{ showTrial ? '收起试用' : '试一试对话' }}</ElButton>
-          <ElButton @click="go('/sand-ai/file')">读取文档</ElButton>
-          <ElButton @click="go('/sand-ai/task')">录音转文字</ElButton>
-        </ElSpace>
-        <ChatRouteTrialPanel v-if="showTrial" :environment-id="environmentId || undefined" />
-      </div>
-
-      <!-- 未完成：开通向导 -->
-      <div v-else class="home-body">
-        <ol class="home-steps">
-          <li v-for="(step, index) in steps" :key="step.key" class="home-step" :class="{ 'is-done': step.done }">
-            <span class="home-step__mark">{{ step.done ? '✓' : index }}</span>
-            <div>
-              <div class="home-step__title">{{ step.title }}</div>
-              <div class="home-step__text">{{ step.text }}</div>
-            </div>
-          </li>
-        </ol>
-
-        <ElAlert v-if="intent" type="warning" :closable="false" title="原开通操作的结果还没有确认"
-          description="为避免重复提交，页面已锁定写入；请先找回原开通状态。" />
-        <ElButton v-if="intent" :loading="busy === 'recover'" :disabled="Boolean(busy)" @click="recoverActivation">
-          找回原开通状态
-        </ElButton>
-        <ElAlert v-if="intentStorageError" type="error" :closable="false"
-          title="本机的原开通记录无法确认，已锁定写入。请恢复浏览器会话存储后找回原状态。" />
-        <ElAlert v-if="ambiguous" type="warning" :closable="false"
-          title="模型测试结果无法确定，可能已产生服务商费用。请到服务商控制台核查调用记录；本页不会重新发送测试。" />
-        <ElAlert v-if="conflict" type="warning" :closable="false" :title="conflict" />
-        <ElAlert v-if="message" :type="messageType" :closable="false" :title="message" />
-
-        <!-- 只读找回已确认可续办的原开通目标：从原部署/修订继续，绝不重发已确认的请求 -->
-        <section v-if="intentContinuable" class="home-section">
-          <h3>继续开通</h3>
-          <p class="home-muted">原开通进度已确认，继续完成启用与绑定；已发送的请求不会重复。</p>
-          <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'activate'"
-            :disabled="!canActivate" @click="activate">{{ activateLabel }}</ElButton>
-          <span v-if="progress" class="home-muted">{{ progress }}</span>
-        </section>
-
-        <div v-if="!intent && applications.length" class="home-target">
-          <span class="home-muted">绑定目标：</span>
-          <ElSelect v-if="applications.length > 1" v-model="applicationId" class="home-target__select" @change="onApplicationChange">
-            <ElOption v-for="app in applications" :key="app.id" :value="app.id" :label="app.name" />
-          </ElSelect>
-          <ElSelect v-if="environments.length > 1" v-model="environmentId" class="home-target__select" @change="onEnvironmentChange">
-            <ElOption v-for="env in environments" :key="env.id" :value="env.id" :label="env.name" />
-          </ElSelect>
-          <span v-if="environments.length <= 1" class="home-muted">{{ environmentLabel }}</span>
+        <div v-if="loading" class="home-body">
+          <ElSkeleton :rows="6" animated />
         </div>
-        <p v-if="!intent && applications.length && !environmentId && environmentLoadFailed" class="home-muted">
-          应用环境列表读取失败，请点击「刷新」重试；读取失败不代表没有环境。
-          <ElButton link type="primary" :loading="loading" @click="loadAll">重试</ElButton>
-        </p>
-        <p v-else-if="!intent && applications.length && !environmentId" class="home-muted">
-          还没有可用的应用环境。请先在「应用接入」创建应用与环境，再回来完成绑定。
-          <ElButton link type="primary" @click="go('/sand-iam/application')">去应用接入</ElButton>
-        </p>
-        <p v-if="!intent && !applications.length && iamChecked" class="home-muted">
-          还没有可用的应用。请先在「应用接入」创建应用与环境，再回来完成开通。
-          <ElButton link type="primary" @click="go('/sand-iam/application')">去应用接入</ElButton>
-        </p>
 
-        <!-- 第 1 步：连接服务商 -->
-        <section v-if="!flags.provider && !intent" class="home-section">
-          <h3>1. 连接服务商</h3>
-          <p class="home-muted">选择一家，粘贴 API Key。Key 加密保存，之后不会再显示。</p>
-          <ElRadioGroup v-model="guideCode" class="home-guides">
-            <ElRadio v-for="item in guides" :key="guideKey(item)" :value="guideKey(item)" border>
-              {{ item.name }}
-            </ElRadio>
-          </ElRadioGroup>
-          <ElForm label-width="90px" class="home-form" @submit.prevent>
-            <ElFormItem label="API Key">
-              <ElInput v-model="apiKey" type="password" show-password autocomplete="off" placeholder="只在本次连接中使用" />
-              <div v-if="guide?.api_key_help" class="home-muted">{{ guide.api_key_help }}</div>
-              <a v-if="apiKeyUrl" :href="apiKeyUrl" target="_blank" rel="noopener noreferrer" class="home-link">如何获取 API Key？</a>
-            </ElFormItem>
-            <ElFormItem label="接口地址">
-              <ElInput v-model="baseUrl" placeholder="https://服务商提供的 API 基础地址" />
-            </ElFormItem>
-            <ElFormItem>
-              <ElButton :loading="busy === 'test'" :disabled="Boolean(busy) || !canTest" @click="testConnection">测试连接</ElButton>
-              <span v-if="connectionOk" class="home-ok">连接成功{{ discoveredModels.length ? `，返回 ${discoveredModels.length} 个可用模型` : '' }}</span>
-            </ElFormItem>
-          </ElForm>
-        </section>
+        <ElResult v-else-if="loadError" icon="error" title="加载失败" :sub-title="loadError">
+          <template #extra>
+            <ElButton type="primary" @click="loadAll">重试</ElButton>
+          </template>
+        </ElResult>
 
-        <!-- 第 2 步：选择默认对话模型 -->
-        <section v-if="showModelStep" class="home-section">
-          <h3>2. 选择默认对话模型</h3>
-          <p class="home-muted">选一个作为默认对话模型，一键完成测试、启用并绑定到应用。</p>
-          <ElButton v-if="flags.provider && !discoveredModels.length" :loading="busy === 'models'"
-            :disabled="Boolean(busy)" @click="loadProviderModels">读取可用模型</ElButton>
-          <ElRadioGroup v-if="modelOptions.length" v-model="remoteModel" class="home-models">
-            <ElRadio v-for="item in modelOptions" :key="item.value" :value="item.value">{{ item.label }}</ElRadio>
-          </ElRadioGroup>
-          <ElForm label-width="90px" class="home-form" @submit.prevent>
-            <ElFormItem v-if="!modelOptions.length || manualModel" label="模型标识">
-              <ElInput v-model="remoteModelManual" placeholder="服务商控制台给出的聊天模型标识" />
-            </ElFormItem>
-            <ElFormItem v-if="modelOptions.length">
-              <ElCheckbox v-model="manualModel">手动填写其他模型标识</ElCheckbox>
-            </ElFormItem>
-            <ElFormItem>
-              <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'activate'"
-                :disabled="!canActivate" @click="activate">{{ activateLabel }}</ElButton>
-              <span v-if="progress" class="home-muted">{{ progress }}</span>
-            </ElFormItem>
-          </ElForm>
-        </section>
+        <!-- 已完成：状态面板 -->
+        <div v-else-if="completed" class="home-body">
+          <ElAlert type="success" :closable="false" title="AI 对话已经可以使用。" />
+          <ElDescriptions :column="1" border class="home-panel">
+            <ElDescriptionsItem label="默认模型">
+              <span class="home-panel__value">{{ panel.modelName || '读取中…' }}</span>
+              <ElButton link type="primary" @click="go('/sand-ai/onboarding')">更换</ElButton>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="本月花费">
+              <span class="home-panel__value">{{ panel.monthCost }}</span>
+              <ElButton link type="primary" @click="go('/sand-ai/usage')">查看费用</ElButton>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="今日调用">
+              <span class="home-panel__value">{{ panel.todayCalls }}</span>
+              <ElButton link type="primary" @click="go('/sand-ai/invocation')">查看调用记录</ElButton>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="使用中的应用">
+              <span class="home-panel__value">{{ panel.applications }}</span>
+              <ElButton link type="primary" @click="go('/sand-iam/application')">管理</ElButton>
+            </ElDescriptionsItem>
+          </ElDescriptions>
+          <ElSpace wrap>
+            <ElButton type="primary" @click="showTrial = !showTrial">{{ showTrial ? '收起试用' : '试一试对话' }}</ElButton>
+            <ElButton @click="go('/sand-ai/file')">读取文档</ElButton>
+            <ElButton @click="go('/sand-ai/task')">录音转文字</ElButton>
+          </ElSpace>
+          <ChatRouteTrialPanel v-if="showTrial" :environment-id="environmentId || undefined" />
+        </div>
 
-        <!-- 存在本页之外创建的未完成配置 -->
-        <section v-if="foreignPending && !intent" class="home-section">
-          <h3>继续完成启用</h3>
-          <p class="home-muted">检测到尚未启用的模型配置。请到「首次开通」核对并完成剩余步骤。</p>
-          <ElButton type="primary" @click="go('/sand-ai/onboarding')">去首次开通页继续</ElButton>
-        </section>
+        <!-- 未完成：开通向导 -->
+        <div v-else class="home-body">
+          <ol class="home-steps">
+            <li v-for="(step, index) in steps" :key="step.key" class="home-step" :class="{ 'is-done': step.done }">
+              <span class="home-step__mark">{{ step.done ? '✓' : index }}</span>
+              <div>
+                <div class="home-step__title">{{ step.title }}</div>
+                <div class="home-step__text">{{ step.text }}</div>
+              </div>
+            </li>
+          </ol>
 
-        <!-- 第 3 步：已启用、待绑定 -->
-        <section v-if="flags.published && !flags.bound && !intent" class="home-section">
-          <h3>3. 绑定到应用</h3>
-          <p class="home-muted">模型已启用，绑定到目标环境后应用即可调用。</p>
-          <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'bind'"
-            :disabled="Boolean(busy) || !environmentId" @click="bindPublished">绑定到当前环境</ElButton>
-        </section>
+          <ElAlert v-if="intent" type="warning" :closable="false" title="原开通操作的结果还没有确认"
+            description="为避免重复提交，页面已锁定写入；请先找回原开通状态。" />
+          <ElButton v-if="intent" :loading="busy === 'recover'" :disabled="Boolean(busy)" @click="recoverActivation">
+            找回原开通状态
+          </ElButton>
+          <ElAlert v-if="intentStorageError" type="error" :closable="false"
+            title="本机的原开通记录无法确认，已锁定写入。请恢复浏览器会话存储后找回原状态。" />
+          <ElAlert v-if="ambiguous" type="warning" :closable="false"
+            title="模型测试结果无法确定，可能已产生服务商费用。请到服务商控制台核查调用记录；本页不会重新发送测试。" />
+          <ElAlert v-if="conflict" type="warning" :closable="false" :title="conflict" />
+          <ElAlert v-if="message" :type="messageType" :closable="false" :title="message" />
 
-        <section class="home-section">
-          <h3>让应用使用 AI</h3>
-          <p class="home-muted">在「应用接入」为应用生成调用密钥并允许使用 AI 能力。</p>
-          <ElButton @click="go('/sand-iam/application')">去应用接入</ElButton>
-        </section>
+          <!-- 只读找回已确认可续办的原开通目标：从原部署/修订继续，绝不重发已确认的请求 -->
+          <section v-if="intentContinuable" class="home-section">
+            <h3>继续开通</h3>
+            <p class="home-muted">原开通进度已确认，继续完成启用与绑定；已发送的请求不会重复。</p>
+            <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'activate'"
+              :disabled="!canActivate" @click="activate">{{ activateLabel }}</ElButton>
+            <span v-if="progress" class="home-muted">{{ progress }}</span>
+          </section>
 
-        <details v-if="intent" class="home-tech">
-          <summary>技术详情</summary>
-          <p>部署 {{ intent.deployment_id ?? '未确认' }} · 修订 {{ intent.revision ?? '未确认' }} · 请求号 {{ intent.save_key }}</p>
-        </details>
-      </div>
-    </ElCard>
-  </div>
+          <div v-if="!intent && applications.length" class="home-target">
+            <span class="home-muted">绑定目标：</span>
+            <ElSelect v-if="applications.length > 1" v-model="applicationId" class="home-target__select" @change="onApplicationChange">
+              <ElOption v-for="app in applications" :key="app.id" :value="app.id" :label="app.name" />
+            </ElSelect>
+            <ElSelect v-if="environments.length > 1" v-model="environmentId" class="home-target__select" @change="onEnvironmentChange">
+              <ElOption v-for="env in environments" :key="env.id" :value="env.id" :label="env.name" />
+            </ElSelect>
+            <span v-if="environments.length <= 1" class="home-muted">{{ environmentLabel }}</span>
+          </div>
+          <p v-if="!intent && applications.length && !environmentId && environmentLoadFailed" class="home-muted">
+            应用环境列表读取失败，请点击「刷新」重试；读取失败不代表没有环境。
+            <ElButton link type="primary" :loading="loading" @click="loadAll">重试</ElButton>
+          </p>
+          <p v-else-if="!intent && applications.length && !environmentId" class="home-muted">
+            还没有可用的应用环境。请先在「应用接入」创建应用与环境，再回来完成绑定。
+            <ElButton link type="primary" @click="go('/sand-iam/application')">去应用接入</ElButton>
+          </p>
+          <p v-if="!intent && !applications.length && iamChecked" class="home-muted">
+            还没有可用的应用。请先在「应用接入」创建应用与环境，再回来完成开通。
+            <ElButton link type="primary" @click="go('/sand-iam/application')">去应用接入</ElButton>
+          </p>
+
+          <!-- 第 1 步：连接服务商 -->
+          <section v-if="!flags.provider && !intent" class="home-section">
+            <h3>1. 连接服务商</h3>
+            <p class="home-muted">选择一家，粘贴 API Key。Key 加密保存，之后不会再显示。</p>
+            <ElRadioGroup v-model="guideCode" class="home-guides">
+              <ElRadio v-for="item in guides" :key="guideKey(item)" :value="guideKey(item)" border>
+                {{ item.name }}
+              </ElRadio>
+            </ElRadioGroup>
+            <ElForm label-width="90px" class="home-form" @submit.prevent>
+              <ElFormItem label="API Key">
+                <ElInput v-model="apiKey" type="password" show-password autocomplete="off" placeholder="只在本次连接中使用" />
+                <div v-if="guide?.api_key_help" class="home-muted">{{ guide.api_key_help }}</div>
+                <a v-if="apiKeyUrl" :href="apiKeyUrl" target="_blank" rel="noopener noreferrer" class="home-link">如何获取 API Key？</a>
+              </ElFormItem>
+              <ElFormItem label="接口地址">
+                <ElInput v-model="baseUrl" placeholder="https://服务商提供的 API 基础地址" />
+              </ElFormItem>
+              <ElFormItem>
+                <ElButton :loading="busy === 'test'" :disabled="Boolean(busy) || !canTest" @click="testConnection">测试连接</ElButton>
+                <span v-if="connectionOk" class="home-ok">连接成功{{ discoveredModels.length ? `，返回 ${discoveredModels.length} 个可用模型` : '' }}</span>
+              </ElFormItem>
+            </ElForm>
+          </section>
+
+          <!-- 第 2 步：选择默认对话模型 -->
+          <section v-if="showModelStep" class="home-section">
+            <h3>2. 选择默认对话模型</h3>
+            <p class="home-muted">选一个作为默认对话模型，一键完成测试、启用并绑定到应用。</p>
+            <ElButton v-if="flags.provider && !discoveredModels.length" :loading="busy === 'models'"
+              :disabled="Boolean(busy)" @click="loadProviderModels">读取可用模型</ElButton>
+            <ElRadioGroup v-if="modelOptions.length" v-model="remoteModel" class="home-models">
+              <ElRadio v-for="item in modelOptions" :key="item.value" :value="item.value">{{ item.label }}</ElRadio>
+            </ElRadioGroup>
+            <ElForm label-width="90px" class="home-form" @submit.prevent>
+              <ElFormItem v-if="!modelOptions.length || manualModel" label="模型标识">
+                <ElInput v-model="remoteModelManual" placeholder="服务商控制台给出的聊天模型标识" />
+              </ElFormItem>
+              <ElFormItem v-if="modelOptions.length">
+                <ElCheckbox v-model="manualModel">手动填写其他模型标识</ElCheckbox>
+              </ElFormItem>
+              <ElFormItem>
+                <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'activate'"
+                  :disabled="!canActivate" @click="activate">{{ activateLabel }}</ElButton>
+                <span v-if="progress" class="home-muted">{{ progress }}</span>
+              </ElFormItem>
+            </ElForm>
+          </section>
+
+          <!-- 存在本页之外创建的未完成配置 -->
+          <section v-if="foreignPending && !intent" class="home-section">
+            <h3>继续完成启用</h3>
+            <p class="home-muted">检测到尚未启用的模型配置。请到「首次开通」核对并完成剩余步骤。</p>
+            <ElButton type="primary" @click="go('/sand-ai/onboarding')">去首次开通页继续</ElButton>
+          </section>
+
+          <!-- 第 3 步：已启用、待绑定 -->
+          <section v-if="flags.published && !flags.bound && !intent" class="home-section">
+            <h3>3. 绑定到应用</h3>
+            <p class="home-muted">模型已启用，绑定到目标环境后应用即可调用。</p>
+            <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'bind'"
+              :disabled="Boolean(busy) || !environmentId" @click="bindPublished">绑定到当前环境</ElButton>
+          </section>
+
+          <section class="home-section">
+            <h3>让应用使用 AI</h3>
+            <p class="home-muted">在「应用接入」为应用生成调用密钥并允许使用 AI 能力。</p>
+            <ElButton @click="go('/sand-iam/application')">去应用接入</ElButton>
+          </section>
+
+          <details v-if="intent" class="home-tech">
+            <summary>技术详情</summary>
+            <p>部署 {{ intent.deployment_id ?? '未确认' }} · 修订 {{ intent.revision ?? '未确认' }} · 请求号 {{ intent.save_key }}</p>
+          </details>
+        </div>
+      </ElCard>
+    </div>
+  </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
+  import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'

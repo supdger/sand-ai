@@ -1,71 +1,74 @@
 <template>
-  <div class="sand-ai-page">
-    <CodeNameStatusSearch v-model="searchForm" @search="handleSearch" @reset="handleReset" />
+  <SandAiErrorBoundary>
+    <div class="sand-ai-page">
+      <CodeNameStatusSearch v-model="searchForm" @search="handleSearch" @reset="handleReset" />
 
-    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
-      <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData">
-        <template #left>
-          <ElSpace wrap>
-            <ElButton v-permission="'sand_ai:provider:save'" type="primary" @click="openAdd">
-              <template #icon>
-                <ArtSvgIcon icon="ri:add-fill" />
-              </template>
-              新增
-            </ElButton>
-          </ElSpace>
-        </template>
-      </ArtTableHeader>
+      <ElCard class="art-table-card sand-ai-page-card" shadow="never">
+        <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData">
+          <template #left>
+            <ElSpace wrap>
+              <ElButton v-permission="'sand_ai:provider:save'" type="primary" @click="openAdd">
+                <template #icon>
+                  <ArtSvgIcon icon="ri:add-fill" />
+                </template>
+                新增
+              </ElButton>
+            </ElSpace>
+          </template>
+        </ArtTableHeader>
 
-      <ArtTable
-        row-key="id"
-        :loading="loading"
-        :data="data"
-        :columns="columns"
-        :pagination="pagination"
-        @pagination:size-change="handleSizeChange"
-        @pagination:current-change="handleCurrentChange"
-      >
-        <template #has_encrypted_config="{ row }">
-          <ElTag :type="row.has_encrypted_config ? 'success' : 'info'" effect="plain">
-            {{ row.has_encrypted_config ? '已配置' : '未配置' }}
-          </ElTag>
-        </template>
-        <template #status="{ row }">
-          <StatusTag :status="row.status" />
-        </template>
-        <template #operation="{ row }">
-          <div class="flex gap-2">
-            <ElButton
-              v-permission="'sand_ai:provider:update'"
-              link
-              type="primary"
-              @click="openEdit(row)"
-            >
-              编辑
-            </ElButton>
-            <ElButton
-              v-permission="'sand_ai:provider:destroy'"
-              link
-              type="danger"
-              @click="handleDelete(row)"
-            >
-              删除
-            </ElButton>
-          </div>
-        </template>
-      </ArtTable>
-    </ElCard>
+        <ArtTable
+          row-key="id"
+          :loading="loading"
+          :data="data"
+          :columns="columns"
+          :pagination="pagination"
+          @pagination:size-change="handleSizeChange"
+          @pagination:current-change="handleCurrentChange"
+        >
+          <template #has_encrypted_config="{ row }">
+            <ElTag :type="row.has_encrypted_config ? 'success' : 'info'" effect="plain">
+              {{ row.has_encrypted_config ? '已配置' : '未配置' }}
+            </ElTag>
+          </template>
+          <template #status="{ row }">
+            <StatusTag :status="row.status" />
+          </template>
+          <template #operation="{ row }">
+            <div class="flex gap-2">
+              <ElButton
+                v-permission="'sand_ai:provider:update'"
+                link
+                type="primary"
+                @click="openEdit(row)"
+              >
+                编辑
+              </ElButton>
+              <ElButton
+                v-permission="'sand_ai:provider:destroy'"
+                link
+                type="danger"
+                @click="handleDelete(row)"
+              >
+                删除
+              </ElButton>
+            </div>
+          </template>
+        </ArtTable>
+      </ElCard>
 
-    <EditDialog
-      v-model="dialogVisible"
-      :dialog-type="dialogType"
-      :data="dialogData"
-      @success="refreshData"
-    />
-  </div>
+      <EditDialog
+        v-model="dialogVisible"
+        :dialog-type="dialogType"
+        :data="dialogData"
+        @success="refreshData"
+      />
+    </div>
+  </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
+  import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import { ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'

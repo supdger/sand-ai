@@ -1,41 +1,44 @@
 <template>
-  <div class="sand-ai-page">
-    <sa-search-bar
-      v-model="searchForm"
-      label-width="80px"
-      :show-expand="false"
-      @reset="handleReset"
-      @search="handleSearch"
-    >
-      <el-col :xs="24" :sm="12" :md="8" :lg="6">
-        <el-form-item label="操作" prop="action">
-          <el-input v-model="searchForm.action" clearable placeholder="按操作筛选" />
-        </el-form-item>
-      </el-col>
-      <el-col :xs="24" :sm="12" :md="8" :lg="6">
-        <el-form-item label="摘要" prop="name">
-          <el-input v-model="searchForm.name" clearable placeholder="按摘要或操作者筛选" />
-        </el-form-item>
-      </el-col>
-    </sa-search-bar>
+  <SandAiErrorBoundary>
+    <div class="sand-ai-page">
+      <sa-search-bar
+        v-model="searchForm"
+        label-width="80px"
+        :show-expand="false"
+        @reset="handleReset"
+        @search="handleSearch"
+      >
+        <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-form-item label="操作" prop="action">
+            <el-input v-model="searchForm.action" clearable placeholder="按操作筛选" />
+          </el-form-item>
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-form-item label="摘要" prop="name">
+            <el-input v-model="searchForm.name" clearable placeholder="按摘要或操作者筛选" />
+          </el-form-item>
+        </el-col>
+      </sa-search-bar>
 
-    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
-      <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData" />
+      <ElCard class="art-table-card sand-ai-page-card" shadow="never">
+        <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData" />
 
-      <ArtTable
-        row-key="id"
-        :loading="loading"
-        :data="data"
-        :columns="columns"
-        :pagination="pagination"
-        @pagination:size-change="handleSizeChange"
-        @pagination:current-change="handleCurrentChange"
-      />
-    </ElCard>
-  </div>
+        <ArtTable
+          row-key="id"
+          :loading="loading"
+          :data="data"
+          :columns="columns"
+          :pagination="pagination"
+          @pagination:size-change="handleSizeChange"
+          @pagination:current-change="handleCurrentChange"
+        />
+      </ElCard>
+    </div>
+  </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
+  import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import { ref } from 'vue'
   import { useTable } from '@/hooks/core/useTable'
