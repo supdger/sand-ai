@@ -62,7 +62,7 @@ async function readAllActive<T extends { readonly id: number; readonly status: D
 }
 
 export default {
-  /** Idempotent first-use provisioning of the default entity chain (organization + 律序 application + prod environment). */
+  /** Idempotent first-use provisioning of the default entity chain (organization + default-app application + prod environment). */
   ensureDefaultAccess() {
     return request.post<unknown>({
       url: `${SAND_IAM_ADMIN_PREFIX}/access-matrix/ensure-defaults`,

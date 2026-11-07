@@ -3,7 +3,7 @@
  */
 
 /** 插件版本（与 info.ini 的 version 保持一致，仅用于「复制问题信息」脱敏字段） */
-export const SAND_AI_PLUGIN_VERSION = '0.4.9'
+export const SAND_AI_PLUGIN_VERSION = '0.4.10'
 
 /** 管理 API 前缀（C-04） */
 export const ADMIN_API_PREFIX = '/app/sand-ai/admin'
