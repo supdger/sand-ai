@@ -22,7 +22,7 @@ declare(strict_types=1);
  * Usage:
  *   php tools/build-package.php \
  *     --output=/已建输出目录 \
- *     --iam-bundle=/锁定的 sand-iam-0.9.6.zip \
+ *     --iam-bundle=/锁定的 sand-iam-0.9.7.zip \
  *     --tag=v0.4.10 \
  *     [--builder=/path/to/sand-package/server/scripts/build-plugin-package.php] \
  *     [--host-min=0.2.3] [--host-max=<version>] [--notes=<摘要>] [--dry-run]
