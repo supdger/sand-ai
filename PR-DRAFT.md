@@ -556,3 +556,78 @@ is_hidden=0 / status=1`；两个 B2 权限节点 parent=96（SandAITrial），
 ## 未执行/未验证项
 
 - 未提交推送、未打 tag、未建 PR；仅本地 `fix/0410-phase2` 分支小粒度提交。
+
+# WP-F4：WP-C3 实宿主取证缺陷修复（D-C3-01 授权凭证 / D-C3-02 模型名投影）
+
+- 工作包：WP-F4（第二批收尾修复，固定模型 SWE-2）
+- 背景：WP-C3 真实 Webman 宿主端到端验证发现两个产品级缺陷——
+  - **D-C3-01**：管理员试用 chat 在派发前授权时，
+    `ChatInvocationAccessGuard::authorize()` 从 HTTP `Authorization`
+    头取凭证；管理员请求携带的是 SandAdmin 会话 JWT 而非试用签发的
+    短时 SandIAM workload context，SandIAM `verifySignature` 以
+    `SAND_AI_AUTHENTICATION_FAILED` 拒绝，试用链路到不了 provider 调用。
+  - **D-C3-02**：试用 options 的模型名查询对
+    `array_keys(array_merge(...))` 取键，得到合并数组的位置序号而非
+    `AiModel` 主键，多模型场景下模型名错位/为空。
+
+## D-C3-01：试用授权显式使用签发 context（提交 `e136988`）
+
+- `app/Identity/Infrastructure/ChatInvocationAccessGuard.php`：新增
+  `authorizeSigned()`，显式接收签名上下文并委托
+  `HostSandIamInvocationAuthorizer::authorizeSigned()`；仍走
+  `authorizeInvocation` 全链（签名/上下文校验、授权、配额、网络策略、
+  数据级、operation id、`verifyForService`、资源/事实范围校验），不绕过
+  IAM。既有 `authorize()`/`revalidate()` 与公开 API 路径
+  （`ChatController`、知识/任务等调用方）行为不变。
+- `app/Application/Trial/AdminTrialService.php`：`chat()` 经新增
+  `trialAuthorizeCallback()` 把 `issueChatIdentity()` 签发的
+  `'Bearer '.$identity['context']` 显式交给授权回调，管理员会话头不再
+  被读取；300 秒短时效与最小动作集（仅 `sand_ai.chat.complete`）不变，
+  context 不落日志、不进响应。
+
+## D-C3-02：options 模型名投影使用真实模型 id（提交 `11fcdb0`）
+
+- `app/Application/Trial/AdminTrialService.php`：新增
+  `projectedModelIds()`，展平各服务商 `models` 映射的真实键集合供
+  `names(AiModel::class, …)` 查询；多模型、单模型、空模型集均返回
+  正确 id 集合（空集返回空数组）。
+
+## 前端错误分类复核（未改代码）
+
+- 复核 `sandadmin-artd/src/views/plugin/sand-ai/trial/index.vue` 与
+  `composables/errorBoundary.ts`：业务信封（`transport === undefined`）
+  的可预期业务错误已正确归入 business-warning；真实 HTTP 5xx、网络/
+  超时/取消归入 system-error。WP-C3 截图中的 system-error 边界源于
+  D-C3-01 失败路径的响应形态，修复后业务错误可按后端中文 message
+  呈现；现有 `AdminTrialController::trialProblem()` 状态/文案契约
+  足够，前端无需改动。
+
+## 测试与清单（实跑）
+
+| 命令 | 退出码 | 输出末段 |
+|---|---|---|
+| `php -l`（全部改动 PHP 文件） | 0 | `No syntax errors detected` |
+| `php tests/trial-managed-chat-test.php` | 0 | `通过 45，失败 0` |
+| `php tools/build-release-payload.php --check` | 0 | `一致：1427 个成员` |
+| `php tools/build-install-sql.php --check` | 0 | `build-install-sql check ok 836082 bytes` |
+
+- 测试新增断言（`tests/trial-managed-chat-test.php` +
+  `tests/stubs/SupportRequest.php`）：录制型 host authorizer 验证签发
+  context 以 `sand_ai.chat.complete` / `sand_ai.chat_invocation` /
+  resource=invocation id 进入授权链；缺 Bearer 前缀被拒
+  （`SAND_AI_AUTHENTICATION_FAILED`）；公开路径 `authorize()` 仍读
+  HTTP 头且保留 `x-request-id` 一致性约束；`projectedModelIds`
+  多/单/空模型集断言。
+- 提交：`11fcdb0`（D-C3-02）、`e136988`（D-C3-01）、`b01a6b5`
+  （chore(release) 清单再生成）。pre-commit
+  `scan_change_quality.py --repository-review` 均 prepare → record →
+  check 通过，未删 hook、未用 `--no-verify`、未用 `git add -A`。
+
+## 未执行/未验证项与风险
+
+- 未提交推送、未打 tag、未建 PR；仅本地 `fix/0410-phase2` 分支提交。
+- 授权回归面：`ChatInvocationAccessGuard` 仅新增方法，公开
+  `authorize()`/`revalidate()` 签名与行为未变；`authorizeSigned` 复用
+  `HostSandIamInvocationAuthorizer::authorizeSigned()` 既有实现，
+  试用与公开路径共用同一 IAM 校验链。真实宿主端到端复跑（provider
+  调用成功、options 模型名正确显示）需由 WP-C3 验收方在部署后确认。
