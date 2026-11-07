@@ -631,3 +631,86 @@ is_hidden=0 / status=1`；两个 B2 权限节点 parent=96（SandAITrial），
   `HostSandIamInvocationAuthorizer::authorizeSigned()` 既有实现，
   试用与公开路径共用同一 IAM 校验链。真实宿主端到端复跑（provider
   调用成功、options 模型名正确显示）需由 WP-C3 验收方在部署后确认。
+
+# WP-F5：WP-C4 实宿主复验缺陷修复（D-C4-01 试用 source_kind）
+
+- 工作包：WP-F5（第二批收尾修复，固定模型 SWE-2）
+- 背景：WP-C4 真实宿主端到端复验确认 D-C3-01 鉴权根因已修复
+  （`context.issue`/`context.verify` 全 allowed，无
+  `SAND_IAM_AUTHENTICATION_FAILED`），但 B2「ok」态仍不可达——
+  `AdminTrialService::chat` 以 `UsageAttribution::fromIdentity(
+  $context, 'admin_trial', …)` 落
+  `sand_ai_invocation_dispatch.source_kind='admin_trial'`，而
+  `ChatInvocationFacts::fromPersisted` 硬性要求 `source_kind==='chat'`，
+  SandIAM 记 `SAND_IAM_INVOCATION_FACTS_UNVERIFIED`，
+  `sand_ai_invocation state=failed`（verify/results/REPORT-C4.md §4）。
+
+## 方案选择论证：走 (a) `AdminTrialService` 改传 `'chat'`
+
+查全部 `source_kind` 消费点后判定试用调用语义上就是 chat，理由：
+
+1. **计费/用量落库硬约束**：`UsageMeter` 把
+   `$attribution->sourceKind` 直写 `sand_ai_usage_event.source_kind`，
+   该列 CHECK 白名单（install.sql `sand_ai_usage_event_source_kind_ck_v073`
+   + `admin_verify` 分支）不含 `admin_trial`——即使 facts 放行，用量事件
+   INSERT 也会被数据库约束拒绝。(b) 单独放行 facts 无法闭环。
+2. **读取侧 facts 同样收紧**：`InvocationReadFacts::fromPersisted` 对
+   `execution_scope='chat'` 只接受 `service_action='sand_ai.chat.complete'`
+   且 `source_kind IN ('chat')`（invocation.read / usage.read 均走此校验）；
+   公开 `ChatController` 同为 `'chat'` + `sand_ai.chat.complete`。
+3. **台账一致性**：`DispatchCoordinator`/`ChatGateway` 幂等重放与
+   `UsageComparisonLogic` 均要求 dispatch.source_kind 与归因/用量事件
+   source_kind 一致，trial 的 `publicChat` scope 落 `execution_scope='chat'`。
+4. **试用来源不丢失**：`source_kind` 本就不是试用标识——试用维度由专用
+   SandIAM workload client（`admin_trial`，
+   `SandIamAdminTrialEntityStore::CLIENT_CODE`）、identity subject
+   `admin_trial:<id>`、审计动作 `admin_trial.context.issue` 与
+   usage_event.workload_client_id 承载；试用是应用预算内的真实计费
+   chat 调用，应计入 chat 归集而非另立来源。
+   `admin_verify` 是平台级验证（environment_id NULL、无 invocation），
+   语义不符，不采用。
+
+## 修复内容（提交 `904e990`）
+
+- `app/Application/Trial/AdminTrialService.php`：新增
+  `chatAttribution()`（public static，便于测试断言），统一产出
+  `UsageAttribution::fromIdentity($context, 'chat',
+  AdminTrialIamGateway::CHAT_ACTION)`；`chat()` 派发点改用该方法。
+  capability_code 仍为默认 `'chat'`，execution_scope 仍为
+  `publicChat`→`'chat'`，service_action 不变。
+- 未改 `ChatInvocationFacts.php` 白名单、未动 install.sql、未动任何
+  其他 source_kind 取值（ai_task/agent/capability/workflow/skill/
+  knowledge_* 等消费点行为不变）。
+
+## 测试与清单（实跑）
+
+| 命令 | 退出码 | 输出末段 |
+|---|---|---|
+| `php -l app/Application/Trial/AdminTrialService.php` | 0 | `No syntax errors detected` |
+| `php -l tests/trial-managed-chat-test.php` | 0 | `No syntax errors detected` |
+| `php tests/trial-managed-chat-test.php` | 0 | `通过 50，失败 0`（新增 5 条 D-C4-01 断言） |
+| `php tools/build-release-payload.php --check` | 0 | `一致：1427 个成员` |
+| `php tools/build-install-sql.php --check` | 0 | `build-install-sql check ok 836082 bytes` |
+| `HostPayloadManifest::inspectDirectory`（sand-package 实跑） | 0 | `inspectDirectory OK: 1018 files` |
+
+- 新增断言（`tests/trial-managed-chat-test.php`）：
+  `chatAttribution()` 产出 `source_kind='chat'` +
+  `service_action='sand_ai.chat.complete'` + `capability_code='chat'`；
+  同一归因驱动的 dispatch/usage 持久化形状通过
+  `ChatInvocationFacts::fromPersisted`（`sand_ai.chat_invocation`）与
+  `InvocationReadFacts::fromPersisted`（`sand_ai.invocation`）校验；
+  对照组 `source_kind='admin_trial'` 在两处 facts 均仍抛
+  `SAND_AI_INVOCATION_FACTS_UNVERIFIED`（证明白名单未放宽、缺陷语义未变）。
+- 提交：`904e990`（fix）、`132aa79`（chore(release) 清单再生成）。
+  pre-commit `scan_change_quality.py --repository-review` 均
+  prepare → record → check 通过，未删 hook、未用 `--no-verify`、
+  未用 `git add -A`。
+
+## 未执行/未验证项与风险
+
+- 未提交推送、未打 tag、未建 PR；仅本地 `fix/0410-phase2` 分支提交。
+- 沙箱/单测层已证明 dispatch 落库 source_kind 与 facts 接受值一致；
+  B2「试用→授权→fake 回复→ok」真实宿主端到端复跑需由验收方部署后确认
+  （修复后 facts 校验应通过，provider 调用与计费链路与公开 chat 同路径）。
+- 历史已落库的 `source_kind='admin_trial'` dispatch 行（若有）仍会被
+  facts 拒绝——属不可重放的失败 invocation，不影响新请求；未做数据修复。
