@@ -460,3 +460,72 @@ is_hidden=0 / status=1`；两个 B2 权限节点 parent=96（SandAITrial），
   构建闸门在此之前按设计 fail-closed。
 - 未做真实 PG 集成验证（B3 端点联调属 WP-A1/WP-C2 范围）；本包验证止于
   载荷形状断言、清单校验与静态门禁。
+
+# WP-F2：trial/index.vue 真实构建断点与 vue-tsc 类型错误修复
+
+- 工作包：WP-F2（第二批修复，固定模型 SWE-2）
+- 基线：`d397dbd`（fix/0410-phase2）；本包提交：`c3c78f5`（另有本文档提交）
+- 对应 WP-C2 发现：宿主 element-plus 2.11.4 无 spin 组件导致 vite build 失败；
+  vue-tsc phase2 新增 8 个错误全部位于 `trial/index.vue`
+- 取证：`verify/vite-build.log`（Rollup 无法解析
+  `element-plus/es/components/spin/style/css`）、`verify/vue-tsc.log`、
+  `verify/diagnostic-patch-elspin.diff`（patched build 已验证可行）
+
+## 构建断点：ElSpin 在宿主 element-plus 2.11.4 中不存在
+
+- 宿主 `verify/host-build/sandadmin-artd/node_modules/element-plus` 为
+  2.11.4，`es/components/` 无 `spin` 目录、包内无 ElSpin 导出；宿主 vite.config
+  用 `unplugin-vue-components` + `ElementPlusResolver()` 自动解析，
+  `<ElSpin>` 被解析为 `element-plus/es/components/spin/style/css` → Rollup
+  resolve 失败 → `vite build` 中断（2583 modules transformed 后报错）。
+- 修复：`<ElSpin :size="22" />` 改为
+  `<ElIcon class="is-loading" :size="22"><Loading /></ElIcon>`，并显式
+  `import { Loading } from '@element-plus/icons-vue'`（宿主依赖
+  `@element-plus/icons-vue@2.3.2` 真实存在，`Loading` 有类型导出）。
+  `el-icon.is-loading` 由 element-plus `theme-chalk/src/icon.scss` 提供
+  `rotating 2s linear infinite` 动画，「正在等 AI回复……」的转圈语义等价。
+- 同文件其余 El* 组件（Card/Skeleton/Alert/Button/Select/Option/Input/
+  Collapse/CollapseItem/InputNumber/Icon）逐一对照宿主 `es/components/`
+  目录全部存在，无其它缺失组件。
+
+## vue-tsc 新增 8 错误（全部清零，未用 as any/@ts-ignore）
+
+- `abortController` 声明为普通 `let abortController: AbortController | null`
+  （非响应式内部状态，无需 ref），但 458/495 行误用 `.value`：
+  - 288 行 `abortController?.abort()` 报 `TS2339 ... on type 'never'`
+    （TS 将其视为只被赋 `null` 的类 const，闭包内收窄为 null → `?.` 后 never）；
+  - 458 行 `abortController.value = controller` 报 `TS18047` + `TS2339`；
+  - 495 行 `abortController.value === controller` / `= null` 报 4 个同类错误。
+  - 修复：458 行改 `abortController = controller`，495 行改
+    `if (abortController === controller) abortController = null`；
+    直接赋值使 TS 恢复按声明类型 `AbortController | null` 做闭包收窄，
+    288/509 行 `abortController?.abort()` 同步消错。运行时语义不变
+    （原 `.value` 写法在普通 let 上本就是 undefined 属性写入，属真实 bug）。
+- `onPromptKeydown(event: KeyboardEvent)` 与 ElInput keydown 载荷类型
+  `(evt: Event | KeyboardEvent) => any` 不兼容（L84 TS2322）：参数放宽为
+  `Event | KeyboardEvent`，函数体首行 `if (!(event instanceof KeyboardEvent)) return`
+  收窄后再读 `key/shiftKey/isComposing/keyCode`，DOM lib 已含 KeyboardEvent
+  值声明，非键盘事件直接忽略。
+
+## 验证（实跑）
+
+| 命令 | 退出码 | 输出末段 |
+|---|---|---|
+| `cp -Rc verify/host-build verify/host-build-phase2` + 拷入修复后 index.vue | 0 | `diff -q` 一致（host-build 原副本未动） |
+| `pnpm exec vite build`（host-build-phase2/sandadmin-artd） | 0 | `✓ built in 17.16s`（日志 `verify/vite-build-phase2.log`） |
+| `pnpm exec vue-tsc --noEmit`（同目录） | 2 | 18 errors，`trial/index.vue` 0 错误；与 phase1 基线逐条比对仅行号漂移、无新增（日志 `verify/vue-tsc-phase2.log`） |
+| `php tools/frontend-gate.php . sand-ai` | 0 | `前端闸门：相对 import 解析 156 个文件 / 587 条相对 import` `前端闸门：通过` |
+
+- vue-tsc 错误数：修复前 26（18 基线 + 8 trial/index.vue）→ 修复后 18
+  （全部为既有基线债，分布在 ChannelBindingPanel/EmbeddingDeploymentSetup/
+  MaterialSampleRunner/task/usage-cost-panel/sand-iam getting-started，
+  本包未触碰）。
+- pre-commit（`scan_change_quality.py --repository-review`）：prepare →
+  /tmp 评审结论 → record → check 通过，未删 hook、未用 `--no-verify`、
+  未用 `git add -A`。
+
+## 未执行/未验证项
+
+- 未做浏览器实机渲染验收（转圈视觉以 element-plus 既有 `is-loading` 动画
+  与宿主构建产物为准）；未提交推送、未打 tag、未建 PR。
+- vue-tsc 剩余 18 个基线错误属其它工作包/既有债，按要求未动。
