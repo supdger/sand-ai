@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 /**
  * Isolated 0.5.0 UX-declutter tests: no database, no SandIAM plugin, no
- * network. Covers host-timezone usage period normalization, configurable
- * budget reminder thresholds, unlimited/soft budget windows, provider
- * failure classification, trial problem mapping and capability sole-target
- * resolution. The SQL aggregation itself is covered by repository review and
- * the update/install ledger tests.
+ * network. Covers usage period normalization, budget reminder thresholds,
+ * unlimited/soft budget windows, provider failure classification, trial
+ * problem mapping and capability sole-target resolution.
  *
  * Usage: php tests/sandai-050-b1-ux-declutter-test.php
  */
@@ -76,9 +74,7 @@ function hasCjk(string $value): bool
     return preg_match('/[\x{4e00}-\x{9fff}]/u', $value) === 1;
 }
 
-/* ------------------------------------------------------------------ */
-/* UsagePeriodPolicy: host-local calendar buckets over UTC storage    */
-/* ------------------------------------------------------------------ */
+// UsagePeriodPolicy: host-local calendar buckets over UTC storage
 
 $shanghai = new UsagePeriodPolicy(new PricingValuePolicy(), 'Asia/Shanghai');
 $utcNow = new DateTimeImmutable('2026-06-15 04:00:00', new DateTimeZone('UTC'));
@@ -138,9 +134,7 @@ ok($problem !== null && $problem['code'] === 'SAND_AI_VALIDATION_ERROR', 'unknow
 $fallback = (new UsagePeriodPolicy(new PricingValuePolicy()))->timezone();
 ok($fallback === 'Asia/Shanghai', 'timezone falls back to Asia/Shanghai');
 
-/* ------------------------------------------------------------------ */
-/* BudgetAlertPolicy: reminder percentage and unlimited windows        */
-/* ------------------------------------------------------------------ */
+// BudgetAlertPolicy: reminder percentage and unlimited windows
 
 ok(BudgetAlertPolicy::forWindow(['limit_amount' => null, 'available_amount' => null])['level'] === 'normal', 'alert: unlimited window normal');
 ok(BudgetAlertPolicy::forWindow(['limit_amount' => '', 'available_amount' => '50.000000'])['level'] === 'normal', 'alert: empty limit normal');
@@ -166,9 +160,7 @@ ok($clamped['level'] === 'warning' && $clamped['threshold_percent'] === 99, 'ale
 $notice95 = BudgetAlertPolicy::forWindow(['limit_amount' => '100.000000', 'available_amount' => '5.000000'], 95);
 ok($notice95['level'] === 'notice' && $notice95['threshold_percent'] === 95, 'alert: 95 notice below clamped warning');
 
-/* ------------------------------------------------------------------ */
-/* BudgetPolicyValidator: empty limit and reminder_percent             */
-/* ------------------------------------------------------------------ */
+// BudgetPolicyValidator: empty limit and reminder_percent
 
 $validator = new BudgetPolicyValidator();
 $draftBase = [
@@ -203,9 +195,7 @@ ok($hardOk['enforcement'] === 'hard' && $hardOk['limit_amount'] === '5.000000', 
 $problem = problemOf(fn () => $validator->normalizeDraft($draftBase + ['limit_amount' => '1', 'surprise' => 'x']));
 ok($problem !== null && $problem['code'] === 'SAND_AI_BUDGET_VALIDATION_ERROR', 'validator rejects unknown field');
 
-/* ------------------------------------------------------------------ */
-/* BudgetReservationStateMachine: unlimited windows and soft overrun  */
-/* ------------------------------------------------------------------ */
+// BudgetReservationStateMachine: unlimited windows and soft overrun
 
 $machine = new BudgetReservationStateMachine();
 $emptyWindow = ['currency' => 'USD', 'limit_amount' => null, 'reserved_amount' => '0', 'settled_amount' => '0', 'held_amount' => '0'];
@@ -238,9 +228,7 @@ ok($problem !== null && $problem['code'] === 'SAND_AI_BUDGET_EXCEEDED', 'state m
 $problem = problemOf(fn () => $machine->reserve($limitedWindow, '1.000000', 'EUR'));
 ok($problem !== null && $problem['code'] === 'SAND_AI_BUDGET_CURRENCY_MISMATCH', 'state machine: currency mismatch rejected');
 
-/* ------------------------------------------------------------------ */
-/* ChatProviderFailurePolicy: transport classification                */
-/* ------------------------------------------------------------------ */
+// ChatProviderFailurePolicy: transport classification
 
 $invalidKey = ChatProviderFailurePolicy::http(401);
 ok($invalidKey->errorCode === 'SAND_AI_PROVIDER_REJECTED'
@@ -266,9 +254,7 @@ ok(ChatProviderFailurePolicy::reason($unreachable) === 'provider_unavailable'
 ok(ChatProviderFailurePolicy::family(new ApiProblem('SAND_AI_BUDGET_EXCEEDED', 'budget')) === null, 'provider: non-provider problem has no family');
 ok(ChatProviderFailurePolicy::family(new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'config')) === 'config', 'provider: config invalid family');
 
-/* ------------------------------------------------------------------ */
-/* AdminTrialService::mapGatewayProblem via reflection                 */
-/* ------------------------------------------------------------------ */
+// AdminTrialService::mapGatewayProblem via reflection
 
 $service = new AdminTrialService();
 $mapMethod = new ReflectionMethod(AdminTrialService::class, 'mapGatewayProblem');
@@ -305,9 +291,7 @@ foreach ([$budget, $budgetConfig, $providerDown, $busy, $providerBalance, $badKe
     ok(!str_contains($mapped->getMessage(), 'SAND_AI_'), 'trial message hides internal code: ' . $mapped->errorCode);
 }
 
-/* ------------------------------------------------------------------ */
-/* CapabilityTargetLogic::soleCandidate                                */
-/* ------------------------------------------------------------------ */
+// CapabilityTargetLogic::soleCandidate
 
 ok(CapabilityTargetLogic::soleCandidate([7], 'empty', 'many') === 7, 'capability: sole candidate wins');
 ok(CapabilityTargetLogic::soleCandidate(['7', '7', 7], 'empty', 'many') === 7, 'capability: duplicate ids dedupe');
@@ -318,9 +302,7 @@ $problem = problemOf(fn () => CapabilityTargetLogic::soleCandidate([1, 2], 'empt
 ok($problem !== null && $problem['code'] === 'SAND_AI_VALIDATION_ERROR'
     && $problem['message'] === '有多个应用，请选择要配置的应用', 'capability: multiple candidates refuse');
 
-/* ------------------------------------------------------------------ */
-/* UsagePeriodLogic: catalog-name degradation without a database      */
-/* ------------------------------------------------------------------ */
+// UsagePeriodLogic: catalog-name degradation without a database
 
 $periodLogic = new UsagePeriodLogic();
 $named = $periodLogic->monthlyNames('application', [

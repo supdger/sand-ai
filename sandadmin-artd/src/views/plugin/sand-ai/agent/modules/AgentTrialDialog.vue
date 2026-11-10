@@ -49,10 +49,10 @@
   import { ElMessage } from 'element-plus'
   import { Loading } from '@element-plus/icons-vue'
   import {
-    isAdminAgentTrialTerminal,
-    requestAdminAgentTrial,
-    requestAdminAgentTrialTask,
-    type AdminAgentTrialResult
+    isAgentTrialTerminal,
+    requestAgentTrial,
+    requestAgentTrialTask,
+    type AgentTrialResult
   } from '../../api/adminTrial'
   import { newRuntimeRequestId } from '../../api/runtime'
   import { errorDisplayText } from '../../api/errorText'
@@ -123,7 +123,7 @@
     return errorDisplayText(error, '这次试用没有成功，请稍后重试')
   }
 
-  function applyResult(turn: TrialTurn, result: AdminAgentTrialResult): void {
+  function applyResult(turn: TrialTurn, result: AgentTrialResult): void {
     if (result.state === 'succeeded') {
       turn.status = 'done'
       turn.answer = typeof result.result?.output?.content === 'string' ? result.result.output.content : ''
@@ -163,7 +163,7 @@
     pollTimer = setTimeout(async () => {
       if (epoch !== pollEpoch) return
       try {
-        const result = await requestAdminAgentTrialTask(taskId)
+        const result = await requestAgentTrialTask(taskId)
         if (epoch !== pollEpoch) return
         applyResult(turn, result)
         if (turn.status === 'thinking') schedulePoll(turn, taskId, waitedMs + POLL_INTERVAL_MS)
@@ -189,7 +189,7 @@
     // 每次用户主动发送生成新幂等键；同一 turn 的轮询只读，不重发。
     const idempotencyKey = newRuntimeRequestId('agent-trial')
     try {
-      const result = await requestAdminAgentTrial(
+      const result = await requestAgentTrial(
         { application_id: props.applicationId, agent_id: props.agentId, query, conversation_id: conversationId || undefined },
         idempotencyKey
       )

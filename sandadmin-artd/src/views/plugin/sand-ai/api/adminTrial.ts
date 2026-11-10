@@ -82,7 +82,7 @@ export async function requestKnowledgeTrial(input: {
 }
 
 /** 智能体试用投影：后端只回安全字段，output/source/invocation 均可为空。 */
-export interface AdminAgentTrialResult {
+export interface AgentTrialResult {
   readonly task_id: number
   readonly state: string
   readonly result: {
@@ -95,7 +95,7 @@ export interface AdminAgentTrialResult {
   readonly error_code?: string | null
 }
 
-export interface AdminAgentTrialInput {
+export interface AgentTrialInput {
   readonly application_id: number
   readonly agent_id: number
   readonly query: string
@@ -103,8 +103,8 @@ export interface AdminAgentTrialInput {
 }
 
 /** 终态与 TaskState::terminal 保持一致；其余状态由页面继续轮询。 */
-export function isAdminAgentTrialTerminal(state: string): boolean {
-  return state === 'succeeded' || state === 'failed' || state === 'canceled'
+export function isAgentTrialTerminal(state: string): boolean {
+  return state === 'succeeded' || state === 'failed' || state.startsWith('cancel')
 }
 
 /**
@@ -112,11 +112,11 @@ export function isAdminAgentTrialTerminal(state: string): boolean {
  * 同一请求的不确定重试必须复用同键同载荷，禁止换键重发。
  * 服务端最长原地等待约 25 秒，仍未完成时返回非终态供轮询。
  */
-export async function requestAdminAgentTrial(
-  input: AdminAgentTrialInput,
+export async function requestAgentTrial(
+  input: AgentTrialInput,
   idempotencyKey: string
-): Promise<AdminAgentTrialResult> {
-  return request.post<AdminAgentTrialResult>({
+): Promise<AgentTrialResult> {
+  return request.post<AgentTrialResult>({
     url: `${ADMIN_API_PREFIX}/trial/agent`,
     data: {
       application_id: input.application_id,
@@ -131,8 +131,8 @@ export async function requestAdminAgentTrial(
 }
 
 /** 轮询试用任务投影；只读，不会重新发起调用。 */
-export async function requestAdminAgentTrialTask(taskId: number): Promise<AdminAgentTrialResult> {
-  return request.get<AdminAgentTrialResult>({
+export async function requestAgentTrialTask(taskId: number): Promise<AgentTrialResult> {
+  return request.get<AgentTrialResult>({
     url: `${ADMIN_API_PREFIX}/trial/agent/task`,
     params: { task_id: taskId },
     headers: { 'Cache-Control': 'no-store' },
@@ -143,6 +143,6 @@ export async function requestAdminAgentTrialTask(taskId: number): Promise<AdminA
 export default {
   requestAdminTrialContext,
   requestKnowledgeTrial,
-  requestAdminAgentTrial,
-  requestAdminAgentTrialTask
+  requestAgentTrial,
+  requestAgentTrialTask
 }

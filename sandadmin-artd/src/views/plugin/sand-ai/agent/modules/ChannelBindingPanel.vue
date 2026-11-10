@@ -305,7 +305,7 @@
   import { ElMessage, ElMessageBox } from 'element-plus'
   import agentDefinitionApi, { type AgentDefinitionRow } from '../../api/agentDefinition'
   import channelBindingApi, { channelBindingInputSha256, channelCredentialInputSha256, provesChannelBindingSnapshot, type ChannelCredentialSaveReference, type ChannelCredentialSaveReceipt, type ChannelCredentialPlatform, type ChannelBindingOperationReference, type ChannelBindingDraft, type ChannelBindingRow, type ChannelDeliveryRow, type FeishuCredentialDraft, type FeishuChannelStatus, type WecomCredentialDraft, type WecomChannelStatus } from '../../api/channelBinding'
-  import { requestAdminAgentTrial, requestAdminAgentTrialTask, isAdminAgentTrialTerminal } from '../../api/adminTrial'
+  import { requestAgentTrial, requestAgentTrialTask, isAgentTrialTerminal } from '../../api/adminTrial'
   import { newRuntimeRequestId } from '../../api/runtime'
   import { errorDisplayText } from '../../api/errorText'
   import { displayableRuntimeMessage, hintForRuntimeErrorCode } from '../../api/runtimeErrors'
@@ -1110,7 +1110,7 @@
     try {
       const probe = '请只回复“连接正常”四个字。'
       const key = newRuntimeRequestId('channel-test')
-      const result = await requestAdminAgentTrial(
+      const result = await requestAgentTrial(
         { application_id: environment.application_id, agent_id: agentId, query: probe },
         key
       )
@@ -1118,16 +1118,16 @@
       let final = result
       // 服务端最长原地等待约 25 秒；仍非终态时短轮询到终态或超时。
       const deadline = Date.now() + 45000
-      while (!isAdminAgentTrialTerminal(final.state) && Date.now() < deadline) {
+      while (!isAgentTrialTerminal(final.state) && Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 2000))
         if (current !== testEpoch || epoch !== epochSnapshot) return
-        final = await requestAdminAgentTrialTask(final.task_id)
+        final = await requestAgentTrialTask(final.task_id)
       }
       if (current !== testEpoch || epoch !== epochSnapshot) return
       if (final.state === 'succeeded') {
         testState.value = 'ok'
         ElMessage.success('连接正常')
-      } else if (!isAdminAgentTrialTerminal(final.state)) {
+      } else if (!isAgentTrialTerminal(final.state)) {
         testState.value = 'fail'
         testError.value = '智能体还在处理，稍后再点一次「测试连接」确认。'
       } else {

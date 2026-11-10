@@ -1090,7 +1090,7 @@ BEGIN
         ('202611070170_config_revision_published_at','a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11'),
         ('202611100171_budget_unlimited_reminder','51ada4ce783c4df29b14b26f28f4ef0011f9abd86ebe357fbb0103e63d2febce'),
         ('202611110172_knowledge_index_task','5a9d77874d7375e65aecf0254b4dc1d74202f6a0a3f2b2d471d5ccf0e81c5a02'),
-        ('202611120173_g13_menu_regroup','78f48840c0dfdb83bc259eb809e2ec44a1a26634259ae0c85f263e12c05696a2')
+        ('202611120173_g13_menu_regroup','b46cb0f6672ae3991d4b0a3f7d9e4b384b6a98b27a9e48fd3e63bec8f23618d7')
     ) AS expected(version,checksum) ON expected.version=applied.version
     WHERE expected.version IS NULL OR applied.checksum IS DISTINCT FROM expected.checksum
     ORDER BY applied.version LIMIT 1;
@@ -14611,35 +14611,16 @@ END $sand_ai_upgrade_0172$;
 
 DO $sand_ai_upgrade_0173$
 BEGIN
- IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611120173_g13_menu_regroup' AND checksum IS DISTINCT FROM '78f48840c0dfdb83bc259eb809e2ec44a1a26634259ae0c85f263e12c05696a2') THEN
+ IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611120173_g13_menu_regroup' AND checksum IS DISTINCT FROM 'b46cb0f6672ae3991d4b0a3f7d9e4b384b6a98b27a9e48fd3e63bec8f23618d7') THEN
   RAISE EXCEPTION 'SandAI migration 173 checksum mismatch';
  END IF;
  IF NOT EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611120173_g13_menu_regroup') THEN
   EXECUTE $sand_ai_migration_0173$
--- 0.5.0 第一批 G13/Y3: the SandAI root menu is renamed to "AI 能力" and the
--- visible first level becomes exactly five daily pages (首页 / 模型服务商 /
--- 试用 / 文件 / 费用) plus the visible "高级" group, matching the page specs
--- under pm/specs/plugins/sand-ai/ (2026-11-10 细化 sections).
---
--- Scope notes:
--- * Codes, permission slugs, components and stored routes are preserved; only
---   display names, parentage, sort order and the two new page rows change.
--- * SandAIProvider keeps its provider page and component; the 模型+服务商
---   merge is batch 2, so the top-level entry is renamed 模型服务商 for now and
---   SandAIModel moves under 高级 as 模型 until that merge lands.
--- * SandAIOnboarding (首次开通) moves under 高级 but stays is_hidden=1, so the
---   legacy route keeps working without occupying visible navigation.
--- * Two new pages join 高级: 费用核对 (SandAIUsageReview) reuses the existing
---   usage-review component, and 应用试用 (SandAIAppTrial) reserves the route
---   the parallel front-end work package delivers. 授权诊断 has a page spec
---   but no front-end route or backend surface yet, so no menu row is seeded;
---   it can be added when its page lands.
--- * "高级" default-collapsed: the host menu schema has no collapse flag; the
---   group is a normal visible submenu, so the guarantee rests on the host's
---   default-open behaviour (documented limitation, no invented schema).
---
--- The block is idempotent: re-running it converges to the same tree without
--- duplicating menus, re-parenting twice or duplicating role links.
+-- 0.5.0 第一批 G13/Y3: the SandAI root becomes "AI 能力" with five daily
+-- pages (首页 / 模型服务商 / 试用 / 文件 / 费用) plus the 高级 group. Codes,
+-- slugs, components and routes are preserved; SandAIModel and 首次开通 move
+-- under 高级, 费用核对 and 应用试用 join as new pages, and 高级 collapse
+-- relies on host default-open behaviour. Idempotent on re-run.
 DO $g13_menu_regroup$
 DECLARE
     root_id bigint;
@@ -14882,7 +14863,7 @@ BEGIN
 END
 $g13_menu_regroup$;
 $sand_ai_migration_0173$;
-  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611120173_g13_menu_regroup','78f48840c0dfdb83bc259eb809e2ec44a1a26634259ae0c85f263e12c05696a2',CURRENT_TIMESTAMP(0));
+  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611120173_g13_menu_regroup','b46cb0f6672ae3991d4b0a3f7d9e4b384b6a98b27a9e48fd3e63bec8f23618d7',CURRENT_TIMESTAMP(0));
  END IF;
 END $sand_ai_upgrade_0173$;
 

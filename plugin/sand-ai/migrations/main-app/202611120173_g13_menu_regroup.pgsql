@@ -1,27 +1,8 @@
--- 0.5.0 第一批 G13/Y3: the SandAI root menu is renamed to "AI 能力" and the
--- visible first level becomes exactly five daily pages (首页 / 模型服务商 /
--- 试用 / 文件 / 费用) plus the visible "高级" group, matching the page specs
--- under pm/specs/plugins/sand-ai/ (2026-11-10 细化 sections).
---
--- Scope notes:
--- * Codes, permission slugs, components and stored routes are preserved; only
---   display names, parentage, sort order and the two new page rows change.
--- * SandAIProvider keeps its provider page and component; the 模型+服务商
---   merge is batch 2, so the top-level entry is renamed 模型服务商 for now and
---   SandAIModel moves under 高级 as 模型 until that merge lands.
--- * SandAIOnboarding (首次开通) moves under 高级 but stays is_hidden=1, so the
---   legacy route keeps working without occupying visible navigation.
--- * Two new pages join 高级: 费用核对 (SandAIUsageReview) reuses the existing
---   usage-review component, and 应用试用 (SandAIAppTrial) reserves the route
---   the parallel front-end work package delivers. 授权诊断 has a page spec
---   but no front-end route or backend surface yet, so no menu row is seeded;
---   it can be added when its page lands.
--- * "高级" default-collapsed: the host menu schema has no collapse flag; the
---   group is a normal visible submenu, so the guarantee rests on the host's
---   default-open behaviour (documented limitation, no invented schema).
---
--- The block is idempotent: re-running it converges to the same tree without
--- duplicating menus, re-parenting twice or duplicating role links.
+-- 0.5.0 第一批 G13/Y3: the SandAI root becomes "AI 能力" with five daily
+-- pages (首页 / 模型服务商 / 试用 / 文件 / 费用) plus the 高级 group. Codes,
+-- slugs, components and routes are preserved; SandAIModel and 首次开通 move
+-- under 高级, 费用核对 and 应用试用 join as new pages, and 高级 collapse
+-- relies on host default-open behaviour. Idempotent on re-run.
 DO $g13_menu_regroup$
 DECLARE
     root_id bigint;
