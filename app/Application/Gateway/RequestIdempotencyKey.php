@@ -12,16 +12,45 @@ use support\Request;
 /** Public workload idempotency keys never fall back to a trace identifier. */
 final class RequestIdempotencyKey
 {
-    public static function required(Request $request, string $domain, IdentityContext $context): string
+    /**
+     * @param string|null $scopeDiscriminator optional extra scope dimension
+     *        (e.g. the trial administrator id) hashed into the derived key
+     *        without changing trustedScope(); public/workload callers omit it
+     *        and keep the legacy derivation.
+     */
+    public static function required(Request $request, string $domain, IdentityContext $context, ?string $scopeDiscriminator = null): string
     {
-        return self::fromCallerKey((string) $request->header('idempotency-key', ''), $domain, $context);
+        return self::fromCallerKey((string) $request->header('idempotency-key', ''), $domain, $context, $scopeDiscriminator);
     }
 
-    /** Derive the original request id without submitting another workload. */
-    public static function fromCallerKey(string $key, string $domain, IdentityContext $context): string
+    /**
+     * Cheap pre-issuance check of the raw caller header. The scope-bound
+     * derivation still requires the issued identity context, so callers run
+     * `required()` after issuance; this rejects missing or malformed keys
+     * before any credential or audit row is written.
+     */
+    public static function preflight(Request $request): void
+    {
+        self::headerValue($request);
+    }
+
+    /**
+     * Derive the original request id without submitting another workload.
+     * $scopeDiscriminator is hashed into a derived scope so callers that share
+     * one workload identity (the application-level managed trial client) can
+     * still isolate keys per principal; it never alters trustedScope() itself.
+     */
+    public static function fromCallerKey(string $key, string $domain, IdentityContext $context, ?string $scopeDiscriminator = null): string
     {
         $key = self::validatedCallerKey($key);
-        return $domain . ':' . hash('sha256', self::trustedScope($context) . ':' . $key);
+        $scope = self::trustedScope($context);
+        if ($scopeDiscriminator !== null && $scopeDiscriminator !== '') {
+            $scope = hash('sha256', json_encode([
+                'scope' => $scope,
+                'discriminator' => $scopeDiscriminator,
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        }
+        return $domain . ':' . hash('sha256', $scope . ':' . $key);
     }
 
     /** Bind a caller key to a resource while keeping the persisted key bounded. */

@@ -95,7 +95,9 @@ final class FeishuCredentialGateway
             if (!is_string($value) || trim($value) === '' || strlen($value) > 8192) self::invalid();
         }
         if (array_key_exists('api_base', $input)) {
-            try { ChannelApiBase::resolve($input['api_base'], 'https://open.feishu.cn'); }
+            // Full egress verification at save time: forbidden bases are
+            // rejected before they can be stored; delivery re-verifies anyway.
+            try { (new ChannelApiBasePolicy())->verify($input['api_base'], 'https://open.feishu.cn'); }
             catch (ApiProblem) { self::invalid(); }
         }
     }

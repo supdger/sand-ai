@@ -132,6 +132,7 @@ import sourceApi, { knowledgeSourceReference, type KnowledgeSourceReference, typ
 import chatApi from '../../api/chat'
 import conversationApi from '../../api/knowledgeConversation'
 import { newRuntimeRequestId, SandAiRuntimeError } from '../../api/runtime'
+import { errorDisplayText } from '../../api/errorText'
 import publicationApi, { type KnowledgePublication, type ConsumerKnowledgePublication } from '../../api/knowledgePublication'
 import type { SandAiInvocationCost } from '../../api/types'
 
@@ -220,8 +221,7 @@ let costEpoch = 0
 let sourceEpoch = 0
 
 function message(cause: unknown): string {
-  if (cause instanceof SandAiRuntimeError && cause.errorCode) return `${cause.message}（${cause.errorCode}）`
-  return cause instanceof Error ? cause.message : '请求失败，请稍后重试。'
+  return errorDisplayText(cause, '请求失败，请稍后重试。')
 }
 function recoveryLabel(cause: unknown): string {
   if (!(cause instanceof SandAiRuntimeError)) return '原结果尚未确认；只读找回不会重新派发。'

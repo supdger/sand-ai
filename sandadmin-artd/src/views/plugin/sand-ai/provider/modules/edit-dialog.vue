@@ -127,6 +127,14 @@
       <ElButton type="primary" :loading="submitting" :disabled="formBlocked" @click="handleSubmit">确定</ElButton>
     </template>
   </el-dialog>
+  <EgressBlockedHint
+    v-if="egressHint"
+    :model-value="true"
+    :service-name="egressHintServiceName"
+    :details="egressHint"
+    @update:model-value="(value: boolean) => { if (!value) egressHint = null }"
+    @retry="testConnection"
+  />
 </template>
 
 <script setup lang="ts">
@@ -142,6 +150,8 @@
   import { generateCatalogCode } from '../../api/catalogCode'
   import { HttpError } from '@/utils/http/error'
   import { errorDisplayText } from '../../api/errorText'
+  import { egressBlockedDetails, type EgressBlockedDetails } from '../../api/egressBlocked'
+  import EgressBlockedHint from '../../components/EgressBlockedHint.vue'
   import type { DiscoveredModel, ProviderGuide } from '../../api/onboarding'
   import type { DataStatus, SandAiProvider, SandAiProviderWrite } from '../../api/types'
 
@@ -208,6 +218,8 @@
   const selectedPreset = ref('')
   const testing = ref(false)
   const testResult = ref<{ ok: boolean; message: string; models: DiscoveredModel[] } | null>(null)
+  const egressHint = ref<EgressBlockedDetails | null>(null)
+  const egressHintServiceName = computed(() => formData.name.trim() || selectedGuide.value?.name || '该服务')
   const selectedGuide = computed(() => presetGuides.value.find((guide) => guide.provider_code === selectedPreset.value))
   const presetLocked = computed(() => props.dialogType === 'add' && selectedPreset.value !== ''
     && selectedPreset.value !== 'custom_openai_compatible')
@@ -286,8 +298,12 @@
         models: Array.isArray(result.models) ? result.models : []
       }
     } catch (error) {
+      const blocked = egressBlockedDetails(error)
       let message = '连接失败，请检查接口地址和 API Key 后重试'
-      if (error instanceof HttpError) {
+      if (blocked !== null) {
+        egressHint.value = blocked
+        message = '连接被安全策略拦下，请按弹窗提示处理。'
+      } else if (error instanceof HttpError) {
         if (error.transport === 'timeout') message = '连接超时，请检查网络后重试'
         else if (error.transport === 'network') message = '网络不通，无法连接到服务器，请检查后重试'
         else message = errorDisplayText(error, message)

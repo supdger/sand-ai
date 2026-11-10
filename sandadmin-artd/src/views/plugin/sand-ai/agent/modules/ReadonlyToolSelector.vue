@@ -30,6 +30,7 @@
   import { useUserStore } from '@/store/modules/user'
   import type { AgentReadonlyToolSelection } from '../../api/agentDefinition'
   import toolApi, { type ToolAvailable } from '../../api/toolTrial'
+  import { errorDisplayText } from '../../api/errorText'
 
   const props = defineProps<{ environmentId: number | null; modelValue: readonly AgentReadonlyToolSelection[]; disabled?: boolean }>()
   const userStore = useUserStore()
@@ -78,7 +79,7 @@
       page = target
       more.value = page * 100 < result.total
     } catch (failure) {
-      if (current === epoch) error.value = failure instanceof Error ? failure.message : '只读工具目录读取失败'
+      if (current === epoch) error.value = errorDisplayText(failure, '只读工具目录读取失败')
     } finally { if (current === epoch) loading.value = false }
   }
   watch([() => props.environmentId, currentAdminId, () => userStore.accessToken], () => {

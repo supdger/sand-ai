@@ -1,418 +1,430 @@
 <template>
-  <div class="sand-ai-page">
-    <ElCard class="sand-ai-page-card" shadow="never">
-      <div class="heading">
-        <div>
-          <h2>首次开通</h2>
-          <p>跟着下面几步完成开通：选择工作目标、连接模型服务商、验证并启用模型。应用可直接选用已授权的聊天模型，无需模型 API Key。</p>
-        </div>
-        <ElSpace wrap>
-          <ElButton type="primary" @click="openCapabilityConfiguration">先配置文档读取能力</ElButton>
-          <ElButton @click="router.push('/sand-ai/provider')">服务商配置</ElButton>
-        </ElSpace>
-      </div>
-
-      <p class="muted">文档读取可读取 TXT、文本型 PDF、DOCX 等，不调用模型、不产生模型费用。材料 AI 抽取与样本验证仍需要已启用模型并允许使用；业务应用调用时无需持有模型 API Key。</p>
-      <p v-if="bootstrapNotice" class="muted bootstrap-notice">
-        {{ bootstrapNotice.message }}
-        <ElButton v-if="bootstrapNotice.retryable" link type="primary" :loading="bootstrapBusy" @click="retryBootstrap">重试</ElButton>
-      </p>
-      <ElAlert v-if="navigationNotice" :title="navigationNotice" type="warning" :closable="false" class="notice" />
-      <ElAlert v-if="message" :type="messageType" :title="message" show-icon :closable="false" class="notice" />
-      <details class="section">
-        <summary>使用已授权聊天能力（无需模型 API Key）</summary>
-        <p class="muted">填写应用提供的调用密钥（由管理员在身份与授权插件中生成），即可读取该应用可用的模型并试用。没有可用模型时，请管理员先启用所需能力并允许该应用使用。</p>
-        <ChatRouteTrialPanel :environment-id="environmentId || undefined" />
-      </details>
-      <details class="section">
-        <summary>高级 · 授权项检查（通常已由系统自动完成，一般无需操作）</summary>
-        <section class="section">
-          <h3>能力权限检查</h3>
-          <p class="muted">安装时已自动登记 SandAI 所需的全部能力权限。如下方检查发现缺失，可点“补齐”；补齐不会创建应用、调用密钥或允许使用。</p>
-          <ElAlert v-if="catalogMessage" :type="catalogMessageType" :title="catalogMessage" show-icon :closable="false" class="catalog-notice" />
-          <p v-if="catalogPreflight?.port_available" class="muted">
-            已读取授权服务状态。补齐仅补缺失项，重复检查是安全的。
-          </p>
-          <p v-if="catalogPreflight?.action_codes.length" class="muted">
-            能力权限共 {{ catalogPreflight.action_codes.length }} 项。
-            <details class="tech-details">
-              <summary>技术详情</summary>
-              <p class="muted">{{ catalogPreflight.service_code }}：{{ catalogPreflight.action_codes.join('、') }}</p>
-            </details>
-          </p>
-          <ElSpace v-if="catalogDisabled" wrap>
-            <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
-            <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
-          </ElSpace>
-          <ElSpace wrap>
-            <ElButton :loading="catalogBusy === 'checking'" :disabled="Boolean(catalogBusy)" @click="loadCatalog">检查授权服务连接</ElButton>
-            <ElButton type="primary" :loading="catalogBusy === 'registering'" :disabled="Boolean(catalogBusy) || !canRegisterCatalog(catalogPreflight) || catalogDisabled || catalogRegistered" @click="registerCatalog">
-              {{ catalogRegistered ? '本次已补齐' : '补齐能力权限' }}
-            </ElButton>
-          </ElSpace>
-        </section>
-        <section class="section">
-          <h3>技能模板授权检查</h3>
-          <p class="muted">技能模板的使用、读取、管理、测试和启用权限单独登记。登记后，还需在 SandIAM 为具体应用允许使用；此操作不会自动允许任何调用。</p>
-          <ElAlert v-if="skillCatalogMessage" :type="skillCatalogMessageType" :title="skillCatalogMessage" show-icon :closable="false" class="catalog-notice" />
-          <p v-if="skillCatalogPreflight?.action_codes.length" class="muted">
-            技能模板权限共 {{ skillCatalogPreflight.action_codes.length }} 项。
-            <details class="tech-details">
-              <summary>技术详情</summary>
-              <p class="muted">{{ skillCatalogPreflight.service_code }}：{{ skillCatalogPreflight.action_codes.join('、') }}</p>
-            </details>
-          </p>
-          <ElSpace v-if="skillCatalogDisabled" wrap>
-            <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
-            <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
-          </ElSpace>
-          <ElSpace wrap>
-            <ElButton :loading="skillCatalogBusy === 'checking'" :disabled="Boolean(skillCatalogBusy)" @click="loadSkillCatalog">检查技能模板权限</ElButton>
-            <ElButton type="primary" :loading="skillCatalogBusy === 'registering'" :disabled="Boolean(skillCatalogBusy) || !canRegisterCatalog(skillCatalogPreflight) || skillCatalogDisabled || skillCatalogRegistered" @click="registerSkillCatalog">
-              {{ skillCatalogRegistered ? '本次已补齐' : '补齐技能模板权限' }}
-            </ElButton>
-          </ElSpace>
-        </section>
-        <section class="section">
-          <h3>音频能力授权检查</h3>
-          <p class="muted">音频转写、片段复核和语音合成的权限单独登记。登记后，还需在 SandIAM 为具体应用允许使用；此操作不会自动允许任何调用。</p>
-          <ElAlert v-if="audioCatalogMessage" :type="audioCatalogMessageType" :title="audioCatalogMessage" show-icon :closable="false" class="catalog-notice" />
-          <p v-if="audioCatalogPreflight?.action_codes.length" class="muted">
-            音频权限共 {{ audioCatalogPreflight.action_codes.length }} 项。
-            <details class="tech-details">
-              <summary>技术详情</summary>
-              <p class="muted">{{ audioCatalogPreflight.service_code }}：{{ audioCatalogPreflight.action_codes.join('、') }}</p>
-            </details>
-          </p>
-          <ElSpace v-if="audioCatalogDisabled" wrap>
-            <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
-            <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
-          </ElSpace>
-          <ElSpace wrap>
-            <ElButton :loading="audioCatalogBusy === 'checking'" :disabled="Boolean(audioCatalogBusy)" @click="loadAudioCatalog">检查音频权限</ElButton>
-            <ElButton type="primary" :loading="audioCatalogBusy === 'registering'" :disabled="Boolean(audioCatalogBusy) || !canRegisterCatalog(audioCatalogPreflight) || audioCatalogDisabled || audioCatalogRegistered" @click="registerAudioCatalog">
-              {{ audioCatalogRegistered ? '本次已补齐' : '补齐音频权限' }}
-            </ElButton>
-          </ElSpace>
-          <h4>转写引擎</h4>
-          <p v-if="audioRuntime" class="muted">
-            应用接口已安装；本地引擎：{{ audioAdapterState('local') }}，外部引擎：{{ audioAdapterState('external') }}。
-            {{ audioRuntime.readiness_note }}
-          </p>
-          <p v-if="audioRuntimeError" class="muted">{{ audioRuntimeError }}</p>
-          <ElButton :loading="audioRuntimeBusy" @click="loadAudioRuntime">检查引擎配置</ElButton>
-          <TranscriptionDeploymentSetup
-            :audio-runtime="audioRuntime"
-            :audio-runtime-busy="audioRuntimeBusy"
-            :audio-runtime-error="audioRuntimeError"
-            @refresh-runtime="loadAudioRuntime"
-          />
-          <SpeechDeploymentSetup />
-          <SpeechTrialPanel :environment-id="environmentId || null" />
-          <EmbeddingDeploymentSetup />
-          <OcrDeploymentSetup />
-        </section>
-      </details>
-      <ElSkeleton v-if="loading" :rows="5" animated />
-      <ElResult v-else-if="!guide" icon="error" title="无法读取首次配置引导" :sub-title="guideError || '请稍后重试。'">
-        <template #extra><ElButton @click="load">重试</ElButton></template>
-      </ElResult>
-      <template v-else>
-        <ElSteps :active="step" finish-status="success" class="steps">
-          <ElStep title="选择场景" />
-          <ElStep title="连接服务商" />
-          <ElStep title="验证并启用模型" />
-          <ElStep :title="`配置${guide.display_name}服务`" />
-        </ElSteps>
-
-        <section class="section">
-          <h3>1. 工作目标</h3>
-          <ElRadioGroup v-model="selectedScene" aria-label="场景选择">
-            <ElRadio v-for="item in solutionGuides" :key="item.technical.code" :value="item.technical.code">{{ item.display_name }}</ElRadio>
-          </ElRadioGroup>
-          <p>{{ guide.plain_summary }}</p>
-          <p class="muted">{{ guide.when_to_use }}</p>
-          <p>需要准备：</p>
-          <ul><li v-for="item in guide.what_you_need" :key="item">{{ item }}</li></ul>
-          <p>配置步骤：</p>
-          <ol><li v-for="item in guide.setup_steps" :key="item">{{ item }}</li></ol>
-          <p>完成后：{{ guide.outcome }}</p>
-          <p class="muted">{{ guide.readiness_note }}</p>
-          <p class="muted">切换工作目标只调整本页引导，已保存的模型与环境配置会保留；各项配置仍需明确保存和启用。</p>
-          <template v-if="iamError">
-            <p class="muted">应用或环境暂时无法读取。模型连接可以继续，业务环境请稍后在能力配置中选择。</p>
-            <ElButton v-if="!applicationId" :loading="loadingIam" @click="loadApplications">重新读取应用</ElButton>
-            <ElButton v-else :loading="loadingIam" @click="loadEnvironments">重新读取环境</ElButton>
-          </template>
-          <ElForm v-else label-width="90px" class="narrow">
-            <ElFormItem label="应用">
-              <ElSelect v-model="applicationId" clearable filterable placeholder="可选，选择 SandIAM 应用" :loading="loadingIam" :disabled="connectionSubmitting || bindingSubmitting || busy === 'bind'" @change="loadEnvironments">
-                <ElOption v-for="app in applications" :key="app.id" :label="app.name" :value="app.id" />
-              </ElSelect>
-            </ElFormItem>
-            <ElFormItem label="环境">
-              <ElSelect v-model="environmentId" clearable filterable placeholder="可选，稍后绑定服务" :disabled="!applicationId || connectionSubmitting || bindingSubmitting || busy === 'bind'" :loading="loadingIam">
-                <ElOption v-for="env in environments" :key="env.id" :label="env.name" :value="env.id" />
-              </ElSelect>
-            </ElFormItem>
-          </ElForm>
-          <p class="muted">选择应用和环境仅用于确认目标，不会自动绑定或启用业务能力。</p>
-        </section>
-
-        <section class="section">
-          <ElAlert v-if="journey" type="info" :closable="false" :title="`原开通目标：应用 ${journey.application_id ?? '未选'}，环境 ${journey.environment_id ?? '未选'}；${journey.deployment_id ? `部署 ${journey.deployment_id} · 修订 ${journey.revision}` : '保存回执待找回'}。此目标不代表环境绑定或允许使用。`" />
-          <ElAlert v-if="connectionSubmitting" type="info" :closable="false" title="原连接操作仍在处理。切换登录状态不会解除在途锁；请等待原操作结束，再读取状态或配置。" />
-          <ElAlert v-else-if="journeyLocked" type="warning" :closable="false" title="原开通状态尚未确认，已锁定新增保存、验证、启用和换目标。请只读找回原开通状态。" />
-          <h3>2. 服务商连接</h3>
-          <p class="muted">此处供管理员新增模型连接。应用选用已有授权能力时，可直接使用上方聊天入口；其他能力沿“能力配置”选择已启用部署，不需要再次输入服务商 Key。</p>
-          <ElSelect v-model="selectedProviderCode" class="narrow provider-select" placeholder="选择服务商" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
-            <ElOption v-for="item in providerGuides" :key="item.provider_code || item.adapter" :label="item.name" :value="item.provider_code || item.adapter" />
-          </ElSelect>
-          <p>{{ providerGuide?.api_key_help || '在服务商控制台创建 API Key。' }}</p>
-          <p v-if="providerGuide?.api_key_url && safeGuideUrl(providerGuide.api_key_url)"><a :href="safeGuideUrl(providerGuide.api_key_url)" target="_blank" rel="noopener noreferrer">前往服务商创建 API Key</a></p>
-          <p v-if="providerGuide?.billing_help_url && safeGuideUrl(providerGuide.billing_help_url)"><a :href="safeGuideUrl(providerGuide.billing_help_url)" target="_blank" rel="noopener noreferrer">查看服务商计费说明</a></p>
-          <p v-else class="muted">服务商未提供计费说明链接。请在所选服务商控制台查看当前模型的计费规则。</p>
-          <p class="muted">连接前请核对所选模型的输入、输出计量单位、单价和币种；其他能力按服务商公布的实际单位核对。</p>
-          <p class="muted">调用费用按本次调用冻结的价格版本和实际用量记录。未配置价格时费用未计价，缺少用量或币种时保持未知；预估金额、计量金额和对账金额分开查看。对账金额需依据真实服务商账单核对，人工补录保留来源与核对状态。</p>
-          <ElSpace wrap>
-            <ElButton @click="router.push('/sand-ai/usage')">查看费用与账单</ElButton>
-            <span class="muted">模型验证后查看“模型验证费用”；应用调用查看“调用费用”，在“账单核对”核查实际收费。查看费用需要相应后台权限。</span>
-          </ElSpace>
-          <p class="muted">{{ providerGuide?.data_egress_notice }}</p>
-          <p class="muted">{{ providerGuide?.discovery_notice }}</p>
-          <ElAlert v-if="connectionNotice" :title="connectionNotice" type="info" :closable="false" class="catalog-notice" />
-          <ElAlert v-if="connectionInputError" :title="connectionInputError" type="warning" :closable="false" class="catalog-notice" />
-          <ElForm label-width="110px" class="narrow" @submit.prevent>
-            <ElFormItem label="服务商名称">
-              <ElInput v-model.trim="providerName" maxlength="80" placeholder="例如：我的模型服务" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
-              <span v-if="providerNameError" class="muted">{{ providerNameError }}</span>
-            </ElFormItem>
-            <ElFormItem label="服务地址"><ElInput v-model="baseUrl" placeholder="https://服务商提供的 API 基础地址" :disabled="Boolean(draft || saveAttempt || journeyLocked)" /></ElFormItem>
-            <ElFormItem label="API Key" required>
-              <ElInput ref="apiKeyInput" v-model="apiKey" type="password" show-password autocomplete="off" aria-required="true" aria-describedby="onboarding-api-key-help" placeholder="只在本次连接中使用" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
-              <span id="onboarding-api-key-help" class="muted">{{ apiKeyWhitespaceError || '必填；请使用服务商提供的 API Key，仅在本次连接中使用。' }}</span>
-            </ElFormItem>
-            <ElFormItem v-if="!draft" label="模型请求超时">
-              <ElInputNumber v-model="providerTimeoutSeconds" :min="1" :max="120" :step="1" :precision="0" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
-              <span class="muted">秒，默认 120 秒。保存后用于此服务商的模型验证与调用；超时可能已产生费用，请先核对调用记录。</span>
-            </ElFormItem>
-            <ElCollapse v-if="supportsExtraHeaders">
-              <ElCollapseItem title="额外请求头（可选）" name="extra-headers">
-                <p class="muted">仅在服务商要求时填写组织、项目标识或额外密钥。保存后不会回显，也不会保存在浏览器中。</p>
-                <ElFormItem v-for="field in extraHeaderFields" :key="field.name" :label="field.label">
-                  <ElInput v-model="extraHeaders[field.name]" type="password" show-password autocomplete="off"
-                    :placeholder="field.name" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
-                </ElFormItem>
-                <p v-if="extraHeaderError" class="muted">{{ extraHeaderError }}</p>
-              </ElCollapseItem>
-            </ElCollapse>
-            <ElFormItem>
-              <ElButton :loading="busy === 'discover'" :disabled="Boolean(busy || draft || saveAttempt || verificationRecoveryPending || verificationStorageError || journeyLocked) || !canConnect" @click="discover">发现模型</ElButton>
-            </ElFormItem>
-            <ElFormItem label="模型">
-              <ElSelect v-if="models.length" v-model="remoteModel" filterable allow-create default-first-option placeholder="选择或输入模型标识" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
-                <ElOption v-for="model in models" :key="model.remote_model" :label="model.remote_model" :value="model.remote_model" />
-              </ElSelect>
-              <ElInput v-else v-model="remoteModel" maxlength="256" placeholder="发现不可用时，手动填写服务商给出的模型标识" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
-              <span class="muted">请选用支持聊天的模型。模型列表不证明聊天或材料抽取能力，保存后仍须验证。</span>
-              <span v-if="modelIdentifierError" class="muted">{{ modelIdentifierError }}</span>
-            </ElFormItem>
-            <ElFormItem label="模型名称">
-              <ElInput v-model.trim="modelName" maxlength="160" :placeholder="defaultModelName || '可选，用于后台识别此模型'" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
-              <span class="muted">可选；留空时使用上方模型标识作为后台名称，过长时仅缩短名称，调用仍使用完整模型标识。</span>
-              <span v-if="modelNameError" class="muted">{{ modelNameError }}</span>
-            </ElFormItem>
-            <ElFormItem label="材料抽取">
-              <ElCheckbox v-model="materialExtraction" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
-                将此聊天模型作为材料结构化抽取候选
-              </ElCheckbox>
-              <span class="muted">聊天验证不证明材料抽取质量；材料配置须运行真实样本并核验后才可启用。</span>
-            </ElFormItem>
-            <ElFormItem label="输出上限">
-              <ElInputNumber v-model="maxOutputTokens" :min="1" :max="131072" :step="1" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
-            </ElFormItem>
-            <ElFormItem label="技能模板输出">
-              <ElSelect v-model="skillOutputStrategy" aria-label="技能模板输出策略" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
-                <ElOption v-for="(label, value) in skillStrategyLabels" :key="value" :label="label" :value="value" />
-              </ElSelect>
-              <span class="muted">默认要求完整结构化输出。对象结构输出需模型服务支持相应输出协议；约束结构输出需支持 OpenAI 结构化输出协议；选择后仍须通过技能模板案例评测。</span>
-              <span class="muted">仅新建技能模板版本采用此配置，已冻结版本和历史调用保持原策略。</span>
-            </ElFormItem>
-            <ElFormItem label="推理额度">
-              <ElSelect v-model="reasoningEffort" aria-label="推理额度" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
-                <ElOption label="由模型服务决定（默认）" value="" />
-                <ElOption label="低" value="low" />
-                <ElOption label="高" value="high" />
-                <ElOption label="最大" value="max" />
-              </ElSelect>
-              <span class="muted">控制模型用于推理的额度。仅在模型服务明确支持时选择低、高或最大；默认不指定，具体效果以该模型说明为准。</span>
-              <span class="muted">保存请求和修订会锁定所选额度。修改配置后须重新保存、验证和启用。</span>
-            </ElFormItem>
-            <ElFormItem>
-              <ElButton type="primary" :loading="busy === 'save'" :disabled="Boolean(busy || draft || verificationRecoveryPending || verificationStorageError || journeyLocked) || (!saveAttempt && !canSave)" @click="saveDraft">保存模型草稿</ElButton>
-              <ElButton v-if="journey || journeyLocked" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="restoreJourney">只读找回原开通状态</ElButton>
-            </ElFormItem>
-          </ElForm>
-          <p class="muted">发现模型仅查询列表；保存成功或离开页面后 Key 会清空，不会保存在浏览器存储中。</p>
-        </section>
-
-        <section class="section">
-          <h3>已保存模型配置（只读）</h3>
-          <p class="muted">按已启用模型名称选择部署与修订，读取原保存值。此处不重新验证、保存、启用或绑定环境。</p>
-          <ElForm label-width="110px" class="narrow" @submit.prevent>
-            <ElFormItem label="名称筛选"><ElInput v-model.trim="inspectionSearchName" placeholder="可选，输入模型或服务商名称后读取部署列表" :disabled="inspectionLoading || inspectionReading" /></ElFormItem>
-            <ElFormItem label="已启用模型">
-              <ElSelect v-model="inspectionDeploymentId" filterable placeholder="先读取部署列表，再选择名称与修订" :loading="inspectionLoading" :disabled="inspectionLoading || inspectionReading" @change="chooseInspectionDeployment">
-                <ElOption v-for="item in inspectionDeployments" :key="item.id" :label="`${item.display_name} · 修订 ${item.deployment_revision}`" :value="item.id" />
-              </ElSelect>
-              <ElButton :loading="inspectionLoading" :disabled="inspectionReading" @click="loadInspectionDeployments">读取部署列表</ElButton>
-            </ElFormItem>
-            <ElFormItem>
-              <ElButton :loading="inspectionReading" :disabled="inspectionLoading || !validInspectionTarget" @click="readInspectionRevision">读取所选修订</ElButton>
-            </ElFormItem>
-            <ElCollapse>
-              <ElCollapseItem title="按保存回执编号读取历史修订（专家备用）" name="inspection-reference">
-                <p class="muted">已启用列表展示当前修订。读取历史修订时，使用原保存回执中的部署号与修订号；不会猜测或创建配置。</p>
-                <ElFormItem label="部署号"><ElInputNumber v-model="inspectionTargetId" :min="1" :precision="0" :disabled="inspectionReading" aria-label="已有部署号" /></ElFormItem>
-                <ElFormItem label="修订号"><ElInputNumber v-model="inspectionTargetRevision" :min="1" :precision="0" :disabled="inspectionReading" aria-label="已有修订号" /></ElFormItem>
-              </ElCollapseItem>
-            </ElCollapse>
-          </ElForm>
-          <template v-if="inspectedRevision">
-            <p>部署 {{ inspectedRevision.deployment_id }} · 修订 {{ inspectedRevision.revision }} · {{ inspectedRevision.state === 'published' ? '已启用（只读）' : '保存值（只读）' }}</p>
-            <p>{{ inspectedRevision.provider.name }} · {{ inspectedRevision.model.name }} · {{ inspectedRevision.deployment.remote_model }}</p>
-            <p>输出上限：{{ inspectedRevision.deployment.config.max_output_tokens }}</p>
-            <p>技能模板输出：{{ inspectedRevision.deployment.config.skill_output_strategy ? skillStrategyLabels[inspectedRevision.deployment.config.skill_output_strategy] : '未指定（新技能模板采用标准输出，历史版本保持原策略）' }}</p>
-            <p class="muted">显示值来自指定修订的冻结配置。未指定策略的旧修订保持缺字段；新建配置的默认选择不会写回这里。</p>
-          </template>
-        </section>
-
-        <section class="section">
-          <h3>3. 验证并启用模型连接</h3>
-          <p v-if="draft">部署 {{ draft.deployment_id }} · 修订 {{ draft.revision }} · {{ verificationStateLabel }}</p>
-          <p v-if="verificationRequest" class="muted">原验证请求号：{{ verificationRequest.key }} · 部署 {{ verificationRequest.deployment_id }} · 修订 {{ verificationRequest.revision }}。此号用于找回本次验证，与费用明细中的尝试编号不同。</p>
-          <ElAlert v-if="verificationRecoveryPending" type="warning" :closable="false" title="原验证结果尚未确认。本页保留请求编号，暂时锁定新保存、验证和重新配置；只读找回不会再次调用模型。" />
-          <ElAlert v-if="verificationStorageError" type="warning" :closable="false" title="无法确认本机会话中的原验证记录，暂时不能发起新验证。请保留原部署与修订号，由管理员核查；不会换请求号重发。" />
-          <ElButton v-if="verificationRecoveryPending || verificationStorageError || journeyLocked" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="restoreVerificationRequest">找回原验证状态</ElButton>
-          <p v-if="draft" class="muted">当前修订的推理额度：{{ savedReasoningEffortLabel }}。此值来自服务器保存的修订配置。</p>
-          <p v-if="draft" class="muted">当前修订的技能模板输出：{{ draft.deployment.config.skill_output_strategy ? skillStrategyLabels[draft.deployment.config.skill_output_strategy] : '未指定（新技能模板采用标准 JSON，历史版本保持原策略）' }}。</p>
-          <p v-else class="muted">请先保存模型草稿。验证会发送极小样本，可能产生服务商费用。</p>
-          <ElAlert v-if="publicationConfirmationRequired" type="warning" :closable="false" title="启用结果或当前修订尚未确认。请先读取当前部署修订并核对；读取不会验证或启用模型，也不代表原启用没有执行。" />
-          <ElButton v-if="journey?.phase === 'publish_unknown'" :loading="busy === 'read' || busy === 'publish'" :disabled="Boolean(busy) || originalPublicationConfirming || journeyRecoveryPending || verificationRecoveryPending || verificationStorageError" @click="confirmOriginalPublication">读取原目标启用状态</ElButton>
-          <ElButton v-if="publicationConfirmationRequired" :loading="busy === 'read'" :disabled="Boolean(busy) || verificationRecoveryPending || verificationStorageError || journeyStorageError || journeyRecoveryPending" @click="readCurrentPublicationRevision">读取并确认当前修订</ElButton>
-          <div v-if="publicationConfirmationRequired && publicationPreview" class="muted">
-            <p>当前部署 {{ publicationPreview.draft.deployment_id }} · 修订 {{ publicationPreview.draft.revision }} · {{ verificationLabel(publicationPreview.verification.state) }}。服务商：{{ publicationPreview.draft.provider.name }}；模型：{{ publicationPreview.draft.model.name }}（{{ publicationPreview.draft.deployment.remote_model }}）。</p>
-            <p>输出上限 {{ publicationPreview.draft.deployment.config.max_output_tokens }}；推理额度 {{ publicationPreview.draft.deployment.config.reasoning_effort || '由模型服务决定' }}；技能模板输出 {{ publicationPreview.draft.deployment.config.skill_output_strategy ? skillStrategyLabels[publicationPreview.draft.deployment.config.skill_output_strategy] : '标准输出（默认）' }}。</p>
-            <ElButton :disabled="Boolean(busy) || verificationRecoveryPending || verificationStorageError || journeyLocked" @click="confirmCurrentPublicationRevision">确认使用此修订</ElButton>
+  <SandAiErrorBoundary>
+    <div class="sand-ai-page">
+      <ElCard class="sand-ai-page-card" shadow="never">
+        <div class="heading">
+          <div>
+            <h2>首次开通</h2>
+            <p>跟着下面几步完成开通：选择工作目标、连接模型服务商、验证并启用模型。应用可直接选用已授权的聊天模型，无需模型 API Key。</p>
           </div>
-          <ElForm v-if="draft" label-width="110px" class="narrow" @submit.prevent>
-            <ElFormItem label="处理位置">
-              <ElSelect v-model="processingLocation" placeholder="请按服务商实际处理位置确认" :disabled="Boolean(busy) || connectionSubmitting || verification?.state === 'tested' || verificationRecoveryPending">
-                <ElOption label="本地运行" value="local_runtime" />
-                <ElOption label="私有网络" value="private_network" />
-                <ElOption label="公共云" value="public_cloud" />
-              </ElSelect>
-            </ElFormItem>
-            <ElFormItem>
-              <ElSpace wrap>
-                <ElButton :loading="busy === 'verify'" :disabled="!canVerify" @click="verifyDraft">验证聊天模型</ElButton>
-                <ElButton :loading="busy === 'read'" :disabled="Boolean(busy)" @click="readVerification">读取当前修订配置与状态</ElButton>
-                <ElButton type="primary" :loading="busy === 'publish'" :disabled="Boolean(busy) || publicationConfirmationRequired || verificationRecoveryPending || verificationStorageError || journeyLocked || verification?.state !== 'tested' || !verification.validation_evidence" @click="publish">启用模型连接</ElButton>
-                <ElButton v-if="canReconfigure" :disabled="Boolean(busy)" @click="reconfigureConnection">重新配置连接</ElButton>
-              </ElSpace>
-            </ElFormItem>
-          </ElForm>
-          <ElAlert v-if="verificationFailure" type="warning" :closable="false" :title="verificationFailure.message" />
-          <p v-if="verificationFailure?.failed_at" class="muted">失败时间：{{ verificationFailure.failed_at }}</p>
-          <ElAlert v-if="!verificationFailure && verification?.state === 'draft' && (verificationRejected || verificationAttempted || hasVerificationFailure) && !verificationUncertain" type="warning" :closable="false"
-            :title="verificationRejected && !hasVerificationFailure
-              ? '服务商拒绝了聊天验证。当前修订已确认回到待验证，可重新配置连接；此处不会重复验证失败修订。'
-              : !hasVerificationFailure
-                ? '当前修订已确认回到待验证。可重新配置连接；此处不会重复验证已经发送过的修订。'
-                : '当前修订的失败反馈无法确认。请保留部署与修订号并联系管理员核查；此处不会重复验证或重新配置。'" />
-          <ElAlert v-if="verification?.validation_evidence?.usage_measured === false" type="warning" :closable="false"
-            title="模型已通过调用验证，但服务商未返回用量。运行费用会保持未知，依赖精确用量的限额和低成本路由可能不可用。" />
-          <ElAlert v-if="verification?.state === 'verifying'" type="info" :closable="false" title="服务商验证仍在进行。请稍后读取当前修订状态，不要重复发送验证请求。" />
-          <ElAlert v-if="verificationUncertain" type="warning" :closable="false" title="验证结果无法确定，可能已产生服务商费用。请保留上方部署与修订号，请到服务商控制台核查调用记录并联系管理员；此处不会重新发送验证请求。" />
-          <ElAlert v-if="bindingStorageError" type="warning" :closable="false"
-            title="原绑定操作记录无法确认，暂不发送新的绑定。请恢复会话存储后重读原记录。" />
-          <ElButton v-if="bindingStorageError" :disabled="bindingSubmitting || bindingReading || Boolean(busy)" @click="loadOriginalBindingIntent">重读原绑定记录</ElButton>
-          <section v-if="bindingIntent">
-            <ElAlert type="warning" :closable="false"
-              title="原绑定结果尚未确认"
-              :description="`原目标：应用 ${bindingIntent.application_id}，环境 ${bindingIntent.environment_id}，部署 ${bindingIntent.deployment_id} · 修订 ${bindingIntent.revision}。`" />
-            <ElButton :loading="bindingReading" :disabled="bindingSubmitting || bindingReading || Boolean(busy)" @click="readOriginalBinding">读取原绑定目标</ElButton>
-            <p class="muted">仅核对原目标当前的已启用默认聊天配置。这不是服务器原操作回执；未找到、读取失败或目标不匹配不证明原绑定未发生，不会重新发送绑定。</p>
-          </section>
-          <p v-if="bindingNotice" class="muted">{{ bindingNotice }}</p>
-          <ElAlert v-if="published && !publicationConfirmationRequired" type="success" :closable="false" title="模型连接已启用。请选择目标环境并绑定默认聊天能力，应用才能调用。" />
-          <ElSpace v-if="published && !publicationConfirmationRequired" wrap>
-            <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'bind'"
-              :disabled="Boolean(busy) || journeyLocked || !environmentId || boundEnvironmentId === environmentId" @click="bindDefaultChat">
-              {{ boundEnvironmentId === environmentId ? '本次已绑定到该环境' : '绑定到所选环境' }}
-            </ElButton>
-            <span v-if="!environmentId" class="muted">先在工作目标中选择 SandIAM 应用和环境。</span>
-          </ElSpace>
-          <p v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" class="muted">聊天能力已绑定；所选工作目标仍需按对应配置入口继续准备、试用并启用。</p>
-          <ElSpace v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" wrap>
-            <ElButton type="primary" :disabled="Boolean(busy)" @click="openChatTrial">试用已启用聊天能力</ElButton>
-            <span class="muted">后台管理员负责配置；应用调用使用 SandIAM 工作负载调用密钥，调用环境由凭证决定。进入“聊天路线试用”后填写该凭证，无需填写服务商 API Key。</span>
-          </ElSpace>
-        </section>
-
-        <section class="section">
-          <SuccessorDeploymentSetup :application-id="applicationId || null" :environment-id="environmentId || null" />
-        </section>
-
-        <section v-if="selectedScene === 'meeting_recording_organization'" class="section">
-          <h3>4. {{ guide.display_name }}服务</h3>
-          <p>{{ guide.module_explanation }}</p>
-          <p class="muted">先配置并启用转写能力与聊天路线，再核定会议执行设置。模型验证不证明转写准确率或会议摘要完整性。</p>
-          <ElButton @click="openCapabilityConfiguration">配置会议所需能力</ElButton>
-          <MeetingExecutionSetup
-            :environment-id="environmentId"
-            :application-name="applications.find(item => item.id === applicationId)?.name || '未选择应用'"
-            :environment-name="environments.find(item => item.id === environmentId)?.name || '未选择环境'"
-            @configure="openCapabilityConfiguration"
-          />
-        </section>
-
-        <section v-else-if="selectedScene === 'material_organization'" class="section">
-          <h3>4. {{ guide.display_name }}服务</h3>
-          <p>{{ guide.module_explanation }}</p>
-          <p class="muted">先保存环境配置草稿；后续仍需运行真实样本并启用服务。</p>
-          <MaterialCapabilitySetup
-            :key="environmentId || 'no-environment'"
-            :environment-id="environmentId"
-            :application-name="applications.find(item => item.id === applicationId)?.name || '未选择应用'"
-            :environment-name="environments.find(item => item.id === environmentId)?.name || '未选择环境'"
-            :deployment-id="published ? draft?.deployment_id ?? null : null"
-            :deployment-name="draft?.model.name ?? ''"
-            :extraction-declared="materialExtraction"
-            @status="onMaterialCapabilityStatus"
-            @professional="openCapabilityConfiguration"
-          />
-          <MaterialProfileEditor v-if="materialReadyEnvironmentId === environmentId && environmentId" :environment-id="environmentId" />
-        </section>
-
-        <section v-else class="section">
-          <h3>4. {{ guide.display_name }}服务</h3>
-          <p>{{ guide.module_explanation }}</p>
-          <p class="muted">{{ guide.readiness_note }}</p>
-          <p v-if="!environmentId" class="muted">先在工作目标中选择应用和环境，再在对应模块明确配置使用范围。</p>
           <ElSpace wrap>
-            <ElButton @click="openCapabilityConfiguration">配置并启用所需能力</ElButton>
-            <ElButton v-if="guide.technical.module_codes.includes('knowledge_base')" @click="router.push('/sand-ai/knowledge')">准备知识材料</ElButton>
-            <ElButton v-if="guide.technical.module_codes.includes('agent')" @click="router.push('/sand-ai/agent')">配置知识问答智能体</ElButton>
+            <ElButton type="primary" @click="openCapabilityConfiguration">先配置文档读取能力</ElButton>
+            <ElButton @click="router.push('/sand-ai/provider')">服务商配置</ElButton>
           </ElSpace>
-          <p class="muted">模型连接启用与环境能力启用是各自的操作。知识材料、智能体和渠道仍按对应模块的实际状态与授权使用，不会因选择目标自动开通。</p>
-        </section>
-      </template>
-    </ElCard>
-  </div>
+        </div>
+
+        <p class="muted">文档读取可读取 TXT、文本型 PDF、DOCX 等，不调用模型、不产生模型费用。材料 AI 抽取与样本验证仍需要已启用模型并允许使用；业务应用调用时无需持有模型 API Key。</p>
+        <p v-if="bootstrapNotice" class="muted bootstrap-notice">
+          {{ bootstrapNotice.message }}
+          <ElButton v-if="bootstrapNotice.retryable" link type="primary" :loading="bootstrapBusy" @click="retryBootstrap">重试</ElButton>
+        </p>
+        <ElAlert v-if="navigationNotice" :title="navigationNotice" type="warning" :closable="false" class="notice" />
+        <ElAlert v-if="message" :type="messageType" :title="message" show-icon :closable="false" class="notice" />
+        <details class="section">
+          <summary>使用已授权聊天能力（无需模型 API Key）</summary>
+          <p class="muted">填写应用提供的调用密钥（由管理员在身份与授权插件中生成），即可读取该应用可用的模型并试用。没有可用模型时，请管理员先启用所需能力并允许该应用使用。</p>
+          <ChatRouteTrialPanel :environment-id="environmentId || undefined" />
+        </details>
+        <details class="section">
+          <summary>高级 · 授权项检查（通常已由系统自动完成，一般无需操作）</summary>
+          <section class="section">
+            <h3>能力权限检查</h3>
+            <p class="muted">安装时已自动登记 SandAI 所需的全部能力权限。如下方检查发现缺失，可点“补齐”；补齐不会创建应用、调用密钥或允许使用。</p>
+            <ElAlert v-if="catalogMessage" :type="catalogMessageType" :title="catalogMessage" show-icon :closable="false" class="catalog-notice" />
+            <p v-if="catalogPreflight?.port_available" class="muted">
+              已读取授权服务状态。补齐仅补缺失项，重复检查是安全的。
+            </p>
+            <p v-if="catalogPreflight?.action_codes.length" class="muted">
+              能力权限共 {{ catalogPreflight.action_codes.length }} 项。
+              <details class="tech-details">
+                <summary>技术详情</summary>
+                <p class="muted">{{ catalogPreflight.service_code }}：{{ catalogPreflight.action_codes.join('、') }}</p>
+              </details>
+            </p>
+            <ElSpace v-if="catalogDisabled" wrap>
+              <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
+              <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
+            </ElSpace>
+            <ElSpace wrap>
+              <ElButton :loading="catalogBusy === 'checking'" :disabled="Boolean(catalogBusy)" @click="loadCatalog">检查授权服务连接</ElButton>
+              <ElButton type="primary" :loading="catalogBusy === 'registering'" :disabled="Boolean(catalogBusy) || !canRegisterCatalog(catalogPreflight) || catalogDisabled || catalogRegistered" @click="registerCatalog">
+                {{ catalogRegistered ? '本次已补齐' : '补齐能力权限' }}
+              </ElButton>
+            </ElSpace>
+          </section>
+          <section class="section">
+            <h3>技能模板授权检查</h3>
+            <p class="muted">技能模板的使用、读取、管理、测试和启用权限单独登记。登记后，还需在 SandIAM 为具体应用允许使用；此操作不会自动允许任何调用。</p>
+            <ElAlert v-if="skillCatalogMessage" :type="skillCatalogMessageType" :title="skillCatalogMessage" show-icon :closable="false" class="catalog-notice" />
+            <p v-if="skillCatalogPreflight?.action_codes.length" class="muted">
+              技能模板权限共 {{ skillCatalogPreflight.action_codes.length }} 项。
+              <details class="tech-details">
+                <summary>技术详情</summary>
+                <p class="muted">{{ skillCatalogPreflight.service_code }}：{{ skillCatalogPreflight.action_codes.join('、') }}</p>
+              </details>
+            </p>
+            <ElSpace v-if="skillCatalogDisabled" wrap>
+              <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
+              <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
+            </ElSpace>
+            <ElSpace wrap>
+              <ElButton :loading="skillCatalogBusy === 'checking'" :disabled="Boolean(skillCatalogBusy)" @click="loadSkillCatalog">检查技能模板权限</ElButton>
+              <ElButton type="primary" :loading="skillCatalogBusy === 'registering'" :disabled="Boolean(skillCatalogBusy) || !canRegisterCatalog(skillCatalogPreflight) || skillCatalogDisabled || skillCatalogRegistered" @click="registerSkillCatalog">
+                {{ skillCatalogRegistered ? '本次已补齐' : '补齐技能模板权限' }}
+              </ElButton>
+            </ElSpace>
+          </section>
+          <section class="section">
+            <h3>音频能力授权检查</h3>
+            <p class="muted">音频转写、片段复核和语音合成的权限单独登记。登记后，还需在 SandIAM 为具体应用允许使用；此操作不会自动允许任何调用。</p>
+            <ElAlert v-if="audioCatalogMessage" :type="audioCatalogMessageType" :title="audioCatalogMessage" show-icon :closable="false" class="catalog-notice" />
+            <p v-if="audioCatalogPreflight?.action_codes.length" class="muted">
+              音频权限共 {{ audioCatalogPreflight.action_codes.length }} 项。
+              <details class="tech-details">
+                <summary>技术详情</summary>
+                <p class="muted">{{ audioCatalogPreflight.service_code }}：{{ audioCatalogPreflight.action_codes.join('、') }}</p>
+              </details>
+            </p>
+            <ElSpace v-if="audioCatalogDisabled" wrap>
+              <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
+              <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
+            </ElSpace>
+            <ElSpace wrap>
+              <ElButton :loading="audioCatalogBusy === 'checking'" :disabled="Boolean(audioCatalogBusy)" @click="loadAudioCatalog">检查音频权限</ElButton>
+              <ElButton type="primary" :loading="audioCatalogBusy === 'registering'" :disabled="Boolean(audioCatalogBusy) || !canRegisterCatalog(audioCatalogPreflight) || audioCatalogDisabled || audioCatalogRegistered" @click="registerAudioCatalog">
+                {{ audioCatalogRegistered ? '本次已补齐' : '补齐音频权限' }}
+              </ElButton>
+            </ElSpace>
+            <h4>转写引擎</h4>
+            <p v-if="audioRuntime" class="muted">
+              应用接口已安装；本地引擎：{{ audioAdapterState('local') }}，外部引擎：{{ audioAdapterState('external') }}。
+              {{ audioRuntime.readiness_note }}
+            </p>
+            <p v-if="audioRuntimeError" class="muted">{{ audioRuntimeError }}</p>
+            <ElButton :loading="audioRuntimeBusy" @click="loadAudioRuntime">检查引擎配置</ElButton>
+            <TranscriptionDeploymentSetup
+              :audio-runtime="audioRuntime"
+              :audio-runtime-busy="audioRuntimeBusy"
+              :audio-runtime-error="audioRuntimeError"
+              @refresh-runtime="loadAudioRuntime"
+            />
+            <SpeechDeploymentSetup />
+            <SpeechTrialPanel :environment-id="environmentId || null" />
+            <EmbeddingDeploymentSetup />
+            <OcrDeploymentSetup />
+          </section>
+        </details>
+        <ElSkeleton v-if="loading" :rows="5" animated />
+        <ElResult v-else-if="!guide" icon="error" title="无法读取首次配置引导" :sub-title="guideError || '请稍后重试。'">
+          <template #extra><ElButton @click="load">重试</ElButton></template>
+        </ElResult>
+        <template v-else>
+          <ElSteps :active="step" finish-status="success" class="steps">
+            <ElStep title="选择场景" />
+            <ElStep title="连接服务商" />
+            <ElStep title="验证并启用模型" />
+            <ElStep :title="`配置${guide.display_name}服务`" />
+          </ElSteps>
+
+          <section class="section">
+            <h3>1. 工作目标</h3>
+            <ElRadioGroup v-model="selectedScene" aria-label="场景选择">
+              <ElRadio v-for="item in solutionGuides" :key="item.technical.code" :value="item.technical.code">{{ item.display_name }}</ElRadio>
+            </ElRadioGroup>
+            <p>{{ guide.plain_summary }}</p>
+            <p class="muted">{{ guide.when_to_use }}</p>
+            <p>需要准备：</p>
+            <ul><li v-for="item in guide.what_you_need" :key="item">{{ item }}</li></ul>
+            <p>配置步骤：</p>
+            <ol><li v-for="item in guide.setup_steps" :key="item">{{ item }}</li></ol>
+            <p>完成后：{{ guide.outcome }}</p>
+            <p class="muted">{{ guide.readiness_note }}</p>
+            <p class="muted">切换工作目标只调整本页引导，已保存的模型与环境配置会保留；各项配置仍需明确保存和启用。</p>
+            <template v-if="iamError">
+              <p class="muted">应用或环境暂时无法读取。模型连接可以继续，业务环境请稍后在能力配置中选择。</p>
+              <ElButton v-if="!applicationId" :loading="loadingIam" @click="loadApplications">重新读取应用</ElButton>
+              <ElButton v-else :loading="loadingIam" @click="loadEnvironments">重新读取环境</ElButton>
+            </template>
+            <ElForm v-else label-width="90px" class="narrow">
+              <ElFormItem label="应用">
+                <ElSelect v-model="applicationId" clearable filterable placeholder="可选，选择 SandIAM 应用" :loading="loadingIam" :disabled="connectionSubmitting || bindingSubmitting || busy === 'bind'" @change="loadEnvironments">
+                  <ElOption v-for="app in applications" :key="app.id" :label="app.name" :value="app.id" />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem label="环境">
+                <ElSelect v-model="environmentId" clearable filterable placeholder="可选，稍后绑定服务" :disabled="!applicationId || connectionSubmitting || bindingSubmitting || busy === 'bind'" :loading="loadingIam">
+                  <ElOption v-for="env in environments" :key="env.id" :label="env.name" :value="env.id" />
+                </ElSelect>
+              </ElFormItem>
+            </ElForm>
+            <p class="muted">选择应用和环境仅用于确认目标，不会自动绑定或启用业务能力。</p>
+          </section>
+
+          <section class="section">
+            <ElAlert v-if="journey" type="info" :closable="false" :title="`原开通目标：应用 ${journey.application_id ?? '未选'}，环境 ${journey.environment_id ?? '未选'}；${journey.deployment_id ? `部署 ${journey.deployment_id} · 修订 ${journey.revision}` : '保存回执待找回'}。此目标不代表环境绑定或允许使用。`" />
+            <ElAlert v-if="connectionSubmitting" type="info" :closable="false" title="原连接操作仍在处理。切换登录状态不会解除在途锁；请等待原操作结束，再读取状态或配置。" />
+            <ElAlert v-else-if="journeyLocked" type="warning" :closable="false" title="原开通状态尚未确认，已锁定新增保存、验证、启用和换目标。请只读找回原开通状态。" />
+            <h3>2. 服务商连接</h3>
+            <p class="muted">此处供管理员新增模型连接。应用选用已有授权能力时，可直接使用上方聊天入口；其他能力沿“能力配置”选择已启用部署，不需要再次输入服务商 Key。</p>
+            <ElSelect v-model="selectedProviderCode" class="narrow provider-select" placeholder="选择服务商" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
+              <ElOption v-for="item in providerGuides" :key="item.provider_code || item.adapter" :label="item.name" :value="item.provider_code || item.adapter" />
+            </ElSelect>
+            <p>{{ providerGuide?.api_key_help || '在服务商控制台创建 API Key。' }}</p>
+            <p v-if="providerGuide?.api_key_url && safeGuideUrl(providerGuide.api_key_url)"><a :href="safeGuideUrl(providerGuide.api_key_url)" target="_blank" rel="noopener noreferrer">前往服务商创建 API Key</a></p>
+            <p v-if="providerGuide?.billing_help_url && safeGuideUrl(providerGuide.billing_help_url)"><a :href="safeGuideUrl(providerGuide.billing_help_url)" target="_blank" rel="noopener noreferrer">查看服务商计费说明</a></p>
+            <p v-else class="muted">服务商未提供计费说明链接。请在所选服务商控制台查看当前模型的计费规则。</p>
+            <p class="muted">连接前请核对所选模型的输入、输出计量单位、单价和币种；其他能力按服务商公布的实际单位核对。</p>
+            <p class="muted">调用费用按本次调用冻结的价格版本和实际用量记录。未配置价格时费用未计价，缺少用量或币种时保持未知；预估金额、计量金额和对账金额分开查看。对账金额需依据真实服务商账单核对，人工补录保留来源与核对状态。</p>
+            <ElSpace wrap>
+              <ElButton @click="router.push('/sand-ai/usage')">查看费用与账单</ElButton>
+              <span class="muted">模型验证后查看“模型验证费用”；应用调用查看“调用费用”，在“账单核对”核查实际收费。查看费用需要相应后台权限。</span>
+            </ElSpace>
+            <p class="muted">{{ providerGuide?.data_egress_notice }}</p>
+            <p class="muted">{{ providerGuide?.discovery_notice }}</p>
+            <ElAlert v-if="connectionNotice" :title="connectionNotice" type="info" :closable="false" class="catalog-notice" />
+            <ElAlert v-if="connectionInputError" :title="connectionInputError" type="warning" :closable="false" class="catalog-notice" />
+            <ElForm label-width="110px" class="narrow" @submit.prevent>
+              <ElFormItem label="服务商名称">
+                <ElInput v-model.trim="providerName" maxlength="80" placeholder="例如：我的模型服务" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
+                <span v-if="providerNameError" class="muted">{{ providerNameError }}</span>
+              </ElFormItem>
+              <ElFormItem label="服务地址"><ElInput v-model="baseUrl" placeholder="https://服务商提供的 API 基础地址" :disabled="Boolean(draft || saveAttempt || journeyLocked)" /></ElFormItem>
+              <ElFormItem label="API Key" required>
+                <ElInput ref="apiKeyInput" v-model="apiKey" type="password" show-password autocomplete="off" aria-required="true" aria-describedby="onboarding-api-key-help" placeholder="只在本次连接中使用" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
+                <span id="onboarding-api-key-help" class="muted">{{ apiKeyWhitespaceError || '必填；请使用服务商提供的 API Key，仅在本次连接中使用。' }}</span>
+              </ElFormItem>
+              <ElFormItem v-if="!draft" label="模型请求超时">
+                <ElInputNumber v-model="providerTimeoutSeconds" :min="1" :max="120" :step="1" :precision="0" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
+                <span class="muted">秒，默认 120 秒。保存后用于此服务商的模型验证与调用；超时可能已产生费用，请先核对调用记录。</span>
+              </ElFormItem>
+              <ElCollapse v-if="supportsExtraHeaders">
+                <ElCollapseItem title="额外请求头（可选）" name="extra-headers">
+                  <p class="muted">仅在服务商要求时填写组织、项目标识或额外密钥。保存后不会回显，也不会保存在浏览器中。</p>
+                  <ElFormItem v-for="field in extraHeaderFields" :key="field.name" :label="field.label">
+                    <ElInput v-model="extraHeaders[field.name]" type="password" show-password autocomplete="off"
+                      :placeholder="field.name" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
+                  </ElFormItem>
+                  <p v-if="extraHeaderError" class="muted">{{ extraHeaderError }}</p>
+                </ElCollapseItem>
+              </ElCollapse>
+              <ElFormItem>
+                <ElButton :loading="busy === 'discover'" :disabled="Boolean(busy || draft || saveAttempt || verificationRecoveryPending || verificationStorageError || journeyLocked) || !canConnect" @click="discover">发现模型</ElButton>
+              </ElFormItem>
+              <ElFormItem label="模型">
+                <ElSelect v-if="models.length" v-model="remoteModel" filterable allow-create default-first-option placeholder="选择或输入模型标识" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
+                  <ElOption v-for="model in models" :key="model.remote_model" :label="model.remote_model" :value="model.remote_model" />
+                </ElSelect>
+                <ElInput v-else v-model="remoteModel" maxlength="256" placeholder="发现不可用时，手动填写服务商给出的模型标识" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
+                <span class="muted">请选用支持聊天的模型。模型列表不证明聊天或材料抽取能力，保存后仍须验证。</span>
+                <span v-if="modelIdentifierError" class="muted">{{ modelIdentifierError }}</span>
+              </ElFormItem>
+              <ElFormItem label="模型名称">
+                <ElInput v-model.trim="modelName" maxlength="160" :placeholder="defaultModelName || '可选，用于后台识别此模型'" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
+                <span class="muted">可选；留空时使用上方模型标识作为后台名称，过长时仅缩短名称，调用仍使用完整模型标识。</span>
+                <span v-if="modelNameError" class="muted">{{ modelNameError }}</span>
+              </ElFormItem>
+              <ElFormItem label="材料抽取">
+                <ElCheckbox v-model="materialExtraction" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
+                  将此聊天模型作为材料结构化抽取候选
+                </ElCheckbox>
+                <span class="muted">聊天验证不证明材料抽取质量；材料配置须运行真实样本并核验后才可启用。</span>
+              </ElFormItem>
+              <ElFormItem label="输出上限">
+                <ElInputNumber v-model="maxOutputTokens" :min="1" :max="131072" :step="1" :disabled="Boolean(draft || saveAttempt || journeyLocked)" />
+              </ElFormItem>
+              <ElFormItem label="技能模板输出">
+                <ElSelect v-model="skillOutputStrategy" aria-label="技能模板输出策略" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
+                  <ElOption v-for="(label, value) in skillStrategyLabels" :key="value" :label="label" :value="value" />
+                </ElSelect>
+                <span class="muted">默认要求完整结构化输出。对象结构输出需模型服务支持相应输出协议；约束结构输出需支持 OpenAI 结构化输出协议；选择后仍须通过技能模板案例评测。</span>
+                <span class="muted">仅新建技能模板版本采用此配置，已冻结版本和历史调用保持原策略。</span>
+              </ElFormItem>
+              <ElFormItem label="推理额度">
+                <ElSelect v-model="reasoningEffort" aria-label="推理额度" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
+                  <ElOption label="由模型服务决定（默认）" value="" />
+                  <ElOption label="低" value="low" />
+                  <ElOption label="高" value="high" />
+                  <ElOption label="最大" value="max" />
+                </ElSelect>
+                <span class="muted">控制模型用于推理的额度。仅在模型服务明确支持时选择低、高或最大；默认不指定，具体效果以该模型说明为准。</span>
+                <span class="muted">保存请求和修订会锁定所选额度。修改配置后须重新保存、验证和启用。</span>
+              </ElFormItem>
+              <ElFormItem>
+                <ElButton type="primary" :loading="busy === 'save'" :disabled="Boolean(busy || draft || verificationRecoveryPending || verificationStorageError || journeyLocked) || (!saveAttempt && !canSave)" @click="saveDraft">保存模型草稿</ElButton>
+                <ElButton v-if="journey || journeyLocked" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="restoreJourney">只读找回原开通状态</ElButton>
+              </ElFormItem>
+            </ElForm>
+            <p class="muted">发现模型仅查询列表；保存成功或离开页面后 Key 会清空，不会保存在浏览器存储中。</p>
+          </section>
+
+          <section class="section">
+            <h3>已保存模型配置（只读）</h3>
+            <p class="muted">按已启用模型名称选择部署与修订，读取原保存值。此处不重新验证、保存、启用或绑定环境。</p>
+            <ElForm label-width="110px" class="narrow" @submit.prevent>
+              <ElFormItem label="名称筛选"><ElInput v-model.trim="inspectionSearchName" placeholder="可选，输入模型或服务商名称后读取部署列表" :disabled="inspectionLoading || inspectionReading" /></ElFormItem>
+              <ElFormItem label="已启用模型">
+                <ElSelect v-model="inspectionDeploymentId" filterable placeholder="先读取部署列表，再选择名称与修订" :loading="inspectionLoading" :disabled="inspectionLoading || inspectionReading" @change="chooseInspectionDeployment">
+                  <ElOption v-for="item in inspectionDeployments" :key="item.id" :label="`${item.display_name} · 修订 ${item.deployment_revision}`" :value="item.id" />
+                </ElSelect>
+                <ElButton :loading="inspectionLoading" :disabled="inspectionReading" @click="loadInspectionDeployments">读取部署列表</ElButton>
+              </ElFormItem>
+              <ElFormItem>
+                <ElButton :loading="inspectionReading" :disabled="inspectionLoading || !validInspectionTarget" @click="readInspectionRevision">读取所选修订</ElButton>
+              </ElFormItem>
+              <ElCollapse>
+                <ElCollapseItem title="按保存回执编号读取历史修订（专家备用）" name="inspection-reference">
+                  <p class="muted">已启用列表展示当前修订。读取历史修订时，使用原保存回执中的部署号与修订号；不会猜测或创建配置。</p>
+                  <ElFormItem label="部署号"><ElInputNumber v-model="inspectionTargetId" :min="1" :precision="0" :disabled="inspectionReading" aria-label="已有部署号" /></ElFormItem>
+                  <ElFormItem label="修订号"><ElInputNumber v-model="inspectionTargetRevision" :min="1" :precision="0" :disabled="inspectionReading" aria-label="已有修订号" /></ElFormItem>
+                </ElCollapseItem>
+              </ElCollapse>
+            </ElForm>
+            <template v-if="inspectedRevision">
+              <p>部署 {{ inspectedRevision.deployment_id }} · 修订 {{ inspectedRevision.revision }} · {{ inspectedRevision.state === 'published' ? '已启用（只读）' : '保存值（只读）' }}</p>
+              <p>{{ inspectedRevision.provider.name }} · {{ inspectedRevision.model.name }} · {{ inspectedRevision.deployment.remote_model }}</p>
+              <p>输出上限：{{ inspectedRevision.deployment.config.max_output_tokens }}</p>
+              <p>技能模板输出：{{ inspectedRevision.deployment.config.skill_output_strategy ? skillStrategyLabels[inspectedRevision.deployment.config.skill_output_strategy] : '未指定（新技能模板采用标准输出，历史版本保持原策略）' }}</p>
+              <p class="muted">显示值来自指定修订的冻结配置。未指定策略的旧修订保持缺字段；新建配置的默认选择不会写回这里。</p>
+            </template>
+          </section>
+
+          <section class="section">
+            <h3>3. 验证并启用模型连接</h3>
+            <p v-if="draft">部署 {{ draft.deployment_id }} · 修订 {{ draft.revision }} · {{ verificationStateLabel }}</p>
+            <p v-if="verificationRequest" class="muted">原验证请求号：{{ verificationRequest.key }} · 部署 {{ verificationRequest.deployment_id }} · 修订 {{ verificationRequest.revision }}。此号用于找回本次验证，与费用明细中的尝试编号不同。</p>
+            <ElAlert v-if="verificationRecoveryPending" type="warning" :closable="false" title="原验证结果尚未确认。本页保留请求编号，暂时锁定新保存、验证和重新配置；只读找回不会再次调用模型。" />
+            <ElAlert v-if="verificationStorageError" type="warning" :closable="false" title="无法确认本机会话中的原验证记录，暂时不能发起新验证。请保留原部署与修订号，由管理员核查；不会换请求号重发。" />
+            <ElButton v-if="verificationRecoveryPending || verificationStorageError || journeyLocked" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="restoreVerificationRequest">找回原验证状态</ElButton>
+            <p v-if="draft" class="muted">当前修订的推理额度：{{ savedReasoningEffortLabel }}。此值来自服务器保存的修订配置。</p>
+            <p v-if="draft" class="muted">当前修订的技能模板输出：{{ draft.deployment.config.skill_output_strategy ? skillStrategyLabels[draft.deployment.config.skill_output_strategy] : '未指定（新技能模板采用标准 JSON，历史版本保持原策略）' }}。</p>
+            <p v-else class="muted">请先保存模型草稿。验证会发送极小样本，可能产生服务商费用。</p>
+            <ElAlert v-if="publicationConfirmationRequired" type="warning" :closable="false" title="启用结果或当前修订尚未确认。请先读取当前部署修订并核对；读取不会验证或启用模型，也不代表原启用没有执行。" />
+            <ElButton v-if="journey?.phase === 'publish_unknown'" :loading="busy === 'read' || busy === 'publish'" :disabled="Boolean(busy) || originalPublicationConfirming || journeyRecoveryPending || verificationRecoveryPending || verificationStorageError" @click="confirmOriginalPublication">读取原目标启用状态</ElButton>
+            <ElButton v-if="publicationConfirmationRequired" :loading="busy === 'read'" :disabled="Boolean(busy) || verificationRecoveryPending || verificationStorageError || journeyStorageError || journeyRecoveryPending" @click="readCurrentPublicationRevision">读取并确认当前修订</ElButton>
+            <div v-if="publicationConfirmationRequired && publicationPreview" class="muted">
+              <p>当前部署 {{ publicationPreview.draft.deployment_id }} · 修订 {{ publicationPreview.draft.revision }} · {{ verificationLabel(publicationPreview.verification.state) }}。服务商：{{ publicationPreview.draft.provider.name }}；模型：{{ publicationPreview.draft.model.name }}（{{ publicationPreview.draft.deployment.remote_model }}）。</p>
+              <p>输出上限 {{ publicationPreview.draft.deployment.config.max_output_tokens }}；推理额度 {{ publicationPreview.draft.deployment.config.reasoning_effort || '由模型服务决定' }}；技能模板输出 {{ publicationPreview.draft.deployment.config.skill_output_strategy ? skillStrategyLabels[publicationPreview.draft.deployment.config.skill_output_strategy] : '标准输出（默认）' }}。</p>
+              <ElButton :disabled="Boolean(busy) || verificationRecoveryPending || verificationStorageError || journeyLocked" @click="confirmCurrentPublicationRevision">确认使用此修订</ElButton>
+            </div>
+            <ElForm v-if="draft" label-width="110px" class="narrow" @submit.prevent>
+              <ElFormItem label="处理位置">
+                <ElSelect v-model="processingLocation" placeholder="请按服务商实际处理位置确认" :disabled="Boolean(busy) || connectionSubmitting || verification?.state === 'tested' || verificationRecoveryPending">
+                  <ElOption label="本地运行" value="local_runtime" />
+                  <ElOption label="私有网络" value="private_network" />
+                  <ElOption label="公共云" value="public_cloud" />
+                </ElSelect>
+              </ElFormItem>
+              <ElFormItem>
+                <ElSpace wrap>
+                  <ElButton :loading="busy === 'verify'" :disabled="!canVerify" @click="verifyDraft">验证聊天模型</ElButton>
+                  <ElButton :loading="busy === 'read'" :disabled="Boolean(busy)" @click="readVerification">读取当前修订配置与状态</ElButton>
+                  <ElButton type="primary" :loading="busy === 'publish'" :disabled="Boolean(busy) || publicationConfirmationRequired || verificationRecoveryPending || verificationStorageError || journeyLocked || verification?.state !== 'tested' || !verification.validation_evidence" @click="publish">启用模型连接</ElButton>
+                  <ElButton v-if="canReconfigure" :disabled="Boolean(busy)" @click="reconfigureConnection">重新配置连接</ElButton>
+                </ElSpace>
+              </ElFormItem>
+            </ElForm>
+            <ElAlert v-if="verificationFailure" type="warning" :closable="false" :title="verificationFailure.message" />
+            <p v-if="verificationFailure?.failed_at" class="muted">失败时间：{{ verificationFailure.failed_at }}</p>
+            <ElAlert v-if="!verificationFailure && verification?.state === 'draft' && (verificationRejected || verificationAttempted || hasVerificationFailure) && !verificationUncertain" type="warning" :closable="false"
+              :title="verificationRejected && !hasVerificationFailure
+                ? '服务商拒绝了聊天验证。当前修订已确认回到待验证，可重新配置连接；此处不会重复验证失败修订。'
+                : !hasVerificationFailure
+                  ? '当前修订已确认回到待验证。可重新配置连接；此处不会重复验证已经发送过的修订。'
+                  : '当前修订的失败反馈无法确认。请保留部署与修订号并联系管理员核查；此处不会重复验证或重新配置。'" />
+            <ElAlert v-if="verification?.validation_evidence?.usage_measured === false" type="warning" :closable="false"
+              title="模型已通过调用验证，但服务商未返回用量。运行费用会保持未知，依赖精确用量的限额和低成本路由可能不可用。" />
+            <ElAlert v-if="verification?.state === 'verifying'" type="info" :closable="false" title="服务商验证仍在进行。请稍后读取当前修订状态，不要重复发送验证请求。" />
+            <ElAlert v-if="verificationUncertain" type="warning" :closable="false" title="验证结果无法确定，可能已产生服务商费用。请保留上方部署与修订号，请到服务商控制台核查调用记录并联系管理员；此处不会重新发送验证请求。" />
+            <ElAlert v-if="bindingStorageError" type="warning" :closable="false"
+              title="原绑定操作记录无法确认，暂不发送新的绑定。请恢复会话存储后重读原记录。" />
+            <ElButton v-if="bindingStorageError" :disabled="bindingSubmitting || bindingReading || Boolean(busy)" @click="loadOriginalBindingIntent">重读原绑定记录</ElButton>
+            <section v-if="bindingIntent">
+              <ElAlert type="warning" :closable="false"
+                title="原绑定结果尚未确认"
+                :description="`原目标：应用 ${bindingIntent.application_id}，环境 ${bindingIntent.environment_id}，部署 ${bindingIntent.deployment_id} · 修订 ${bindingIntent.revision}。`" />
+              <ElButton :loading="bindingReading" :disabled="bindingSubmitting || bindingReading || Boolean(busy)" @click="readOriginalBinding">读取原绑定目标</ElButton>
+              <p class="muted">仅核对原目标当前的已启用默认聊天配置。这不是服务器原操作回执；未找到、读取失败或目标不匹配不证明原绑定未发生，不会重新发送绑定。</p>
+            </section>
+            <p v-if="bindingNotice" class="muted">{{ bindingNotice }}</p>
+            <ElAlert v-if="published && !publicationConfirmationRequired" type="success" :closable="false" title="模型连接已启用。请选择目标环境并绑定默认聊天能力，应用才能调用。" />
+            <ElSpace v-if="published && !publicationConfirmationRequired" wrap>
+              <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'bind'"
+                :disabled="Boolean(busy) || journeyLocked || !environmentId || boundEnvironmentId === environmentId" @click="bindDefaultChat">
+                {{ boundEnvironmentId === environmentId ? '本次已绑定到该环境' : '绑定到所选环境' }}
+              </ElButton>
+              <span v-if="!environmentId" class="muted">先在工作目标中选择 SandIAM 应用和环境。</span>
+            </ElSpace>
+            <p v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" class="muted">聊天能力已绑定；所选工作目标仍需按对应配置入口继续准备、试用并启用。</p>
+            <ElSpace v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" wrap>
+              <ElButton type="primary" :disabled="Boolean(busy)" @click="openChatTrial">试用已启用聊天能力</ElButton>
+              <span class="muted">后台管理员负责配置；应用调用使用 SandIAM 工作负载调用密钥，调用环境由凭证决定。进入“聊天路线试用”后填写该凭证，无需填写服务商 API Key。</span>
+            </ElSpace>
+          </section>
+
+          <section class="section">
+            <SuccessorDeploymentSetup :application-id="applicationId || null" :environment-id="environmentId || null" />
+          </section>
+
+          <section v-if="selectedScene === 'meeting_recording_organization'" class="section">
+            <h3>4. {{ guide.display_name }}服务</h3>
+            <p>{{ guide.module_explanation }}</p>
+            <p class="muted">先配置并启用转写能力与聊天路线，再核定会议执行设置。模型验证不证明转写准确率或会议摘要完整性。</p>
+            <ElButton @click="openCapabilityConfiguration">配置会议所需能力</ElButton>
+            <MeetingExecutionSetup
+              :environment-id="environmentId"
+              :application-name="applications.find(item => item.id === applicationId)?.name || '未选择应用'"
+              :environment-name="environments.find(item => item.id === environmentId)?.name || '未选择环境'"
+              @configure="openCapabilityConfiguration"
+            />
+          </section>
+
+          <section v-else-if="selectedScene === 'material_organization'" class="section">
+            <h3>4. {{ guide.display_name }}服务</h3>
+            <p>{{ guide.module_explanation }}</p>
+            <p class="muted">先保存环境配置草稿；后续仍需运行真实样本并启用服务。</p>
+            <MaterialCapabilitySetup
+              :key="environmentId || 'no-environment'"
+              :environment-id="environmentId"
+              :application-name="applications.find(item => item.id === applicationId)?.name || '未选择应用'"
+              :environment-name="environments.find(item => item.id === environmentId)?.name || '未选择环境'"
+              :deployment-id="published ? draft?.deployment_id ?? null : null"
+              :deployment-name="draft?.model.name ?? ''"
+              :extraction-declared="materialExtraction"
+              @status="onMaterialCapabilityStatus"
+              @professional="openCapabilityConfiguration"
+            />
+            <MaterialProfileEditor v-if="materialReadyEnvironmentId === environmentId && environmentId" :environment-id="environmentId" />
+          </section>
+
+          <section v-else class="section">
+            <h3>4. {{ guide.display_name }}服务</h3>
+            <p>{{ guide.module_explanation }}</p>
+            <p class="muted">{{ guide.readiness_note }}</p>
+            <p v-if="!environmentId" class="muted">先在工作目标中选择应用和环境，再在对应模块明确配置使用范围。</p>
+            <ElSpace wrap>
+              <ElButton @click="openCapabilityConfiguration">配置并启用所需能力</ElButton>
+              <ElButton v-if="guide.technical.module_codes.includes('knowledge_base')" @click="router.push('/sand-ai/knowledge')">准备知识材料</ElButton>
+              <ElButton v-if="guide.technical.module_codes.includes('agent')" @click="router.push('/sand-ai/agent')">配置知识问答智能体</ElButton>
+            </ElSpace>
+            <p class="muted">模型连接启用与环境能力启用是各自的操作。知识材料、智能体和渠道仍按对应模块的实际状态与授权使用，不会因选择目标自动开通。</p>
+          </section>
+        </template>
+      </ElCard>
+      <EgressBlockedHint
+        v-if="egressHint"
+        :model-value="true"
+        :service-name="providerName.trim() || '该服务'"
+        :details="egressHint"
+        @update:model-value="(value: boolean) => { if (!value) egressHint = null }"
+        @retry="() => { egressHint = null; void discover() }"
+      />
+    </div>
+  </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
+  import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
+  import EgressBlockedHint from '../components/EgressBlockedHint.vue'
 import '../components/sandAiPage.css'
 import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -421,6 +433,7 @@ import { HttpError } from '@/utils/http/error'
 import { useUserStore } from '@/store/modules/user'
 import iamApi, { type SandIamApplicationReference, type SandIamEnvironmentReference } from '../api/iam'
 import onboardingApi, { type AudioRuntimeMetadata, type DiscoveredModel, type DraftSave, type NewDeployment, type ProviderConnectionHeader, type ProviderGuide, type PublishedDeployment, type ReasoningEffort, type SkillOutputStrategy, type ServiceCatalogPreflight, type SolutionGuide, type Verification, type VerificationFailure, type VerificationFailureReason } from '../api/onboarding'
+import { egressBlockedDetails, type EgressBlockedDetails } from '../api/egressBlocked'
 import capabilityApi from '../api/capability'
 import { readOnboardingBindingIntent, retainOnboardingBindingIntent, resolveOnboardingBindingIntent, type OnboardingBindingIntent } from '../api/onboardingBindingIntent'
 import MaterialProfileEditor from '../components/MaterialProfileEditor.vue'
@@ -530,6 +543,7 @@ function openChatTrial(): void {
 }
 watch(environmentId, () => { materialReadyEnvironmentId.value = null }, { flush: 'sync' })
 const providerName = ref('')
+const egressHint = ref<EgressBlockedDetails | null>(null)
 const baseUrl = ref('')
 const apiKey = ref('')
 const providerTimeoutSeconds = ref(120)
@@ -1514,7 +1528,12 @@ async function discover(): Promise<void> {
       models.value = result.models
       notice(result.models.length ? '已发现模型；也可以手动填写其他模型标识。' : '服务商未返回模型列表，请从控制台取得聊天模型标识后手动填写；保存草稿后仍需验证。', 'success')
     } catch (error) {
-      if (current === epoch && generation === discoveryGeneration) notice(discoveryFailureNotice(error), 'warning')
+      const blocked = egressBlockedDetails(error)
+      if (blocked !== null) {
+        if (current === epoch && generation === discoveryGeneration) egressHint.value = blocked
+      } else if (current === epoch && generation === discoveryGeneration) {
+        notice(discoveryFailureNotice(error), 'warning')
+      }
     } finally {
       if (current === epoch) busy.value = ''
     }

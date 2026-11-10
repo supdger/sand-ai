@@ -2,12 +2,13 @@ import request from '@/utils/http'
 import { HttpError } from '@/utils/http/error'
 import { ADMIN_API_PREFIX } from './config'
 import { batch, clearResult, detail, list, result, review, uploadResult } from './billing-types'
+import { errorDisplayText } from './errorText'
 import type { BillingImportInput, BillingReviewInput } from './billing-types'
 
 const base = `${ADMIN_API_PREFIX}/billing`
 export function billingError(error: unknown): string {
   if (error instanceof HttpError && error.code === 403) return '没有此账单操作权限，请联系管理员。'
-  return error instanceof Error ? error.message : '账单操作失败'
+  return errorDisplayText(error, '账单操作失败')
 }
 export function uncertainWrite(error: unknown): boolean {
   // 只有明确的客户端拒绝可解除冻结；网络、服务器错误和不完整成功回执都可能已写入。

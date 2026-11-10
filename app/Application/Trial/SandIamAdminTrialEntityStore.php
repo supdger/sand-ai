@@ -20,7 +20,7 @@ final class SandIamAdminTrialEntityStore implements AdminTrialEntityStore
     /**
      * The trial chain converges on the same canonical defaults as SandIAM's
      * access-matrix ensure-defaults path (AccessMatrixInput::DEFAULT_*):
-     * organization `default`, application `lvxu`, environment `prod`. Only the
+     * organization `default`, application `default-app`, environment `prod`. Only the
      * workload client stays trial-dedicated (`admin_trial`) so revoking that
      * one client still closes the whole channel. Instances that already ran
      * the pre-unification chain adopted application `system`; when it exists
@@ -86,7 +86,7 @@ final class SandIamAdminTrialEntityStore implements AdminTrialEntityStore
                 }
             }
             if ($client === null) {
-                // Canonical business application first (`lvxu`, same as the
+                // Canonical business application first (`default-app`, same as the
                 // access-matrix chain); an existing pre-unification `system`
                 // application is adopted so upgraded instances converge on
                 // the environment their deployments are already bound to.

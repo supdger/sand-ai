@@ -1,5 +1,5 @@
 import request from '@/utils/http'
-import { ADMIN_API_PREFIX, USE_SCHEMA_MOCK } from './config'
+import { ADMIN_API_PREFIX } from './config'
 import type { SandAiUsageSummaryRow } from './types'
 
 export type PlatformValidationState =
@@ -215,7 +215,6 @@ function summary(value: unknown): value is PlatformValidationSummary {
 
 export default {
   async list(params: PlatformValidationPageQuery): Promise<PlatformValidationPage> {
-    if (USE_SCHEMA_MOCK) throw new Error('模型验证费用需要连接真实后台，不能使用模拟账单')
     const value = await request.get<unknown>({
       url: `${ADMIN_API_PREFIX}/usage/platform-validation/index`,
       params,
@@ -225,7 +224,6 @@ export default {
     return value
   },
   async summary(params: PlatformValidationQuery): Promise<PlatformValidationSummary> {
-    if (USE_SCHEMA_MOCK) throw new Error('模型验证费用汇总需要连接真实后台')
     const value = await request.get<unknown>({
       url: `${ADMIN_API_PREFIX}/usage/platform-validation/summary`,
       params,

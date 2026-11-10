@@ -35,8 +35,10 @@ export const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
   SAND_AI_TASK_UNSUPPORTED: 'Worker 不支持该任务类型。',
   SAND_AI_TASK_INVALID: '任务输入无效。',
   SAND_AI_CAPABILITY_UNSUPPORTED: '已启用的能力配置没有包含该能力。请到「高级 → 能力配置」为当前环境添加该能力并启用配置后重试。',
+  // 语义宽泛（多处「环境缺已发布配置」抛出），只给通用说明；页面级引导由各面板自行处理
+  SAND_AI_CONFIGURATION_NOT_PUBLISHED: '当前环境还没有可用的已启用能力配置，请先到「能力配置」保存并启用。',
   SAND_AI_DATA_EGRESS_FORBIDDEN: '数据外发策略拒绝该驱动或 Provider。',
-  SAND_AI_PROVIDER_CONFIG_INVALID: '服务商配置不可用（不回显密钥）。',
+  SAND_AI_PROVIDER_CONFIG_INVALID: '服务商配置有问题，请到「服务商」页检查接口地址和密钥是否正确，保存后重试；仍失败请联系管理员核对服务配置。',
   SAND_AI_PROVIDER_UNAVAILABLE: '服务商暂不可用，可按 retryable 重试。',
   SAND_AI_PROVIDER_RATE_LIMITED: '服务商限流，可按 retryable 重试。',
   SAND_AI_PROVIDER_REJECTED: '服务商拒绝请求，不回显厂商原文。'

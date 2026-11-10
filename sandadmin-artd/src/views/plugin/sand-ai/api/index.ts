@@ -1,12 +1,10 @@
 /**
  * SandAI 管理端 API 入口（C-04 契约）。
  *
- * - 默认 `USE_SCHEMA_MOCK=false`，请求 `/app/sand-ai/admin/...`
- * - 本地无后端时可临时打开 mock
+ * - 仅请求真实后台 `/app/sand-ai/admin/...`
  */
 
-export { USE_SCHEMA_MOCK, ADMIN_API_PREFIX, RUNTIME_API_PREFIX } from './config'
-export { getMockForceError, setMockForceError } from './mock/helpers'
+export { ADMIN_API_PREFIX, RUNTIME_API_PREFIX, SAND_AI_PLUGIN_VERSION } from './config'
 export type * from './types'
 export { SandAiRuntimeError } from './runtime'
 export {

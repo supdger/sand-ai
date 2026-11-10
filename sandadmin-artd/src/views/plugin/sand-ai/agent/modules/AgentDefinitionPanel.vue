@@ -71,7 +71,11 @@
           <div class="knowledge-actions">
             <ElButton link type="primary" :loading="modelsLoading" @click="loadModels">刷新模型</ElButton>
           </div>
-          <p v-if="modelsError" class="knowledge-note">{{ modelsError }}。草稿仍可手动填写模型代码，启用需当前环境存在可用路由。</p>
+          <div v-if="modelsNotPublished" class="knowledge-note knowledge-note--action">
+            这个环境还没有启用的能力配置，请先去『能力配置』保存并启用。
+            <ElButton link type="primary" @click="router.push('/sand-ai/capability')">去能力配置</ElButton>
+          </div>
+          <p v-else-if="modelsError" class="knowledge-note">{{ modelsError }}。草稿仍可手动填写模型代码，启用需当前环境存在可用路由。</p>
         </ElFormItem>
         <ElFormItem label="参考知识库">
           <ElSelect v-model="form.knowledge_base_code" filterable allow-create default-first-option clearable
@@ -133,11 +137,13 @@
 <script setup lang="ts">
   import { useUserStore } from '@/store/modules/user'
   import { computed, onUnmounted, reactive, ref, watch } from 'vue'
+  import { useRouter } from 'vue-router'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import agentDefinitionApi, { type AgentDefinitionOperation, type AgentDefinitionOperationReceipt, type AgentDefinitionRejectedPublishReceipt, type AgentDraft, type AgentAvailableModel, type AgentContextTurnLimit, type AgentDefinitionRow, type AgentReadonlyToolSelection, type AgentVersionHistory } from '../../api/agentDefinition'
   import knowledgePublicationApi, { type ConsumerKnowledgePublication } from '../../api/knowledgePublication'
   import ReadonlyToolSelector from './ReadonlyToolSelector.vue'
   import { newRuntimeRequestId } from '../../api/runtime'
+  import { errorDisplayText } from '../../api/errorText'
 
   const versionsVisible = ref(false)
   const versions = ref<AgentVersionHistory[]>([])
@@ -148,6 +154,7 @@
   const versionOwner = ref<AgentDefinitionRow | null>(null)
   let versionsEpoch = 0
   const props = defineProps<{ environmentId: number | null }>()
+  const router = useRouter()
   const userStore = useUserStore()
   const operationJournalKey = 'sand-ai-agent-definition-operation-journal:v1'
   const operationLockAvailable = typeof navigator !== 'undefined' && !!navigator.locks
@@ -167,6 +174,8 @@
   const models = ref<AgentAvailableModel[]>([])
   const modelsLoading = ref(false)
   const modelsError = ref('')
+  // SAND_AI_CONFIGURATION_NOT_PUBLISHED：环境缺已发布能力配置，走专属引导而非错误文案直出
+  const modelsNotPublished = ref(false)
   let modelEpoch = 0
   const knowledge = ref<ConsumerKnowledgePublication[]>([])
   const knowledgeLoading = ref(false)
@@ -235,6 +244,7 @@
     const current = ++modelEpoch
     modelsLoading.value = true
     modelsError.value = ''
+    modelsNotPublished.value = false
     try {
       const result = await agentDefinitionApi.models(environmentId)
       if (current !== modelEpoch || props.environmentId !== environmentId) return
@@ -242,7 +252,14 @@
     } catch (failure) {
       if (current === modelEpoch) {
         models.value = []
-        modelsError.value = failure instanceof Error ? failure.message : '当前环境模型读取失败'
+        const rawMessage = failure instanceof Error ? failure.message : ''
+        if (/\bSAND_AI_CONFIGURATION_NOT_PUBLISHED\b/.test(rawMessage)) {
+          // 错误码与英文原因不上屏；原始信息只进 console 供排查
+          modelsNotPublished.value = true
+          console.error('[sand-ai] agent models unavailable: configuration not published', failure)
+        } else {
+          modelsError.value = errorDisplayText(failure, '当前环境模型读取失败')
+        }
       }
     } finally {
       if (current === modelEpoch) modelsLoading.value = false
@@ -264,7 +281,7 @@
       knowledgeMore.value = targetPage * 100 < result.total
     } catch (failure) {
       if (current === knowledgeEpoch) {
-        knowledgeError.value = failure instanceof Error ? failure.message : '可用知识库读取失败'
+        knowledgeError.value = errorDisplayText(failure, '可用知识库读取失败')
       }
     } finally {
       if (current === knowledgeEpoch) knowledgeLoading.value = false
@@ -283,7 +300,7 @@
       total.value = result.total
       page.value = targetPage
     } catch (failure) {
-      if (current === epoch) error.value = failure instanceof Error ? failure.message : '智能体列表读取失败'
+      if (current === epoch) error.value = errorDisplayText(failure, '智能体列表读取失败')
     } finally {
       if (current === epoch) loading.value = false
     }
@@ -311,7 +328,7 @@
         context_turn_limit: detail.latest_version?.context_turn_limit ?? 2
       })
     } catch (failure) {
-      if (current === formEpoch) error.value = failure instanceof Error ? failure.message : '智能体详情读取失败'
+      if (current === formEpoch) error.value = errorDisplayText(failure, '智能体详情读取失败')
     } finally { if (current === formEpoch) editingLoading.value = false }
   }
   function operationLabel(operation: AgentDefinitionOperation): string {
@@ -440,7 +457,7 @@
       await readBackOperation(reference, stillCurrent)
     } catch (failure) {
       if (stillCurrent()) {
-        const message = failure instanceof Error ? failure.message : '原变更回执未找回'
+        const message = errorDisplayText(failure, '原变更回执未找回')
         if (operationJournal.value.some(item => item.key === reference.key && item.code === reference.code))
           operationRecoveryError.value = `${message}；请核对原请求，未确认时不能再次变更。`
         else error.value = `原变更回执已确认，但当前配置未能完整重读：${message}。请刷新并重新读取配置后再确认变更。`
@@ -472,7 +489,7 @@
       if (!reference || !stillCurrent()) return
       const result = await agentDefinitionApi.draft(draft, reference.key)
       await completeOperation(reference, result, stillCurrent)
-    } catch (failure) { if (stillCurrent()) error.value = `${failure instanceof Error ? failure.message : '保存结果未确认'}；请沿原请求号找回，不要重新提交。` }
+    } catch (failure) { if (stillCurrent()) error.value = `${errorDisplayText(failure, '保存结果未确认')}；请沿原请求号找回，不要重新提交。` }
     finally { if (managementFlight.value === flight) managementFlight.value = null }
   }
   async function publish(row: AgentDefinitionRow): Promise<void> {
@@ -504,8 +521,8 @@
       const result = await agentDefinitionApi.publish(environmentId, row.agent_definition_id, reference.key, expectedSha)
       await completeOperation(reference, result, stillCurrent)
     } catch (failure) { if (stillCurrent()) error.value = dispatched
-      ? `${failure instanceof Error ? failure.message : '启用结果未确认'}；请沿原请求号找回。若草稿冲突，请重新读取当前配置并确认，不能自动改版启用。`
-      : `${failure instanceof Error ? failure.message : '草稿读取失败'}；本次未提交启用，请刷新列表、重新读取配置后确认。` }
+      ? `${errorDisplayText(failure, '启用结果未确认')}；请沿原请求号找回。若草稿冲突，请重新读取当前配置并确认，不能自动改版启用。`
+      : `${errorDisplayText(failure, '草稿读取失败')}；本次未提交启用，请刷新列表、重新读取配置后确认。` }
     finally { if (managementFlight.value === flight) managementFlight.value = null }
   }
   async function disable(row: AgentDefinitionRow): Promise<void> {
@@ -525,7 +542,7 @@
       if (!reference || !stillCurrent()) return
       const result = await agentDefinitionApi.disable(environmentId, row.agent_definition_id, reference.key)
       await completeOperation(reference, result, stillCurrent)
-    } catch (failure) { if (stillCurrent()) error.value = `${failure instanceof Error ? failure.message : '停用结果未确认'}；请沿原请求号找回，不要重新提交。` }
+    } catch (failure) { if (stillCurrent()) error.value = `${errorDisplayText(failure, '停用结果未确认')}；请沿原请求号找回，不要重新提交。` }
     finally { if (managementFlight.value === flight) managementFlight.value = null }
   }
   function toolVersionsLabel(tools: readonly AgentReadonlyToolSelection[] | undefined): string { return tools?.map(tool => `${tool.code} v${tool.version} · ${tool.business_scope}`).join('；') || '仅私有检索' }
@@ -549,7 +566,7 @@
       versionsTotal.value = result.total
       versionsPage.value = target
     } catch (failure) {
-      if (current === versionsEpoch) { versions.value = []; versionError.value = failure instanceof Error ? failure.message : '版本读取失败' }
+      if (current === versionsEpoch) { versions.value = []; versionError.value = errorDisplayText(failure, '版本读取失败') }
     } finally { if (current === versionsEpoch) versionsLoading.value = false }
   }
   async function rollback(version: AgentVersionHistory): Promise<void> {
@@ -571,7 +588,7 @@
       if (!reference || !stillCurrent()) return
       const result = await agentDefinitionApi.rollback(environment, owner.agent_definition_id, version.version_no, reference.key)
       await completeOperation(reference, result, stillCurrent)
-    } catch (failure) { if (stillCurrent()) versionError.value = `${failure instanceof Error ? failure.message : '回退结果未确认'}；请沿原请求号只读找回，不再发送回退。` }
+    } catch (failure) { if (stillCurrent()) versionError.value = `${errorDisplayText(failure, '回退结果未确认')}；请沿原请求号只读找回，不再发送回退。` }
     finally { if (managementFlight.value === flight) managementFlight.value = null }
   }
 
@@ -593,6 +610,7 @@
     models.value = []
     modelsLoading.value = false
     modelsError.value = ''
+    modelsNotPublished.value = false
     knowledge.value = []
     knowledgePage = 0
     knowledgeMore.value = false
@@ -612,7 +630,7 @@
     loading.value = false; editingLoading.value = false
     versionsVisible.value = false; versions.value = []; versionOwner.value = null; versionsLoading.value = false
     rows.value = []; total.value = 0; error.value = ''; versionError.value = ''
-    models.value = []; modelsLoading.value = false; modelsError.value = ''
+    models.value = []; modelsLoading.value = false; modelsError.value = ''; modelsNotPublished.value = false
     knowledge.value = []; knowledgeLoading.value = false; knowledgeError.value = ''
     knowledgePage = 0; knowledgeMore.value = false
     newDraft()

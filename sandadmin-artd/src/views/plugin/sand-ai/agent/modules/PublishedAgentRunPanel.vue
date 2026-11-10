@@ -95,6 +95,7 @@
   import { computed, onUnmounted, ref, watch } from 'vue'
   import { useUserStore } from '@/store/modules/user'
   import { SandAiRuntimeError } from '../../api/runtime'
+  import { errorDisplayText } from '../../api/errorText'
   import { isAgentReadDenied } from '../../api/agentEventReplay'
   import agentApi, { type AgentConversationTask } from '../../api/agent'
   import agentDefinitionApi, { type AgentDefinitionRow } from '../../api/agentDefinition'
@@ -253,7 +254,7 @@
       page = targetPage
       more.value = page * 100 < result.total
     } catch (failure) {
-      if (current === listEpoch) error.value = failure instanceof Error ? failure.message : '智能体读取失败'
+      if (current === listEpoch) error.value = errorDisplayText(failure, '智能体读取失败')
     } finally { if (current === listEpoch) agentsLoading.value = false }
   }
   async function loadHistory(older: boolean): Promise<void> {
@@ -277,7 +278,7 @@
       if (result.tasks.length === 0 && !older) historyError.value = '此会话尚无当前身份可读取的任务。'
     } catch (failure) {
       if (current !== historyEpoch) return
-      historyError.value = failure instanceof Error ? failure.message : '会话历史读取失败'
+      historyError.value = errorDisplayText(failure, '会话历史读取失败')
       if (failure instanceof SandAiRuntimeError && isAgentReadDenied(failure.errorCode, failure.httpStatus)) {
         history.value = []
         nextHistory.value = null
@@ -329,7 +330,7 @@
       if (current !== epoch) return
       acceptOriginalTask(result)
     } catch (failure) {
-      if (current === epoch) error.value = failure instanceof Error ? failure.message : '原任务找回失败'
+      if (current === epoch) error.value = errorDisplayText(failure, '原任务找回失败')
     } finally { if (current === epoch) busy.value = false }
   }
   function withoutPrivateContent(current: SandAiTask): SandAiTask {
@@ -404,7 +405,7 @@
     } catch (failure) {
       if (current === epoch && !requestStarted) recoveryStorageError.value = true
       if (current === epoch) error.value = requestStarted
-        ? failure instanceof Error ? failure.message : '提交失败，请先找回原任务'
+        ? errorDisplayText(failure, '提交失败，请先找回原任务')
         : '本次问题尚未发送：浏览器无法保存任务恢复记录。请释放浏览器存储空间或允许会话存储后，再手动提交。'
     } finally { if (current === epoch) busy.value = false }
   }

@@ -1,8 +1,9 @@
 /**
- * C-04 已冻结：默认走真实管理 API。
- * 仅本地无后端时可临时改为 true。
+ * C-04 已冻结：管理端仅走真实管理 API（不再保留前端 mock 通路）。
  */
-export const USE_SCHEMA_MOCK = false
+
+/** 插件版本（与 info.ini 的 version 保持一致，仅用于「复制问题信息」脱敏字段） */
+export const SAND_AI_PLUGIN_VERSION = '0.4.10'
 
 /** 管理 API 前缀（C-04） */
 export const ADMIN_API_PREFIX = '/app/sand-ai/admin'

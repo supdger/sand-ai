@@ -97,7 +97,9 @@ final class WecomCredentialGateway
         if (preg_match('/^[0-9]{1,20}$/D', $input['agent_id']) !== 1
             || preg_match('/^[A-Za-z0-9]{43}$/D', $input['encoding_aes_key']) !== 1) self::invalid();
         if (array_key_exists('api_base', $input)) {
-            try { ChannelApiBase::resolve($input['api_base'], 'https://qyapi.weixin.qq.com'); }
+            // Full egress verification at save time: forbidden bases are
+            // rejected before they can be stored; delivery re-verifies anyway.
+            try { (new ChannelApiBasePolicy())->verify($input['api_base'], 'https://qyapi.weixin.qq.com'); }
             catch (ApiProblem) { self::invalid(); }
         }
     }

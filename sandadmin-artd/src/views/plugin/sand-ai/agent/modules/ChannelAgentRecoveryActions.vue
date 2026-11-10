@@ -29,6 +29,7 @@
   import { computed, onUnmounted, ref, watch } from 'vue'
   import channelApi, { type ChannelDeliveryPlatform } from '../../api/channelBinding'
   import { SandAiRuntimeError } from '../../api/runtime'
+  import { errorDisplayText } from '../../api/errorText'
   import { isAgentReadDenied } from '../../api/agentEventReplay'
   import type { SandAiTask } from '../../api/types'
   import AgentRunDetails from './AgentRunDetails.vue'
@@ -136,7 +137,7 @@
     } catch (failure) {
       if (!live || current !== generation || owner !== props.scope || token !== props.apiKey) return
       if (failure instanceof SandAiRuntimeError && isAgentReadDenied(failure.errorCode, failure.httpStatus)) deny()
-      else run.costError.value = failure instanceof Error ? failure.message : '原消息费用读取失败。'
+      else run.costError.value = errorDisplayText(failure, '原消息费用读取失败。')
     }
   }
   watch(() => [props.scope, props.apiKey], () => { ++generation; unavailableTasks.clear(); run.reset(); readState.value = 'idle' }, { flush: 'sync' })

@@ -180,6 +180,10 @@ Route::group('/app/sand-ai/admin', function (): void {
     // Admin trial channel: backstage session exchanges for a short-lived
     // SandIAM context. Admin group only; never on the public v1 surface.
     Route::post('/trial/context', [AdminTrialController::class, 'context']);
+    // B2 "试一试": published chat-route options and single-message chat for a
+    // manageable application, always through the managed workload binding.
+    Route::get('/trial/options', [AdminTrialController::class, 'options']);
+    Route::post('/trial/chat', [AdminTrialController::class, 'chat']);
 })->middleware([
     CheckLogin::class,
     CheckAuth::class,

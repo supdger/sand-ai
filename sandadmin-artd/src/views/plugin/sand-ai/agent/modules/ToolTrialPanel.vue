@@ -153,6 +153,7 @@ import RuntimeApiKeyField from '../../components/RuntimeApiKeyField.vue'
 import toolTrialApi, { type ToolAvailable, type ToolRunSummary } from '../../api/toolTrial'
 import { newRuntimeRequestId, SandAiRuntimeError } from '../../api/runtime'
 import { hintForRuntimeErrorCode } from '../../api/runtimeErrors'
+import { errorDisplayText } from '../../api/errorText'
 import ToolSchemaFields from './ToolSchemaFields.vue'
 import { parseToolSchema, toolInputIssues } from './toolSchema'
 
@@ -341,14 +342,14 @@ watch([readerCode, readerVersion, readerKey, readerRunId], invalidateReader, { f
 const schemaState = computed(() => {
   if (!selectedSchema.value) return { schema: null, error: '' }
   try { return { schema: parseToolSchema(selectedSchema.value), error: '' } }
-  catch (cause) { return { schema: null, error: cause instanceof Error ? cause.message : '工具参数结构无效' } }
+  catch (cause) { return { schema: null, error: errorDisplayText(cause, '工具参数结构无效') } }
 })
 const inputIssue = computed(() => {
   if (schemaState.value.error) return schemaState.value.error
   try {
     const input = parseInput()
     return schemaState.value.schema ? toolInputIssues(schemaState.value.schema, input).join('；') : ''
-  } catch (cause) { return cause instanceof Error ? cause.message : '工具输入无效' }
+  } catch (cause) { return errorDisplayText(cause, '工具输入无效') }
 })
 
 async function digest(value: string): Promise<string> {
@@ -556,7 +557,7 @@ async function submit(): Promise<void> {
   if (draftLocked.value || !ready.value || !schemaState.value.schema || inputIssue.value || owner.value === null) return
   let input: Record<string, unknown>
   try { input = parseInput() } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '工具输入无效'
+    error.value = errorDisplayText(cause, '工具输入无效')
     return
   }
   const current = ++epoch

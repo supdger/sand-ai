@@ -13,23 +13,27 @@ declare(strict_types=1);
  * Usage:
  *   php tools/build-release-payload.php --iam-bundle=/path/sand-iam-0.8.4.zip
  *   php tools/build-release-payload.php --iam-bundle=<path> --check
+ *   php tools/build-release-payload.php [--check]
+ *
+ * --iam-bundle verifies the dependency artifact against the declared digest
+ * while enumerating. Omitting it records the declared identity itself, for the
+ * window where the next pinned artifact has not been published yet; the build
+ * gate still requires the real artifact before any ZIP is produced.
  *
  * This tool never opens a database connection and never executes lifecycle SQL.
  */
 
 require_once __DIR__ . '/release-members.php';
 
-/** @return array{iam:string,check:bool} */
+/** @return array{iam:?string,check:bool} */
 function sandAiPayloadArguments(): array
 {
     $options = getopt('', ['iam-bundle:', 'check']);
     $iam = $options['iam-bundle'] ?? null;
-    if (!is_string($iam) || $iam === '') {
-        throw new RuntimeException(
-            "用法：php tools/build-release-payload.php --iam-bundle=/锁定的 sand-iam-<version>.zip [--check]"
-        );
+    if ($iam !== null && !is_string($iam)) {
+        $iam = null;
     }
-    return ['iam' => $iam, 'check' => array_key_exists('check', $options)];
+    return ['iam' => $iam === '' ? null : $iam, 'check' => array_key_exists('check', $options)];
 }
 
 /**
@@ -78,11 +82,26 @@ try {
     }
 
     echo "步骤 1/3：枚举官方 builder 成员集合\n";
-    $members = sandAiReleaseMembers($root, $arguments['iam']);
+    if (is_string($arguments['iam'])) {
+        $members = sandAiReleaseMembers($root, $arguments['iam']);
+        $declaredOnly = null;
+    } else {
+        echo "未提供依赖工件：按 config.json 声明记录依赖成员摘要\n";
+        $manifest = sandAiReleaseManifest($root);
+        $members = $manifest['files'];
+        $members[$manifest['dependency']['archive']] = '';
+        $declaredOnly = $manifest['dependency'];
+        ksort($members, SORT_STRING);
+    }
 
     echo '步骤 2/3：计算 ' . count($members) . " 个成员摘要\n";
     $digests = [];
     foreach ($members as $archive => $source) {
+        if ($declaredOnly !== null && $archive === $declaredOnly['archive']) {
+            // The pinned artifact is external; record its declared digest.
+            $digests[$archive] = $declaredOnly['sha256'];
+            continue;
+        }
         $digest = hash_file('sha256', $source);
         if (!is_string($digest)) {
             throw new RuntimeException('无法计算摘要：' . $archive);

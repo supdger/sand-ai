@@ -14,8 +14,8 @@ interface AdminTrialEntityStore
 {
     /**
      * Lazily ensure the dedicated trial chain exists on the same canonical
-     * defaults as the access-matrix chain: default organization, the `lvxu`
-     * (律序) application, the `prod` (正式) environment and the isolated
+     * defaults as the access-matrix chain: default organization, the `default-app`
+     * (默认应用) application, the `prod` (正式) environment and the isolated
      * trial workload client `admin_trial` (audience `sand-ai`). Existing
      * operator-disabled entities are reported, never silently re-enabled.
      *

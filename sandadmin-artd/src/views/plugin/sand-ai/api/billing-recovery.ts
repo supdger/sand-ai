@@ -3,6 +3,7 @@ import { useAdminReadIdentity } from '../composables/useAdminReadIdentity'
 import request from '@/utils/http'
 import { ADMIN_API_PREFIX } from './config'
 import { detail, review } from './billing-types'
+import { errorDisplayText } from './errorText'
 import type { BillingDetail, BillingReview } from './billing-types'
 
 export type BillingRequestMeta = {
@@ -67,7 +68,7 @@ export function useBillingJournal() {
       const rows: unknown = raw === null ? [] : JSON.parse(raw)
       if (!Array.isArray(rows)) throw new Error('原请求日志不完整')
       entries.value = rows.map(meta)
-    } catch (cause) { storageError.value = cause instanceof Error ? cause.message : '无法读取原请求日志' }
+    } catch (cause) { storageError.value = errorDisplayText(cause, '无法读取原请求日志') }
   }
   watch([owner, identity.epoch], reload, { immediate: true, flush: 'sync' })
   function current(actor: number | null) { return actor !== null && actor === owner.value }

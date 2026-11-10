@@ -1,100 +1,103 @@
 <template>
-  <div class="sand-ai-page">
-    <ExpertSelectionHelp />
-    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
-      <div class="dash-toolbar">
-        <div>
-          <h2 class="dash-title">概览</h2>
-          <p class="dash-desc">
-            查看应用、服务商、模型与调用的整体情况，并进入各功能页。
-          </p>
+  <SandAiErrorBoundary>
+    <div class="sand-ai-page">
+      <ExpertSelectionHelp />
+      <ElCard class="art-table-card sand-ai-page-card" shadow="never">
+        <div class="dash-toolbar">
+          <div>
+            <h2 class="dash-title">概览</h2>
+            <p class="dash-desc">
+              查看应用、服务商、模型与调用的整体情况，并进入各功能页。
+            </p>
+          </div>
+          <ElSpace wrap>
+            <ElButton type="primary" @click="go('/sand-ai/onboarding')">开始使用</ElButton>
+            <ElButton :loading="loading" type="primary" @click="loadDashboard">刷新</ElButton>
+          </ElSpace>
         </div>
-        <ElSpace wrap>
-          <ElButton type="primary" @click="go('/sand-ai/onboarding')">开始使用</ElButton>
-          <ElButton :loading="loading" type="primary" @click="loadDashboard">刷新</ElButton>
-        </ElSpace>
-      </div>
 
-      <p v-if="bootstrapNotice" class="dash-bootstrap">
-        {{ bootstrapNotice.message }}
-        <ElButton v-if="bootstrapNotice.retryable" link type="primary" :loading="bootstrapBusy" @click="retryBootstrap">重试</ElButton>
-      </p>
+        <p v-if="bootstrapNotice" class="dash-bootstrap">
+          {{ bootstrapNotice.message }}
+          <ElButton v-if="bootstrapNotice.retryable" link type="primary" :loading="bootstrapBusy" @click="retryBootstrap">重试</ElButton>
+        </p>
 
-      <div v-if="loading" class="dash-body">
-        <ElSkeleton :rows="5" animated />
-      </div>
+        <div v-if="loading" class="dash-body">
+          <ElSkeleton :rows="5" animated />
+        </div>
 
-      <ElResult
-        v-else-if="errorMessage"
-        icon="error"
-        title="加载失败"
-        :sub-title="errorMessage"
-      >
-        <template #extra>
-          <ElButton type="primary" @click="loadDashboard">重试</ElButton>
-        </template>
-      </ElResult>
+        <ElResult
+          v-else-if="errorMessage"
+          icon="error"
+          title="加载失败"
+          :sub-title="errorMessage"
+        >
+          <template #extra>
+            <ElButton type="primary" @click="loadDashboard">重试</ElButton>
+          </template>
+        </ElResult>
 
-      <div v-else class="dash-body">
-        <ElRow :gutter="16">
-          <ElCol v-for="card in summaryCards" :key="card.key" :xs="24" :sm="12" :lg="6">
-            <div class="dash-card" role="button" @click="go(card.path)">
-              <div class="dash-card__label">{{ card.label }}</div>
-              <div class="dash-card__value">{{ card.value }}</div>
-              <div class="dash-card__hint">{{ card.hint }}</div>
-            </div>
-          </ElCol>
-        </ElRow>
+        <div v-else class="dash-body">
+          <ElRow :gutter="16">
+            <ElCol v-for="card in summaryCards" :key="card.key" :xs="24" :sm="12" :lg="6">
+              <div class="dash-card" role="button" @click="go(card.path)">
+                <div class="dash-card__label">{{ card.label }}</div>
+                <div class="dash-card__value">{{ card.value }}</div>
+                <div class="dash-card__hint">{{ card.hint }}</div>
+              </div>
+            </ElCol>
+          </ElRow>
 
-        <ElRow :gutter="16">
-          <ElCol :xs="24" :lg="12">
-            <h3 class="dash-section-title">近期调用</h3>
-            <ElTable
-              :data="recentInvocations"
-              row-key="id"
-              border
-              stripe
-              empty-text="暂无调用记录"
-              class="dash-clickable-table"
-              @row-click="goInvocation"
-            >
-              <ElTableColumn prop="id" label="编号" width="70" />
-              <ElTableColumn label="请求编号" min-width="140">
-                <template #default="{ row }">{{ row.request_id }}</template>
-              </ElTableColumn>
-              <ElTableColumn label="状态" width="100">
-                <template #default="{ row }">{{ runStateLabel(row.state) }}</template>
-              </ElTableColumn>
-              <ElTableColumn prop="request_at" label="请求时间" width="170" />
-            </ElTable>
-          </ElCol>
-          <ElCol :xs="24" :lg="12">
-            <h3 class="dash-section-title">近期审计</h3>
-            <ElTable :data="recentAudits" row-key="id" border stripe empty-text="暂无审计记录">
-              <ElTableColumn prop="id" label="编号" width="70" />
-              <ElTableColumn label="操作" min-width="120">
-                <template #default="{ row }">{{ serviceActionLabel(row.action) }}</template>
-              </ElTableColumn>
-              <ElTableColumn prop="summary" label="摘要" min-width="160" />
-              <ElTableColumn prop="create_time" label="时间" width="170" />
-            </ElTable>
-          </ElCol>
-        </ElRow>
+          <ElRow :gutter="16">
+            <ElCol :xs="24" :lg="12">
+              <h3 class="dash-section-title">近期调用</h3>
+              <ElTable
+                :data="recentInvocations"
+                row-key="id"
+                border
+                stripe
+                empty-text="暂无调用记录"
+                class="dash-clickable-table"
+                @row-click="goInvocation"
+              >
+                <ElTableColumn prop="id" label="编号" width="70" />
+                <ElTableColumn label="请求编号" min-width="140">
+                  <template #default="{ row }">{{ row.request_id }}</template>
+                </ElTableColumn>
+                <ElTableColumn label="状态" width="100">
+                  <template #default="{ row }">{{ runStateLabel(row.state) }}</template>
+                </ElTableColumn>
+                <ElTableColumn prop="request_at" label="请求时间" width="170" />
+              </ElTable>
+            </ElCol>
+            <ElCol :xs="24" :lg="12">
+              <h3 class="dash-section-title">近期审计</h3>
+              <ElTable :data="recentAudits" row-key="id" border stripe empty-text="暂无审计记录">
+                <ElTableColumn prop="id" label="编号" width="70" />
+                <ElTableColumn label="操作" min-width="120">
+                  <template #default="{ row }">{{ serviceActionLabel(row.action) }}</template>
+                </ElTableColumn>
+                <ElTableColumn prop="summary" label="摘要" min-width="160" />
+                <ElTableColumn prop="create_time" label="时间" width="170" />
+              </ElTable>
+            </ElCol>
+          </ElRow>
 
-        <ElSpace wrap>
-          <ElButton @click="go('/sand-ai/capability')">能力配置</ElButton>
-          <ElButton @click="go('/sand-ai/file')">文件中心</ElButton>
-          <ElButton @click="go('/sand-ai/task')">任务与会议试用</ElButton>
-          <ElButton @click="go('/sand-ai/knowledge')">知识库配置</ElButton>
-          <ElButton @click="go('/sand-ai/agent')">智能体配置</ElButton>
-          <ElButton @click="go('/sand-iam/application')">应用管理（SandIAM）</ElButton>
-        </ElSpace>
-      </div>
-    </ElCard>
-  </div>
+          <ElSpace wrap>
+            <ElButton @click="go('/sand-ai/capability')">能力配置</ElButton>
+            <ElButton @click="go('/sand-ai/file')">文件中心</ElButton>
+            <ElButton @click="go('/sand-ai/task')">任务与会议试用</ElButton>
+            <ElButton @click="go('/sand-ai/knowledge')">知识库配置</ElButton>
+            <ElButton @click="go('/sand-ai/agent')">智能体配置</ElButton>
+            <ElButton @click="go('/sand-iam/application')">应用管理（SandIAM）</ElButton>
+          </ElSpace>
+        </div>
+      </ElCard>
+    </div>
+  </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
+  import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import ExpertSelectionHelp from '../components/ExpertSelectionHelp.vue'
   import { computed, onMounted, ref } from 'vue'
@@ -107,6 +110,7 @@
   import auditApi from '../api/audit'
   import type { SandAiAuditLog, SandAiInvocation } from '../api/types'
   import { runStateLabel, serviceActionLabel } from '../api/displayLabels'
+  import { errorDisplayText } from '../api/errorText'
   import { useSetupBootstrap } from '../composables/useSetupBootstrap'
 
   type SummaryCard = {
@@ -212,7 +216,7 @@
       recentInvocations.value = invocations.data
       recentAudits.value = audits.data
     } catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : '加载总览失败'
+      errorMessage.value = errorDisplayText(error, '加载总览失败')
     } finally {
       loading.value = false
     }

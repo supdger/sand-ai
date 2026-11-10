@@ -1,82 +1,84 @@
 <template>
-  <div>
-    <ExpertSelectionHelp />
-    <KnowledgeBasePanel :key="userStore.info.id" />
-    <PublicationPanel :key="userStore.info.id" />
-    <ConsumerSkillPanel :key="userStore.info.id" />
-    <ElAlert type="info" :closable="false"
-      title="下方为旧环境技能模板配置。个人、团队或组织消费范围的技能模板，请使用上方“应用技能模板”入口。" />
-    <SkillPanel :key="userStore.info.id" />
-    <ElCard class="art-table-card" shadow="never">
-      <div class="know-header">
-        <div>
-          <h2 class="know-title">检索 / 知识</h2>
-          <p class="know-desc">
-            仅检索当前环境已解析私有文件的来源块。返回定位与短摘录，不暴露存储位置细节。
-          </p>
+  <SandAiErrorBoundary>
+    <div>
+      <ExpertSelectionHelp />
+      <KnowledgeBasePanel :key="userStore.info.id" />
+      <PublicationPanel :key="userStore.info.id" />
+      <ConsumerSkillPanel :key="userStore.info.id" />
+      <ElAlert type="info" :closable="false"
+        title="下方为旧环境技能模板配置。个人、团队或组织消费范围的技能模板，请使用上方“应用技能模板”入口。" />
+      <SkillPanel :key="userStore.info.id" />
+      <ElCard class="art-table-card" shadow="never">
+        <div class="know-header">
+          <div>
+            <h2 class="know-title">检索 / 知识</h2>
+            <p class="know-desc">
+              仅检索当前环境已解析私有文件的来源块。返回定位与短摘录，不暴露存储位置细节。
+            </p>
+          </div>
+          <ElTag type="success" effect="plain">私有来源检索</ElTag>
         </div>
-        <ElTag type="success" effect="plain">私有来源检索</ElTag>
-      </div>
 
-      <ElForm label-width="110px" @submit.prevent>
-        <RuntimeApiKeyField
-          v-model="apiKey"
-          placeholder="当前应用的 SandIAM 短期运行身份"
+        <ElForm label-width="110px" @submit.prevent>
+          <RuntimeApiKeyField
+            v-model="apiKey"
+            placeholder="当前应用的 SandIAM 短期运行身份"
+          />
+          <p class="know-footnote">需允许使用“私有来源检索”；来源文件仍按当前应用的访问权限核验。</p>
+          <ElFormItem label="查询">
+            <ElSpace wrap>
+              <ElInput
+                v-model="query"
+                clearable
+                placeholder="关键词，≤500 字"
+                style="width: 420px"
+                @keyup.enter="handleSearch"
+              />
+              <ElInputNumber v-model="limit" :min="1" :max="20" :controls="false" />
+              <ElButton :loading="busy" @click="handleSearch">检索</ElButton>
+            </ElSpace>
+          </ElFormItem>
+          <ElFormItem>
+            <ElSpace wrap>
+              <ElButton
+                type="primary"
+                :disabled="selectedIds.length === 0"
+                @click="() => goAiTask()"
+              >
+                用选中来源提交 AI（{{ selectedIds.length }}）
+              </ElButton>
+              <ElButton :disabled="selectedIds.length === 0" @click="selectedIds = []">清空选择</ElButton>
+            </ElSpace>
+          </ElFormItem>
+        </ElForm>
+
+        <ElAlert
+          v-if="lastError"
+          class="know-alert"
+          type="error"
+          :closable="true"
+          :title="lastError.title"
+          :description="lastError.description"
+          @close="lastError = null"
         />
-        <p class="know-footnote">需允许使用“私有来源检索”；来源文件仍按当前应用的访问权限核验。</p>
-        <ElFormItem label="查询">
-          <ElSpace wrap>
-            <ElInput
-              v-model="query"
-              clearable
-              placeholder="关键词，≤500 字"
-              style="width: 420px"
-              @keyup.enter="handleSearch"
-            />
-            <ElInputNumber v-model="limit" :min="1" :max="20" :controls="false" />
-            <ElButton type="primary" :loading="busy" @click="handleSearch">检索</ElButton>
-          </ElSpace>
-        </ElFormItem>
-        <ElFormItem>
-          <ElSpace wrap>
-            <ElButton
-              type="primary"
-              plain
-              :disabled="selectedIds.length === 0"
-              @click="() => goAiTask()"
-            >
-              用选中来源提交 AI（{{ selectedIds.length }}）
-            </ElButton>
-            <ElButton :disabled="selectedIds.length === 0" @click="selectedIds = []">清空选择</ElButton>
-          </ElSpace>
-        </ElFormItem>
-      </ElForm>
 
-      <ElAlert
-        v-if="lastError"
-        class="know-alert"
-        type="error"
-        :closable="true"
-        :title="lastError.title"
-        :description="lastError.description"
-        @close="lastError = null"
-      />
-
-      <ArtTable
-        row-key="source_block_id"
-        :loading="busy"
-        :data="matches"
-        :columns="columns"
-        @selection-change="onSelectionChange"
-      />
-      <p v-if="searchedQuery" class="know-footnote">
-        查询“{{ searchedQuery }}” · 命中 {{ matches.length }} 条
-      </p>
-    </ElCard>
-  </div>
+        <ArtTable
+          row-key="source_block_id"
+          :loading="busy"
+          :data="matches"
+          :columns="columns"
+          @selection-change="onSelectionChange"
+        />
+        <p v-if="searchedQuery" class="know-footnote">
+          查询“{{ searchedQuery }}” · 命中 {{ matches.length }} 条
+        </p>
+      </ElCard>
+    </div>
+  </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
+  import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import ExpertSelectionHelp from '../components/ExpertSelectionHelp.vue'
   import { h, onMounted, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'
@@ -110,19 +112,20 @@
     { type: 'selection', width: 48 },
     { prop: 'source_block_id', label: '来源块', width: 90, align: 'center' },
     { prop: 'file_id', label: '文件', width: 90 },
-    { prop: 'locator_type', label: '定位方式', width: 120 },
+    { prop: 'locator_type', label: '定位方式', width: 100 },
     {
       prop: 'locator',
       label: '位置',
-      minWidth: 160,
+      minWidth: 140,
+      showOverflowTooltip: true,
       formatter: (row) => JSON.stringify(row.locator)
     },
-    { prop: 'score', label: '相关度', width: 100 },
-    { prop: 'excerpt', label: '摘录', minWidth: 280 },
+    { prop: 'score', label: '相关度', width: 90 },
+    { prop: 'excerpt', label: '摘录', minWidth: 240 },
     {
       prop: 'source_block_id',
       label: '操作',
-      width: 110,
+      width: 100,
       fixed: 'right',
       formatter: (row) =>
         h(

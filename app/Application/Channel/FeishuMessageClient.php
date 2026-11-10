@@ -5,13 +5,20 @@ declare(strict_types=1);
 namespace app\Application\Channel;
 
 use app\Api\Support\ApiProblem;
+use app\Application\Onboarding\VerifiedEndpoint;
 
 /** Sends a text result; an ambiguous message POST cannot be replayed from a UUID alone. */
 final class FeishuMessageClient
 {
-    /** @param null|\Closure(string,array<string,string>,array<string,mixed>):array{status:int,body:array<string,mixed>} $post */
-    public function __construct(private readonly ?\Closure $post = null)
-    {
+    /**
+     * @param null|\Closure(string,array<string,string>,array<string,mixed>):array{status:int,body:array<string,mixed>} $post
+     * @param null|ChannelApiBasePolicy $endpointPolicy egress gate for api_base;
+     *        tests inject a fixture resolver, production uses the system one
+     */
+    public function __construct(
+        private readonly ?\Closure $post = null,
+        private readonly ?ChannelApiBasePolicy $endpointPolicy = null,
+    ) {
     }
 
     /** @return array{message_id:string} */
@@ -23,10 +30,15 @@ final class FeishuMessageClient
             || preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D', $uuid) !== 1) {
             throw new ApiProblem('SAND_AI_CHANNEL_DELIVERY_INVALID', 'Feishu delivery facts are invalid');
         }
-        $base = ChannelApiBase::resolve($apiBase, 'https://open.feishu.cn');
+        // The egress gate runs before any credential-bearing request: the
+        // effective api_base must resolve to public (or explicitly allowlisted)
+        // addresses, and both POSTs below pin the checked address via
+        // CURLOPT_RESOLVE so a DNS rebind cannot redirect app secrets.
+        $endpoint = ($this->endpointPolicy ?? new ChannelApiBasePolicy())->verify($apiBase, 'https://open.feishu.cn');
         $tokenResponse = $this->post(
-            $base . '/open-apis/auth/v3/tenant_access_token/internal',
+            $endpoint->baseUrl . '/open-apis/auth/v3/tenant_access_token/internal',
             [], ['app_id' => $appId, 'app_secret' => $appSecret],
+            false, $endpoint,
         );
         $token = $tokenResponse['body']['tenant_access_token'] ?? null;
         if ($tokenResponse['status'] !== 200 || ($tokenResponse['body']['code'] ?? null) !== 0
@@ -35,12 +47,12 @@ final class FeishuMessageClient
         }
         if ($beforeSend !== null) $beforeSend();
         $response = $this->post(
-            $base . '/open-apis/im/v1/messages?receive_id_type=chat_id',
+            $endpoint->baseUrl . '/open-apis/im/v1/messages?receive_id_type=chat_id',
             ['Authorization' => 'Bearer ' . $token],
             ['receive_id' => $chatId, 'msg_type' => 'text',
                 'content' => json_encode(['text' => $text], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
                 'uuid' => $uuid],
-            true,
+            true, $endpoint,
         );
         $code = $response['body']['code'] ?? null;
         if ($response['status'] !== 200 || !is_int($code)) {
@@ -57,8 +69,12 @@ final class FeishuMessageClient
         return ['message_id' => $messageId];
     }
 
-    /** @param array<string,string> $headers @param array<string,mixed> $body @return array{status:int,body:array<string,mixed>} */
-    private function post(string $url, array $headers, array $body, bool $messagePost = false): array
+    /**
+     * @param array<string,string> $headers
+     * @param array<string,mixed> $body
+     * @return array{status:int,body:array<string,mixed>}
+     */
+    private function post(string $url, array $headers, array $body, bool $messagePost = false, ?VerifiedEndpoint $endpoint = null): array
     {
         $errorCode = $messagePost ? 'SAND_AI_CHANNEL_DELIVERY_UNCERTAIN' : 'SAND_AI_CHANNEL_DELIVERY_UNAVAILABLE';
         if ($this->post !== null) {
@@ -72,7 +88,7 @@ final class FeishuMessageClient
         if ($handle === false) throw new ApiProblem('SAND_AI_CHANNEL_DELIVERY_UNAVAILABLE', 'Feishu transport is unavailable', true);
         $lines = ['Content-Type: application/json; charset=utf-8'];
         foreach ($headers as $name => $value) $lines[] = $name . ': ' . $value;
-        $configured = curl_setopt_array($handle, [
+        $options = [
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             CURLOPT_HTTPHEADER => $lines,
@@ -80,7 +96,13 @@ final class FeishuMessageClient
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_CONNECTTIMEOUT => 3,
             CURLOPT_TIMEOUT => 10,
-        ]);
+        ];
+        // Pin the TCP connection to the address the egress policy already
+        // verified; TLS/SNI still uses the original hostname.
+        if ($endpoint !== null) {
+            $options[CURLOPT_RESOLVE] = [$endpoint->curlResolveEntry()];
+        }
+        $configured = curl_setopt_array($handle, $options);
         if (!$configured) {
             curl_close($handle);
             throw new ApiProblem('SAND_AI_CHANNEL_DELIVERY_UNAVAILABLE', 'Feishu transport is unavailable', true);

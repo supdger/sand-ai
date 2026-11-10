@@ -1,53 +1,56 @@
 <template>
-  <div class="sand-ai-page usage-page">
-    <div v-if="canReadHistory" class="mb-3">
-      <ElButton @click="historyOpen = true">查看账单历史与原调用费用</ElButton>
-    </div>
-    <BillingHistoryBrowser :key="actorEpoch" v-model="historyOpen" />
-    <ElTabs v-model="activeTab" class="usage-tabs">
-      <ElTabPane label="调用费用" name="usage" :disabled="billingPending">
-        <KeepAlive :key="`usage:${actorEpoch}`">
-          <UsageCostPanel v-if="identity.actor.value !== null && activeTab === 'usage' && canUsage" @pending="refundPending = $event" />
-        </KeepAlive>
-        <KeepAlive :key="`budget:${actorEpoch}`">
-          <BudgetPolicyPanel v-if="identity.actor.value !== null && activeTab === 'usage' && canBudget && !canUsage" />
-        </KeepAlive>
-        <ElAlert
-          v-if="!canUsage && !canBudget"
-          type="info"
-          :closable="false"
-          title="需要预算、用量、费用或退款记录权限才能查看对应操作；账单核对权限独立。"
-        />
-      </ElTabPane>
-      <ElTabPane
-        v-if="canPlatformValidation"
-        label="模型验证费用"
-        name="platform-validation"
-        :disabled="financialPending"
-      >
-        <KeepAlive :key="`validation:${actorEpoch}`">
-          <PlatformValidationPanel v-if="identity.actor.value !== null && activeTab === 'platform-validation'" />
-        </KeepAlive>
-      </ElTabPane>
-      <ElTabPane label="账单核对" name="billing" :disabled="refundPending">
-        <KeepAlive :key="`billing:${actorEpoch}`">
-          <BillingReviewPanel
-            v-if="identity.actor.value !== null && activeTab === 'billing' && canBilling"
-            @pending="billingPending = $event"
+  <SandAiErrorBoundary>
+    <div class="sand-ai-page usage-page">
+      <div v-if="canReadHistory" class="mb-3">
+        <ElButton @click="historyOpen = true">查看账单历史与原调用费用</ElButton>
+      </div>
+      <BillingHistoryBrowser :key="actorEpoch" v-model="historyOpen" />
+      <ElTabs v-model="activeTab" class="usage-tabs">
+        <ElTabPane label="调用费用" name="usage" :disabled="billingPending">
+          <KeepAlive :key="`usage:${actorEpoch}`">
+            <UsageCostPanel v-if="identity.actor.value !== null && activeTab === 'usage' && canUsage" @pending="refundPending = $event" />
+          </KeepAlive>
+          <KeepAlive :key="`budget:${actorEpoch}`">
+            <BudgetPolicyPanel v-if="identity.actor.value !== null && activeTab === 'usage' && canBudget && !canUsage" />
+          </KeepAlive>
+          <ElAlert
+            v-if="!canUsage && !canBudget"
+            type="info"
+            :closable="false"
+            title="需要预算、用量、费用或退款记录权限才能查看对应操作；账单核对权限独立。"
           />
-        </KeepAlive>
-        <ElAlert
-          v-if="!canBilling"
-          type="info"
-          :closable="false"
-          title="需要账单查看权限才能查看导入批次。仅有审核或导入权限不会自动获得查看权限。"
-        />
-      </ElTabPane>
-    </ElTabs>
-  </div>
+        </ElTabPane>
+        <ElTabPane
+          v-if="canPlatformValidation"
+          label="模型验证费用"
+          name="platform-validation"
+          :disabled="financialPending"
+        >
+          <KeepAlive :key="`validation:${actorEpoch}`">
+            <PlatformValidationPanel v-if="identity.actor.value !== null && activeTab === 'platform-validation'" />
+          </KeepAlive>
+        </ElTabPane>
+        <ElTabPane label="账单核对" name="billing" :disabled="refundPending">
+          <KeepAlive :key="`billing:${actorEpoch}`">
+            <BillingReviewPanel
+              v-if="identity.actor.value !== null && activeTab === 'billing' && canBilling"
+              @pending="billingPending = $event"
+            />
+          </KeepAlive>
+          <ElAlert
+            v-if="!canBilling"
+            type="info"
+            :closable="false"
+            title="需要账单查看权限才能查看导入批次。仅有审核或导入权限不会自动获得查看权限。"
+          />
+        </ElTabPane>
+      </ElTabs>
+    </div>
+  </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
+  import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
   import { onBeforeRouteLeave } from 'vue-router'

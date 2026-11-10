@@ -1,245 +1,247 @@
 <template>
-  <div class="sand-ai-page">
-    <ElCard class="art-table-card sand-ai-page-card" shadow="never">
-      <div class="cap-header">
-        <div>
-          <h2 class="cap-title">{{ materialConfigurationPage ? '材料配置' : '能力配置' }}</h2>
-          <p class="cap-desc">
-            为指定应用环境选择解析工具、模型和材料处理位置。仅配置本地文本解析时无需 API Key；AI 抽取仍需已启用模型。
-          </p>
-        </div>
+  <SandAiErrorBoundary>
+    <div class="sand-ai-page">
+      <ElCard class="art-table-card sand-ai-page-card" shadow="never">
+        <div class="cap-header">
+          <div>
+            <h2 class="cap-title">{{ materialConfigurationPage ? '材料配置' : '能力配置' }}</h2>
+            <p class="cap-desc">
+              为指定应用环境选择解析工具、模型和材料处理位置。仅配置本地文本解析时无需密钥；AI 抽取仍需已启用模型。
+            </p>
+          </div>
         
-      </div>
+        </div>
 
-      <ElAlert v-if="navigationNotice" :title="navigationNotice" type="warning" :closable="false" class="cap-alert" />
-      <ElButton v-if="route.query.configuration_origin === 'material_guide'"
-        :disabled="Boolean(busy) || writeInFlight || restoringEntry" @click="returnToMaterialGuide">返回原材料整理引导</ElButton>
-      <ElForm label-width="120px" class="cap-form" @submit.prevent>
-        <ElFormItem label="应用">
-          <ElSelect
-            v-model="applicationId"
-            filterable
-            clearable
-            placeholder="选择应用"
-            style="width: 360px"
-            :loading="loadingApps"
-            :disabled="busy === 'save' || busy === 'publish' || Boolean(pending) || writeInFlight || journalError"
-            @change="onApplicationChange"
-          >
-            <ElOption
-              v-for="item in applications"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id"
-            />
-            <template #empty>
-              <div class="cap-app-empty">
-                <span>暂无应用——请先到 SandIAM 登记应用</span>
-                <ElButton link type="primary" @click="router.push('/sand-iam/application')">去登记</ElButton>
-              </div>
-            </template>
-          </ElSelect>
-        </ElFormItem>
-        <ElFormItem label="环境">
-          <ElSelect
-            v-model="environmentId"
-            filterable
-            clearable
-            placeholder="选择环境"
-            style="width: 360px"
-            :loading="loadingEnvs"
-            :disabled="!applicationId || busy === 'save' || busy === 'publish' || Boolean(pending) || writeInFlight || journalError"
-            @change="onEnvironmentChange"
-          >
-            <ElOption
-              v-for="item in environments"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id"
-            />
-          </ElSelect>
-        </ElFormItem>
-      </ElForm>
-
-      <ElAlert
-        v-if="errorMessage"
-        type="error"
-        :closable="true"
-        :title="errorMessage"
-        class="cap-alert"
-        @close="errorMessage = ''"
-      />
-      <ElButton v-if="iamListError === 'applications'" :loading="loadingApps" @click="loadApps">重新读取应用</ElButton>
-      <ElButton v-if="iamListError === 'environments'" :loading="loadingEnvs" @click="onApplicationChange">重新读取环境</ElButton>
-
-      <details v-if="pending || journalError" class="cap-alert cap-recover">
-        <summary>原{{ pending?.action === 'publish' ? '启用' : '保存' }}结果待确认（查看详情）</summary>
-        <ElAlert v-if="pending" type="warning" :closable="false"
-          :title="`原${pending.action === 'save' ? '保存' : '启用'}结果待确认：应用 ${pending.application_id}／环境 ${pending.environment_id}。仅重新读取原目标，不会重发；当前配置匹配也不代表取得原请求回执。`" />
-        <ElButton :disabled="Boolean(busy) || writeInFlight" @click="restoreIntent(); loadEntryContext()">读取原操作状态</ElButton>
-      </details>
-      <MaterialProfileEditor v-if="materialConfigurationPage" :environment-id="environmentId" />
-      <template v-if="environmentId">
-        <ElAlert v-if="revisionConflict" type="warning" :closable="false"
-          title="配置已被其他管理员修改。本地表单仍在下方。重新加载以查看最新版本；核对后可选择采用最新配置，再重新填写自己的改动。" />
-        <ElButton v-if="revisionConflict && profileLoaded" :disabled="Boolean(busy)" @click="adoptLatestProfile">
-          采用最新配置并放弃本地修改
-        </ElButton>
-        <p v-if="revisionConflict && profileLoaded" class="cap-muted">
-          服务端修订：{{ profile?.revision ?? '尚无配置' }}；
-          名称：{{ profile?.name ?? '尚无配置' }}；
-          默认模型：{{ profile?.routes?.map(route => `${capabilityLabel(route.capability_code)} / ${routeKindLabel(route.route_kind)} / ${route.deployment_id ?? route.driver_code ?? '未设置'}`).join('、') || '无' }}。
-        </p>
-        <ElAlert v-if="unsafeExistingConfig" type="warning" :closable="false"
-          title="既有默认模型未提供可安全保留的空配置，或含已停用项。当前配置只读，请联系管理员核查读取接口或历史配置；此页不会覆盖保存。" />
-        <ElForm :disabled="editBlocked" label-width="120px" class="cap-form" @submit.prevent>
-          <ElFormItem label="配置名称">
-            <ElInput v-model="form.name" style="width: 360px" placeholder="如 default-capability" />
-          </ElFormItem>
-          <ElFormItem label="模板">
+        <ElAlert v-if="navigationNotice" :title="navigationNotice" type="warning" :closable="false" class="cap-alert" />
+        <ElButton v-if="route.query.configuration_origin === 'material_guide'"
+          :disabled="Boolean(busy) || writeInFlight || restoringEntry" @click="returnToMaterialGuide">返回原材料整理引导</ElButton>
+        <ElForm label-width="120px" class="cap-form" @submit.prevent>
+          <ElFormItem label="应用">
             <ElSelect
-              v-model="form.template_code"
+              v-model="applicationId"
+              filterable
               clearable
-              placeholder="可选模板起点"
+              placeholder="选择应用"
               style="width: 360px"
-              @change="applyTemplate"
+              :loading="loadingApps"
+              :disabled="busy === 'save' || busy === 'publish' || Boolean(pending) || writeInFlight || journalError"
+              @change="onApplicationChange"
             >
               <ElOption
-                v-for="(tpl, code) in metadata?.templates ?? {}"
-                :key="code"
-                :label="tpl.name"
-                :value="code"
+                v-for="item in applications"
+                :key="item.id"
+                :label="item.name"
+                :value="item.id"
+              />
+              <template #empty>
+                <div class="cap-app-empty">
+                  <span>暂无应用——请先到 SandIAM 登记应用</span>
+                  <ElButton link type="primary" @click="router.push('/sand-iam/application')">去登记</ElButton>
+                </div>
+              </template>
+            </ElSelect>
+          </ElFormItem>
+          <ElFormItem label="环境">
+            <ElSelect
+              v-model="environmentId"
+              filterable
+              clearable
+              placeholder="选择环境"
+              style="width: 360px"
+              :loading="loadingEnvs"
+              :disabled="!applicationId || busy === 'save' || busy === 'publish' || Boolean(pending) || writeInFlight || journalError"
+              @change="onEnvironmentChange"
+            >
+              <ElOption
+                v-for="item in environments"
+                :key="item.id"
+                :label="item.name"
+                :value="item.id"
               />
             </ElSelect>
           </ElFormItem>
-          <ElFormItem label="材料发送位置">
-            <ElSelect v-model="form.data_egress_policy" style="width: 360px">
-              <ElOption label="仅本地：材料留在本机" value="local_only" />
-              <ElOption label="仅私有网络：用于内部服务" value="private_only" />
-              <ElOption label="已审核公共云：允许发送至已审核服务商" value="approved_cloud" />
-            </ElSelect>
-          </ElFormItem>
-          <ElFormItem v-if="profile" label="当前版本">
-            <ElSpace wrap>
-              <ElTag>第 {{ profile.revision }} 版</ElTag>
-              <ElTag :type="profile.state === 'published' ? 'success' : 'warning'">
-                {{ configurationStateLabel(profile.state) }}
-              </ElTag>
-            </ElSpace>
-          </ElFormItem>
         </ElForm>
 
-        <div class="cap-routes-toolbar">
-          <h3 class="cap-section-title">能力与处理工具</h3>
-          <ElSpace wrap class="cap-route-actions">
-            <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="prepareLocalTextRoute">添加文档读取</ElButton>
-            <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="prepareMaterialRoutes">补齐材料整理默认模型</ElButton>
-            <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="addRoute">添加默认模型</ElButton>
-          </ElSpace>
-        </div>
+        <ElAlert
+          v-if="errorMessage"
+          type="error"
+          :closable="true"
+          :title="errorMessage"
+          class="cap-alert"
+          @close="errorMessage = ''"
+        />
+        <ElButton v-if="iamListError === 'applications'" :loading="loadingApps" @click="loadApps">重新读取应用</ElButton>
+        <ElButton v-if="iamListError === 'environments'" :loading="loadingEnvs" @click="onApplicationChange">重新读取环境</ElButton>
 
-        <p class="cap-muted">首次只需文档读取时，点击“添加文档读取”，保存并启用即可。该工具支持 TXT、文本型 PDF、DOCX 等，不调用模型；扫描件 OCR 和材料 AI 抽取需另行配置。</p>
-        <ElTable :data="form.routes" border empty-text="暂无默认模型">
-          <ElTableColumn label="能力" min-width="160">
-            <template #default="{ row }">
+        <details v-if="pending || journalError" class="cap-alert cap-recover">
+          <summary>原{{ pending?.action === 'publish' ? '启用' : '保存' }}结果待确认（查看详情）</summary>
+          <ElAlert v-if="pending" type="warning" :closable="false"
+            :title="`原${pending.action === 'save' ? '保存' : '启用'}结果待确认：应用 ${pending.application_id}／环境 ${pending.environment_id}。仅重新读取原目标，不会重发；当前配置匹配也不代表取得原请求回执。`" />
+          <ElButton :disabled="Boolean(busy) || writeInFlight" @click="restoreIntent(); loadEntryContext()">读取原操作状态</ElButton>
+        </details>
+        <MaterialProfileEditor v-if="materialConfigurationPage" :environment-id="environmentId" />
+        <template v-if="environmentId">
+          <ElAlert v-if="revisionConflict" type="warning" :closable="false"
+            title="配置已被其他管理员修改。本地表单仍在下方。重新加载以查看最新版本；核对后可选择采用最新配置，再重新填写自己的改动。" />
+          <ElButton v-if="revisionConflict && profileLoaded" :disabled="Boolean(busy)" @click="adoptLatestProfile">
+            采用最新配置并放弃本地修改
+          </ElButton>
+          <p v-if="revisionConflict && profileLoaded" class="cap-muted">
+            服务端修订：{{ profile?.revision ?? '尚无配置' }}；
+            名称：{{ profile?.name ?? '尚无配置' }}；
+            默认模型：{{ profile?.routes?.map(route => `${capabilityLabel(route.capability_code)} / ${routeKindLabel(route.route_kind)} / ${route.deployment_id !== null && route.deployment_id !== undefined ? `部署 #${route.deployment_id}` : route.driver_code ? driverLabel(route.driver_code) : '未设置'}`).join('、') || '无' }}。
+          </p>
+          <ElAlert v-if="unsafeExistingConfig" type="warning" :closable="false"
+            title="既有默认模型未提供可安全保留的空配置，或含已停用项。当前配置只读，请联系管理员核查读取接口或历史配置；此页不会覆盖保存。" />
+          <ElForm :disabled="editBlocked" label-width="120px" class="cap-form" @submit.prevent>
+            <ElFormItem label="配置名称">
+              <ElInput v-model="form.name" style="width: 360px" placeholder="如 日常默认" />
+            </ElFormItem>
+            <ElFormItem label="模板">
               <ElSelect
-                v-model="row.capability_code"
-                :disabled="editBlocked"
-                filterable
-                @change="() => syncRouteKind(row)"
-              >
-                <ElOption
-                  v-for="code in capabilityCodes"
-                  :key="code"
-                  :label="capabilityLabel(code)"
-                  :value="code"
-                />
-              </ElSelect>
-            </template>
-          </ElTableColumn>
-          <ElTableColumn label="处理方式" width="150">
-            <template #default="{ row }">{{ routeKindLabel(row.route_kind) }}</template>
-          </ElTableColumn>
-          <ElTableColumn label="模型部署" min-width="300">
-            <template #default="{ row }">
-              <ElSelect v-if="usesDeployment(row)" v-model="row.deployment_id"
-                :disabled="editBlocked" filterable remote clearable :remote-method="(query: string) => searchDeployments(query, row)"
-                :loading="deploymentsLoading" placeholder="选择已启用部署" class="cap-deployment"
-                @visible-change="(visible: boolean) => visible && searchDeployments('', row)">
-                <ElOption v-for="item in deploymentOptions" :key="item.id"
-                  :label="item.display_name" :value="item.id"
-                  :disabled="!item.compatible_data_egress_policies.includes(form.data_egress_policy)" />
-                <ElOption v-if="row.deployment_id && !deploymentOptions.some(item => item.id === row.deployment_id)"
-                  :label="`现有部署 #${row.deployment_id}（请核对）`" :value="row.deployment_id" />
-              </ElSelect>
-              <span v-else class="cap-muted">—</span>
-              <p v-if="isLocalOcr(row) && !row.deployment_id" class="cap-muted">未绑定部署时费用保持未计价，硬预算请求会被拒绝。可先保存，配置并启用部署价格后再绑定。</p>
-            </template>
-          </ElTableColumn>
-          <ElTableColumn label="解析工具" min-width="180">
-            <template #default="{ row }">
-              <ElSelect
-                v-if="row.route_kind === 'parse_driver' || row.route_kind === 'audio_driver'"
-                v-model="row.driver_code"
-                @change="!usesDeployment(row) && (row.deployment_id = undefined)"
-                :disabled="editBlocked"
+                v-model="form.template_code"
                 clearable
-                filterable
+                placeholder="可选模板起点"
+                style="width: 360px"
+                @change="applyTemplate"
               >
                 <ElOption
-                  v-for="code in driverCodes(row.capability_code)"
+                  v-for="(tpl, code) in metadata?.templates ?? {}"
                   :key="code"
-                  :label="driverLabel(code)"
+                  :label="tpl.name"
                   :value="code"
                 />
               </ElSelect>
-              <span v-else class="cap-muted">—</span>
-            </template>
-          </ElTableColumn>
-          <ElTableColumn label="优先顺序" width="110">
-            <template #default="{ row }">
-              <ElInputNumber :disabled="editBlocked" v-model="row.priority" :min="1" :controls="false" class="cap-number" />
-            </template>
-          </ElTableColumn>
-          <ElTableColumn label="操作" width="90">
-            <template #default="{ $index }">
-              <ElButton :disabled="editBlocked" link type="danger" @click="removeRoute($index)">删除</ElButton>
-            </template>
-          </ElTableColumn>
-        </ElTable>
+            </ElFormItem>
+            <ElFormItem label="材料发送位置">
+              <ElSelect v-model="form.data_egress_policy" style="width: 360px">
+                <ElOption label="仅本地：材料留在本机" value="local_only" />
+                <ElOption label="仅私有网络：用于内部服务" value="private_only" />
+                <ElOption label="已审核公共云：允许发送至已审核服务商" value="approved_cloud" />
+              </ElSelect>
+            </ElFormItem>
+            <ElFormItem v-if="profile" label="当前版本">
+              <ElSpace wrap>
+                <ElTag>第 {{ profile.revision }} 版</ElTag>
+                <ElTag :type="profile.state === 'published' ? 'success' : 'warning'">
+                  {{ configurationStateLabel(profile.state) }}
+                </ElTag>
+              </ElSpace>
+            </ElFormItem>
+          </ElForm>
 
-        <ElSpace wrap class="cap-actions">
-          <ElButton
-            v-permission="'sand_ai:setup:capability:save'"
-            type="primary"
-            :loading="busy === 'save'"
-            :disabled="editBlocked || Boolean(busy)"
-            @click="handleSave"
-          >
-            保存草稿
-          </ElButton>
-          <ElButton
-            v-permission="'sand_ai:setup:capability:publish'"
-            type="success"
-            :disabled="editBlocked || Boolean(busy) || !profile || profile.state === 'published'"
-            :loading="busy === 'publish'"
-            @click="handlePublish"
-          >
-            启用配置档
-          </ElButton>
-          <ElButton :disabled="Boolean(busy)" :loading="busy === 'load'" @click="reloadProfile">重新加载</ElButton>
-        </ElSpace>
-      </template>
-      <MaterialProfileEditor v-if="!materialConfigurationPage" :environment-id="environmentId" />
-      <LegalAnalysisPanel :environment-id="environmentId" />
-      <section id="chat-route-trial" ref="chatTrialSection" tabindex="-1" aria-label="聊天路线试用">
-        <ChatRouteTrialPanel :environment-id="environmentId" />
-      </section>
-    </ElCard>
-  </div>
+          <div class="cap-routes-toolbar">
+            <h3 class="cap-section-title">能力与处理工具</h3>
+            <ElSpace wrap class="cap-route-actions">
+              <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="prepareLocalTextRoute">添加文档读取</ElButton>
+              <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="prepareMaterialRoutes">补齐材料整理默认模型</ElButton>
+              <ElButton size="small" :disabled="editBlocked || Boolean(busy)" @click="addRoute">添加默认模型</ElButton>
+            </ElSpace>
+          </div>
+
+          <p class="cap-muted">首次只需文档读取时，点击“添加文档读取”，保存并启用即可。该工具支持 TXT、文本型 PDF、DOCX 等，不调用模型；扫描件 OCR 和材料 AI 抽取需另行配置。</p>
+          <ElTable :data="form.routes" border empty-text="暂无默认模型">
+            <ElTableColumn label="能力" min-width="140">
+              <template #default="{ row }">
+                <ElSelect
+                  v-model="row.capability_code"
+                  :disabled="editBlocked"
+                  filterable
+                  @change="() => syncRouteKind(row)"
+                >
+                  <ElOption
+                    v-for="code in capabilityCodes"
+                    :key="code"
+                    :label="capabilityLabel(code)"
+                    :value="code"
+                  />
+                </ElSelect>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="处理方式" width="130">
+              <template #default="{ row }">{{ routeKindLabel(row.route_kind) }}</template>
+            </ElTableColumn>
+            <ElTableColumn label="模型部署" min-width="220">
+              <template #default="{ row }">
+                <ElSelect v-if="usesDeployment(row)" v-model="row.deployment_id"
+                  :disabled="editBlocked" filterable remote clearable :remote-method="(query: string) => searchDeployments(query, row)"
+                  :loading="deploymentsLoading" placeholder="选择已启用部署" class="cap-deployment"
+                  @visible-change="(visible: boolean) => visible && searchDeployments('', row)">
+                  <ElOption v-for="item in deploymentOptions" :key="item.id"
+                    :label="item.display_name" :value="item.id"
+                    :disabled="!item.compatible_data_egress_policies.includes(form.data_egress_policy)" />
+                  <ElOption v-if="row.deployment_id && !deploymentOptions.some(item => item.id === row.deployment_id)"
+                    :label="`现有部署 #${row.deployment_id}（请核对）`" :value="row.deployment_id" />
+                </ElSelect>
+                <span v-else class="cap-muted">—</span>
+                <p v-if="isLocalOcr(row) && !row.deployment_id" class="cap-muted">未绑定部署时费用保持未计价，硬预算请求会被拒绝。可先保存，配置并启用部署价格后再绑定。</p>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="解析工具" min-width="160">
+              <template #default="{ row }">
+                <ElSelect
+                  v-if="row.route_kind === 'parse_driver' || row.route_kind === 'audio_driver'"
+                  v-model="row.driver_code"
+                  @change="!usesDeployment(row) && (row.deployment_id = undefined)"
+                  :disabled="editBlocked"
+                  clearable
+                  filterable
+                >
+                  <ElOption
+                    v-for="code in driverCodes(row.capability_code)"
+                    :key="code"
+                    :label="driverLabel(code)"
+                    :value="code"
+                  />
+                </ElSelect>
+                <span v-else class="cap-muted">—</span>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="优先顺序" width="90">
+              <template #default="{ row }">
+                <ElInputNumber :disabled="editBlocked" v-model="row.priority" :min="1" :controls="false" class="cap-number" />
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="操作" width="80">
+              <template #default="{ $index }">
+                <ElButton :disabled="editBlocked" link type="danger" @click="removeRoute($index)">删除</ElButton>
+              </template>
+            </ElTableColumn>
+          </ElTable>
+
+          <ElSpace wrap class="cap-actions">
+            <ElButton
+              v-permission="'sand_ai:setup:capability:save'"
+              type="primary"
+              :loading="busy === 'save'"
+              :disabled="editBlocked || Boolean(busy)"
+              @click="handleSave"
+            >
+              保存草稿
+            </ElButton>
+            <ElButton
+              v-permission="'sand_ai:setup:capability:publish'"
+              :disabled="editBlocked || Boolean(busy) || !profile || profile.state === 'published'"
+              :loading="busy === 'publish'"
+              @click="handlePublish"
+            >
+              启用配置档
+            </ElButton>
+            <ElButton :disabled="Boolean(busy)" :loading="busy === 'load'" @click="reloadProfile">重新加载</ElButton>
+          </ElSpace>
+        </template>
+        <MaterialProfileEditor v-if="!materialConfigurationPage" :environment-id="environmentId" />
+        <LegalAnalysisPanel :environment-id="environmentId" />
+        <section id="chat-route-trial" ref="chatTrialSection" tabindex="-1" aria-label="聊天路线试用">
+          <ChatRouteTrialPanel :environment-id="environmentId" />
+        </section>
+      </ElCard>
+    </div>
+  </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
+  import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
   import { useUserStore } from '@/store/modules/user'

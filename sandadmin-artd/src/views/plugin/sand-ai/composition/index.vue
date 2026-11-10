@@ -1,23 +1,26 @@
 <template>
-  <div class="sand-ai-page">
-    <ExpertSelectionHelp />
-    <ElCard shadow="never" class="environment-card">
-      <div class="environment-row">
-        <div><h2>AI 工作流</h2><p>选择应用环境，将已启用服务组合为多个节点，保存草稿并启用，再使用应用凭证试用固定版本。</p></div>
-        <ElSelect v-model="environmentId" filterable clearable placeholder="选择应用环境" style="width: 300px">
-          <ElOption v-for="environment in environments" :key="environment.id"
-            :label="environment.name" :value="environment.id" />
-        </ElSelect>
-        <ElButton :loading="environmentLoading" @click="loadEnvironments(true)">刷新环境</ElButton>
-        <ElButton v-if="environmentMore" :loading="environmentLoading" @click="loadEnvironments(false)">更多环境</ElButton>
-      </div>
-      <ElAlert v-if="environmentError" type="error" title="无法读取 SandIAM 应用环境，请检查列表权限" :closable="false" />
-    </ElCard>
-    <CompositionWorkflowPanel :key="userStore.info.id" :environment-id="environmentId" />
-  </div>
+  <SandAiErrorBoundary>
+    <div class="sand-ai-page">
+      <ExpertSelectionHelp />
+      <ElCard shadow="never" class="environment-card">
+        <div class="environment-row">
+          <div><h2>AI 工作流</h2><p>选择应用环境，将已启用服务组合为多个节点，保存草稿并启用，再使用应用凭证试用固定版本。</p></div>
+          <ElSelect v-model="environmentId" filterable clearable placeholder="选择应用环境" style="width: 300px">
+            <ElOption v-for="environment in environments" :key="environment.id"
+              :label="environment.name" :value="environment.id" />
+          </ElSelect>
+          <ElButton :loading="environmentLoading" @click="loadEnvironments(true)">刷新环境</ElButton>
+          <ElButton v-if="environmentMore" :loading="environmentLoading" @click="loadEnvironments(false)">更多环境</ElButton>
+        </div>
+        <ElAlert v-if="environmentError" type="error" title="无法读取 SandIAM 应用环境，请检查列表权限" :closable="false" />
+      </ElCard>
+      <CompositionWorkflowPanel :key="userStore.info.id" :environment-id="environmentId" />
+    </div>
+  </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
+  import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import ExpertSelectionHelp from '../components/ExpertSelectionHelp.vue'
   import { onMounted, onUnmounted, ref, watch } from 'vue'

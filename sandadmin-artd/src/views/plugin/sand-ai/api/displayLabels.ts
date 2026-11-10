@@ -80,6 +80,28 @@ export const driverLabels: Readonly<Record<string, string>> = {
   openai_audio_speech: 'OpenAI 兼容语音合成'
 }
 
+/** 任务类型中文名。 */
+export const taskTypeLabels: Readonly<Record<string, string>> = {
+  file_parse: '文件解析',
+  audio_transcription: '录音转写',
+  structured_workflow: '材料整理',
+  ai_completion: 'AI 对话',
+  chat: '对话'
+}
+
+/** 任务资源类型中文名；未知值回退原值。 */
+export const resourceTypeLabels: Readonly<Record<string, string>> = {
+  file: '文件',
+  audio_transcription: '录音转写',
+  audio: '录音',
+  workflow: '工作流',
+  workflow_run: '材料运行',
+  material_workflow: '材料整理',
+  model: '模型',
+  provider: '服务商',
+  task: '任务'
+}
+
 /** 调用/任务状态中文名。 */
 export const runStateLabels: Readonly<Record<string, string>> = {
   queued: '排队中',
@@ -130,6 +152,14 @@ export function driverLabel(code: string): string {
 
 export function runStateLabel(state: string): string {
   return runStateLabels[state] ?? state
+}
+
+export function taskTypeLabel(code: string): string {
+  return taskTypeLabels[code] ?? code
+}
+
+export function resourceTypeLabel(code: string): string {
+  return resourceTypeLabels[code] ?? code
 }
 
 export function configurationStateLabel(state: string): string {

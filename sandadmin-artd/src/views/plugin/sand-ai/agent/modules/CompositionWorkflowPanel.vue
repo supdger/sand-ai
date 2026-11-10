@@ -161,6 +161,7 @@ import taskApi from '../../api/task'
 import knowledgeSourceApi, { knowledgeSourceReference, type KnowledgeSourceReference } from '../../api/knowledgeSource'
 import type { SandAiInvocationCost, SandAiUsageSummaryRow } from '../../api/types'
 import { newRuntimeRequestId, SandAiRuntimeError } from '../../api/runtime'
+import { errorDisplayText } from '../../api/errorText'
 const props = defineProps<{ environmentId: number | null }>()
 const user = useUserStore()
 const adminBusy = ref(false)
@@ -429,7 +430,7 @@ function nodeIdReferenced(node: NodeEditor): boolean {
     && (other.depends.includes(node.id) || other.bindings.some(binding => binding.enabled && binding.source === 'node' && binding.nodeId === node.id))))
 }
 const display = (value: JsonValue | Record<string, JsonValue> | null) => JSON.stringify(value, null, 2)
-const message = (cause: unknown) => cause instanceof Error ? cause.message : '请求失败'
+const message = (cause: unknown) => errorDisplayText(cause, '请求失败')
 function prefix(): string { return `sand-ai-composition:${user.info.id}:${props.environmentId ?? 'none'}:${code.value}` }
 function runtimePrefix(): string { return `${prefix()}:version:${runtimeVersion.value ?? 'none'}` }
 const builtinInputFields: Partial<Record<ServiceKind, Record<string, { label: string; help: string }>>> = {

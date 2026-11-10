@@ -78,6 +78,7 @@ import { useUserStore } from '@/store/modules/user'
 import RuntimeApiKeyField from './RuntimeApiKeyField.vue'
 import speechApi, { type SpeechRun } from '../api/speech'
 import { newRuntimeRequestId } from '../api/runtime'
+import { errorDisplayText } from '../api/errorText'
 
 const props = defineProps<{ environmentId?: number | null }>()
 type Recovery = { key: string; publicId: string | null; owner?: string; environment?: number | null; digest?: string; characters?: number; voiceDigest?: string }
@@ -149,7 +150,7 @@ function restoreScope(): void {
       if (!/^[\x21-\x7e]{1,512}$/.test(key)) throw new Error('旧语音请求键无法识别，请保留记录核对')
       recovery.value = { key, publicId: null }; legacy.value = true
     }
-  } catch (cause) { storageError.value = cause instanceof Error ? cause.message : '无法读取原语音恢复记录，发送已停止' }
+  } catch (cause) { storageError.value = errorDisplayText(cause, '无法读取原语音恢复记录，发送已停止') }
 }
 async function digest(value: string): Promise<string> {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
@@ -216,7 +217,7 @@ async function submit(): Promise<void> {
     await acceptRun(result, original)
     if (current !== epoch) return
     saveRecovery({ ...original, publicId: result.public_id }); run.value = result
-  } catch (cause) { if (current === epoch) error.value = cause instanceof Error ? cause.message : '语音请求失败' }
+  } catch (cause) { if (current === epoch) error.value = errorDisplayText(cause, '语音请求失败') }
   finally {
     if (postFlight.value === flight) {
       postFlight.value = null
@@ -242,7 +243,7 @@ async function readOriginal(byKey: boolean): Promise<void> {
       legacy.value = false
     }
     run.value = result; recoveryChecked.value = true
-  } catch (cause) { if (current === epoch) error.value = cause instanceof Error ? cause.message : '原语音请求读取失败' }
+  } catch (cause) { if (current === epoch) error.value = errorDisplayText(cause, '原语音请求读取失败') }
   finally { if (current === epoch) busy.value = false }
 }
 async function recover(): Promise<void> { await readOriginal(true) }
@@ -256,7 +257,7 @@ async function loadAudio(): Promise<void> {
     const audio = await speechApi.audio(apiKey.value, publicId, environmentHeader.value)
     if (current !== epoch) return
     audioUrl.value = URL.createObjectURL(audio.blob); audioFilename.value = audio.filename; audioFormat.value = audio.format
-  } catch (cause) { if (current === epoch) error.value = cause instanceof Error ? cause.message : '音频读取失败' }
+  } catch (cause) { if (current === epoch) error.value = errorDisplayText(cause, '音频读取失败') }
   finally { if (current === epoch) loadingAudio.value = false }
 }
 function newTrial(): void {
@@ -329,7 +330,7 @@ async function readKnown(byPublicId: boolean): Promise<void> {
     if (!isCurrent()) return
     readerTarget.value = { key: target.key, publicId: result.public_id }; readerRun.value = result
   } catch (cause) {
-    if (isCurrent()) readerError.value = cause instanceof Error ? cause.message : '已有语音请求读取失败；请保留请求编号'
+    if (isCurrent()) readerError.value = errorDisplayText(cause, '已有语音请求读取失败；请保留请求编号')
   } finally { if (isCurrent()) readerBusy.value = false }
 }
 async function readKnownRequest(): Promise<void> { await readKnown(false) }
@@ -345,7 +346,7 @@ async function loadKnownAudio(): Promise<void> {
     const audio = await speechApi.audio(credential, publicId, selectedEnvironment)
     if (!isCurrent()) return
     readerAudioUrl.value = URL.createObjectURL(audio.blob); readerAudioFilename.value = audio.filename; readerAudioFormat.value = audio.format
-  } catch (cause) { if (isCurrent()) readerError.value = cause instanceof Error ? cause.message : '该运行音频读取失败' }
+  } catch (cause) { if (isCurrent()) readerError.value = errorDisplayText(cause, '该运行音频读取失败') }
   finally { if (isCurrent()) readerAudioBusy.value = false }
 }
 watch([readerKey, readerPublicId], clearReader, { flush: 'sync' })

@@ -1084,7 +1084,10 @@ BEGIN
         ('202611030164_admin_menu_regroup','34ce09d82d637dd842661f1add75525403aae73df72e55c6e98135d75bc21251'),
         ('202611040165_ux_phase2','ed45df99ffabfba339fc2fa9f9f76b4091a86ea728bc39fb8485d0c2fb3cbaf2'),
         ('202611040166_ux_p7_home_menu','c32960be032575b9b4fcf8d613007a25de2f5c752c3621f66244b025da151896'),
-        ('202611050167_provider_timeout_default','9345f4b253fe6013c3c04d5f1dfcbf96572d6d2848932314884fbe1d0e2fe66e')
+        ('202611050167_provider_timeout_default','9345f4b253fe6013c3c04d5f1dfcbf96572d6d2848932314884fbe1d0e2fe66e'),
+        ('202611060168_trial_managed_permissions','b438cf4f3f791cf380e673efb25197a0c3145a5a7e1df0873be707181f5b3ae8'),
+        ('202611060169_g2_trial_menu','dd896d48e2a89f4931dc816881b067fa57a8d4e6e65abcca0b3cddf74be7a1dd'),
+        ('202611070170_config_revision_published_at','a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11')
     ) AS expected(version,checksum) ON expected.version=applied.version
     WHERE expected.version IS NULL OR applied.checksum IS DISTINCT FROM expected.checksum
     ORDER BY applied.version LIMIT 1;
@@ -14271,5 +14274,218 @@ $sand_ai_migration_0167$;
   INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611050167_provider_timeout_default','9345f4b253fe6013c3c04d5f1dfcbf96572d6d2848932314884fbe1d0e2fe66e',CURRENT_TIMESTAMP(0));
  END IF;
 END $sand_ai_upgrade_0167$;
+
+DO $sand_ai_upgrade_0168$
+BEGIN
+ IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611060168_trial_managed_permissions' AND checksum IS DISTINCT FROM 'b438cf4f3f791cf380e673efb25197a0c3145a5a7e1df0873be707181f5b3ae8') THEN
+  RAISE EXCEPTION 'SandAI migration 168 checksum mismatch';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611060168_trial_managed_permissions') THEN
+  EXECUTE $sand_ai_migration_0168$
+-- 0.4.10 Phase 2 (B2): administrator "试一试" button permission seeds.
+-- `sand_ai:trial:options` makes GET /app/sand-ai/admin/trial/options grantable
+-- and `sand_ai:trial:chat` makes POST /app/sand-ai/admin/trial/chat grantable.
+-- The seeds only declare the permissions; no role receives a grant here (the
+-- platform super-administrator already passes CheckAuth), and no navigation
+-- entry is added. Nodes hang under the trial page when present, otherwise
+-- under the onboarding page or the SandAI root.
+DO $ux_phase2_trial_managed_permissions$
+DECLARE
+    root_id bigint;
+    page_id bigint;
+    node_id bigint;
+    count_nodes integer;
+    specification record;
+BEGIN
+    IF to_regclass('sand_ai_configuration_navigation_ownership') IS NULL THEN
+        RAISE EXCEPTION 'SandAI configuration navigation ownership is missing';
+    END IF;
+    LOCK TABLE sand_system_menu IN SHARE ROW EXCLUSIVE MODE;
+    SELECT count(*),min(id) INTO count_nodes,root_id FROM sand_system_menu
+    WHERE code='SandAI' AND parent_id=0 AND type=1 AND status=1 AND delete_time IS NULL;
+    IF count_nodes<>1 THEN
+        RAISE EXCEPTION 'SandAI root navigation is missing or duplicated';
+    END IF;
+
+    SELECT id INTO page_id FROM sand_system_menu
+    WHERE code IN ('SandAITaskTrial','SandAIOnboarding') AND type=2
+      AND status=1 AND delete_time IS NULL
+    ORDER BY CASE code WHEN 'SandAITaskTrial' THEN 0 ELSE 1 END, id
+    LIMIT 1;
+    page_id := COALESCE(page_id, root_id);
+
+    FOR specification IN SELECT * FROM (VALUES
+        ('sand_ai:trial:options','试用服务商选项',31),
+        ('sand_ai:trial:chat','试用对话',32)
+    ) AS permissions(code,name,sort) LOOP
+        SELECT count(*),min(id) INTO count_nodes,node_id FROM sand_system_menu
+        WHERE code=specification.code OR slug=specification.code;
+        IF count_nodes>1 THEN
+            RAISE EXCEPTION 'SandAI trial permission is duplicated: %',specification.code;
+        END IF;
+        IF count_nodes=0 THEN
+            INSERT INTO sand_system_menu(parent_id,name,code,slug,type,path,component,icon,sort,is_hidden,status,create_time,update_time)
+            VALUES(page_id,specification.name,specification.code,specification.code,3,'','','',specification.sort,1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+            RETURNING id INTO node_id;
+            INSERT INTO sand_ai_configuration_navigation_ownership
+            SELECT 'menu',id,to_jsonb(menu)-ARRAY['id','create_time','update_time','created_by','updated_by']
+            FROM sand_system_menu menu WHERE id=node_id;
+        ELSIF NOT EXISTS(
+            SELECT 1 FROM sand_system_menu WHERE id=node_id AND code=specification.code
+              AND slug=specification.code AND type=3 AND status=1 AND delete_time IS NULL
+        ) THEN
+            RAISE EXCEPTION 'Existing SandAI trial permission is incompatible: %',specification.code;
+        END IF;
+    END LOOP;
+END
+$ux_phase2_trial_managed_permissions$;
+$sand_ai_migration_0168$;
+  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611060168_trial_managed_permissions','b438cf4f3f791cf380e673efb25197a0c3145a5a7e1df0873be707181f5b3ae8',CURRENT_TIMESTAMP(0));
+ END IF;
+END $sand_ai_upgrade_0168$;
+
+DO $sand_ai_upgrade_0169$
+BEGIN
+ IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611060169_g2_trial_menu' AND checksum IS DISTINCT FROM 'dd896d48e2a89f4931dc816881b067fa57a8d4e6e65abcca0b3cddf74be7a1dd') THEN
+  RAISE EXCEPTION 'SandAI migration 169 checksum mismatch';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611060169_g2_trial_menu') THEN
+  EXECUTE $sand_ai_migration_0169$
+-- 0.4.10 Phase 2 (G2): unified SandAI navigation for the new administrator
+-- "试一试" page. The trial surface becomes a first-level entry under the
+-- SandAI root (sort 90 places it directly below 首页/95 and above 模型/65 in
+-- the sort-desc menu), matching the G2 daily-entry order
+-- 首页 → 试用 → 服务商 → 文件中心 → 费用与账单 → 高级.
+--
+-- Scope notes:
+-- * 文件中心 (SandAIFileCenter) and 费用与账单 (SandAIUsage) already sit at
+--   the top level from earlier seeds; this block leaves their codes, names,
+--   paths, components, permission slugs and role links untouched.
+-- * 任务与会议试用 (SandAITaskTrial) and the other low-frequency surfaces
+--   were already folded under the visible 高级 group (SandAIAdvanced) by
+--   migration 164; menu rows are still delivered, so every absolute route
+--   keeps registering and old deep links keep working. This block asserts
+--   nothing new there on purpose.
+-- * 首页 (SandAIOverview) stays a top-level entry per the minimal-change
+--   decision; it is no longer the only newcomer path because 试用 now sits
+--   beside it.
+-- * The two B2 button permissions (sand_ai:trial:options / sand_ai:trial:chat)
+--   seeded by migration 168 are re-parented under the new page so role
+--   configuration groups them with the surface they guard; codes, slugs and
+--   role links are unchanged. sand_ai:trial:context stays under the legacy
+--   trial/task surface because it still serves the old admin-trial channel.
+--
+-- The block is idempotent: re-running it converges to the same rows without
+-- duplicating menus, re-parenting twice or duplicating role links.
+DO $g2_trial_menu$
+DECLARE
+    root_id bigint;
+    page_id bigint;
+    node_id bigint;
+    link_id bigint;
+    count_nodes integer;
+    granted_role record;
+    navigation_id bigint;
+BEGIN
+    IF to_regclass('sand_ai_configuration_navigation_ownership') IS NULL THEN
+        RAISE EXCEPTION 'SandAI configuration navigation ownership is missing';
+    END IF;
+    LOCK TABLE sand_system_menu IN SHARE ROW EXCLUSIVE MODE;
+    LOCK TABLE sand_system_role_menu IN SHARE ROW EXCLUSIVE MODE;
+    SELECT count(*),min(id) INTO count_nodes,root_id FROM sand_system_menu
+    WHERE code='SandAI' AND parent_id=0 AND type=1 AND status=1 AND delete_time IS NULL;
+    IF count_nodes<>1 THEN
+        RAISE EXCEPTION 'SandAI root navigation is missing or duplicated';
+    END IF;
+
+    -- 试用 page: direct child of the SandAI root with an absolute stored path
+    -- ('/sand-ai/trial'), matching the 164 convention so the effective route
+    -- stays byte-stable if the node is ever regrouped again.
+    SELECT count(*),min(id) INTO count_nodes,page_id FROM sand_system_menu WHERE code='SandAITrial';
+    IF count_nodes>1 THEN
+        RAISE EXCEPTION 'SandAITrial menu is duplicated';
+    END IF;
+    IF count_nodes=0 THEN
+        IF EXISTS(
+            SELECT 1 FROM sand_system_menu
+            WHERE parent_id=root_id AND type=2 AND path='/sand-ai/trial'
+              AND code IS DISTINCT FROM 'SandAITrial'
+        ) THEN
+            RAISE EXCEPTION 'SandAI trial navigation conflicts with an existing page';
+        END IF;
+        INSERT INTO sand_system_menu(parent_id,name,code,slug,type,path,component,icon,sort,is_hidden,status,create_time,update_time)
+        VALUES(root_id,'试用','SandAITrial','',2,'/sand-ai/trial','/plugin/sand-ai/trial/index','',90,0,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+        RETURNING id INTO page_id;
+        INSERT INTO sand_ai_configuration_navigation_ownership
+        SELECT 'menu',id,to_jsonb(menu)-ARRAY['id','create_time','update_time','created_by','updated_by']
+        FROM sand_system_menu menu WHERE id=page_id;
+    ELSIF NOT EXISTS(
+        SELECT 1 FROM sand_system_menu WHERE id=page_id AND parent_id=root_id AND type=2
+          AND name='试用' AND path='/sand-ai/trial' AND component='/plugin/sand-ai/trial/index'
+          AND COALESCE(slug,'')='' AND is_hidden=0 AND status=1 AND delete_time IS NULL
+    ) THEN
+        RAISE EXCEPTION 'Existing SandAITrial menu is incompatible';
+    END IF;
+
+    -- Re-parent the B2 button permissions under the new trial page. Slugs,
+    -- codes and every existing role_menu link stay untouched.
+    UPDATE sand_system_menu
+    SET parent_id=page_id,
+        update_time=CURRENT_TIMESTAMP
+    WHERE code IN ('sand_ai:trial:options','sand_ai:trial:chat')
+      AND type=3 AND status=1 AND delete_time IS NULL
+      AND parent_id IS DISTINCT FROM page_id;
+
+    -- Roles that already hold the trial options read permission also receive
+    -- the page and root links, matching the page-seed convention; seeds grant
+    -- nothing by themselves and this only repairs drift.
+    FOR granted_role IN
+        SELECT DISTINCT role_menu.role_id FROM sand_system_role_menu role_menu
+        JOIN sand_system_menu permission ON permission.id=role_menu.menu_id
+        JOIN sand_system_role role ON role.id=role_menu.role_id
+        WHERE permission.type=3 AND permission.status=1 AND permission.delete_time IS NULL
+          AND role.status=1 AND role.delete_time IS NULL
+          AND permission.slug='sand_ai:trial:options'
+    LOOP
+        FOREACH navigation_id IN ARRAY ARRAY[root_id,page_id] LOOP
+            IF NOT EXISTS(
+                SELECT 1 FROM sand_system_role_menu
+                WHERE role_id=granted_role.role_id AND menu_id=navigation_id
+            ) THEN
+                INSERT INTO sand_system_role_menu(role_id,menu_id)
+                VALUES(granted_role.role_id,navigation_id) RETURNING id INTO link_id;
+                INSERT INTO sand_ai_configuration_navigation_ownership
+                SELECT 'role_menu',id,jsonb_build_object('role_id',role_id,'menu_id',menu_id)
+                FROM sand_system_role_menu WHERE id=link_id;
+            END IF;
+        END LOOP;
+    END LOOP;
+END
+$g2_trial_menu$;
+$sand_ai_migration_0169$;
+  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611060169_g2_trial_menu','dd896d48e2a89f4931dc816881b067fa57a8d4e6e65abcca0b3cddf74be7a1dd',CURRENT_TIMESTAMP(0));
+ END IF;
+END $sand_ai_upgrade_0169$;
+
+DO $sand_ai_upgrade_0170$
+BEGIN
+ IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611070170_config_revision_published_at' AND checksum IS DISTINCT FROM 'a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11') THEN
+  RAISE EXCEPTION 'SandAI migration 170 checksum mismatch';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611070170_config_revision_published_at') THEN
+  EXECUTE $sand_ai_migration_0170$
+-- 0.4.10 audit A4: sand_ai_config_revision gains the published_at audit
+-- timestamp that the capability-profile publish path and the onboarding
+-- publication paths already write (CapabilityProfileGateway,
+-- OnboardingPublicationService). Before this migration no persistent schema
+-- declared the column, so the ORM silently dropped the value on save. New
+-- publishes stamp it; existing rows keep NULL because their publish time was
+-- never recorded.
+ALTER TABLE sand_ai_config_revision
+    ADD COLUMN IF NOT EXISTS published_at timestamp(0) without time zone NULL;
+$sand_ai_migration_0170$;
+  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611070170_config_revision_published_at','a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11',CURRENT_TIMESTAMP(0));
+ END IF;
+END $sand_ai_upgrade_0170$;
 
 COMMIT;

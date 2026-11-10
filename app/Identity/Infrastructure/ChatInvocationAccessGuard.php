@@ -28,6 +28,34 @@ final class ChatInvocationAccessGuard
         );
     }
 
+    /**
+     * Authorize with an explicitly supplied signed context instead of the HTTP
+     * Authorization header. Channels that issue their own short-lived workload
+     * context (e.g. the administrator trial) carry a different credential on
+     * the request, so the issued `Bearer <context>` header value is passed
+     * here directly. SandIAM still runs the full verify/authorize chain.
+     *
+     * @return array<string,mixed>
+     */
+    public function authorizeSigned(
+        string $authorizationHeader,
+        string $sourceIp,
+        IdentityContext $identity,
+        int $invocationId,
+        string $requestId,
+    ): array {
+        return ($this->authorizer ?? new HostSandIamInvocationAuthorizer())->authorizeSigned(
+            $authorizationHeader,
+            $sourceIp,
+            $identity,
+            'sand_ai.chat.complete',
+            'sand_ai.chat_invocation',
+            (string) $invocationId,
+            'chat-invocation:' . bin2hex(random_bytes(16)),
+            $requestId,
+        );
+    }
+
     /** @param array<string,mixed> $decision */
     public function revalidate(
         Request $request, IdentityContext $identity, int $invocationId, string $requestId, array $decision,
