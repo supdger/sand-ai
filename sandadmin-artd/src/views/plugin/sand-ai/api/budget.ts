@@ -13,7 +13,10 @@ export interface BudgetPolicy extends BudgetScope {
   period_start: string
   period_end: string
   currency: string
-  limit_amount: string
+  /** null 表示不设上限，花多少算多少 */
+  limit_amount: string | null
+  /** 用到百分之几开始提醒，1-100，默认 80 */
+  reminder_percent: number
   enforcement: 'hard' | 'soft'
   unpriced_policy: 'block' | 'allow'
   unmeasured_policy: 'hold' | 'allow'
@@ -25,7 +28,10 @@ export interface BudgetPolicy extends BudgetScope {
 
 export type BudgetPolicyExpectation = Pick<BudgetPolicy,
   'revision' | 'scope_kind' | 'scope_ref' | 'environment_id' | 'period_start' | 'period_end' |
-  'currency' | 'limit_amount' | 'enforcement' | 'unpriced_policy' | 'unmeasured_policy'>
+  'currency' | 'limit_amount' | 'enforcement' | 'unpriced_policy' | 'unmeasured_policy'> & {
+  /** 0.5.0 新增：缺省表示不做该字段断言（兼容旧客户端冻结的期望） */
+  reminder_percent?: number
+}
 
 export interface BudgetDraft extends BudgetScope {
   id?: number
@@ -34,7 +40,10 @@ export interface BudgetDraft extends BudgetScope {
   period_start: string
   period_end: string
   currency: string
+  /** 空字符串表示不设上限；提交时后端归一化为 null */
   limit_amount: string
+  /** 提醒百分比，1-100；不传时后端默认 80 */
+  reminder_percent?: number
   enforcement: 'hard' | 'soft'
   unpriced_policy: 'block' | 'allow'
   unmeasured_policy: 'hold' | 'allow'
@@ -42,11 +51,13 @@ export interface BudgetDraft extends BudgetScope {
 
 export interface BudgetWindow {
   currency: string
-  limit_amount: string
+  /** 不设上限时为 null */
+  limit_amount: string | null
   reserved_amount: string
   settled_amount: string
   held_amount: string
-  available_amount: string
+  /** 不设上限时为 null */
+  available_amount: string | null
 }
 
 export interface BudgetSummary {
