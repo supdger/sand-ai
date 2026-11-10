@@ -37,13 +37,33 @@ export type SandAiCapabilityMetadata = {
   templates: Record<string, SandAiCapabilityTemplate>
 }
 
+/** 后端解析出的应用/环境目标；application_id 在无 SandIAM 时可为 null。 */
+export type CapabilityTarget = {
+  application_id: number | null
+  environment_id: number
+}
+
+/** 读取/写入可定向参数：字段缺省时由后端在唯一候选时自动解析。 */
+export type CapabilityTargetParams = {
+  application_id?: number
+  environment_id?: number
+}
+
 export type CapabilitySavePayload = {
+  application_id?: number
   environment_id: number
   expected_revision: number | null
   name: string
   template_code?: string | null
   data_egress_policy?: SandAiDataEgressPolicy | string
   routes: SandAiCapabilityRoute[]
+}
+
+export type CapabilityPublishPayload = {
+  application_id?: number
+  environment_id: number
+  id: number
+  expected_revision?: number
 }
 
 export default {
@@ -54,24 +74,27 @@ export default {
     })
   },
 
-  readProfile(environmentId: number) {
-    return request.get<{ profile: SandAiCapabilityProfile | null }>({
+  readProfile(target?: number | CapabilityTargetParams) {
+    const params: CapabilityTargetParams = typeof target === 'number'
+      ? { environment_id: target }
+      : (target ?? {})
+    return request.get<{ profile: SandAiCapabilityProfile | null; target?: CapabilityTarget }>({
       url: `${ADMIN_API_PREFIX}/setup/capability/profile/read`,
-      params: { environment_id: environmentId },
+      params,
       showErrorMessage: false
     })
   },
 
   saveProfile(payload: CapabilitySavePayload) {
-    return request.post<{ profile: SandAiCapabilityProfile }>({
+    return request.post<{ profile: SandAiCapabilityProfile; target?: CapabilityTarget }>({
       url: `${ADMIN_API_PREFIX}/setup/capability/profile/save`,
       data: payload,
       showErrorMessage: false
     })
   },
 
-  publishProfile(payload: { environment_id: number; id: number; expected_revision?: number }) {
-    return request.post<{ profile: SandAiCapabilityProfile }>({
+  publishProfile(payload: CapabilityPublishPayload) {
+    return request.post<{ profile: SandAiCapabilityProfile; target?: CapabilityTarget }>({
       url: `${ADMIN_API_PREFIX}/setup/capability/profile/publish`,
       data: payload,
       showErrorMessage: false

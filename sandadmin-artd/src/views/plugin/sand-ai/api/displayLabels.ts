@@ -77,7 +77,9 @@ export const driverLabels: Readonly<Record<string, string>> = {
   local_whisper_cpp: '本地转写引擎',
   glm_asr_audio: '智谱语音识别',
   openai_audio_transcription: 'OpenAI 兼容转写',
-  openai_audio_speech: 'OpenAI 兼容语音合成'
+  openai_audio_speech: 'OpenAI 兼容语音合成',
+  openai_compatible_audio: 'OpenAI 兼容转写',
+  openai_compatible_speech: 'OpenAI 兼容语音合成'
 }
 
 /** 任务类型中文名。 */
