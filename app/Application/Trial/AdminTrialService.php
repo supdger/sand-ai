@@ -5,18 +5,32 @@ declare(strict_types=1);
 namespace app\Application\Trial;
 
 use app\Api\Support\ApiProblem;
+use app\Application\Agent\AgentDefinitionGateway;
+use app\Application\Agent\AgentDefinitionPolicy;
+use app\Application\Agent\AgentGateway;
 use app\Application\Gateway\ChatCompletionOptionsPolicy;
 use app\Application\Capability\CapabilityProfileResolver;
 use app\Application\Gateway\ChatGateway;
 use app\Application\Gateway\RequestIdempotencyKey;
+use app\Application\Knowledge\KnowledgeBaseQueryGateway;
+use app\Application\Knowledge\KnowledgeEmbeddingIndexGateway;
+use app\Application\Knowledge\KnowledgePublicationGateway;
+use app\Application\Knowledge\KnowledgeQueryEmbeddingGateway;
+use app\Application\Task\TaskGateway;
+use app\Application\Task\TaskState;
 use app\Application\Usage\UsageAttribution;
 use app\Identity\Contract\IdentityContext;
 use app\Identity\Infrastructure\ChatInvocationAccessGuard;
+use app\Identity\Infrastructure\HostSandIamInvocationAuthorizer;
+use app\Identity\Infrastructure\TaskRunAccessGuard;
 use app\Infrastructure\Persistence\Model\AiModel;
 use app\Infrastructure\Persistence\Model\AuditLog;
+use app\Infrastructure\Persistence\Model\KnowledgeBase;
 use app\Infrastructure\Persistence\Model\Provider;
+use app\Infrastructure\Persistence\Model\TaskRun;
 use app\Infrastructure\Provider\ChatProviderFailurePolicy;
 use support\Request;
+use think\facade\Db;
 use Throwable;
 
 /**
@@ -520,6 +534,356 @@ final class AdminTrialService
             return;
         }
         AuditLog::create($entry);
+    }
+
+    /**
+     * POST /admin/trial/knowledge. Billed trial search through the managed
+     * identity (`sand_ai.knowledge.query` only) and the standard embedding +
+     * retrieval gateways, so budget, metering and citations match production.
+     * Requires the managed binding to own the base's environment and a ready
+     * embedding index.
+     *
+     * @param array<string,mixed> $input
+     * @return array<string,mixed>
+     */
+    public function knowledgeTrial(array $input, int $adminId, ?array $admin, Request $request): array
+    {
+        AdminTrialRateLimiter::assertAllowed($adminId);
+        $knowledgeBaseId = self::positiveIdStatic($input['knowledge_base_id'] ?? null, 'knowledge_base_id');
+        $query = $input['query'] ?? null;
+        if (!is_string($query) || trim($query) === '' || mb_strlen($query, 'UTF-8') > 500) {
+            throw new ApiProblem('SAND_AI_TRIAL_MESSAGE_INVALID', '请输入要查找的内容（不超过 500 字）');
+        }
+        $limit = $input['limit'] ?? 5;
+        if (!is_int($limit) || $limit < 1 || $limit > 20) {
+            throw new ApiProblem('SAND_AI_TRIAL_VALIDATION_ERROR', '请求参数不完整或格式不正确，请刷新后重试', false, ['field' => 'limit']);
+        }
+
+        $iam = $this->iam ?? new AdminTrialIamGateway();
+        $base = KnowledgeBase::where('id', $knowledgeBaseId)->find();
+        if ($base === null || $base->delete_time !== null) {
+            throw new ApiProblem('SAND_AI_TRIAL_KNOWLEDGE_NOT_FOUND', '没有找到这个知识库，请刷新后重试');
+        }
+        $environmentId = (int) $base->environment_id;
+        $activeVersionId = (int) ($base->active_version_id ?? 0);
+        if ((string) $base->state !== 'published' || (int) $base->status !== 1 || $activeVersionId < 1) {
+            throw new ApiProblem('SAND_AI_TRIAL_KNOWLEDGE_NOT_READY', '这个知识库还没有发布内容，请先发布后再试');
+        }
+        try {
+            $iamApplicationId = $iam->applicationForEnvironment($environmentId);
+            if ($iamApplicationId === null) {
+                throw new ApiProblem('SAND_AI_TRIAL_APPLICATION_NOT_FOUND', '没有找到这个应用，请刷新后重试');
+            }
+            $application = $iam->requireManageableApplication($iamApplicationId, $adminId, $admin);
+            $binding = $iam->resolveManagedBinding($application['id']);
+            if ($binding === null || (int) $binding['environment_id'] !== $environmentId) {
+                throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个知识库不属于当前应用的托管环境，暂时不能试用');
+            }
+            $workloadClientId = (int) $binding['workload_client_id'];
+            if (!$iam->actionGrantActive($workloadClientId, AdminTrialIamGateway::KNOWLEDGE_QUERY_ACTION)) {
+                throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+            }
+        } catch (ApiProblem $problem) {
+            $this->auditDeniedAccess($adminId, $iamApplicationId ?? 0, 'trial.knowledge', $problem,
+                isset($binding['workload_client_id']) ? (int) $binding['workload_client_id'] : null);
+            throw $problem;
+        }
+
+        $publication = $this->trialPublication($environmentId, $knowledgeBaseId);
+        try {
+            (new KnowledgeEmbeddingIndexGateway())->currentIndex($publication);
+        } catch (ApiProblem) {
+            throw new ApiProblem('SAND_AI_TRIAL_KNOWLEDGE_NOT_READY', '知识库还在索引中或索引失败，请稍后再试');
+        }
+
+        $requestId = 'atrial-knowledge:' . $adminId . ':' . bin2hex(random_bytes(8));
+        RequestIdempotencyKey::preflight($request);
+        try {
+            $identity = $iam->issueIdentity(
+                $workloadClientId, $application['organization_id'], $application['id'],
+                (string) $request->getRemoteIp(), $requestId, 'admin_trial:' . $adminId,
+                [AdminTrialIamGateway::KNOWLEDGE_QUERY_ACTION],
+            );
+        } catch (ApiProblem $problem) {
+            $this->auditDeniedAccess($adminId, $application['id'], 'trial.knowledge', $problem, $workloadClientId);
+            throw $problem;
+        }
+        $context = $identity['identity'];
+        $idempotencyRequestId = RequestIdempotencyKey::required($request, 'knowledge-query', $context, 'admin:' . $adminId);
+        $clientId = filter_var($context->workloadClientId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($clientId === false) {
+            throw new ApiProblem('SAND_AI_TRIAL_ISSUE_FAILED', '暂时无法发起试用，请稍后重试');
+        }
+        $resourceKey = (int) $publication['id'] . ':' . $clientId;
+        $authorizer = new HostSandIamInvocationAuthorizer();
+        $sourceIp = (string) $request->getRemoteIp();
+        $signedContext = 'Bearer ' . $identity['context'];
+        $authorizeEmbedding = static function (int $invocationId) use (
+            $authorizer, $signedContext, $sourceIp, $context, $resourceKey, $requestId,
+        ): void {
+            $authorizer->authorizeSigned(
+                $signedContext, $sourceIp, $context, AdminTrialIamGateway::KNOWLEDGE_QUERY_ACTION,
+                'sand_ai.knowledge_publication', $resourceKey,
+                'knowledge-trial:' . bin2hex(random_bytes(8)), $requestId,
+            );
+        };
+
+        try {
+            $embedding = (new KnowledgeQueryEmbeddingGateway())->embed(
+                $publication, trim($query), $idempotencyRequestId,
+                UsageAttribution::fromIdentity($context, 'knowledge_query', 'sand_ai.knowledge.query', 'embedding'),
+                $authorizeEmbedding,
+            );
+            $result = (new KnowledgeBaseQueryGateway())->queryWithVector(
+                $publication, ['query' => trim($query), 'limit' => $limit],
+                $embedding['vector'], $embedding['index_id'],
+            );
+        } catch (ApiProblem $problem) {
+            if (in_array($problem->errorCode, [
+                'SAND_AI_KNOWLEDGE_INDEX_UNAVAILABLE', 'SAND_AI_KNOWLEDGE_SOURCE_DRIFTED',
+                'SAND_AI_KNOWLEDGE_SOURCE_INVALID',
+            ], true)) {
+                throw new ApiProblem('SAND_AI_TRIAL_KNOWLEDGE_NOT_READY', '知识库还在索引中或索引失败，请稍后再试');
+            }
+            throw $this->mapGatewayProblem($problem, '');
+        }
+
+        return [
+            'application' => ['id' => $application['id'], 'name' => $application['name']],
+            'knowledge_base' => [
+                'id' => $knowledgeBaseId,
+                'code' => (string) $base->code,
+                'name' => (string) $base->name,
+            ],
+            'query' => trim($query),
+            'citations' => is_array($result['citations'] ?? null) ? $result['citations'] : [],
+            'invocation_id' => is_int($embedding['invocation']['id'] ?? null) ? $embedding['invocation']['id'] : null,
+            'idempotent_replay' => ($embedding['idempotent_replay'] ?? false) === true,
+        ];
+    }
+
+    /**
+     * Self-publication used by the owner-side trial so the billed query path
+     * keeps its real publication foreign key. Created once per knowledge base
+     * through the normal publication gateway; code is deterministic.
+     *
+     * @return array<string,mixed>
+     */
+    private function trialPublication(int $environmentId, int $knowledgeBaseId): array
+    {
+        $publications = new KnowledgePublicationGateway();
+        $existing = Db::connect('pgsql')->query(
+            "SELECT code FROM sand_ai_knowledge_publication
+             WHERE knowledge_base_id=? AND consumer_environment_id=? AND state='published'",
+            [$knowledgeBaseId, $environmentId],
+        );
+        $code = $existing === [] ? 'self-' . $knowledgeBaseId : (string) $existing[0]['code'];
+        if ($existing === []) {
+            try {
+                $publications->publish(
+                    $environmentId, $knowledgeBaseId, $environmentId, $code,
+                    'admin-trial-self:' . $knowledgeBaseId, 'admin_trial:self',
+                );
+            } catch (ApiProblem $problem) {
+                if ($problem->errorCode !== 'SAND_AI_IDEMPOTENCY_CONFLICT'
+                    && $problem->errorCode !== 'SAND_AI_RESOURCE_CONFLICT') {
+                    throw $problem;
+                }
+            }
+            $existing = Db::connect('pgsql')->query(
+                "SELECT code FROM sand_ai_knowledge_publication
+                 WHERE knowledge_base_id=? AND consumer_environment_id=? AND state='published'",
+                [$knowledgeBaseId, $environmentId],
+            );
+            if ($existing === []) {
+                throw new ApiProblem('SAND_AI_TRIAL_KNOWLEDGE_NOT_READY', '知识库试用通道暂时不可用，请稍后再试');
+            }
+            $code = (string) $existing[0]['code'];
+        }
+        return $publications->findForConsumer($environmentId, $code);
+    }
+
+    /**
+     * POST /admin/trial/agent. Published-agent "试一下" through the real
+     * AgentGateway task path with a minimum-action trial identity, so billing,
+     * budget and citations match production runs. Long runs report state
+     * 'running' with the task id for the poll endpoint.
+     *
+     * @param array<string,mixed> $input
+     * @return array<string,mixed>
+     */
+    public function agentTrial(array $input, int $adminId, ?array $admin, Request $request): array
+    {
+        AdminTrialRateLimiter::assertAllowed($adminId);
+        $applicationId = self::positiveIdStatic($input['application_id'] ?? null, 'application_id');
+        $agentId = self::positiveIdStatic($input['agent_id'] ?? null, 'agent_id');
+        $query = $input['query'] ?? null;
+        if (!is_string($query) || trim($query) === '' || mb_strlen($query, 'UTF-8') > 500) {
+            throw new ApiProblem('SAND_AI_TRIAL_MESSAGE_INVALID', '请输入要发送给智能体的内容（不超过 500 字）');
+        }
+        $conversationId = $input['conversation_id'] ?? null;
+        if ($conversationId !== null && !is_string($conversationId)) {
+            throw new ApiProblem('SAND_AI_TRIAL_VALIDATION_ERROR', '请求参数不完整或格式不正确，请刷新后重试', false, ['field' => 'conversation_id']);
+        }
+
+        $iam = $this->iam ?? new AdminTrialIamGateway();
+        try {
+            $application = $iam->requireManageableApplication($applicationId, $adminId, $admin);
+            $binding = $iam->resolveManagedBinding($application['id']);
+            if ($binding === null) {
+                throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+            }
+            $environmentId = (int) $binding['environment_id'];
+            $workloadClientId = (int) $binding['workload_client_id'];
+            foreach ([
+                AdminTrialIamGateway::AGENT_SUBMIT_ACTION,
+                AdminTrialIamGateway::AGENT_RUN_ACTION,
+                AdminTrialIamGateway::KNOWLEDGE_QUERY_ACTION,
+            ] as $action) {
+                if (!$iam->actionGrantActive($workloadClientId, $action)) {
+                    throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+                }
+            }
+        } catch (ApiProblem $problem) {
+            $this->auditDeniedAccess($adminId, $applicationId, 'trial.agent', $problem,
+                isset($binding['workload_client_id']) ? (int) $binding['workload_client_id'] : null);
+            throw $problem;
+        }
+
+        $definitionRow = Db::connect('pgsql')->query(
+            "SELECT d.id,d.code,d.environment_id FROM sand_ai_agent_definition d
+             WHERE d.id=? AND d.delete_time IS NULL",
+            [$agentId],
+        );
+        if ($definitionRow === []
+            || (int) $definitionRow[0]['environment_id'] !== $environmentId) {
+            throw new ApiProblem('SAND_AI_TRIAL_AGENT_NOT_FOUND', '没有找到这个智能体，或它不属于当前应用');
+        }
+        try {
+            $definition = (new AgentDefinitionGateway())->resolve($environmentId, (string) $definitionRow[0]['code']);
+        } catch (ApiProblem $problem) {
+            throw new ApiProblem('SAND_AI_TRIAL_AGENT_NOT_READY', '这个智能体还没有发布完成或缺少可用知识库，请先在智能体页检查后再试');
+        }
+        $runInput = AgentDefinitionPolicy::runInput([
+            'query' => trim($query),
+            ...($conversationId === null ? [] : ['conversation_id' => $conversationId]),
+        ]);
+
+        $requestId = 'atrial-agent:' . $adminId . ':' . bin2hex(random_bytes(8));
+        RequestIdempotencyKey::preflight($request);
+        try {
+            $identity = $iam->issueIdentity(
+                $workloadClientId, $application['organization_id'], $application['id'],
+                (string) $request->getRemoteIp(), $requestId, 'admin_trial:' . $adminId,
+                [
+                    AdminTrialIamGateway::AGENT_SUBMIT_ACTION,
+                    AdminTrialIamGateway::AGENT_RUN_ACTION,
+                    AdminTrialIamGateway::KNOWLEDGE_QUERY_ACTION,
+                ],
+            );
+        } catch (ApiProblem $problem) {
+            $this->auditDeniedAccess($adminId, $application['id'], 'trial.agent', $problem, $workloadClientId);
+            throw $problem;
+        }
+        $context = $identity['identity'];
+        $idempotencyRequestId = RequestIdempotencyKey::required($request, 'agent', $context, 'admin:' . $adminId);
+        $sourceIp = (string) $request->getRemoteIp();
+        $signedContext = 'Bearer ' . $identity['context'];
+
+        try {
+            (new AgentGateway())->submit(
+                $environmentId,
+                [...$definition['config'], ...$runInput],
+                $idempotencyRequestId,
+                UsageAttribution::fromIdentity($context, 'agent', 'sand_ai.agent.submit'),
+                static fn (int $taskId): array => (new TaskRunAccessGuard())->authorizeSigned(
+                    $signedContext, $sourceIp, $context, $taskId, 'agent_run', $requestId,
+                ),
+                $definition['binding'],
+            );
+        } catch (ApiProblem $problem) {
+            throw $this->mapGatewayProblem($problem, '');
+        }
+
+        // submit() returns the task summary, not the row id; the idempotency
+        // request id is the task's unique request_id in every replay branch.
+        $task = TaskRun::where('request_id', $idempotencyRequestId)->find();
+        if ($task === null) {
+            throw new ApiProblem('SAND_AI_TRIAL_ISSUE_FAILED', '暂时无法发起试用，请稍后重试', true);
+        }
+        return $this->agentTaskProjection($task, 25);
+    }
+
+    /**
+     * Poll projection for an in-flight agent trial. Re-validates that the
+     * administrator still manages the task's application and that the task
+     * belongs to the application's managed trial binding before returning the
+     * safe task summary (output content and source references included).
+     *
+     * @param array<string,mixed>|null $admin
+     * @return array<string,mixed>
+     */
+    public function agentTask(int $taskId, int $adminId, ?array $admin): array
+    {
+        if ($taskId < 1) {
+            throw new ApiProblem('SAND_AI_TRIAL_VALIDATION_ERROR', '请求参数不完整或格式不正确，请刷新后重试', false, ['field' => 'task_id']);
+        }
+        $task = TaskRun::where('id', $taskId)->find();
+        if ($task === null || (string) $task->task_type !== 'agent_run'
+            || (string) ($task->resource_type ?? '') !== 'agent_run') {
+            throw new ApiProblem('SAND_AI_TRIAL_AGENT_NOT_FOUND', '没有找到这次试用任务');
+        }
+        $iam = $this->iam ?? new AdminTrialIamGateway();
+        $applicationId = (int) $task->application_id;
+        $application = $iam->requireManageableApplication($applicationId, $adminId, $admin);
+        $binding = $iam->resolveManagedBinding($application['id']);
+        // The task columns are the persisted attribution facts written at
+        // submit time; they must still match the application's managed
+        // binding before any result is disclosed.
+        if ($binding === null
+            || (int) $binding['environment_id'] !== (int) $task->environment_id
+            || (int) $binding['workload_client_id'] !== (int) $task->workload_client_id) {
+            throw new ApiProblem('SAND_AI_TRIAL_APPLICATION_FORBIDDEN', '当前账号没有查看这次试用的权限');
+        }
+        return $this->agentTaskProjection($task, 0);
+    }
+
+    /** @return array<string,mixed> */
+    private function agentTaskProjection(TaskRun $task, int $waitSeconds): array
+    {
+        $deadline = time() + max(0, $waitSeconds);
+        do {
+            $state = (string) $task->state;
+            if (TaskState::terminal($state)) {
+                break;
+            }
+            if ($waitSeconds === 0 || time() >= $deadline) {
+                return [
+                    'task_id' => (int) $task->id,
+                    'state' => $state,
+                    'result' => null,
+                ];
+            }
+            sleep(1);
+            $fresh = TaskRun::where('id', (int) $task->id)->find();
+            if ($fresh !== null) {
+                $task = $fresh;
+            }
+        } while (true);
+        $summary = (new TaskGateway())->summary($task, true);
+        $result = is_array($summary['result'] ?? null) ? $summary['result'] : null;
+        return [
+            'task_id' => (int) $task->id,
+            'state' => (string) $task->state,
+            'result' => $result === null ? null : [
+                'output' => $result['output'] ?? null,
+                'source_references' => $result['source_references'] ?? null,
+                'tool_calls' => $result['tool_calls'] ?? null,
+                'invocation' => $result['invocation'] ?? null,
+                'review_required' => $result['review_required'] ?? null,
+            ],
+            'error_code' => $task->error_code,
+        ];
     }
 
     private function requestId(int $adminId): string

@@ -89,6 +89,23 @@ final class KnowledgeBaseGateway
                 'sources_purged' => $sourceState === 'purged',
             ];
         }
+        // Product-facing index state: 索引中 / 可用 / 索引失败（可重试）. Only a
+        // published base with an active version carries one; internal index
+        // rows and index-task bookkeeping stay out of the list payload.
+        $versionIds = [];
+        foreach ($items as $item) {
+            if (($item['state'] ?? null) === 'published' && is_int($item['active_version_id'])) {
+                $versionIds[] = $item['active_version_id'];
+            }
+        }
+        $indexStates = (new IndexTaskGateway())->projection($versionIds);
+        foreach ($items as &$item) {
+            $versionId = $item['active_version_id'] ?? null;
+            $projection = is_int($versionId) ? ($indexStates[$versionId] ?? null) : null;
+            $item['index_state'] = $projection['state'] ?? null;
+            $item['index_error'] = $projection['error'] ?? null;
+        }
+        unset($item);
         return ['current_page' => $page, 'per_page' => $limit, 'total' => (int) ($total[0]['total'] ?? 0), 'data' => $items];
     }
 
@@ -344,7 +361,7 @@ final class KnowledgeBaseGateway
             throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Expected snapshot SHA256 is invalid');
         }
         $fingerprint = self::publishFingerprint($knowledgeBaseId, $expectedSnapshotSha256, $actorRef);
-        return Db::connect('pgsql')->transaction(function () use ($environmentId, $knowledgeBaseId, $idempotencyKey, $actorRef, $expectedSnapshotSha256, $fingerprint): array {
+        $result = Db::connect('pgsql')->transaction(function () use ($environmentId, $knowledgeBaseId, $idempotencyKey, $actorRef, $expectedSnapshotSha256, $fingerprint): array {
             Db::connect('pgsql')->execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", [$environmentId . ':knowledge-operation:publish:' . $idempotencyKey]);
             $previous = Db::connect('pgsql')->query('SELECT * FROM sand_ai_knowledge_operation WHERE environment_id = ? AND operation_code = ? AND idempotency_key = ? FOR UPDATE', [$environmentId, 'publish', $idempotencyKey]);
             if ($previous !== []) {
@@ -398,6 +415,21 @@ final class KnowledgeBaseGateway
             $this->audit(trim($actorRef), 'knowledge_base.publish', $knowledgeBaseId, ['version' => (int) $version->version_no]);
             return $this->summary($knowledgeBaseId, (int) $version->id, false);
         });
+        // Publishing queues the embedding index automatically; the dedicated
+        // worker advances it one block per tick. A queueing failure must not
+        // roll back the committed publication, so it degrades to the failed
+        // projection instead of throwing here.
+        if (($result['idempotent_replay'] ?? false) !== true
+            && ($result['version']['state'] ?? null) === 'published'
+            && is_int($result['version']['id'] ?? null)) {
+            try {
+                (new IndexTaskGateway())->ensure(
+                    $environmentId, $knowledgeBaseId, (int) $result['version']['id']);
+            } catch (\Throwable) {
+                // The retry projection reports the missing index task as failed.
+            }
+        }
+        return $result;
     }
 
     /** @return array<string,mixed> */
