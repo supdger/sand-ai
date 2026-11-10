@@ -103,8 +103,8 @@
           </template>
         </ElTableColumn>
         <ElTableColumn label="最近更新" width="120" align="center">
-          <template #default>
-            <span class="cell-muted">—</span>
+          <template #default="{ row }">
+            <span class="cell-muted">{{ formatUpdateTime(row.update_time) }}</span>
           </template>
         </ElTableColumn>
         <ElTableColumn label="操作" width="240" fixed="right">
@@ -494,6 +494,12 @@
       case 'purged': return '资料已清理'
       default: return '资料暂不可用'
     }
+  }
+
+  /** 「最近更新」展示到分钟；后端返回 YYYY-MM-DD HH:MM:SS，空值回退 —。 */
+  function formatUpdateTime(value: string | null | undefined): string {
+    if (!value) return '—'
+    return value.slice(0, 16)
   }
 
   /** 资料数：后端列表只投影草稿版本的资料段数，已发布版本的份数暂不可得，缺省显示 —。 */

@@ -40,6 +40,8 @@ final class KnowledgeBaseGateway
                     active.version_no AS active_version_no,draft.id AS draft_version_id,
                     draft.version_no AS draft_version_no,draft.source_count AS draft_source_count,
                     draft.snapshot_sha256 AS draft_snapshot_sha256,
+                    kb.update_time,draft.create_time AS draft_create_time,
+                    active.published_time AS active_published_time,
                     EXISTS (SELECT 1 FROM sand_ai_knowledge_operation op
                             WHERE op.knowledge_base_id=kb.id AND op.operation_code='purge_sources')
                         AS sources_purged
@@ -85,6 +87,7 @@ final class KnowledgeBaseGateway
                 'draft_version_no' => $row['draft_version_no'] === null ? null : (int) $row['draft_version_no'],
                 'draft_source_count' => $row['draft_source_count'] === null ? null : (int) $row['draft_source_count'],
                 'draft_snapshot_sha256' => $row['draft_snapshot_sha256'] === null ? null : (string) $row['draft_snapshot_sha256'],
+                'update_time' => self::recentUpdateTime($row),
                 'source_state' => $sourceState,
                 'sources_purged' => $sourceState === 'purged',
             ];
@@ -576,5 +579,24 @@ final class KnowledgeBaseGateway
 
     /** @param array<string,mixed> $context */
     private function audit(string $actorRef, string $action, int $resourceId, array $context): void { AuditLog::create(['actor_type' => 'admin', 'actor_ref' => $actorRef, 'action' => $action, 'resource_type' => 'knowledge_base', 'resource_id' => $resourceId, 'summary' => 'SandAI knowledge base changed', 'context' => $context]); }
+    /** 产品面「最近更新」：取知识库行、当前草稿版本、已发布版本三个时间点的最大值。 */
+    private static function recentUpdateTime(array $row): ?string
+    {
+        $latest = null;
+        foreach (['update_time', 'draft_create_time', 'active_published_time'] as $key) {
+            $value = $row[$key] ?? null;
+            if ($value instanceof \DateTimeInterface) {
+                $value = $value->format('Y-m-d H:i:s');
+            }
+            if (!is_string($value) || $value === '') {
+                continue;
+            }
+            if ($latest === null || $value > $latest) {
+                $latest = $value;
+            }
+        }
+        return $latest;
+    }
+
     private function requireEnvironment(int $environmentId): void { if ($environmentId <= 0) throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Environment is required'); try { ($this->environmentReferences ?? new HostSandIamEnvironmentReferenceVerifier())->requireEnvironment($environmentId); } catch (IdentityContextException $exception) { throw IdentityContextProblem::from($exception); } }
 }
