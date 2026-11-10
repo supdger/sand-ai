@@ -1,7 +1,7 @@
 <template>
   <ElCollapse>
     <ElCollapseItem title="从获授权来源提炼方法建议" name="suggestions">
-      <p>先选择固定知识版本并填写消费后端提供的资料复用确认。生成单独计费，建议必须人工采用为草稿，再进行案例评测与启用。</p>
+      <p>先选择固定知识版本并填写应用后端提供的资料复用确认。生成单独计费，建议必须人工采用为草稿，再进行案例评测与启用。</p>
       <ElForm label-width="120px" @submit.prevent>
         <ElFormItem label="固定知识版本">
           <ElSelect v-model="sourceId" :disabled="busy || blocked" placeholder="选择当前范围开放的版本">
@@ -12,20 +12,20 @@
         <ElFormItem label="提炼目的">
           <ElInput v-model="query" type="textarea" maxlength="500" show-word-limit :disabled="busy || blocked" />
         </ElFormItem>
-        <ElFormItem label="聊天模型代码">
-          <ElInput v-model="model" placeholder="管理员已启用的正式模型代码" :disabled="busy || blocked" />
+        <ElFormItem label="聊天模型">
+          <ElInput v-model="model" placeholder="填写已启用的聊天模型" :disabled="busy || blocked" />
         </ElFormItem>
         <ElFormItem label="复用确认引用">
           <ElInput v-model="reuseDeclaration" type="textarea"
-            placeholder="消费后端记录的资料许可、脱敏与复用确认引用；不填写API Key" :disabled="busy || blocked" />
+            placeholder="应用后端记录的资料许可、脱敏与复用确认引用；不填写调用密钥" :disabled="busy || blocked" />
         </ElFormItem>
         <ElFormItem>
           <ElButton :disabled="!ready || busy || blocked || !validInput" @click="generate">确认提炼并计费</ElButton>
         </ElFormItem>
       </ElForm>
       <h4>原请求找回</h4>
-      <p>换短凭证后先读取同一消费范围，再用原请求键只读找回。运行中或结果未知不会自动再次生成。</p>
-      <ElInput :model-value="recoveryKey" :disabled="busy" placeholder="原来源提炼请求编号"
+      <p>换用新的调用密钥后先读取同一使用范围，再用原请求号只读找回。运行中或结果未知不会自动再次生成。</p>
+      <ElInput :model-value="recoveryKey" :disabled="busy" placeholder="填写此前保留的原请求号"
         @update:model-value="emit('update:recoveryKey', $event)" />
       <ElButton :disabled="!ready || busy || !recoveryKey.trim()" @click="emit('recover')">只读原请求</ElButton>
       <template v-if="result">
@@ -36,21 +36,21 @@
           <p>剩余私有内容项 {{ result.remaining_private_fields }}；剩余回执密文 {{ result.remaining_receipt_ciphertexts }}。费用与审计保留。</p>
         </template>
         <template v-else>
-          <p v-if="result.error_code">错误：{{ result.error_code }}。保留原调用及费用，不换键重新生成。</p>
+          <p v-if="result.error_code">本次未成功，已发生费用保留在费用记录中；不换请求号重新生成。</p>
           <ElCheckboxGroup v-model="selected" :disabled="busy || blocked || result.state !== 'pending_review'">
             <div v-for="method in result.methods" :key="method.suggestion_no" class="method-suggestion">
               <ElCheckbox :value="method.suggestion_no">{{ method.name }}</ElCheckbox>
               <p>{{ method.method }}</p>
               <p>适用条件：{{ method.trigger }}</p>
               <p>禁止事项：{{ method.prohibitions }}</p>
-              <p>引用来源块：{{ method.source_block_ids.join('、') }}</p>
+              <p>引用片段：{{ method.source_block_ids.join('、') }}</p>
             </div>
           </ElCheckboxGroup>
           <ElTable :data="result.citations" empty-text="暂无可读来源">
-            <ElTableColumn label="来源块" prop="source_block_id" />
+            <ElTableColumn label="片段" prop="source_block_id" />
             <ElTableColumn label="文件" prop="file_id" />
             <ElTableColumn label="位置">
-              <template #default="{ row }">{{ row.locator_type }} · {{ JSON.stringify(row.locator) }}</template>
+              <template #default="{ row }">{{ knowledgeSourceLocation(row) }}</template>
             </ElTableColumn>
             <ElTableColumn label="摘录" prop="excerpt" min-width="240" />
           </ElTable>
@@ -79,6 +79,7 @@
   import { computed, ref, watch } from 'vue'
   import type { SkillSource } from '../../api/skill'
   import type { SkillMethodSuggestion, SkillSuggestionInput, SkillSuggestionRead } from '../../api/consumerSkill'
+  import { knowledgeSourceLocation } from '../../api/knowledgeSource'
 
   const props = defineProps<{
     sources: SkillSource[]
@@ -130,7 +131,7 @@
       content_purged: '建议内容已清理，不能再采用' } as Record<string, string>)[state] ?? state
   }
   function accountingLabel(state: string): string {
-    return ({ settled: '已按原冻结价格计价，未表示账单对账', pending: '账务待恢复',
+    return ({ settled: '已按原价格计价，未表示账单对账', pending: '账务待恢复',
       not_invoked: '没有关联模型调用', unknown: '用量或金额未知' } as Record<string, string>)[state] ?? state
   }
   watch(() => props.result, () => { selected.value = [] })

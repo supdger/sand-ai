@@ -1,15 +1,14 @@
 <template>
   <div class="conversation-panel">
-    <h3>应用问答试用</h3>
-    <p class="hint">使用已获 SandIAM 知识查询和聊天权限的应用凭证。会话及费用属于该应用，不属于管理员登录态。</p>
+    <h3>应用问答</h3>
+    <p class="hint">粘贴应用环境的调用密钥，选择已开放知识库后即可提问。会话和费用都记在这个应用名下，不占用管理员账号。</p>
     <ElForm label-width="110px" @submit.prevent>
-      <RuntimeApiKeyField v-model="apiKey" />
-      <ElFormItem label="开放关系">
+      <ElFormItem label="知识库">
         <ElSelect v-model="code" placeholder="选择已开放知识库" filterable style="width: 360px">
-          <ElOption v-for="item in available" :key="item.id" :label="`${item.code} · ${item.consumer_environment_id}`" :value="item.code" />
+          <ElOption v-for="item in available" :key="item.id" :label="`${item.owner_name} · ${item.code}（第 ${item.version_no} 版）`" :value="item.code" />
         </ElSelect>
       </ElFormItem>
-      <ElFormItem label="聊天模型"><ElInput v-model="model" maxlength="128" placeholder="填写已启用的聊天模型编码" style="width: 360px" /></ElFormItem>
+      <ElFormItem label="聊天模型"><ElInput v-model="model" maxlength="128" placeholder="填写已启用的聊天模型" style="width: 360px" /></ElFormItem>
       <ElFormItem>
         <ElButton :disabled="!ready || busy" :loading="busy" @click="loadList()">找回会话</ElButton>
         <ElButton type="primary" :disabled="!ready || busy || storageBlocked || legacyCreate || !!createKey" :loading="busy" @click="create">
@@ -20,13 +19,13 @@
         <ElButton :disabled="!ready || busy" :loading="busy" @click="recoverCreated">找回原会话</ElButton>
         <span class="hint">无记录或拒绝不表示未创建，原号保留，不重发或更换请求号。</span>
         <template v-if="notSubmittedCreate === createKey">
-          <p class="hint">本页确认原创建 POST 尚未开始。存储恢复后可明确提交同一原号；刷新后只读找回。</p>
+          <p class="hint">本页确认原会话创建尚未发起。恢复存储后可明确发起同一原号；刷新后只读找回。</p>
           <ElButton :disabled="!ready || busy" @click="submitUnsentCreation">保存原号后创建原会话</ElButton>
         </template>
       </ElFormItem>
       <ElFormItem v-if="conversations.length" label="已有会话">
         <ElSelect v-model="conversationId" placeholder="选择会话" style="width: 360px" @change="selectConversation()">
-          <ElOption v-for="item in conversations" :key="item.conversation_id" :label="`${item.create_time} · ${item.state}`" :value="item.conversation_id" />
+          <ElOption v-for="item in conversations" :key="item.conversation_id" :label="`${item.state === 'closed' ? '已关闭' : '进行中'} · ${item.create_time}`" :value="item.conversation_id" />
         </ElSelect>
         <ElButton v-if="nextBefore" :disabled="busy" @click="loadList(nextBefore)">更早会话</ElButton>
       </ElFormItem>
@@ -49,14 +48,14 @@
     </ElForm>
     <ElAlert v-if="error" type="error" :title="error" :closable="false" class="notice" />
     <p v-if="conversation?.turns.some(turn => turn.state === 'pending')" class="hint">待处理轮次每隔数秒自动更新状态；结果不明时不会自动重发模型请求。</p>
-    <ElAlert v-if="pendingKey" type="warning" title="上次提交结果不明。点击“找回原请求”只读取原轮次；未找到前不会重新发送问题。" :closable="false" class="notice" />
+    <ElAlert v-if="pendingKey" type="warning" title="上次发起结果不明。点击“找回原请求”只读取原轮次；未找到前不会重新发送问题。" :closable="false" class="notice" />
     <ElButton v-if="pendingKey" :loading="busy" :disabled="!ready || busy" @click="recoverPendingTurn">找回原请求</ElButton>
     <ElAlert v-if="storageBlocked" type="error" title="原目标存储不可用，已停止新的发送、取消和关闭；请保留此页面并恢复浏览器会话存储。" :closable="false" class="notice" />
     <ElCard v-if="originalActions.length" shadow="never" class="notice">
       <strong>原目标找回</strong>
-      <p class="hint">先选择记录对应的环境和开放关系，再填写当前有效凭据。找回只读取原目标并重验当前授权，不重新发送。</p>
+      <p class="hint">先选择记录对应的应用环境和已开放知识库，再粘贴当前有效的调用密钥。找回只读取原目标并重验当前授权，不重新发送。</p>
       <div v-for="item in originalActions" :key="actionIdentity(item)" class="notice">
-        <p>环境 {{ item.environment }} · {{ item.code }} · 会话 {{ item.conversation }} · {{ actionLabel(item) }}<span v-if="item.sequence">第 {{ item.sequence }} 轮</span></p>
+        <p>{{ environmentLabel(item.environment) }} · {{ publicationText(item.code) }} · {{ actionLabel(item) }}<span v-if="item.sequence"> · 第 {{ item.sequence }} 轮</span></p>
         <p class="hint" v-if="item.admin === null">旧记录尚未绑定管理员；仅在显式读取原目标成功后归入当前管理员。</p>
         <p class="hint" v-if="item.phase === 'unknown'">结果尚未知，原目标的冲突操作已锁定。</p>
         <p class="hint" v-else-if="item.action === 'send'">原请求已定位；本轮执行与费用以原会话当前结果为准。</p>
@@ -64,9 +63,9 @@
         <ElButton :disabled="!ready || busy || storageBlocked || item.environment !== props.environmentId || item.code !== code" :loading="busy" @click="recoverOriginalAction(item)">读取原目标</ElButton>
       </div>
     </ElCard>
-    <ElAlert v-if="sourceUnavailable" type="warning" title="当前会话来源已不可读，回答、引用、摘要和段落预览已清除。原轮次与费用仍可只读找回；新的问题请使用当前有效开放关系新建会话。" :closable="false" class="notice" />
+    <ElAlert v-if="sourceUnavailable" type="warning" title="当前会话来源已不可读，回答、引用、摘要和段落预览已清除。原轮次与费用仍可只读找回；新的问题请使用当前有效的已开放知识库新建会话。" :closable="false" class="notice" />
     <template v-if="conversation">
-      <p class="hint">会话 {{ conversation.conversation_id }} · {{ conversation.state === 'closed' ? '已关闭' : '进行中' }}</p>
+      <p class="hint">{{ conversation.state === 'closed' ? '会话已关闭' : '会话进行中' }}</p>
       <ElCard v-for="turn in conversation.turns" :key="turn.sequence_no" shadow="never" class="turn">
         <strong>第 {{ turn.sequence_no }} 轮：{{ turn.query }}</strong>
         <p class="hint">原轮次状态：{{ executionStateLabel(turn.execution_state) }}</p>
@@ -88,14 +87,14 @@
         </ElButton>
         <p v-if="turn.result?.answer">{{ turn.result.answer }}</p>
         <div v-else-if="turn.state === 'pending' && !['outcome_unknown', 'recovery_required'].includes(turn.execution_state) && turn.stream_segments && preview?.sequenceNo === turn.sequence_no" class="segment-preview">
-          <p class="hint">进行中预览；来源编号仅供核对，最终内容等待本轮结果。</p>
+          <p class="hint">进行中预览；片段编号仅供核对，最终内容等待本轮结果。</p>
           <p v-for="segment in preview.segments" :key="segment.segment_no">
             {{ segment.text }}
-            <span class="hint">来源块编号：{{ segment.source_block_ids.length ? segment.source_block_ids.join('、') : '无' }}</span>
+            <span class="hint">片段编号：{{ segment.source_block_ids.length ? segment.source_block_ids.join('、') : '无' }}</span>
           </p>
           <p v-if="!preview.segments.length" class="hint">正在等待已验证段落…</p>
         </div>
-        <p v-else-if="turn.result?.answer_state === 'failed'">本轮已封存为失败，原错误码：{{ turn.result.error_code }}。原请求不会重新发送，已发生费用可从本轮费用入口核对。</p>
+        <p v-else-if="turn.result?.answer_state === 'failed'">本轮已封存为失败。原请求不会重新发送，已发生费用可从本轮费用入口核对。</p>
         <p v-else-if="turn.result?.answer_state === 'cancelled'">本轮已取消，未开始服务调用。</p>
         <p v-else-if="turn.result?.answer_state === 'no_sources'">没有可引用的来源，本轮未调用模型。</p>
         <p v-else-if="turn.result?.answer_state === 'needs_review'">模型回答或引用未通过核验，请人工复核。</p>
@@ -123,16 +122,16 @@
           本轮已达到摘要调用上限，后续提问会继续处理尚未覆盖的历史。
         </p>
         <ElTable v-if="turn.result?.citations?.length" :data="turn.result.citations" size="small">
-          <ElTableColumn label="来源块" prop="source_block_id" width="100" />
+          <ElTableColumn label="片段" prop="source_block_id" width="100" />
           <ElTableColumn label="摘录" prop="excerpt" min-width="250" />
-          <ElTableColumn label="位置" min-width="180"><template #default="{ row }">{{ row.locator_type }} · {{ JSON.stringify(row.locator) }}</template></ElTableColumn>
+          <ElTableColumn label="位置" min-width="180"><template #default="{ row }">{{ knowledgeSourceLocation(row) }}</template></ElTableColumn>
           <ElTableColumn label="来源正文" width="180">
             <template #default="{ row }">
               <ElButton v-if="knowledgeSourceReference(row)?.knowledge_base_code === code" link type="primary"
                 :disabled="!ready || busy"
                 :loading="sourceBusy && sourceTarget?.source_block_id === row.source_block_id"
                 @click="openSource(row)">查看来源</ElButton>
-              <span v-else class="hint">{{ knowledgeSourceReference(row) ? '引用不属于当前开放关系' : '引用版本信息缺失' }}</span>
+              <span v-else class="hint">{{ knowledgeSourceReference(row) ? '引用不属于当前已开放知识库' : '引用版本信息缺失' }}</span>
             </template>
           </ElTableColumn>
         </ElTable>
@@ -144,19 +143,19 @@
         <p v-if="turn.result?.rerank_state === 'invalid_output'" class="hint">重排输出未通过核验，本轮沿用原候选顺序；重排调用仍可能产生费用。</p>
       </ElCard>
       <ElButton v-if="conversation.next_before_sequence" :disabled="busy" @click="loadEarlier">更早轮次</ElButton>
-      <pre v-if="cost" class="cost">{{ JSON.stringify(cost, null, 2) }}</pre>
+      <InvocationCostDetails v-if="cost" :cost="cost" />
     </template>
     <ElDialog :model-value="sourceVisible" title="来源正文" width="min(760px, 94vw)"
       destroy-on-close @update:model-value="setSourceVisible">
       <p v-if="sourceTarget" class="hint">
-        知识库 {{ sourceTarget.knowledge_base_code }} · 版本 {{ sourceTarget.knowledge_base_version }}
-        · 来源块 {{ sourceTarget.source_block_id }}
+        知识库 {{ sourceTarget.knowledge_base_code }} · 第 {{ sourceTarget.knowledge_base_version }} 版
+        · 片段 {{ sourceTarget.source_block_id }}
       </p>
       <p v-if="sourceBusy" role="status">正在读取当前授权来源…</p>
       <ElAlert v-if="sourceError" type="error" :title="sourceError" :closable="false" />
       <template v-if="sourceBody">
-        <p>文件 {{ sourceBody.file_id }} · 解析 {{ sourceBody.parse_id }}</p>
-        <p class="hint">位置：{{ sourceBody.locator_type }} · {{ JSON.stringify(sourceBody.locator) }}</p>
+        <p>文件 {{ sourceBody.file_id }} · 片段 {{ sourceBody.source_block_id }}</p>
+        <p class="hint">位置：{{ knowledgeSourceLocation(sourceBody) }}</p>
         <pre class="source-text" tabindex="0" aria-label="来源正文">{{ sourceBody.content }}</pre>
       </template>
       <template #footer><ElButton @click="clearSource">关闭</ElButton></template>
@@ -169,24 +168,35 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { isAxiosError } from 'axios'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
-import RuntimeApiKeyField from '../../components/RuntimeApiKeyField.vue'
 import conversationApi, { KnowledgeStreamConnectionError, type KnowledgeConversation, type KnowledgeConversationSummary, type KnowledgeSegment, type KnowledgeTurn } from '../../api/knowledgeConversation'
 import { newRuntimeRequestId, SandAiRuntimeError } from '../../api/runtime'
 import { errorDisplayText } from '../../api/errorText'
-import type { KnowledgePublication } from '../../api/knowledgePublication'
+import type { ConsumerKnowledgePublication } from '../../api/knowledgePublication'
+import type { SandIamEnvironmentReference } from '../../api/iam'
 import type { SandAiInvocationCost } from '../../api/types'
-import sourceApi, { knowledgeSourceReference, type KnowledgeSourceBody, type KnowledgeSourceReference } from '../../api/knowledgeSource'
+import sourceApi, { knowledgeSourceLocation, knowledgeSourceReference, type KnowledgeSourceBody, type KnowledgeSourceReference } from '../../api/knowledgeSource'
+import InvocationCostDetails from '../../usage/modules/invocation-cost-details.vue'
 
-const props = defineProps<{ publications: KnowledgePublication[]; environmentId: number | null }>()
+const props = defineProps<{
+  apiKey: string
+  publications: ConsumerKnowledgePublication[]
+  environmentId: number | null
+  environments: SandIamEnvironmentReference[]
+}>()
+const emit = defineEmits<{ 'update:apiKey': [value: string] }>()
+// 调用密钥由应用试用页统一持有，面板只读写同一份值。
+const apiKey = computed<string>({
+  get: () => props.apiKey,
+  set: (value: string) => emit('update:apiKey', value)
+})
 const available = computed(() => props.publications.filter(item =>
-  item.state === 'published' && item.consumer_environment_id === props.environmentId
+  item.consumer_environment_id === props.environmentId
 ))
 const userStore = useUserStore()
 const adminId = computed(() => {
   const id = userStore.info.id
   return typeof id === 'number' && Number.isSafeInteger(id) && id > 0 ? id : null
 })
-const apiKey = ref('')
 const code = ref('')
 const model = ref('')
 const query = ref('')
@@ -404,6 +414,13 @@ function restorePendingKey(): void {
 function actionLabel(item: OriginalAction): string {
   return item.action === 'send' ? '发送' : item.action === 'cancel' ? '取消' : '关闭'
 }
+function environmentLabel(environment: number): string {
+  return props.environments.find(item => item.id === environment)?.name ?? '其他应用环境'
+}
+function publicationText(target: string): string {
+  const found = props.publications.find(item => item.code === target)
+  return found ? `${found.owner_name} · ${found.code}` : target
+}
 async function recoverOriginalAction(entry: OriginalAction, heldFlight?: symbol): Promise<void> {
   if (heldFlight !== undefined && writeFlight.value !== heldFlight) return
   if (!ready.value || (busy.value && heldFlight === undefined) || storageBlocked.value || entry.environment !== props.environmentId || entry.code !== code.value
@@ -454,7 +471,7 @@ async function recoverOriginalAction(entry: OriginalAction, heldFlight?: symbol)
     } catch (cause) {
       if (current !== epoch) return
       clearProtectedResult(cause, true)
-      error.value = `原目标结果仍未知，保留原号且不会重新提交：${message(cause)}`
+      error.value = `原目标结果仍未知，保留原号且不会重新发起：${message(cause)}`
     } finally { if (current === epoch) busyState.value = false }
   } finally {
     if (writeFlight.value === flight) writeFlight.value = null
@@ -766,7 +783,7 @@ async function recoverCreated(): Promise<void> {
         }
         error.value = confirmedCreated
           ? `${message(cause)}。原创建已确认，历史或原号存储尚未读完；请只读找回，不再次创建。`
-          : `${message(cause)}。原创建结果未确认，保留原号，不重新提交。`
+          : `${message(cause)}。原创建结果未确认，保留原号，不重新发起。`
       }
     } finally { if (current === epoch) busyState.value = false }
   } finally {
@@ -835,7 +852,7 @@ async function submitUnsentCreation(): Promise<void> {
       if (sessionStorage.getItem(original.storage) !== original.key) throw new Error('创建原号读回失败')
     } catch (cause) {
       storageBlocked.value = true; busyState.value = false
-      error.value = `无法保存原创建号，本页 POST 尚未开始：${message(cause)}`
+      error.value = `无法保存原创建号，本页尚未发起创建：${message(cause)}`
       return
     }
     if (current !== epoch || original.credential !== apiKey.value || original.code !== code.value) return
@@ -1125,7 +1142,6 @@ async function openSource(citation: unknown): Promise<void> {
 watch([query, model, rerank, streamSegments], () => { ++draftRevision }, { flush: 'sync' })
 watch([apiKey, () => props.publications], reset, { flush: 'sync' })
 watch([code, adminId, () => userStore.isLogin, () => userStore.accessToken, () => props.environmentId], () => {
-  apiKey.value = ''
   reset()
 }, { flush: 'sync', immediate: true })
 onUnmounted(() => { ++epoch; creationIntent = null; notSubmittedCreate.value = null; clearSource(); stopPendingRefresh(); stopTurnLookup(); stopPendingStream(); preview.value = null })
@@ -1135,7 +1151,6 @@ onUnmounted(() => { ++epoch; creationIntent = null; notSubmittedCreate.value = n
 .conversation-panel { margin-top: 24px; }
 .hint { color: var(--el-text-color-secondary); font-size: 13px; }
 .notice, .turn { margin: 12px 0; }
-.cost { white-space: pre-wrap; word-break: break-all; }
 .summary-text { white-space: pre-wrap; }
 .segment-preview { white-space: pre-wrap; }
 .source-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 55vh; overflow: auto; }
