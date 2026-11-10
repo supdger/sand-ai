@@ -704,7 +704,7 @@
     },
     {
       "path": "app/Application/Audio/Speech/SpeechBudgetGuard.php",
-      "sha256": "fe28783541b454ee8eee37bc4c922dbcc2f00069030ce46caac490baf7f2717d"
+      "sha256": "e6542a802f0fc8f73ea51c8c6246e2a80745edd05c7d72e52ee158dca449e205"
     },
     {
       "path": "app/Application/Audio/Speech/SpeechCallStartPrice.php",
@@ -968,7 +968,7 @@
     },
     {
       "path": "app/Application/Budget/BudgetAlertPolicy.php",
-      "sha256": "f9b8106ac86ccffb75aa6f1f2fd15bb457bb58e0a26563a7d5e2519da0bbbabf"
+      "sha256": "a3ed551e77be245204f0d03aee7bebceba0719bb77278f41517da17010f245dc"
     },
     {
       "path": "app/Application/Budget/BudgetCapacityBound.php",
@@ -988,19 +988,19 @@
     },
     {
       "path": "app/Application/Budget/BudgetPolicyService.php",
-      "sha256": "526a78d6613acea5abed04661580deff117142dade9105093b394d5a19455958"
+      "sha256": "9aed06ce83630eff5ba5ac28eb3ab1598347c7e232f24adc4d7f6717c52e2bde"
     },
     {
       "path": "app/Application/Budget/BudgetPolicyValidator.php",
-      "sha256": "a5db986286ae9e606629d8d3e226a506bc58afc161e00e7ba57a17c1ac56b981"
+      "sha256": "92897aebebb6e5d7e50f392ee2a3021ae46480479ee55e7c83bf34ab77c117ca"
     },
     {
       "path": "app/Application/Budget/BudgetReservationExpiryPolicy.php",
-      "sha256": "e31b039614520cee91bf62c6e42f1c68a4ecd0def10ce6308c27cf7ce9b620f7"
+      "sha256": "ec7c7f5328cf36f3c4d83af11e78195dfe8604c00d1828eaa6c59651ffbc1ddd"
     },
     {
       "path": "app/Application/Budget/BudgetReservationStateMachine.php",
-      "sha256": "04875144be52f5ecfeec1010e35b4a8d7321a28a6d5abb602b6d65b7626c5beb"
+      "sha256": "44f569a6ef4aaad39518bb84fc7382cbeb8ecee89daee8e37e18a26bac53ff5d"
     },
     {
       "path": "app/Application/Budget/BudgetScopeContext.php",
@@ -1012,7 +1012,7 @@
     },
     {
       "path": "app/Application/Budget/ChatBudgetGuard.php",
-      "sha256": "255d6b1000bc7ba3aa2aa0b56aab5bf9709dfc7bfb51d01f38b4276b9d08e6db"
+      "sha256": "16fe4d0a6b4894ddc2a93c35e70d02a8a067e43254c5b151751012f043c0b55b"
     },
     {
       "path": "app/Application/Budget/OfficialModelCapacity.php",
@@ -1376,7 +1376,7 @@
     },
     {
       "path": "app/Application/Gateway/LowCostChatRouteResolver.php",
-      "sha256": "86008a401b2517f50becf0cecf6d3de28c1bc4c4f8a266ce4d1fdcbb1657a416"
+      "sha256": "d79c7149a76338b81b826d64d61acaad41f66f5a60f7717a98444d35a439f7fe"
     },
     {
       "path": "app/Application/Gateway/LowCostRoutePolicy.php",
@@ -1543,6 +1543,10 @@
       "sha256": "6a1c2059a9685182a6f58850ca8387415da7ddb4e693b76cdb7740e4973a3b63"
     },
     {
+      "path": "app/Application/Knowledge/IndexTaskGateway.php",
+      "sha256": "117577fc8387fc4d7ad43b8fb4d99f401ea64a7e4cb4d44cbf3c33d18b557412"
+    },
+    {
       "path": "app/Application/Knowledge/KnowledgeAnswerAttribution.php",
       "sha256": "4084ce5976087bd1fb30343078d220c2dbcdaee1927cab9af2de44009b750c58"
     },
@@ -1552,7 +1556,7 @@
     },
     {
       "path": "app/Application/Knowledge/KnowledgeBaseGateway.php",
-      "sha256": "0185fa8c55a62836a30292914f6ba297af539ecfeae7ed7d75a1d227925e63bc"
+      "sha256": "f2198681d256984fe33990df5c1c4a33b6eef4aa23458d20dbca568f834d9223"
     },
     {
       "path": "app/Application/Knowledge/KnowledgeBasePolicy.php",
@@ -1616,7 +1620,7 @@
     },
     {
       "path": "app/Application/Knowledge/KnowledgeProfessionalRerankSoftBudget.php",
-      "sha256": "7c944f628e8929eaa77ec3fc4cb9dc07c5192a92ec86cc4bd5afbb5775a36161"
+      "sha256": "eb8df0945ffe6e0a168681f6fcd4271b99a77e609dbd4aa5da6a17a3e0bb20eb"
     },
     {
       "path": "app/Application/Knowledge/KnowledgeProfessionalRerankUsage.php",
@@ -2408,7 +2412,7 @@
     },
     {
       "path": "app/Application/Trial/AdminTrialIamGateway.php",
-      "sha256": "5bdfb9c0807db6af4f62f903a1482e09ad19998bc695f7b2c4a24f9036c149f2"
+      "sha256": "c661d3f2a0f66c9ed03f8b665ba0198d2ad40e50965917c4e78571428af7a9e6"
     },
     {
       "path": "app/Application/Trial/AdminTrialRateLimiter.php",
@@ -2416,7 +2420,7 @@
     },
     {
       "path": "app/Application/Trial/AdminTrialService.php",
-      "sha256": "021ac98f5bdaa8df50e11b22c8d2686d493f240ef09a9e89ec01ba4a20997c8a"
+      "sha256": "356e2a454fbd534b05a09b69a5efb772b1d97f4e6e5b307fd28b0b497f7d9534"
     },
     {
       "path": "app/Application/Trial/SandIamAdminTrialEntityStore.php",
@@ -2583,6 +2587,10 @@
       "sha256": "c259e58325b9618d08d36ac101b9458f72360ebb83f0943261fad62c0e8d2e26"
     },
     {
+      "path": "app/Application/Usage/UsagePeriodPolicy.php",
+      "sha256": "79f284ce5f76b96975f3bb290a4dd910bc26cdd14470bba76bc83fb4ff710874"
+    },
+    {
       "path": "app/Application/Usage/UsagePricing.php",
       "sha256": "3ca959280787c17af8ffbf4a73b5f72e0c75d4dfc76e12309bfb51f5000c42e8"
     },
@@ -2608,11 +2616,11 @@
     },
     {
       "path": "app/Application/Usage/UsageSummaryGateway.php",
-      "sha256": "bcdd19b906e03b5d6f3e10b641791132deaec7063742767614c4bea7cf61f7f9"
+      "sha256": "b0f94b347d2eed1e91038de46b9daeffa1b6cf5d39eb67adcb5d399c923f7600"
     },
     {
       "path": "app/Application/Usage/UsageSummaryPolicy.php",
-      "sha256": "716d04e235e76fc5ccfe53b0d500cdf3dbc812b51ca6973dcad8acf93a3404df"
+      "sha256": "4584640f194ebab339fb2ff2a1d60231cae59a9f10c8b3bee65d2236c3591971"
     },
     {
       "path": "app/Application/Usage/UsageSummaryReducer.php",
@@ -3768,7 +3776,7 @@
     },
     {
       "path": "app/Infrastructure/Provider/ChatProviderFailurePolicy.php",
-      "sha256": "5ab6d7a3d00565e8272aa407cd3cbe5fdbc1be680d57e645052e37b0f0cca928"
+      "sha256": "cb31feac9a80661d600f4627c455ac2f371e73e74ebad7fdc895b085a9f2f44d"
     },
     {
       "path": "app/Infrastructure/Provider/FakeChatProvider.php",
@@ -3969,6 +3977,10 @@
     {
       "path": "app/process/FileDeletionRecoveryWorker.php",
       "sha256": "25c5fda63eb4a9858eef0fbda7638c4015730189c06fb3b685ffca0f5489f9d6"
+    },
+    {
+      "path": "app/process/KnowledgeIndexWorker.php",
+      "sha256": "089c54d4b9a24f2bf76fba6c4d9d39673365030d2fc3aa19b5658bf69ee676dc"
     },
     {
       "path": "app/process/OutcomeReceiptCleanupWorker.php",

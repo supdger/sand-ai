@@ -10,6 +10,7 @@ DECLARE
     page_id bigint;
     link_id bigint;
     count_nodes integer;
+    page_row record;
     granted_role record;
     navigation_id bigint;
     usage_review_id bigint;
@@ -112,20 +113,20 @@ BEGIN
     -- New 高级 pages, inserted only when the code is absent and converged
     -- otherwise. No new permission codes are introduced: navigation reuses
     -- the read permissions documented below.
-    FOR page IN SELECT * FROM (VALUES
+    FOR page_row IN SELECT * FROM (VALUES
         ('费用核对','SandAIUsageReview','/sand-ai/usage-review','/plugin/sand-ai/usage-review/index',60),
         ('应用试用','SandAIAppTrial','/sand-ai/app-trial','/plugin/sand-ai/app-trial/index',55)
     ) AS pages(name,code,path,component,sort) LOOP
-        SELECT count(*),min(id) INTO count_nodes,page_id FROM sand_system_menu WHERE code=page.code;
+        SELECT count(*),min(id) INTO count_nodes,page_id FROM sand_system_menu WHERE code=page_row.code;
         IF count_nodes>1 OR EXISTS(
             SELECT 1 FROM sand_system_menu
-            WHERE parent_id=group_id AND type=2 AND path=page.path AND code IS DISTINCT FROM page.code
+            WHERE parent_id=group_id AND type=2 AND path=page_row.path AND code IS DISTINCT FROM page_row.code
         ) THEN
-            RAISE EXCEPTION 'SandAI advanced navigation conflicts: %',page.code;
+            RAISE EXCEPTION 'SandAI advanced navigation conflicts: %',page_row.code;
         END IF;
         IF count_nodes=0 THEN
             INSERT INTO sand_system_menu(parent_id,name,code,slug,type,path,component,icon,sort,is_hidden,status,create_time,update_time)
-            VALUES(group_id,page.name,page.code,'',2,page.path,page.component,'',page.sort,2,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+            VALUES(group_id,page_row.name,page_row.code,'',2,page_row.path,page_row.component,'',page_row.sort,2,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
             RETURNING id INTO page_id;
             INSERT INTO sand_ai_configuration_navigation_ownership
             SELECT 'menu',id,to_jsonb(menu)-ARRAY['id','create_time','update_time','created_by','updated_by']
@@ -133,21 +134,21 @@ BEGIN
         ELSE
             UPDATE sand_system_menu
             SET parent_id=group_id,
-                name=page.name,
-                path=page.path,
-                component=page.component,
-                sort=page.sort,
+                name=page_row.name,
+                path=page_row.path,
+                component=page_row.component,
+                sort=page_row.sort,
                 is_hidden=CASE WHEN is_hidden=0 THEN 2 ELSE is_hidden END,
                 update_time=CURRENT_TIMESTAMP
             WHERE id=page_id
               AND (parent_id IS DISTINCT FROM group_id
-                OR name IS DISTINCT FROM page.name
-                OR path IS DISTINCT FROM page.path
-                OR component IS DISTINCT FROM page.component
-                OR sort IS DISTINCT FROM page.sort
+                OR name IS DISTINCT FROM page_row.name
+                OR path IS DISTINCT FROM page_row.path
+                OR component IS DISTINCT FROM page_row.component
+                OR sort IS DISTINCT FROM page_row.sort
                 OR is_hidden=0);
         END IF;
-        IF page.code='SandAIUsageReview' THEN
+        IF page_row.code='SandAIUsageReview' THEN
             usage_review_id:=page_id;
         ELSE
             app_trial_id:=page_id;

@@ -1031,9 +1031,9 @@
     "config/sand_ai_workflow.php": "86f5426edc9637c17933d06636120b5ccacf5ac9109f21ba4ba4f04dd7fb954e",
     "config/sand_ai_workflow_services.php": "53a26873d91de0e7df5cdcab8d726fccd27d29957d011d3b220bcd8b06fa5fb6",
     "dependencies/sand-iam-0.9.7.zip": "72421578699776feb172297cc4336b04941d41c3856bcbf923c75bbee2258fd9",
-    "host-payload.json": "e8c151d794d0607f77cde581de1c42481e53e3efe6b08804500c63c30c62b111",
+    "host-payload.json": "bd32152e66b79063566131d06482ffa4af8715b04c516eb3ee9b052f49d75cd2",
     "info.ini": "a42777df5a258c3fae93c4fb9269a670f5bbabf18a5525ea8e98ad940200d775",
-    "install.sql": "a7156cd13780d5abd0b7c25f45226af70d4ec18ee471b21740a96aaf7ee91ca2",
+    "install.sql": "4a23dbbbb4323a47412b7dfa0fa61d3e85ea3b3320f645b8eb95b5597a6d0493",
     "plugin/sand-ai/CHANGELOG.md": "d23db931687d037ac99c086d3f9ae9f6375b531f1f399386964f3217d75eea91",
     "plugin/sand-ai/app/admin/controller/AdminTrialController.php": "9c38c2b492f3f883e3d5bec630ccf4d112806f28a100e9ceccb3c27cbb06fac4",
     "plugin/sand-ai/app/admin/controller/AgentDefinitionController.php": "b664a440aac010b7b68eac43a36a13f5dea475e6e402e5e8a73fd4ac01868fb8",
@@ -1267,7 +1267,7 @@
     "plugin/sand-ai/migrations/main-app/202611070170_config_revision_published_at.pgsql": "a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11",
     "plugin/sand-ai/migrations/main-app/202611100171_budget_unlimited_reminder.pgsql": "51ada4ce783c4df29b14b26f28f4ef0011f9abd86ebe357fbb0103e63d2febce",
     "plugin/sand-ai/migrations/main-app/202611110172_knowledge_index_task.pgsql": "5a9d77874d7375e65aecf0254b4dc1d74202f6a0a3f2b2d471d5ccf0e81c5a02",
-    "plugin/sand-ai/migrations/main-app/202611120173_g13_menu_regroup.pgsql": "b46cb0f6672ae3991d4b0a3f7d9e4b384b6a98b27a9e48fd3e63bec8f23618d7",
+    "plugin/sand-ai/migrations/main-app/202611120173_g13_menu_regroup.pgsql": "c83582aecc4190c2205768d0b78b9c21e677417ed206b0ce4c7af4e7006b3585",
     "plugin/sand-ai/resources/verification/ocr-sample.png": "c004fade65203979c50f8c7ec346d967377a3a55fc0417f2447bf7218a4bd1a2",
     "plugin/sand-ai/resources/verification/transcription-sample.wav": "4ad32f3c91f35d132bd740fd63cf0aab2e8c0636936d4a9b0e7f5c0f659328e3",
     "plugin/sand-ai/tools/archive-legacy-sandai.sql": "c338f5777bd70a058ea7e2785eddd6d5938051f9406e1fde868147e49f5d8cdd",
@@ -1440,6 +1440,6 @@
     "sandadmin-artd/src/views/plugin/sand-ai/usage/modules/usagePeriod.ts": "d8f2b32a8312e142bc12b2b861fa40f73a09721f0a13d0124fb759fd9c9a5cb8",
     "sandadmin-artd/src/views/plugin/sand-ai/usage/usage-ranking.ts": "1d2513f2de96835a29f5ea8a6d53e76ac98caf969b0538497295524451bea0ec",
     "uninstall.sql": "75beea494a5d767498c8b89aed5c8a9e46ec55edee3c50c861daa5b998a6a093",
-    "update.sql": "45367e6990fb7e01ea01485908c3f0d937f360370bca79b1334e00db091ff95b"
+    "update.sql": "70546a6594f3ae2930c725da9b14b1b9fff7ed36a41072b9eb6dcb31671ac7d5"
   }
 }
