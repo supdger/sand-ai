@@ -15,6 +15,8 @@ export interface KnowledgeBaseRow {
   draft_version_no: number | null
   draft_source_count: number | null
   draft_snapshot_sha256?: string | null
+  /** 最近更新：知识库行、当前草稿、已发布版本三个时间点的最大值，格式 YYYY-MM-DD HH:MM:SS */
+  update_time: string | null
   source_state: 'ready' | 'source_changed' | 'unavailable' | 'purged'
   sources_purged: boolean
   /** 0.5.0 产品面三态：indexing 索引中 / ready 可用 / failed 索引失败（可重试）；未发布或无生效版本时为 null */
