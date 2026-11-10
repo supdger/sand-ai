@@ -1,10 +1,10 @@
 <template>
   <SandAiErrorBoundary>
     <div class="sand-ai-page">
-      <ElCard class="art-table-card sand-ai-page-card" shadow="never">
+      <ElCard v-if="materialConfigurationPage" class="art-table-card sand-ai-page-card" shadow="never">
         <div class="cap-header">
           <div>
-            <h2 class="cap-title">{{ materialConfigurationPage ? '材料配置' : '能力配置' }}</h2>
+            <h2 class="cap-title">材料配置</h2>
             <p class="cap-desc">
               为指定应用环境选择解析工具、模型和材料处理位置。仅配置本地文本解析时无需密钥；AI 抽取仍需已启用模型。
             </p>
@@ -230,11 +230,296 @@
             <ElButton :disabled="Boolean(busy)" :loading="busy === 'load'" @click="reloadProfile">重新加载</ElButton>
           </ElSpace>
         </template>
-        <MaterialProfileEditor v-if="!materialConfigurationPage" :environment-id="environmentId" />
-        <LegalAnalysisPanel :environment-id="environmentId" />
-        <section id="chat-route-trial" ref="chatTrialSection" tabindex="-1" aria-label="聊天路线试用">
-          <ChatRouteTrialPanel :environment-id="environmentId" />
-        </section>
+      </ElCard>
+      <ElCard v-else class="art-table-card sand-ai-page-card" shadow="never">
+        <div class="cap-header">
+          <div>
+            <h2 class="cap-title">能力配置</h2>
+            <p class="cap-desc">给每项 AI 能力选好默认和备用模型</p>
+            <p class="cap-hint">这是高级功能，开通时系统已经替你选好，一般不用改</p>
+          </div>
+        </div>
+
+        <ElAlert v-if="navigationNotice" :title="navigationNotice" type="warning" :closable="false" class="cap-alert" />
+        <ElButton v-if="route.query.configuration_origin === 'material_guide'"
+          :disabled="Boolean(busy) || writeInFlight || restoringEntry" @click="returnToMaterialGuide">返回原材料整理引导</ElButton>
+
+        <ElForm v-if="showApplicationPicker || showEnvironmentPicker" label-width="72px" class="cap-form" @submit.prevent>
+          <ElFormItem v-if="showApplicationPicker" label="应用">
+            <ElSelect
+              v-model="applicationId"
+              filterable
+              clearable
+              placeholder="选择应用"
+              class="cap-target-select"
+              :loading="loadingApps"
+              :disabled="writeInFlight || journalError"
+              @change="onApplicationChange"
+            >
+              <ElOption
+                v-for="item in applications"
+                :key="item.id"
+                :label="item.name"
+                :value="item.id"
+              />
+              <template #empty>
+                <div class="cap-app-empty">
+                  <span>暂无应用——请先到 SandIAM 登记应用</span>
+                  <ElButton link type="primary" @click="router.push('/sand-iam/application')">去登记</ElButton>
+                </div>
+              </template>
+            </ElSelect>
+          </ElFormItem>
+          <ElFormItem v-if="showEnvironmentPicker" label="环境">
+            <ElSelect
+              v-model="environmentId"
+              filterable
+              clearable
+              placeholder="选择环境"
+              class="cap-target-select"
+              :loading="loadingEnvs"
+              :disabled="!applicationId || writeInFlight || journalError"
+              @change="onEnvironmentChange"
+            >
+              <ElOption
+                v-for="item in environments"
+                :key="item.id"
+                :label="item.name"
+                :value="item.id"
+              />
+            </ElSelect>
+          </ElFormItem>
+        </ElForm>
+
+        <ElAlert
+          v-if="errorMessage"
+          type="error"
+          :closable="true"
+          :title="errorMessage"
+          class="cap-alert"
+          @close="errorMessage = ''"
+        />
+        <ElButton v-if="iamListError === 'applications'" :loading="loadingApps" @click="loadApps">重新读取应用</ElButton>
+        <ElButton v-if="iamListError === 'environments'" :loading="loadingEnvs" @click="onApplicationChange">重新读取环境</ElButton>
+
+        <details v-if="pending || journalError" class="cap-alert cap-recover">
+          <summary>原{{ pending?.action === 'publish' ? '启用' : '保存' }}结果待确认（查看详情）</summary>
+          <ElAlert v-if="pending" type="warning" :closable="false"
+            title="原保存/启用结果待确认。仅重新读取原目标，不会重发；当前配置匹配也不代表取得原请求回执。" />
+          <ElButton :disabled="Boolean(busy) || writeInFlight" @click="restoreIntent(); loadEntryContext()">读取原操作状态</ElButton>
+        </details>
+        <ElAlert v-if="revisionConflict" type="warning" :closable="false"
+          title="配置已被其他管理员修改。本地选择仍保留在下方。重新加载以查看最新配置；核对后可选择采用最新配置，再重新选择自己的改动。" />
+        <ElButton v-if="revisionConflict && profileLoaded" :disabled="Boolean(busy) || writeInFlight" @click="adoptLatestProfile">
+          采用最新配置并放弃本地修改
+        </ElButton>
+        <ElAlert v-if="unsafeExistingConfig" type="warning" :closable="false"
+          title="既有默认模型未提供可安全保留的空配置，或含已停用项。当前配置只读，请联系管理员核查读取接口或历史配置；此页不会覆盖保存。" />
+
+        <ElEmpty
+          v-if="capabilityNeedsPick"
+          :description="capabilityPickDescription"
+          :image-size="72"
+        />
+        <template v-else-if="capabilityLoading">
+          <ElSkeleton v-for="index in 3" :key="index" :rows="4" animated class="cap-card-skeleton" />
+        </template>
+        <ElResult v-else-if="capabilityLoadFailed" icon="error" title="能力配置没能加载出来">
+          <template #extra>
+            <ElSpace wrap>
+              <ElButton type="primary" :loading="busy === 'load'" @click="retryCapabilityLoad">重新加载</ElButton>
+              <ElButton @click="copyCapabilityProblem">复制问题信息</ElButton>
+            </ElSpace>
+          </template>
+        </ElResult>
+        <ElEmpty v-else-if="applications.length === 0 && iamListError !== 'applications'" description="还没有可管理的应用">
+          <ElButton @click="router.push('/sand-iam/application')">去登记应用</ElButton>
+        </ElEmpty>
+        <ElEmpty
+          v-else-if="capabilityNoEnvironment"
+          description="这个应用还没有可用环境"
+        />
+        <div v-else class="cap-cards">
+          <section v-for="card in capabilityCards" :key="card.code" class="cap-card">
+            <div class="cap-card__head">
+              <div class="cap-card__title">
+                <h3 class="cap-card__name">{{ card.name }}</h3>
+                <span class="cap-card__usage">用在：{{ card.usage }}</span>
+              </div>
+              <ElTag :type="cardTag(card).type" size="small">{{ cardTag(card).text }}</ElTag>
+            </div>
+
+            <template v-if="!card.disabled">
+            <ElForm
+              label-width="88px"
+              class="cap-card__form"
+              :disabled="cardFormDisabled(card)"
+              @submit.prevent
+            >
+              <template v-if="card.kind === 'model'">
+                <ElFormItem label="默认模型" :error="card.fieldError">
+                  <ElSelect
+                    v-model="card.defaultDeploymentId"
+                    clearable
+                    filterable
+                    remote
+                    :remote-method="(query: string) => searchCardDeployments(card, query)"
+                    :loading="cardDeploymentsLoading(card)"
+                    :placeholder="modelPlaceholder(card, 'default')"
+                    class="cap-card__select"
+                    @visible-change="(visible: boolean) => visible && ensureCardDeployments(card)"
+                  >
+                    <ElOption
+                      v-for="item in cardDeploymentOptions(card, undefined, card.defaultDeploymentId)"
+                      :key="item.id"
+                      :label="item.display_name"
+                      :value="item.id"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+                <ElFormItem label="备用模型">
+                  <ElSelect
+                    v-model="card.backupDeploymentId"
+                    clearable
+                    filterable
+                    remote
+                    :remote-method="(query: string) => searchCardDeployments(card, query)"
+                    :loading="cardDeploymentsLoading(card)"
+                    :placeholder="modelPlaceholder(card, 'backup')"
+                    class="cap-card__select"
+                    @visible-change="(visible: boolean) => visible && ensureCardDeployments(card)"
+                  >
+                    <ElOption
+                      v-for="item in cardDeploymentOptions(card, undefined, card.backupDeploymentId)"
+                      :key="item.id"
+                      :label="item.display_name"
+                      :value="item.id"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+              </template>
+              <template v-else-if="card.kind === 'audio'">
+                <ElFormItem label="默认引擎">
+                  <ElSelect v-model="card.defaultDriverCode" clearable filterable placeholder="选择引擎" class="cap-card__select">
+                    <ElOption
+                      v-for="code in card.drivers"
+                      :key="code"
+                      :label="driverOptionLabel(code)"
+                      :value="code"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+                <ElFormItem label="默认模型">
+                  <ElSelect
+                    v-model="card.defaultDeploymentId"
+                    clearable
+                    filterable
+                    remote
+                    :remote-method="(query: string) => searchCardDeployments(card, query)"
+                    :loading="cardDeploymentsLoading(card)"
+                    :placeholder="modelPlaceholder(card, 'default')"
+                    class="cap-card__select"
+                    @visible-change="(visible: boolean) => visible && ensureCardDeployments(card)"
+                  >
+                    <ElOption
+                      v-for="item in cardDeploymentOptions(card, card.defaultDriverCode, card.defaultDeploymentId)"
+                      :key="item.id"
+                      :label="item.display_name"
+                      :value="item.id"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+                <ElFormItem label="备用引擎">
+                  <ElSelect v-model="card.backupDriverCode" clearable filterable placeholder="可不选" class="cap-card__select">
+                    <ElOption
+                      v-for="code in card.drivers"
+                      :key="code"
+                      :label="driverOptionLabel(code)"
+                      :value="code"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+                <ElFormItem label="备用模型">
+                  <ElSelect
+                    v-model="card.backupDeploymentId"
+                    clearable
+                    filterable
+                    remote
+                    :remote-method="(query: string) => searchCardDeployments(card, query)"
+                    :loading="cardDeploymentsLoading(card)"
+                    :placeholder="modelPlaceholder(card, 'backup')"
+                    class="cap-card__select"
+                    @visible-change="(visible: boolean) => visible && ensureCardDeployments(card)"
+                  >
+                    <ElOption
+                      v-for="item in cardDeploymentOptions(card, card.backupDriverCode, card.backupDeploymentId)"
+                      :key="item.id"
+                      :label="item.display_name"
+                      :value="item.id"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+              </template>
+              <template v-else>
+                <ElFormItem label="解析方式">
+                  <ElSelect v-model="card.parseDriverCode" clearable filterable placeholder="选择解析方式" class="cap-card__select">
+                    <ElOption
+                      v-for="code in card.drivers"
+                      :key="code"
+                      :label="driverOptionLabel(code)"
+                      :value="code"
+                    />
+                  </ElSelect>
+                </ElFormItem>
+                <p v-if="card.code === 'image_ocr'" class="cap-card__note">
+                  扫描件识别需要另外绑定识别部署；未绑定时只识别图片里的文字。
+                </p>
+              </template>
+            </ElForm>
+
+            <p v-if="cardShowProviderLink(card)" class="cap-card__note">
+              还没有支持这项能力的模型，
+              <ElButton link type="primary" @click="router.push('/sand-ai/provider')">去 AI 服务商添加</ElButton>
+            </p>
+            </template>
+            <p v-else class="cap-card__note">已停用，{{ card.usage }}暂不可用；点「重新启用」可恢复。</p>
+
+            <div class="cap-card__foot">
+              <span class="cap-card__foot-gap" />
+              <ElButton
+                v-if="card.disabled"
+                link
+                type="primary"
+                :disabled="cardWriteBlocked()"
+                @click="enableCapabilityCard(card)"
+              >
+                重新启用
+              </ElButton>
+              <ElButton
+                v-else
+                link
+                type="danger"
+                :disabled="cardWriteBlocked()"
+                @click="askDisableCapability(card)"
+              >
+                停用这项能力
+              </ElButton>
+              <ElButton
+                type="primary"
+                :disabled="!cardDirty(card) || cardWriteBlocked()"
+                :loading="card.saving"
+                @click="saveCapabilityCard(card)"
+              >
+                保存
+              </ElButton>
+            </div>
+          </section>
+          <ElEmpty
+            v-if="capabilityCards.length === 0"
+            description="还没有可配置的能力"
+            :image-size="72"
+          />
+        </div>
       </ElCard>
     </div>
   </SandAiErrorBoundary>
@@ -243,8 +528,9 @@
 <script setup lang="ts">
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
-  import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+  import { computed, onActivated, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
   import { useUserStore } from '@/store/modules/user'
+  import { useAuth } from '@/hooks/core/useAuth'
   import { readCapabilityProfileIntent, retainCapabilityProfileIntent, resolveCapabilityProfileIntent, type CapabilityProfileIntent } from '../api/capabilityProfileIntent'
   import { errorDisplayText } from '../api/errorText'
   import { HttpError } from '@/utils/http/error'
@@ -256,16 +542,17 @@
   } from '../api/iam'
   import capabilityApi, {
     type CapabilitySavePayload,
+    type CapabilityTargetParams,
     type SandAiCapabilityMetadata,
     type SandAiCapabilityProfile,
     type SandAiCapabilityRoute,
+    type CapabilityTarget,
     type SandAiDataEgressPolicy
   } from '../api/capability'
   import { capabilityLabel, configurationStateLabel, driverLabel } from '../api/displayLabels'
   import onboardingApi, { type PublishedDeployment } from '../api/onboarding'
+  import { describeBoundaryFault, problemInfoText } from '../composables/errorBoundary'
   import MaterialProfileEditor from '../components/MaterialProfileEditor.vue'
-  import LegalAnalysisPanel from '../components/LegalAnalysisPanel.vue'
-  import ChatRouteTrialPanel from '../components/ChatRouteTrialPanel.vue'
 
   type RouteDraft = {
     capability_code: string
@@ -277,9 +564,9 @@
 
   const route = useRoute()
   const router = useRouter()
+  const { hasAuth } = useAuth()
   let restoringEntry = true
   let entryInitialized = false
-  const chatTrialSection = ref<HTMLElement | null>(null)
   const navigationNotice = ref('')
   const materialConfigurationPage = computed(() => route.path.endsWith('/material-config'))
   const loadingApps = ref(false)
@@ -333,6 +620,30 @@
     || Boolean(profile.value && profile.value.environment_id !== environmentId.value))
   const applicationId = ref<number | undefined>(undefined)
   const environmentId = ref<number | undefined>(undefined)
+  // 后端解析出的实际目标；自动定向（唯一应用/环境）时由读取响应回填。
+  const resolvedTarget = ref<CapabilityTarget | null>(null)
+
+  /* ---------- 能力页卡片：应用/环境选择器只在存在多个候选时出现 ---------- */
+
+  const showApplicationPicker = computed(() => !materialConfigurationPage.value && applications.value.length > 1)
+  const showEnvironmentPicker = computed(() => !materialConfigurationPage.value && environments.value.length > 1)
+  const capabilityPickRequired = computed(() => showApplicationPicker.value || showEnvironmentPicker.value)
+  // 已选应用且环境列表读取完毕但为空时，展示空环境态而不是发起必然失败的读取。
+  const capabilityNoEnvironment = computed(() =>
+    !materialConfigurationPage.value && Boolean(applicationId.value) && !loadingEnvs.value
+    && environments.value.length === 0 && iamListError.value !== 'environments')
+  const targetSelectionReady = computed(() =>
+    (!showApplicationPicker.value || Boolean(applicationId.value))
+    && (!showEnvironmentPicker.value || Boolean(environmentId.value))
+    && !capabilityNoEnvironment.value)
+  const capabilityNeedsPick = computed(() =>
+    !materialConfigurationPage.value && capabilityPickRequired.value && !targetSelectionReady.value
+    && !capabilityNoEnvironment.value)
+  const capabilityPickDescription = computed(() => {
+    if (showApplicationPicker.value && !applicationId.value) return '请先选择应用'
+    if (showEnvironmentPicker.value && !environmentId.value) return '请先选择环境'
+    return '请先选择应用和环境'
+  })
 
   const form = reactive({
     name: 'default-capability',
@@ -361,8 +672,10 @@
       && (value.driver_code === undefined || value.driver_code === null || typeof value.driver_code === 'string')
       && (value.config === undefined || isProfileRecord(value.config))
   }
-  function isProfile(value: unknown, environmentId: number): value is SandAiCapabilityProfile {
-    return isProfileRecord(value) && positiveId(value.id) && value.environment_id === environmentId
+  function isProfile(value: unknown, environmentId?: number): value is SandAiCapabilityProfile {
+    return isProfileRecord(value) && positiveId(value.id)
+      && (environmentId === undefined || value.environment_id === environmentId)
+      && positiveId(value.environment_id)
       && positiveId(value.revision) && typeof value.name === 'string' && value.name.length > 0
       && (value.template_code === null || typeof value.template_code === 'string')
       && typeof value.data_egress_policy === 'string'
@@ -370,13 +683,20 @@
       && typeof value.state === 'string' && ['draft', 'published', 'archived'].includes(value.state)
       && (value.status === 1 || value.status === 2) && Array.isArray(value.routes) && value.routes.every(isProfileRoute)
   }
-  function readProfileResponse(response: unknown, environmentId: number): SandAiCapabilityProfile | null {
+  function readProfileResponse(response: unknown, environmentId?: number): SandAiCapabilityProfile | null {
     if (!isProfileRecord(response) || !Object.prototype.hasOwnProperty.call(response, 'profile')) throw new Error('Incomplete capability response')
     if (response.profile === null) return null
     if (!isProfile(response.profile, environmentId)) throw new Error('Invalid capability profile')
     return response.profile
   }
-  function writtenProfileResponse(response: unknown, environmentId: number): SandAiCapabilityProfile {
+  function readCapabilityTarget(response: unknown): CapabilityTarget | null {
+    if (!isProfileRecord(response) || response.target === undefined || response.target === null) return null
+    const target = response.target
+    if (!isProfileRecord(target) || !positiveId(target.environment_id)) return null
+    if (target.application_id !== null && target.application_id !== undefined && !positiveId(target.application_id)) return null
+    return { application_id: positiveId(target.application_id) ? target.application_id : null, environment_id: target.environment_id }
+  }
+  function writtenProfileResponse(response: unknown, environmentId?: number): SandAiCapabilityProfile {
     const value = readProfileResponse(response, environmentId)
     if (value === null) throw new Error('Missing written capability profile')
     return value
@@ -403,8 +723,11 @@
   }
   function confirmPending(value: SandAiCapabilityProfile | null, ownWriteRead = false): boolean {
     const operation = pending.value
+    // 自动定向时以前端已解析目标为准；尚未解析时回退到显式选择的应用/环境。
+    const expectedApplication = resolvedTarget.value?.application_id ?? applicationId.value
+    const expectedEnvironment = resolvedTarget.value?.environment_id ?? environmentId.value
     if (!operation || !value || (writeInFlight.value && !ownWriteRead) || operation.admin_id !== adminId.value
-      || operation.application_id !== applicationId.value || operation.environment_id !== environmentId.value
+      || operation.application_id !== expectedApplication || operation.environment_id !== expectedEnvironment
       || !sameConfiguration(value, operation.payload)) return !operation
     const confirmed = operation.action === 'publish'
       ? value.id === operation.id && value.revision === operation.revision && value.state === 'published' && value.status === 1
@@ -433,6 +756,8 @@
     if (!revisionConflict.value || !profileLoaded.value || pending.value) return
     revisionConflict.value = false
     applyProfileRead(profile.value)
+    // 同一对象引用不会触发 watch，这里手动重建能力卡片。
+    buildCapabilityCards()
     errorMessage.value = ''
   }
   function definitelyRejected(error: unknown): boolean {
@@ -595,6 +920,602 @@
     }
   }
 
+  /* ---------- 能力页：固定能力卡片（默认模型 + 备用模型） ---------- */
+
+  type CapabilityCardKind = 'model' | 'audio' | 'parse'
+  type CapabilityCard = {
+    code: string
+    name: string
+    usage: string
+    kind: CapabilityCardKind
+    modelType: string | null
+    drivers: string[]
+    disabled: boolean
+    defaultDeploymentId: number | undefined
+    backupDeploymentId: number | undefined
+    defaultDriverCode: string
+    backupDriverCode: string
+    parseDriverCode: string
+    parseDeploymentId: number | undefined
+    extraRoutes: SandAiCapabilityRoute[]
+    snapshot: string
+    fieldError: string
+    saving: boolean
+  }
+
+  type CapabilityCardDraft = {
+    disabled: boolean
+    defaultDeploymentId: number | undefined
+    backupDeploymentId: number | undefined
+    defaultDriverCode: string
+    backupDriverCode: string
+    parseDriverCode: string
+    parseDeploymentId: number | undefined
+  }
+
+  const capabilityCards = ref<CapabilityCard[]>([])
+  // 首次进入即处于加载态，直到首次配置档读取结束。
+  const capabilityLoading = ref(true)
+  const capabilityLoadFailed = ref(false)
+  const capabilityLoadError = ref<unknown>(null)
+  const cardDeploymentCache = ref<Record<string, PublishedDeployment[]>>({})
+  const cardDeploymentLoading = ref<Record<string, boolean>>({})
+  const cardDeploymentRequested = ref<Record<string, boolean>>({})
+  const cardDrafts = new Map<string, CapabilityCardDraft>()
+  let cardDeploymentGeneration = 0
+
+  /** 卡片展示顺序：先对话等高频能力，再文件/多模态，最后检索与音频。 */
+  const CAPABILITY_ORDER = [
+    'chat', 'structured_extraction', 'vision',
+    'document_parse', 'image_ocr',
+    'embedding', 'rerank',
+    'audio_transcription', 'audio_speech'
+  ]
+  /** 一句话说明这项能力用在什么场景，只用于卡片副标题。 */
+  const CAPABILITY_USAGE: Readonly<Record<string, string>> = {
+    chat: '试用对话、智能体对话',
+    structured_extraction: '从材料里抽取字段',
+    vision: '看图问答、图片理解',
+    document_parse: '上传文档的正文读取',
+    image_ocr: '扫描件、图片里的文字识别',
+    embedding: '知识库、私有资料检索',
+    rerank: '检索结果排序',
+    audio_transcription: '录音、会议转文字',
+    audio_speech: '文字转语音播放'
+  }
+  /** 本能力暂不在本页展示的内部能力码（本期仅隐藏法律分析入口）。 */
+  const CAPABILITY_HIDDEN = new Set(['legal_analysis'])
+
+  function capabilityMeta(code: string): Record<string, unknown> | null {
+    const meta = metadata.value?.capabilities[code]
+    return isRecord(meta) ? meta : null
+  }
+
+  function capabilityModelType(code: string): string | null {
+    const meta = capabilityMeta(code)
+    const types = meta?.model_types
+    return Array.isArray(types) && typeof types[0] === 'string' ? types[0] : null
+  }
+
+  function cardKindOf(code: string): CapabilityCardKind {
+    const kind = capabilityMeta(code)?.route_kind
+    if (kind === 'model_deployment') return 'model'
+    if (kind === 'audio_driver') return 'audio'
+    return 'parse'
+  }
+
+  /** 卡片可选驱动：本地/私有网络发送策略下只保留本地处理驱动，与后端校验一致。 */
+  function cardDrivers(code: string): string[] {
+    const meta = capabilityMeta(code)
+    const driverMap = meta !== null && isRecord(meta.drivers) ? meta.drivers : null
+    const drivers = driverMap !== null ? Object.keys(driverMap) : []
+    if (!['local_only', 'private_only'].includes(effectiveEgressPolicy())) return drivers
+    return drivers.filter(driver => {
+      const entry = driverMap?.[driver]
+      return isRecord(entry) && entry.data_egress === 'local_only'
+    })
+  }
+
+  /** 语义化路线签名：只比较类型/部署/驱动，忽略优先级数字与配置细节。 */
+  function semanticRoutes(routes: SandAiCapabilityRoute[]): string {
+    return JSON.stringify(routes.map(route => [
+      route.route_kind, route.deployment_id ?? null, route.driver_code ?? null
+    ]).sort())
+  }
+
+  /** 把服务端路线收成卡片可编辑的载荷形状（去掉 id/status/config）。 */
+  function routePayload(route: SandAiCapabilityRoute): SandAiCapabilityRoute {
+    return {
+      capability_code: route.capability_code,
+      route_kind: route.route_kind,
+      deployment_id: route.deployment_id ?? null,
+      driver_code: route.driver_code ?? null,
+      priority: route.priority,
+      config: {}
+    }
+  }
+
+  /** 当前卡片草稿对应的路线集合；disabled 或未选全时按空/部分处理。 */
+  function cardRoutes(card: CapabilityCard): SandAiCapabilityRoute[] {
+    if (card.disabled) return []
+    const routes: SandAiCapabilityRoute[] = []
+    const push = (priority: number, routeKind: SandAiCapabilityRoute['route_kind'], deploymentId: number | null, driverCode: string | null): void => {
+      routes.push({
+        capability_code: card.code, route_kind: routeKind,
+        deployment_id: deploymentId, driver_code: driverCode, priority, config: {}
+      })
+    }
+    if (card.kind === 'model') {
+      if (card.defaultDeploymentId) push(100, 'model_deployment', card.defaultDeploymentId, null)
+      if (card.backupDeploymentId) push(200, 'model_deployment', card.backupDeploymentId, null)
+    } else if (card.kind === 'audio') {
+      if (card.defaultDriverCode && card.defaultDeploymentId) push(100, 'audio_driver', card.defaultDeploymentId, card.defaultDriverCode)
+      if (card.backupDriverCode && card.backupDeploymentId) push(200, 'audio_driver', card.backupDeploymentId, card.backupDriverCode)
+    } else {
+      // 解析类能力：单一驱动时视为已选；多驱动必须显式选择。
+      const driver = card.parseDriverCode || (card.drivers.length === 1 ? card.drivers[0] : '')
+      if (driver) {
+        const bound = driver === 'local_paddle_ocr' ? card.parseDeploymentId ?? null : null
+        push(100, 'parse_driver', bound, driver)
+      }
+    }
+    card.extraRoutes.forEach((route, index) => {
+      routes.push({ ...routePayload(route), priority: 300 + index * 100 })
+    })
+    return routes
+  }
+
+  function cardDirty(card: CapabilityCard): boolean {
+    return semanticRoutes(cardRoutes(card)) !== card.snapshot
+  }
+
+  function cardValidationError(card: CapabilityCard): string {
+    if (card.disabled) return ''
+    if (card.kind === 'model') {
+      if (!card.defaultDeploymentId) return '请选一个默认模型，或停用这项能力'
+      if (card.backupDeploymentId && card.backupDeploymentId === card.defaultDeploymentId) return '备用模型要和默认模型不一样'
+      return ''
+    }
+    if (card.kind === 'audio') {
+      const defaultPair = Boolean(card.defaultDriverCode) !== Boolean(card.defaultDeploymentId)
+      const backupPair = Boolean(card.backupDriverCode) !== Boolean(card.backupDeploymentId)
+      if (defaultPair) return '默认引擎和默认模型要一起选择'
+      if (backupPair) return '备用引擎和备用模型要一起选择'
+      if (card.defaultDriverCode && !card.drivers.includes(card.defaultDriverCode)) return '默认引擎在当前设置下不可用，请重新选择或停用这项能力'
+      if (card.backupDriverCode && !card.drivers.includes(card.backupDriverCode)) return '备用引擎在当前设置下不可用，请重新选择或停用这项能力'
+      if (!card.defaultDriverCode || !card.defaultDeploymentId) return '请选默认引擎和默认模型，或停用这项能力'
+      if (card.backupDeploymentId && card.backupDeploymentId === card.defaultDeploymentId) return '备用模型要和默认模型不一样'
+      return ''
+    }
+    if (card.drivers.length === 0) return '当前设置下没有可用的解析方式，请停用这项能力'
+    if (card.parseDriverCode && !card.drivers.includes(card.parseDriverCode)) return '解析方式在当前设置下不可用，请重新选择或停用这项能力'
+    if (card.drivers.length > 1 && !card.parseDriverCode) return '请选择解析方式，或停用这项能力'
+    return ''
+  }
+
+  function cardTag(card: CapabilityCard): { text: string; type: 'success' | 'warning' | 'info' | 'danger' } {
+    if (card.disabled) {
+      return card.snapshot === '[]' ? { text: '未配置', type: 'info' } : { text: '待停用', type: 'warning' }
+    }
+    if (cardRoutes(card).length === 0) return { text: '未配置', type: 'info' }
+    return profile.value?.state === 'published' ? { text: '已启用', type: 'success' } : { text: '待启用', type: 'warning' }
+  }
+
+  const canSaveAndPublish = computed(() =>
+    hasAuth('sand_ai:setup:capability:save') && hasAuth('sand_ai:setup:capability:publish'))
+
+  function cardWriteBlocked(): boolean {
+    return Boolean(busy.value) || writeInFlight.value || journalError.value || Boolean(pending.value)
+      || revisionConflict.value || unsafeExistingConfig.value || !profileLoaded.value || !canSaveAndPublish.value
+  }
+
+  function cardFormDisabled(card: CapabilityCard): boolean {
+    return cardWriteBlocked() || card.disabled
+  }
+
+  /** 部署目录按模型类型缓存；卡片只按类型+策略+驱动规则过滤展示。 */
+  function effectiveEgressPolicy(): string {
+    const policy = profile.value?.data_egress_policy
+    return typeof policy === 'string' && policy !== '' ? policy : 'approved_cloud'
+  }
+
+  function egressCompatible(item: PublishedDeployment): boolean {
+    const policy = effectiveEgressPolicy()
+    return !policy || item.compatible_data_egress_policies.includes(policy)
+  }
+
+  function providerAdapterAllowed(item: PublishedDeployment, adapters: readonly string[]): boolean {
+    return adapters.length === 0 || (item.provider_adapter !== undefined && adapters.includes(item.provider_adapter))
+  }
+
+  function audioDriverDeploymentMatch(item: PublishedDeployment, driverCode: string): boolean {
+    if (driverCode === 'local_whisper_cpp') {
+      return item.provider_adapter === 'local_runtime' && item.remote_model === 'local_whisper_cpp'
+    }
+    return item.provider_adapter === 'openai_compatible'
+  }
+
+  function visibleDeployments(card: CapabilityCard, driverCode?: string): PublishedDeployment[] {
+    if (!card.modelType) return []
+    const items = cardDeploymentCache.value[card.modelType] ?? []
+    // 服务商适配器限制优先读能力元数据（如专业重排），缺省时仅重排能力保留内置白名单。
+    const adaptersMeta = capabilityMeta(card.code)?.provider_adapters
+    const adapters = Array.isArray(adaptersMeta)
+      ? adaptersMeta.filter((item): item is string => typeof item === 'string')
+      : card.code === 'rerank' ? ['cohere_rerank', 'jina_rerank'] : []
+    return items.filter(item => {
+      if (!egressCompatible(item)) return false
+      if (adapters.length > 0) return providerAdapterAllowed(item, adapters)
+      if (card.kind === 'audio') return driverCode ? audioDriverDeploymentMatch(item, driverCode) : item.provider_adapter === 'openai_compatible' || item.provider_adapter === 'local_runtime'
+      return true
+    })
+  }
+
+  /** 当前已选值不在目录时补一条占位选项，避免下拉显示空白。 */
+  function withCurrentOption(card: CapabilityCard, options: PublishedDeployment[], currentId: number | undefined): PublishedDeployment[] {
+    if (!currentId || options.some(item => item.id === currentId)) return options
+    const placeholder: PublishedDeployment = {
+      id: currentId,
+      deployment_revision: 0,
+      display_name: '原设置的模型（可能已下线）',
+      model_type: card.modelType ?? '',
+      publication_status: 'published',
+      compatible_data_egress_policies: []
+    }
+    return [placeholder, ...options]
+  }
+
+  function cardDeploymentOptions(card: CapabilityCard, driverCode?: string, currentId?: number): PublishedDeployment[] {
+    return withCurrentOption(card, visibleDeployments(card, driverCode), currentId)
+  }
+
+  function cardDeploymentsLoading(card: CapabilityCard): boolean {
+    return Boolean(card.modelType && cardDeploymentLoading.value[card.modelType])
+  }
+
+  function deploymentsRequested(card: CapabilityCard): boolean {
+    return Boolean(card.modelType && cardDeploymentRequested.value[card.modelType])
+  }
+
+  function modelPlaceholder(card: CapabilityCard, slot: 'default' | 'backup'): string {
+    // 音频能力的可选部署随所选引擎变化，占位提示按对应引擎过滤后的结果判断。
+    const driver = card.kind === 'audio'
+      ? (slot === 'default' ? card.defaultDriverCode : card.backupDriverCode) || undefined
+      : undefined
+    const options = driver ? visibleDeployments(card, driver) : visibleDeployments(card)
+    if (deploymentsRequested(card) && options.length === 0) return '还没有支持这项能力的模型'
+    return slot === 'default' ? '选择默认模型' : '可不选，默认连不上时改用'
+  }
+
+  function cardShowProviderLink(card: CapabilityCard): boolean {
+    return !card.disabled && card.kind !== 'parse' && deploymentsRequested(card)
+      && visibleDeployments(card).length === 0
+  }
+
+  async function ensureCardDeployments(card: CapabilityCard): Promise<void> {
+    if (!card.modelType || cardDeploymentRequested.value[card.modelType]) return
+    cardDeploymentRequested.value = { ...cardDeploymentRequested.value, [card.modelType]: true }
+    await loadCardDeployments(card.modelType, '')
+  }
+
+  async function searchCardDeployments(card: CapabilityCard, query: string): Promise<void> {
+    if (!card.modelType) return
+    cardDeploymentRequested.value = { ...cardDeploymentRequested.value, [card.modelType]: true }
+    await loadCardDeployments(card.modelType, query.trim())
+  }
+
+  async function loadCardDeployments(modelType: string, query: string): Promise<void> {
+    const current = ++cardDeploymentGeneration
+    const epoch = identityEpoch
+    cardDeploymentLoading.value = { ...cardDeploymentLoading.value, [modelType]: true }
+    try {
+      const page = await onboardingApi.publishedDeployments(modelType, query || undefined)
+      if (current !== cardDeploymentGeneration || epoch !== identityEpoch) return
+      cardDeploymentCache.value = { ...cardDeploymentCache.value, [modelType]: page.data }
+      if (page.total > page.per_page && !query) {
+        ElMessage.info('可选模型较多，请输入模型或服务商名称搜索')
+      }
+    } catch (error) {
+      if (current === cardDeploymentGeneration && epoch === identityEpoch) {
+        errorMessage.value = errorDisplayText(error, '读取可选模型失败，请检查后台权限')
+      }
+    } finally {
+      if (current === cardDeploymentGeneration && epoch === identityEpoch) {
+        cardDeploymentLoading.value = { ...cardDeploymentLoading.value, [modelType]: false }
+      }
+    }
+  }
+
+  function driverOptionLabel(code: string): string {
+    const label = driverLabel(code)
+    // 未收录的驱动码不直接回显英文码，给一句中性说明。
+    return label === code ? '原设置的方式（可能已停用）' : label
+  }
+
+  function cardDraftOf(card: CapabilityCard): CapabilityCardDraft {
+    return {
+      disabled: card.disabled,
+      defaultDeploymentId: card.defaultDeploymentId,
+      backupDeploymentId: card.backupDeploymentId,
+      defaultDriverCode: card.defaultDriverCode,
+      backupDriverCode: card.backupDriverCode,
+      parseDriverCode: card.parseDriverCode,
+      parseDeploymentId: card.parseDeploymentId
+    }
+  }
+
+  function applyCardDraft(card: CapabilityCard, draft: CapabilityCardDraft | undefined): void {
+    if (!draft) return
+    card.disabled = draft.disabled
+    card.defaultDeploymentId = draft.defaultDeploymentId
+    card.backupDeploymentId = draft.backupDeploymentId
+    card.defaultDriverCode = draft.defaultDriverCode
+    card.backupDriverCode = draft.backupDriverCode
+    card.parseDriverCode = draft.parseDriverCode
+    card.parseDeploymentId = draft.parseDeploymentId
+  }
+
+  function buildCapabilityCards(): void {
+    if (materialConfigurationPage.value) {
+      capabilityCards.value = []
+      return
+    }
+    // 重建前保留各卡片未保存的草稿，避免保存一张卡时冲掉其他卡的修改；
+    // 「未配置却被点启用」也算未提交意图，一并保留。
+    for (const card of capabilityCards.value) {
+      const baselineDisabled = card.snapshot === '[]'
+      if (cardDirty(card) || card.disabled !== baselineDisabled) cardDrafts.set(card.code, cardDraftOf(card))
+    }
+    const routes = profile.value?.routes ?? []
+    const capabilities = metadata.value?.capabilities ?? {}
+    const codes = Object.keys(capabilities)
+      .filter(code => !CAPABILITY_HIDDEN.has(code))
+    codes.sort((left, right) => {
+      const li = CAPABILITY_ORDER.indexOf(left)
+      const ri = CAPABILITY_ORDER.indexOf(right)
+      return (li < 0 ? CAPABILITY_ORDER.length : li) - (ri < 0 ? CAPABILITY_ORDER.length : ri)
+        || left.localeCompare(right)
+    })
+    capabilityCards.value = codes.map(code => {
+      const kind = cardKindOf(code)
+      const modelType = kind === 'parse' && code !== 'image_ocr' ? null : capabilityModelType(code)
+      const own = routes
+        .filter(route => route.capability_code === code && route.status !== 2)
+        .sort((a, b) => a.priority - b.priority)
+      const consumed = kind === 'parse' ? 1 : 2
+      const extras = own.slice(consumed).map(routePayload)
+      const primary = own[0]
+      const secondary = own[1]
+      const label = capabilityLabel(code)
+      const card: CapabilityCard = {
+        code,
+        // 未收录中文名的能力不回显英文码，给中性名称。
+        name: label === code ? 'AI 能力' : label,
+        usage: CAPABILITY_USAGE[code] ?? 'AI 能力',
+        kind,
+        modelType,
+        drivers: cardDrivers(code),
+        disabled: own.length === 0,
+        defaultDeploymentId: undefined,
+        backupDeploymentId: undefined,
+        defaultDriverCode: '',
+        backupDriverCode: '',
+        parseDriverCode: '',
+        parseDeploymentId: undefined,
+        extraRoutes: extras,
+        snapshot: '',
+        fieldError: '',
+        saving: false
+      }
+      if (kind === 'model') {
+        card.defaultDeploymentId = primary?.deployment_id ?? undefined
+        card.backupDeploymentId = secondary?.deployment_id ?? undefined
+      } else if (kind === 'audio') {
+        card.defaultDriverCode = primary?.driver_code ?? ''
+        card.defaultDeploymentId = primary?.deployment_id ?? undefined
+        card.backupDriverCode = secondary?.driver_code ?? ''
+        card.backupDeploymentId = secondary?.deployment_id ?? undefined
+      } else if (primary) {
+        card.parseDriverCode = primary.driver_code ?? ''
+        card.parseDeploymentId = primary.deployment_id ?? undefined
+      }
+      card.snapshot = semanticRoutes(own.slice(0, consumed).map(routePayload).concat(extras))
+      applyCardDraft(card, cardDrafts.get(code))
+      return card
+    })
+  }
+
+  function clearCapabilityCards(): void {
+    cardDrafts.clear()
+    capabilityCards.value = []
+    cardDeploymentCache.value = {}
+    cardDeploymentLoading.value = {}
+    cardDeploymentRequested.value = {}
+    capabilityLoading.value = true
+    capabilityLoadFailed.value = false
+    capabilityLoadError.value = null
+    resolvedTarget.value = null
+  }
+
+  function retryCapabilityLoad(): void {
+    void reloadProfile()
+  }
+
+  /** 没有可加载目标时结束骨架态，交给空态或「请先选择」提示接管。 */
+  function settleCapabilityIdle(): void {
+    if (materialConfigurationPage.value) return
+    capabilityLoading.value = false
+    capabilityLoadFailed.value = false
+    capabilityLoadError.value = null
+  }
+
+  async function copyCapabilityProblem(): Promise<void> {
+    const fault = describeBoundaryFault(capabilityLoadError.value ?? new Error('capability load failed'))
+    const lines = ['SandAI 管理页问题信息', '页面：/sand-ai/capability', ...problemInfoText(fault).split('\n').slice(1)]
+    const text = lines.join('\n')
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        const area = document.createElement('textarea')
+        area.value = text
+        area.style.position = 'fixed'
+        area.style.opacity = '0'
+        document.body.appendChild(area)
+        area.select()
+        document.execCommand('copy')
+        area.remove()
+      }
+      ElMessage.success('已复制，可发给管理员')
+    } catch (error) {
+      console.error('[sand-ai] capability copy failed', error)
+      ElMessage.warning('复制未完成，请稍后重试')
+    }
+  }
+
+  function enableCapabilityCard(card: CapabilityCard): void {
+    card.disabled = false
+    card.fieldError = ''
+  }
+
+  async function askDisableCapability(card: CapabilityCard): Promise<void> {
+    if (cardWriteBlocked()) return
+    try {
+      await ElMessageBox.confirm(
+        `停用「${card.name}」后，${card.usage}将不可用，随时可以再启用。`,
+        `停用「${card.name}」？`,
+        { type: 'warning', confirmButtonText: '停用', cancelButtonText: '再想想' }
+      )
+    } catch {
+      return
+    }
+    card.disabled = true
+    card.fieldError = ''
+  }
+
+  /** 合并保存载荷：保留其他能力的现有路线，本卡片按草稿重建。 */
+  function mergedSavePayload(card: CapabilityCard): CapabilitySavePayload | string {
+    const invalid = cardValidationError(card)
+    if (invalid) return invalid
+    const targetEnvironment = resolvedTarget.value?.environment_id ?? environmentId.value
+    const targetApplication = resolvedTarget.value?.application_id ?? applicationId.value
+    if (!targetEnvironment) return '请先选择应用和环境'
+    // 写操作记录要求明确的应用编号；解析不到时不允许保存，避免产生不可确认的写入。
+    if (!targetApplication) return '无法确认当前应用，请重新加载后重试'
+    const own = cardRoutes(card)
+    const others = (profile.value?.routes ?? [])
+      .filter(route => route.capability_code !== card.code && route.status !== 2)
+      .map(routePayload)
+    const routes = [...others, ...own]
+    if (routes.length === 0) return '至少要保留一项能力的配置'
+    return {
+      application_id: targetApplication,
+      environment_id: targetEnvironment,
+      expected_revision: profile.value?.revision ?? null,
+      name: profile.value?.name ?? 'default-capability',
+      template_code: profile.value?.template_code ?? null,
+      // 无既有配置档时取最宽松策略，保证云端模型可选；既有策略原样保留。
+      data_egress_policy: profile.value?.data_egress_policy ?? 'approved_cloud',
+      routes
+    }
+  }
+
+  /** 单卡保存 = 保存草稿 + 立即启用，事务化预检/回读与既有写路径一致。 */
+  async function saveCapabilityCard(card: CapabilityCard): Promise<void> {
+    if (cardWriteBlocked() || card.saving || !cardDirty(card)) return
+    const payload = mergedSavePayload(card)
+    if (typeof payload === 'string') {
+      card.fieldError = payload
+      ElMessage.warning(payload)
+      return
+    }
+    card.fieldError = ''
+    const targetEnvironment = payload.environment_id
+    const targetApplication = payload.application_id
+    if (!targetApplication) {
+      card.fieldError = '无法确认当前应用，请重新加载后重试'
+      ElMessage.warning(card.fieldError)
+      return
+    }
+    const baseline = JSON.stringify(profile.value)
+    const previousRevision = profile.value?.revision ?? 0
+    const current = ++profileGeneration
+    const epoch = identityEpoch
+    const owner = adminId.value
+    const ownsOperation = () => current === profileGeneration && epoch === identityEpoch
+      && owner === adminId.value
+      && (resolvedTarget.value?.environment_id ?? environmentId.value) === targetEnvironment
+      && (resolvedTarget.value?.application_id ?? applicationId.value ?? null) === targetApplication
+    const flight = ++writeFlightSerial
+    writeInFlight.value = true
+    card.saving = true
+    busy.value = 'save'
+    profileLoaded.value = false
+    errorMessage.value = ''
+    let phase: 'preflight' | 'write' | 'confirm' = 'preflight'
+    try {
+      const preflight = await capabilityApi.readProfile({
+        ...(targetApplication ? { application_id: targetApplication } : {}),
+        environment_id: targetEnvironment
+      })
+      if (!ownsOperation()) return
+      const resolved = readCapabilityTarget(preflight)
+      if (resolved) resolvedTarget.value = resolved
+      const latest = readProfileResponse(preflight, targetEnvironment)
+      if (JSON.stringify(latest) !== baseline) {
+        profile.value = latest
+        profileLoaded.value = true
+        revisionConflict.value = true
+        errorMessage.value = '配置已经变化，本地选择仍保留。请比较最新版本后再保存。'
+        return
+      }
+      persistIntent({ version: 1, admin_id: owner, application_id: targetApplication, environment_id: targetEnvironment, action: 'save', payload, previousRevision })
+      phase = 'write'
+      const saved = writtenProfileResponse(await capabilityApi.saveProfile(payload), targetEnvironment)
+      if (!ownsOperation()) return
+      if (!sameConfiguration(saved, payload) || saved.revision !== previousRevision + 1) throw new Error('Unexpected save response')
+      const operation = pending.value
+      if (!operation) throw new Error('原保存记录缺失')
+      persistIntent({ ...operation, id: saved.id, revision: saved.revision }, operation)
+      const published = writtenProfileResponse(await capabilityApi.publishProfile({
+        ...(targetApplication ? { application_id: targetApplication } : {}),
+        environment_id: targetEnvironment,
+        id: saved.id,
+        expected_revision: saved.revision
+      }), targetEnvironment)
+      if (!ownsOperation()) return
+      if (published.id !== saved.id || published.revision !== saved.revision
+        || published.state !== 'published' || published.status !== 1
+        || !sameConfiguration(published, payload)) throw new Error('Unexpected publish response')
+      phase = 'confirm'
+      const reread = await capabilityApi.readProfile({
+        ...(targetApplication ? { application_id: targetApplication } : {}),
+        environment_id: targetEnvironment
+      })
+      if (!ownsOperation()) return
+      const rereadTarget = readCapabilityTarget(reread)
+      if (rereadTarget) resolvedTarget.value = rereadTarget
+      applyProfileRead(readProfileResponse(reread, targetEnvironment), true)
+      if (pending.value) errorMessage.value = '保存结果尚未确认，请重新读取状态；不会重发。'
+      else ElMessage.success(`已保存，${card.name}以后用新选择`)
+    } catch (error) {
+      if (!ownsOperation()) return
+      if (phase === 'write' && definitelyRejected(error)) {
+        try { clearIntent() } catch { errorMessage.value = '原记录未解除，结果保持待确认；请重新读取原目标'; return }
+      }
+      if (phase === 'write' && isRevisionConflict(error)) revisionConflict.value = true
+      profileLoaded.value = false
+      card.fieldError = ''
+      errorMessage.value = writeFailure(error, phase)
+    } finally {
+      if (flight === writeFlightSerial) writeInFlight.value = false
+      if (ownsOperation()) {
+        busy.value = ''
+        card.saving = false
+      }
+    }
+  }
+
   async function loadApps(): Promise<void> {
     const current = ++applicationGeneration
     loadingApps.value = true
@@ -604,6 +1525,8 @@
       const rows = await iamApi.activeApplications()
       if (current !== applicationGeneration) return
       applications.value = rows
+      // 零应用时没有可解析目标，结束骨架态交给空态提示。
+      if (rows.length === 0) settleCapabilityIdle()
       if (!applicationId.value && rows.length === 1) {
         applicationId.value = rows[0].id
         void onApplicationChange()
@@ -612,6 +1535,7 @@
       if (current === applicationGeneration) {
         applications.value = []
         iamListError.value = 'applications'
+        settleCapabilityIdle()
         errorMessage.value = errorDisplayText(error, '读取应用失败，请重试')
       }
     } finally {
@@ -642,7 +1566,9 @@
     profileLoaded.value = false
     profile.value = null
     form.routes = []
-    if (!applicationId.value) return
+    // 切换应用后正在重新解析目标，骨架态持续到首次读取结束或出现选择提示。
+    if (!materialConfigurationPage.value) capabilityLoading.value = true
+    if (!applicationId.value) { settleCapabilityIdle(); return }
     const selectedApplication = applicationId.value
     loadingEnvs.value = true
     try {
@@ -652,10 +1578,15 @@
       if (!environmentId.value && rows.length === 1) {
         environmentId.value = rows[0].id
         onEnvironmentChange()
+      } else if (rows.length === 0) {
+        // 环境为空时让 reloadProfile 走「未就绪」分支，结束加载态交给空环境提示。
+        loadingEnvs.value = false
+        void reloadProfile()
       }
     } catch (error) {
       if (current === environmentGeneration && selectedApplication === applicationId.value) {
         iamListError.value = 'environments'
+        settleCapabilityIdle()
         errorMessage.value = errorDisplayText(error, '读取环境失败，请重试')
       }
     } finally {
@@ -663,20 +1594,65 @@
     }
   }
 
+  /** 能力页读取参数：已知的应用/环境显式带上，未知字段由后端在唯一候选时解析。 */
+  function capabilityReadParams(): CapabilityTargetParams | undefined {
+    if (materialConfigurationPage.value) {
+      return environmentId.value ? { environment_id: environmentId.value } : undefined
+    }
+    const params: CapabilityTargetParams = {}
+    if (applicationId.value) params.application_id = applicationId.value
+    if (environmentId.value) params.environment_id = environmentId.value
+    return params
+  }
+
   async function reloadProfile(): Promise<void> {
-    if (!environmentId.value || busy.value || writeInFlight.value || journalError.value) return
-    if (pending.value && (pending.value.admin_id !== adminId.value || pending.value.application_id !== applicationId.value
-      || pending.value.environment_id !== environmentId.value)) { errorMessage.value = '请回到原操作应用和环境读取状态'; return }
+    if (busy.value || writeInFlight.value || journalError.value) return
+    const capabilityPage = !materialConfigurationPage.value
+    const ready = capabilityPage ? targetSelectionReady.value : Boolean(environmentId.value)
+    if (!ready) {
+      // 能力页选择未完成时清空旧配置，展示「请先选择」而不是静默卡住。
+      if (capabilityPage) {
+        profileGeneration++
+        profileLoaded.value = false
+        profile.value = null
+        resolvedTarget.value = null
+        revisionConflict.value = false
+        capabilityLoading.value = false
+        capabilityLoadFailed.value = false
+      }
+      return
+    }
+    const expectedApplication = resolvedTarget.value?.application_id ?? applicationId.value
+    const expectedEnvironment = resolvedTarget.value?.environment_id ?? environmentId.value
+    if (pending.value && (pending.value.admin_id !== adminId.value
+      || pending.value.application_id !== expectedApplication
+      || pending.value.environment_id !== expectedEnvironment)) {
+      errorMessage.value = '请回到原操作应用和环境读取状态'
+      return
+    }
+    const targetApplication = applicationId.value
     const targetEnvironment = environmentId.value
     const current = ++profileGeneration
     const epoch = identityEpoch
     profileLoaded.value = false
+    if (capabilityPage) {
+      capabilityLoading.value = true
+      capabilityLoadFailed.value = false
+      capabilityLoadError.value = null
+    }
     busy.value = 'load'
     errorMessage.value = ''
+    const targetUnchanged = () => current === profileGeneration && epoch === identityEpoch
+      && applicationId.value === targetApplication && environmentId.value === targetEnvironment
     try {
-      const response = await capabilityApi.readProfile(targetEnvironment)
-      if (current !== profileGeneration || epoch !== identityEpoch || targetEnvironment !== environmentId.value) return
-      const latest = readProfileResponse(response, targetEnvironment)
+      const response = await capabilityApi.readProfile(capabilityReadParams())
+      if (!targetUnchanged()) return
+      const resolved = readCapabilityTarget(response)
+      if (resolved) resolvedTarget.value = resolved
+      const latest = readProfileResponse(response, resolvedTarget.value?.environment_id ?? targetEnvironment)
+      if (latest && resolvedTarget.value && latest.environment_id !== resolvedTarget.value.environment_id) {
+        throw new Error('Resolved capability target mismatch')
+      }
       if (revisionConflict.value) {
         profile.value = latest
         profileLoaded.value = true
@@ -684,10 +1660,19 @@
         applyProfileRead(latest)
       }
       if (pending.value) errorMessage.value = '先前操作仍未确认。请核查同一环境的配置；不会重新发送写请求。'
-    } catch {
-      if (current === profileGeneration && epoch === identityEpoch && targetEnvironment === environmentId.value) errorMessage.value = '无法读取完整配置，写操作保持锁定。请检查权限或连接后重新加载。'
+    } catch (error) {
+      if (targetUnchanged()) {
+        if (capabilityPage) {
+          capabilityLoadFailed.value = true
+          capabilityLoadError.value = error
+        }
+        errorMessage.value = errorDisplayText(error, '无法读取完整配置，写操作保持锁定。请检查权限或连接后重新加载。')
+      }
     } finally {
-      if (current === profileGeneration && epoch === identityEpoch && targetEnvironment === environmentId.value) busy.value = ''
+      if (targetUnchanged()) {
+        busy.value = ''
+        if (capabilityPage) capabilityLoading.value = false
+      }
     }
   }
 
@@ -893,26 +1878,43 @@
   async function loadEntryContext(): Promise<void> {
     const epoch = identityEpoch
     await loadApps()
-    if (epoch !== identityEpoch || iamListError.value) return
-    if (journalError.value) return
-    if (!pending.value && (typeof route.query.application_id !== 'string' || typeof route.query.environment_id !== 'string')) return
-    const application = pending.value?.application_id ?? Number(route.query.application_id)
-    const environment = pending.value?.environment_id ?? Number(route.query.environment_id)
-    if (!Number.isSafeInteger(application) || !Number.isSafeInteger(environment) || application < 1 || environment < 1) return
-    if (!applications.value.some(item => item.id === application)) {
-      errorMessage.value = '入口应用已不可用，请重新选择应用和环境。'
+    if (epoch !== identityEpoch) return
+    if (iamListError.value) { settleCapabilityIdle(); return }
+    if (journalError.value) { settleCapabilityIdle(); return }
+    const operation = pending.value
+    if (!operation && (typeof route.query.application_id !== 'string' || typeof route.query.environment_id !== 'string')) return
+    let application = operation?.application_id ?? Number(route.query.application_id)
+    let environment = operation?.environment_id ?? Number(route.query.environment_id)
+    // 入口应用只是提示：无在途操作且仅一个应用时直接采用它，环境沿用自动选择。
+    let environmentFromEntry = true
+    if (!operation && applications.value.length === 1
+        && (!Number.isSafeInteger(application) || application < 1
+          || !applications.value.some(item => item.id === application))) {
+      application = applications.value[0].id
+      environmentFromEntry = false
+    }
+    const applicationMissing = !Number.isSafeInteger(application) || application < 1
+      || !applications.value.some(item => item.id === application)
+    if (applicationMissing || (environmentFromEntry && (!Number.isSafeInteger(environment) || environment < 1))) {
+      if (applicationMissing && Number.isSafeInteger(application) && application > 0) {
+        errorMessage.value = '入口应用已不可用，请重新选择应用和环境。'
+      }
+      settleCapabilityIdle()
       return
     }
     applicationId.value = application
     await onApplicationChange()
-    if (epoch !== identityEpoch || iamListError.value) return
+    if (epoch !== identityEpoch) return
+    if (iamListError.value) { settleCapabilityIdle(); return }
+    // 在途操作与显式入口环境必须命中；提示性入口允许沿用自动选中的唯一环境。
+    const expectedEnvironment = environmentFromEntry ? environment : environmentId.value
     // Recheck IAM references; a query string does not confer environment access.
-    if (applicationId.value !== application || !environments.value.some(item => item.id === environment)) {
+    if (applicationId.value !== application || !environments.value.some(item => item.id === expectedEnvironment)) {
       errorMessage.value = '入口环境已不可用或不属于该应用，请重新选择。'
+      settleCapabilityIdle()
       return
     }
-    environmentId.value = environment
-    const operation = pending.value
+    environmentId.value = expectedEnvironment
     if (operation) {
       form.name = operation.payload.name
       form.template_code = operation.payload.template_code ?? ''
@@ -928,6 +1930,13 @@
     profile.value = null
     revisionConflict.value = false
     busy.value = ''
+    resolvedTarget.value = null
+    cardDrafts.clear()
+    cardDeploymentCache.value = {}
+    cardDeploymentLoading.value = {}
+    cardDeploymentRequested.value = {}
+    capabilityLoadFailed.value = false
+    capabilityLoadError.value = null
   }, { flush: 'sync' })
   watch([applicationId, environmentId], () => {
     if (
@@ -951,38 +1960,27 @@
     query.environment_id = String(environmentId.value)
     void router.replace({ query })
   })
-  async function focusChatTrial(): Promise<void> {
-    if (restoringEntry || route.path !== '/sand-ai/capability' || route.hash !== '#chat-route-trial'
-      || iamListError.value || !applicationId.value || !environmentId.value
-      || route.query.application_id !== String(applicationId.value)
-      || route.query.environment_id !== String(environmentId.value)
-      || !applications.value.some(item => item.id === applicationId.value)
-      || !environments.value.some(item => item.id === environmentId.value)) return
-    const application = applicationId.value
-    const environment = environmentId.value
-    await nextTick()
-    if (restoringEntry || iamListError.value || applicationId.value !== application || environmentId.value !== environment
-      || route.path !== '/sand-ai/capability' || route.hash !== '#chat-route-trial'
-      || route.query.application_id !== String(application) || route.query.environment_id !== String(environment)) return
-    chatTrialSection.value?.focus({ preventScroll: true })
-    chatTrialSection.value?.scrollIntoView({ block: 'start' })
-  }
+  // 配置档或能力目录变化时重建能力卡片；草稿选择由 buildCapabilityCards 内部保留。
+  watch([profile, metadata], () => {
+    buildCapabilityCards()
+  })
 
-  watch(() => route.hash, () => { void focusChatTrial() }, { flush: 'post' })
   onBeforeUnmount(() => {
-    identityEpoch++; profileGeneration++; applicationGeneration++; environmentGeneration++; deploymentGeneration++
+    identityEpoch++; profileGeneration++; applicationGeneration++; environmentGeneration++; deploymentGeneration++; cardDeploymentGeneration++
     form.name = 'default-capability'; form.template_code = ''; form.data_egress_policy = 'local_only'; form.routes = []
     profile.value = null; deploymentOptions.value = []
+    capabilityCards.value = []
   })
 
   watch([adminId, () => userStore.accessToken], () => {
-    identityEpoch++; profileGeneration++; applicationGeneration++; environmentGeneration++; deploymentGeneration++
+    identityEpoch++; profileGeneration++; applicationGeneration++; environmentGeneration++; deploymentGeneration++; cardDeploymentGeneration++
     busy.value = ''; applicationId.value = undefined; environmentId.value = undefined
     applications.value = []; environments.value = []; profile.value = null; profileLoaded.value = false
     metadata.value = null; deploymentOptions.value = []; deploymentsLoading.value = false
     loadingApps.value = false; loadingEnvs.value = false; iamListError.value = ''; revisionConflict.value = false
     form.name = 'default-capability'; form.template_code = ''; form.data_egress_policy = 'local_only'; form.routes = []
     errorMessage.value = ''
+    clearCapabilityCards()
     restoreIntent()
     void loadMetadata()
     void loadEntryContext()
@@ -992,17 +1990,15 @@
     void loadEntryContext().finally(() => {
       restoringEntry = false
       entryInitialized = true
-      void focusChatTrial()
     })
     void loadMetadata()
   })
   onActivated(() => {
     if (!entryInitialized || route.path !== '/sand-ai/capability' || writeInFlight.value
-      || (route.hash !== '#chat-route-trial' && route.query.configuration_origin !== 'material_guide')) return
+      || route.query.configuration_origin !== 'material_guide') return
     restoringEntry = true
     void loadEntryContext().finally(() => {
       restoringEntry = false
-      void focusChatTrial()
     })
   })
 </script>
@@ -1098,5 +2094,94 @@
     padding: 8px 0;
     font-size: 13px;
     color: var(--el-text-color-secondary);
+  }
+
+  /* ---------- 能力页卡片 ---------- */
+
+  .cap-hint {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+
+  .cap-target-select {
+    width: 280px;
+    max-width: 100%;
+  }
+
+  .cap-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-top: 8px;
+  }
+
+  .cap-card {
+    padding: 24px;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 8px;
+  }
+
+  .cap-card__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .cap-card__title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .cap-card__name {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .cap-card__usage {
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+
+  .cap-card__form {
+    margin-bottom: 4px;
+  }
+
+  .cap-card__select {
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .cap-card__note {
+    margin: 4px 0 12px;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+
+  .cap-card__foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .cap-card__foot-gap {
+    flex: 1;
+  }
+
+  .cap-card-skeleton {
+    margin-bottom: 24px;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 8px;
+  }
+
+  .cap-card-skeleton:last-child {
+    margin-bottom: 0;
   }
 </style>
