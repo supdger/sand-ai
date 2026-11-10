@@ -27,7 +27,7 @@
     </section>
     <ElAlert v-if="changeRecoveryError" type="warning" :closable="false" :title="changeRecoveryError" class="mb-3" />
     <ElAlert v-if="confirmedCurrentPolicy && sameScope(confirmedCurrentPolicy)" type="info" :closable="false" class="mb-3"
-      :title="`保存结果已确认；最近读取的原版本 #${confirmedCurrentPolicy.id} / ${confirmedCurrentPolicy.revision} 当前为${confirmedCurrentPolicy.state === 'draft' ? '草稿' : confirmedCurrentPolicy.state === 'published' ? '已启用' : '已归档'}，额度 ${confirmedCurrentPolicy.limit_amount} ${confirmedCurrentPolicy.currency}。保存收据保留当时结果，当前版本按此正式读取显示。`" />
+      :title="`保存结果已确认；最近读取的原版本 #${confirmedCurrentPolicy.id} / ${confirmedCurrentPolicy.revision} 当前为${confirmedCurrentPolicy.state === 'draft' ? '草稿' : confirmedCurrentPolicy.state === 'published' ? '已启用' : '已归档'}，额度 ${confirmedCurrentPolicy.limit_amount ?? '不限'} ${confirmedCurrentPolicy.currency}。保存收据保留当时结果，当前版本按此正式读取显示。`" />
     <section v-if="pendingSaves.length" class="mb-3" aria-label="预算草稿保存结果恢复">
       <h3 class="mb-2 text-sm">待确认的草稿保存</h3>
       <p class="text-sm text-gray-500">以下保存保留原请求号，只读找回，不会自动重发。仅对应草稿暂时停止再次保存；其他预算仍可编辑。</p>
@@ -71,15 +71,13 @@
         <ElAlert v-else-if="activeLoading" type="info" :closable="false" title="正在读取所选范围当前额度；生效状态尚未确认" class="flex-1" />
         <ElAlert v-else-if="activeSummary" :type="activeSummary.alert.level === 'normal' ? 'info' : 'warning'"
           :closable="false" :title="activeAlertTitle" class="flex-1">
-          版本 {{ activeSummary.policy.revision }} · 可用 {{ activeSummary.window.available_amount }}
-          / {{ activeSummary.window.limit_amount }} {{ activeSummary.window.currency }}；
-          已结算 {{ activeSummary.window.settled_amount }}，已预占 {{ activeSummary.window.reserved_amount }}，待核实占用 {{ activeSummary.window.held_amount }}。
+          {{ activeUsageLine }}
         </ElAlert>
         <ElAlert v-else-if="!activeLoading" type="info" :closable="false"
           title="所选范围没有正在生效的预算版本" class="flex-1" />
         <ElButton :loading="activeLoading" @click="loadActive(true)">刷新当前额度</ElButton>
       </div>
-      <p class="mt-0 mb-3 text-sm text-gray-500">80% / 90% / 100% 提醒按已结算、已预占和待核实占用合计计算。专业重排尚未确认的实际费用没有金额可计入，原调用另有费用待核实提示。当前额度每分钟刷新，仅在本页提醒，不发送站外通知；所选范围的额度不代表一次调用匹配的全部预算。</p>
+      <p class="mt-0 mb-3 text-sm text-gray-500">提醒比例在草稿中可调（默认 80%），提醒按已结算、已预占和待核实占用合计计算，达到提醒比例后再加一档警告。专业重排尚未确认的实际费用没有金额可计入，原调用另有费用待核实提示。当前额度每分钟刷新，仅在本页提醒，不发送站外通知；所选范围的额度不代表一次调用匹配的全部预算。</p>
       <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h3 class="m-0 text-sm">预算版本</h3>
         <div class="flex gap-2">
@@ -100,7 +98,7 @@
           <template #default="{ row }">{{ row.period_start }} 至 {{ row.period_end }}</template>
         </ElTableColumn>
         <ElTableColumn label="限额" min-width="145">
-          <template #default="{ row }">{{ row.limit_amount }} {{ row.currency }}</template>
+          <template #default="{ row }">{{ row.limit_amount ?? '不限' }} {{ row.currency }}</template>
         </ElTableColumn>
         <ElTableColumn label="方式" width="90">
           <template #default="{ row }">{{ row.enforcement === 'hard' ? '硬限制' : '软限制' }}</template>
@@ -141,11 +139,11 @@
       <ElAlert v-if="summaryError" type="error" :closable="false" :title="summaryError" class="mt-3" />
       <div v-if="summary" class="mt-3">
         <h3 class="mb-2 text-sm">版本 {{ summary.policy.revision }} 的额度（{{ summary.window.currency }}）</h3>
-        <ElAlert :type="summary.policy.state === 'published' && summary.window.available_amount.startsWith('-') ? 'warning' : 'info'"
+        <ElAlert :type="summary.policy.state === 'published' && (summary.window.available_amount ?? '').startsWith('-') ? 'warning' : 'info'"
           :closable="false" :title="versionStatusTitle" class="mb-3" />
         <ElDescriptions border :column="3">
-          <ElDescriptionsItem label="限额">{{ summary.window.limit_amount }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="可用">{{ summary.window.available_amount }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="限额">{{ summary.window.limit_amount ?? '不限' }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="可用">{{ summary.window.available_amount ?? '不限' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="已结算">{{ summary.window.settled_amount }}</ElDescriptionsItem>
           <ElDescriptionsItem label="已预占">{{ summary.window.reserved_amount }}</ElDescriptionsItem>
           <ElDescriptionsItem label="待核实占用">{{ summary.window.held_amount }}</ElDescriptionsItem>
@@ -183,7 +181,12 @@
           <ElInput v-model="draft.currency" :disabled="writing || Boolean(currentPendingSave)" maxlength="3" placeholder="例如 CNY" />
         </ElFormItem>
         <ElFormItem label="额度">
-          <ElInput v-model="draft.limit_amount" :disabled="writing || Boolean(currentPendingSave)" placeholder="正数，最多 6 位小数" />
+          <ElInput v-model="draft.limit_amount" :disabled="writing || Boolean(currentPendingSave)" placeholder="正数，最多 6 位小数；留空表示不设上限" />
+        </ElFormItem>
+        <ElFormItem label="提醒比例">
+          <ElInputNumber v-model="draft.reminder_percent" :min="1" :max="100" :precision="0"
+            :disabled="writing || Boolean(currentPendingSave)" placeholder="默认 80" style="width: 160px" />
+          <span class="ml-2 text-sm text-gray-500">用到该百分比时提醒；留空按 80%</span>
         </ElFormItem>
         <ElFormItem label="超额方式">
           <ElRadioGroup v-model="draft.enforcement" :disabled="writing || Boolean(currentPendingSave)" aria-label="预算执行方式">
@@ -318,12 +321,18 @@
   const currentPendingSave = computed(() => pendingSaves.value.find(item => item.payload.scope_kind === draft.value.scope_kind
     && item.payload.scope_ref === draft.value.scope_ref && item.payload.id === draft.value.id) ?? null)
   const needsWitness = computed(() => scopeKind.value === 'organization' || scopeKind.value === 'application')
-  const validDraft = computed(() => sameScope(draft.value) && (!needsWitness.value || !!referenceEnvironmentId.value) &&
+  const validDraft = computed(() => {
+    const limit = draft.value.limit_amount.trim()
+    const limitValid = limit === '' || (/^\d{1,14}(?:\.\d{1,6})?$/.test(limit) && /[1-9]/.test(limit))
+    const reminder = draft.value.reminder_percent
+    const reminderValid = reminder === undefined || (Number.isSafeInteger(reminder) && reminder >= 1 && reminder <= 100)
+    return sameScope(draft.value) && (!needsWitness.value || !!referenceEnvironmentId.value) &&
     /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(draft.value.period_start) &&
     /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(draft.value.period_end) && draft.value.period_end > draft.value.period_start &&
-    /^[A-Za-z]{3}$/.test(draft.value.currency.trim()) && /^\d{1,14}(?:\.\d{1,6})?$/.test(draft.value.limit_amount.trim()) &&
-    /[1-9]/.test(draft.value.limit_amount) && supportedMissingUsagePolicy(draft.value) &&
-    !writing.value && !hasPendingDraft(draft.value) && !hasPendingChange(draft.value))
+    /^[A-Za-z]{3}$/.test(draft.value.currency.trim()) && limitValid && reminderValid &&
+    supportedMissingUsagePolicy(draft.value) &&
+    !writing.value && !hasPendingDraft(draft.value) && !hasPendingChange(draft.value)
+  })
   let live = true
   let actorEpoch = 0
   let targetEpoch = 0
@@ -335,9 +344,19 @@
   const activeAlertTitle = computed(() => {
     const level = activeSummary.value?.alert.level
     if (level === 'exhausted') return activeSummary.value?.policy.enforcement === 'hard' ? '当前预算额度占用已达 100%；下一次外发额度不足时将被拒绝' : '当前预算额度占用已达 100%；软限制仍允许超额并记录'
-    if (level === 'warning') return '当前预算额度占用已达至少 90%'
-    if (level === 'notice') return '当前预算额度占用已达至少 80%'
+    if (level === 'warning' || level === 'notice') {
+      const threshold = activeSummary.value?.alert.threshold_percent
+      return threshold ? `当前预算额度占用已达 ${threshold}%` : '当前预算额度占用已达提醒阈值'
+    }
     return '当前预算额度正常'
+  })
+  const activeUsageLine = computed(() => {
+    const current = activeSummary.value
+    if (!current) return ''
+    const window = current.window
+    const tail = `已结算 ${window.settled_amount}，已预占 ${window.reserved_amount}，待核实占用 ${window.held_amount}。`
+    if (window.limit_amount === null) return `版本 ${current.policy.revision} · 不设上限（${window.currency}）；${tail}`
+    return `版本 ${current.policy.revision} · 可用 ${window.available_amount ?? '未知'} / 上限 ${window.limit_amount} ${window.currency}；${tail}`
   })
   const versionStatusTitle = computed(() => {
     const version = summary.value
@@ -349,7 +368,7 @@
     const current = activeSummary.value
     if (!current || current.policy.id !== version.policy.id)
       return '最近刷新未显示该版本正在生效；只有处于世界标准时间生效时段的已启用预算才限制新预占。历史占额保留，新调用仍检查全部当前匹配预算。'
-    if (current.window.available_amount.startsWith('-'))
+    if ((current.window.available_amount ?? '').startsWith('-'))
       return version.policy.enforcement === 'hard'
         ? '最近刷新时该严格预算正在生效且占用已超额，会阻止额度不足的新预占；已发送调用仍按冻结事实结算。'
         : '最近刷新时该宽松预算正在生效且占用已超额，允许超额并记录；其他匹配严格预算仍可能阻止新预占。'
@@ -387,7 +406,10 @@
     if (!isRecord(value) || !isScopeKind(value.scope_kind) || typeof value.scope_ref !== 'string' || !value.scope_ref
       || typeof value.period_start !== 'string' || typeof value.period_end !== 'string'
       || typeof value.currency !== 'string' || !/^[A-Z]{3}$/.test(value.currency)
-      || typeof value.limit_amount !== 'string' || !/^\d{1,14}(?:\.\d{1,6})?$/.test(value.limit_amount)
+      || typeof value.limit_amount !== 'string'
+      || (value.limit_amount !== '' && !/^\d{1,14}(?:\.\d{1,6})?$/.test(value.limit_amount))
+      || (value.reminder_percent !== undefined && (typeof value.reminder_percent !== 'number'
+        || !Number.isSafeInteger(value.reminder_percent) || value.reminder_percent < 1 || value.reminder_percent > 100))
       || (value.enforcement !== 'hard' && value.enforcement !== 'soft')
       || (value.unpriced_policy !== 'block' && value.unpriced_policy !== 'allow')
       || (value.unmeasured_policy !== 'hold' && value.unmeasured_policy !== 'allow')
@@ -398,6 +420,7 @@
     return {
       scope_kind: value.scope_kind, scope_ref: value.scope_ref, period_start: value.period_start,
       period_end: value.period_end, currency: value.currency, limit_amount: value.limit_amount,
+      ...(typeof value.reminder_percent === 'number' ? { reminder_percent: value.reminder_percent } : {}),
       enforcement: value.enforcement, unpriced_policy: value.unpriced_policy, unmeasured_policy: value.unmeasured_policy,
       ...(typeof value.id === 'number' ? { id: value.id } : {}),
       ...(typeof value.reference_environment_id === 'number' ? { reference_environment_id: value.reference_environment_id } : {})
@@ -406,34 +429,46 @@
   function freezePolicy(policy: BudgetPolicy): BudgetPolicyExpectation {
     return { revision: policy.revision, scope_kind: policy.scope_kind, scope_ref: policy.scope_ref,
       environment_id: policy.environment_id, period_start: policy.period_start, period_end: policy.period_end,
-      currency: policy.currency, limit_amount: policy.limit_amount, enforcement: policy.enforcement,
-      unpriced_policy: policy.unpriced_policy, unmeasured_policy: policy.unmeasured_policy }
+      currency: policy.currency, limit_amount: policy.limit_amount, reminder_percent: policy.reminder_percent,
+      enforcement: policy.enforcement, unpriced_policy: policy.unpriced_policy, unmeasured_policy: policy.unmeasured_policy }
+  }
+  /** 上限归一化：null/空串视为不设上限；非法值返回 undefined 表示比对失败。 */
+  function normalizedLimitAmount(value: string | null): string | null | undefined {
+    if (value === null || value === '') return null
+    return decimalSix(value) ?? undefined
   }
   function readStoredExpectation(value: unknown): BudgetPolicyExpectation | null {
     const fields = ['revision', 'scope_kind', 'scope_ref', 'environment_id', 'period_start', 'period_end',
-      'currency', 'limit_amount', 'enforcement', 'unpriced_policy', 'unmeasured_policy']
-    if (!isRecord(value) || Object.keys(value).length !== fields.length || Object.keys(value).some(key => !fields.includes(key))
+      'currency', 'limit_amount', 'enforcement', 'unpriced_policy', 'unmeasured_policy', 'reminder_percent']
+    const reminder = isRecord(value) ? value.reminder_percent : undefined
+    if (!isRecord(value) || Object.keys(value).length > fields.length
+      || Object.keys(value).some(key => !fields.includes(key))
+      || fields.filter(key => key !== 'reminder_percent').some(key => !(key in value))
+      || (reminder !== undefined && (typeof reminder !== 'number' || !Number.isSafeInteger(reminder) || reminder < 1 || reminder > 100))
       || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 1
       || (value.environment_id !== null && (typeof value.environment_id !== 'number'
         || !Number.isSafeInteger(value.environment_id) || value.environment_id < 1))) return null
-    const stored = readStoredDraft(value)
+    const stored = readStoredDraft({ ...value, limit_amount: value.limit_amount === null ? '' : value.limit_amount })
     if (!stored || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(stored.period_start)
       || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(stored.period_end)
       || stored.period_end <= stored.period_start
       || (stored.scope_kind === 'environment' ? String(value.environment_id) !== stored.scope_ref : value.environment_id !== null)) return null
     return { revision: value.revision, scope_kind: stored.scope_kind, scope_ref: stored.scope_ref,
       environment_id: value.environment_id, period_start: stored.period_start, period_end: stored.period_end,
-      currency: stored.currency, limit_amount: stored.limit_amount, enforcement: stored.enforcement,
-      unpriced_policy: stored.unpriced_policy, unmeasured_policy: stored.unmeasured_policy }
+      currency: stored.currency, limit_amount: value.limit_amount === null ? null : stored.limit_amount,
+      enforcement: stored.enforcement, unpriced_policy: stored.unpriced_policy, unmeasured_policy: stored.unmeasured_policy,
+      ...(typeof reminder === 'number' ? { reminder_percent: reminder } : {}) }
   }
   function matchesExpectation(policy: BudgetPolicy, expected: BudgetPolicyExpectation): boolean {
-    const amount = decimalSix(policy.limit_amount)
-    return amount !== null && amount === decimalSix(expected.limit_amount) && policy.revision === expected.revision
+    const amount = normalizedLimitAmount(policy.limit_amount)
+    const expectedAmount = normalizedLimitAmount(expected.limit_amount)
+    return amount !== undefined && amount === expectedAmount && policy.revision === expected.revision
       && policy.scope_kind === expected.scope_kind && policy.scope_ref === expected.scope_ref
       && policy.environment_id === expected.environment_id && policy.period_start === expected.period_start
       && policy.period_end === expected.period_end && policy.currency === expected.currency
       && policy.enforcement === expected.enforcement && policy.unpriced_policy === expected.unpriced_policy
       && policy.unmeasured_policy === expected.unmeasured_policy
+      && (expected.reminder_percent === undefined || policy.reminder_percent === expected.reminder_percent)
   }
   function saveStorageKey(actorId: number): string { return `sand-ai:budget-draft-save:${actorId}` }
   function restorePendingSaves(): void {
@@ -525,7 +560,8 @@
       || saved.period_start !== original.period_start || saved.period_end !== original.period_end
       || saved.currency !== original.currency || saved.enforcement !== original.enforcement
       || saved.unpriced_policy !== original.unpriced_policy || saved.unmeasured_policy !== original.unmeasured_policy
-      || typeof saved.limit_amount !== 'string' || decimalSix(saved.limit_amount) !== decimalSix(original.limit_amount))
+      || normalizedLimitAmount(saved.limit_amount) !== normalizedLimitAmount(original.limit_amount)
+      || (original.reminder_percent !== undefined && saved.reminder_percent !== original.reminder_percent))
       throw new Error('保存收据与原草稿不一致；保留原请求号，请只读核对')
   }
   function notSavedReason(result: BudgetDraftNotSaved): string {
@@ -548,7 +584,7 @@
       if (!live || adminId.value !== actorId || generation !== actorEpoch || !sameScope(saved)) return
       if (current.id !== saved.id || current.revision !== saved.revision || current.scope_kind !== saved.scope_kind
         || current.scope_ref !== saved.scope_ref || !['draft', 'published', 'archived'].includes(current.state)
-        || typeof current.limit_amount !== 'string' || typeof current.currency !== 'string')
+        || typeof current.currency !== 'string')
         throw new Error('当前版本读取与原保存版本不一致')
       confirmedCurrentPolicy.value = current
       if (sameScope(saved)) await loadPolicies(1)
@@ -700,7 +736,8 @@
     if (writing.value || policy.state !== 'draft' || !sameScope(policy) || hasPendingDraft(policy) || hasPendingChange(policy)
       || !supportedMissingUsagePolicy(policy)) return
     draft.value = { id: policy.id, scope_kind: policy.scope_kind, scope_ref: policy.scope_ref, period_start: policy.period_start,
-      period_end: policy.period_end, currency: policy.currency, limit_amount: policy.limit_amount, enforcement: policy.enforcement,
+      period_end: policy.period_end, currency: policy.currency, limit_amount: policy.limit_amount ?? '',
+      reminder_percent: policy.reminder_percent, enforcement: policy.enforcement,
       unpriced_policy: policy.unpriced_policy, unmeasured_policy: policy.unmeasured_policy }
     draftBaseline = JSON.stringify(draft.value)
     const retained = retainedDrafts.value[draftKey(policy)]
@@ -771,7 +808,7 @@
     try {
       try {
         const message = action === 'publish'
-          ? `版本 ${policy.revision} 在 ${policy.period_start} 至 ${policy.period_end}（世界标准时间）限制所选范围：${policy.limit_amount} ${policy.currency}。${policy.enforcement === 'hard' ? '超额阻止新调用' : '超额允许并记录'}；${policy.unpriced_policy === 'block' ? '未定价阻止' : '未定价专业重排允许，费用待核实'}；${policy.unmeasured_policy === 'hold' ? '未知用量保留待核实' : '专业重排业务可继续，费用仍待核实'}。允许策略仅由专业重排执行链支持，其他能力遇到不支持的策略会在外发前拒绝；全部匹配预算共同生效。启用后不能编辑。`
+          ? `版本 ${policy.revision} 在 ${policy.period_start} 至 ${policy.period_end}（世界标准时间）限制所选范围：${policy.limit_amount ?? '不限'} ${policy.currency}，提醒比例 ${policy.reminder_percent}%。${policy.enforcement === 'hard' ? '超额阻止新调用' : '超额允许并记录'}；${policy.unpriced_policy === 'block' ? '未定价阻止' : '未定价专业重排允许，费用待核实'}；${policy.unmeasured_policy === 'hold' ? '未知用量保留待核实' : '专业重排业务可继续，费用仍待核实'}。允许策略仅由专业重排执行链支持，其他能力遇到不支持的策略会在外发前拒绝；全部匹配预算共同生效。启用后不能编辑。`
           : `停用版本 ${policy.revision} 后，版本将归档，此预算不再限制新的调用；没有其他匹配预算时，新调用将没有该预算限额。历史额度、已预占及待核实占用保留，已发送调用继续按冻结事实结算，不释放历史占额或减少已发生费用。可新建并启用替代预算。`
         await ElMessageBox.confirm(message, action === 'publish' ? '启用预算' : '停用预算', {
           type: 'warning', confirmButtonText: action === 'publish' ? '确认启用' : '确认停用', cancelButtonText: '取消'

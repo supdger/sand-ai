@@ -25,8 +25,8 @@
         <ElAlert :title="alertText(activeSummary)" :type="activeSummary.alert.level === 'normal' ? 'info' : 'warning'" :closable="false" class="mb-3" />
         <ElDescriptions :column="2" border>
           <ElDescriptionsItem label="币种">{{ activeSummary.window.currency }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="限额">{{ activeSummary.window.limit_amount }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="当前可用">{{ activeSummary.window.available_amount }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="限额">{{ activeSummary.window.limit_amount ?? '不限' }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="当前可用">{{ activeSummary.window.available_amount ?? '不限' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="已结算">{{ activeSummary.window.settled_amount }}</ElDescriptionsItem>
           <ElDescriptionsItem label="已预占">{{ activeSummary.window.reserved_amount }}</ElDescriptionsItem>
           <ElDescriptionsItem label="待核实占用">{{ activeSummary.window.held_amount }}</ElDescriptionsItem>
@@ -39,7 +39,7 @@
         <ElTableColumn prop="id" label="原版本编号" width="110" />
         <ElTableColumn prop="revision" label="版本" width="80" />
         <ElTableColumn label="时段（世界标准时间）" min-width="300"><template #default="{ row }">{{ row.period_start }} 至 {{ row.period_end }}</template></ElTableColumn>
-        <ElTableColumn label="限额" min-width="140"><template #default="{ row }">{{ row.limit_amount }} {{ row.currency }}</template></ElTableColumn>
+        <ElTableColumn label="限额" min-width="140"><template #default="{ row }">{{ row.limit_amount ?? '不限' }} {{ row.currency }}</template></ElTableColumn>
         <ElTableColumn label="状态" width="110"><template #default="{ row }">{{ stateLabel(row.state) }}</template></ElTableColumn>
         <ElTableColumn label="读取" min-width="150"><template #default="{ row }"><ElButton link type="primary" @click="readPolicy(row.id)">读取原版本详情</ElButton></template></ElTableColumn>
       </ElTable>
@@ -58,7 +58,7 @@
           <ElDescriptionsItem label="范围 / 对象">{{ scopeLabel(selectedPolicy.scope_kind) }} / {{ selectedPolicy.scope_ref }}</ElDescriptionsItem>
           <ElDescriptionsItem label="环境归属">{{ selectedPolicy.environment_id ?? '不限定单个环境' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="时段（世界标准时间）" :span="2">{{ selectedPolicy.period_start }} 至 {{ selectedPolicy.period_end }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="配置限额">{{ selectedPolicy.limit_amount }} {{ selectedPolicy.currency }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="配置限额">{{ selectedPolicy.limit_amount ?? '不限' }} {{ selectedPolicy.currency }}</ElDescriptionsItem>
           <ElDescriptionsItem label="超额方式">{{ selectedPolicy.enforcement === 'hard' ? '硬限制' : '软限制' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="未定价策略">{{ selectedPolicy.unpriced_policy === 'block' ? '阻止调用' : '允许调用' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="未测得用量策略">{{ selectedPolicy.unmeasured_policy === 'hold' ? '保留占额' : '允许调用' }}</ElDescriptionsItem>
@@ -76,8 +76,8 @@
         <ElAlert :title="alertText(historicalSummary)" :type="historicalSummary.alert.level === 'normal' ? 'info' : 'warning'" :closable="false" class="mb-3" />
         <ElDescriptions :column="2" border>
           <ElDescriptionsItem label="币种">{{ historicalSummary.window.currency }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="版本限额">{{ historicalSummary.window.limit_amount }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="版本窗口可用">{{ historicalSummary.window.available_amount }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="版本限额">{{ historicalSummary.window.limit_amount ?? '不限' }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="版本窗口可用">{{ historicalSummary.window.available_amount ?? '不限' }}</ElDescriptionsItem>
           <ElDescriptionsItem label="版本已结算">{{ historicalSummary.window.settled_amount }}</ElDescriptionsItem>
           <ElDescriptionsItem label="版本已预占">{{ historicalSummary.window.reserved_amount }}</ElDescriptionsItem>
           <ElDescriptionsItem label="版本待核实占用">{{ historicalSummary.window.held_amount }}</ElDescriptionsItem>
@@ -165,7 +165,9 @@
         !['hard', 'soft'].includes(policy.enforcement) || !['block', 'allow'].includes(policy.unpriced_policy) ||
         !['hold', 'allow'].includes(policy.unmeasured_policy) ||
         typeof policy.currency !== 'string' || !/^[A-Z]{3}$/.test(policy.currency) ||
-        typeof policy.limit_amount !== 'string' || !/^[0-9]+(?:\.[0-9]+)?$/.test(policy.limit_amount) ||
+        !(policy.limit_amount === null || (typeof policy.limit_amount === 'string' && /^[0-9]+(?:\.[0-9]+)?$/.test(policy.limit_amount))) ||
+        typeof policy.reminder_percent !== 'number' || !Number.isSafeInteger(policy.reminder_percent) ||
+        policy.reminder_percent < 1 || policy.reminder_percent > 100 ||
         typeof policy.period_start !== 'string' || typeof policy.period_end !== 'string' ||
         typeof policy.create_time !== 'string' || typeof policy.update_time !== 'string' ||
         !(policy.environment_id === null || (Number.isSafeInteger(policy.environment_id) && policy.environment_id > 0)) ||
@@ -177,8 +179,9 @@
     assertPolicy(value.policy, scope, expectedId)
     const window = value.window
     if (value.policy.state === 'draft' || window.currency !== value.policy.currency || window.limit_amount !== value.policy.limit_amount ||
-        ![window.limit_amount, window.reserved_amount, window.settled_amount, window.held_amount].every(amount => typeof amount === 'string' && /^[0-9]+(?:\.[0-9]+)?$/.test(amount)) ||
-        typeof window.available_amount !== 'string' || !/^-?[0-9]+(?:\.[0-9]+)?$/.test(window.available_amount) ||
+        !(window.limit_amount === null || (typeof window.limit_amount === 'string' && /^[0-9]+(?:\.[0-9]+)?$/.test(window.limit_amount))) ||
+        ![window.reserved_amount, window.settled_amount, window.held_amount].every(amount => typeof amount === 'string' && /^[0-9]+(?:\.[0-9]+)?$/.test(amount)) ||
+        !(window.available_amount === null || (typeof window.available_amount === 'string' && /^-?[0-9]+(?:\.[0-9]+)?$/.test(window.available_amount))) ||
         !['normal', 'notice', 'warning', 'exhausted'].includes(value.alert.level) ||
         !(value.alert.threshold_percent === null || (typeof value.alert.threshold_percent === 'number' && Number.isFinite(value.alert.threshold_percent))))
       throw new Error('预算窗口与原版本金额、币种或提醒事实不一致，暂不显示。')

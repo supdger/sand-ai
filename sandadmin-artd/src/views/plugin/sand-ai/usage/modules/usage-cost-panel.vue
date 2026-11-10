@@ -471,7 +471,8 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, h, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
+  import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
+  import { useRoute } from 'vue-router'
   import { ElButton, type InputInstance } from 'element-plus'
   import { HttpError } from '@/utils/http/error'
   import { useWindowSize } from '@vueuse/core'
@@ -501,6 +502,7 @@
 
   const emit = defineEmits<{ pending: [value: boolean] }>()
   const { hasAuth } = useAuth()
+  const route = useRoute()
   const identity = useAdminReadIdentity()
   const canRefund = computed(() => hasAuth('sand_ai:usage:adjustment:index') || hasAuth('sand_ai:usage:adjustment:refund'))
   const refundSelection = ref<{ environment_id: number; usage_event_id: number } | null>(null)
@@ -997,6 +999,31 @@
     },
     { flush: 'sync' }
   )
+  /** 费用主页「查看调用」带来的路由筛选：应用/模型/环境/服务商编号与 UTC 时间范围。 */
+  function applyRouteFilters(): void {
+    const query = route.query
+    const next: SandAiUsageQuery = {}
+    for (const key of ['application_id', 'model_id', 'environment_id', 'provider_id', 'organization_id'] as const) {
+      const raw = query[key]
+      const value = Array.isArray(raw) ? raw[0] : raw
+      if (typeof value === 'string' && /^[1-9]\d*$/.test(value)) {
+        const id = Number(value)
+        if (Number.isSafeInteger(id)) next[key] = id
+      }
+    }
+    const from = typeof query.from_time === 'string' ? query.from_time : ''
+    const to = typeof query.to_time === 'string' ? query.to_time : ''
+    if (Object.keys(next).length === 0 && (from === '' || to === '')) return
+    searchForm.value = { ...next }
+    if (from !== '' && to !== '') {
+      rangeMode.value = 'custom'
+      fromTime.value = from
+      toTime.value = to
+    }
+    handleSearch()
+  }
+  onMounted(() => { applyRouteFilters() })
+  watch(() => route.query, () => { applyRouteFilters() })
   onBeforeUnmount(() => { comparisonAfterClose = null; closeCost(); emit('pending', false) })
 
   function dimensionLabel(value: string | null): string {
