@@ -2,8 +2,8 @@
   <SandAiErrorBoundary>
     <div class="sand-ai-page">
       <div class="trial-wrap">
-        <h1 class="trial-title">试一试</h1>
-        <p class="trial-sub">写一句话，看看 AI 怎么回答。</p>
+        <h1 class="trial-title">试用</h1>
+        <p class="trial-sub">用对话、文档、录音试一下 AI 好不好用</p>
 
         <!-- 应用列表加载中 -->
         <ElCard v-if="pageState === 'loading'" class="trial-card" shadow="never">
@@ -33,7 +33,9 @@
             </ElSelect>
           </div>
 
-          <!-- 试用选项加载中 -->
+          <ElTabs v-model="activeTab" class="trial-tabs">
+            <ElTabPane label="对话" name="chat">
+          <!-- 试用选项加载中：骨架屏，不闪「读取中」字样 -->
           <ElCard v-if="optionsState === 'loading'" class="trial-card" shadow="never">
             <ElSkeleton :rows="5" animated />
           </ElCard>
@@ -46,7 +48,7 @@
             </div>
           </ElCard>
 
-          <!-- 无可用服务商：不显示输入框 -->
+          <!-- 无可用服务商：不显示输入框，统一「去连接」引导 -->
           <ElCard v-else-if="providers.length === 0" class="trial-card trial-empty" shadow="never">
             <p class="trial-empty__text">还没有可用的 AI 服务商，请先去连接</p>
             <p class="trial-empty__sub">连好后回到这里，写一句话点“发送”就能试。</p>
@@ -55,13 +57,13 @@
 
           <template v-else>
             <ElCard class="trial-card" shadow="never">
-              <!-- 服务商区：1 个只显示灰字，多个出下拉（默认第一个可用） -->
+              <!-- 服务商区：1 个只显示灰字，多个出下拉（默认第一个可用，可清空后回到第一个） -->
               <div v-if="providers.length === 1" class="trial-target">
                 <span class="trial-muted">使用：{{ providers[0]?.name }}</span>
               </div>
               <div v-else class="trial-target">
                 <span class="trial-target__label">用哪个服务商</span>
-                <ElSelect v-model="selectedProviderId" class="trial-target__select" @change="onProviderPick">
+                <ElSelect v-model="selectedProviderId" class="trial-target__select" clearable @change="onProviderPick">
                   <ElOption v-for="provider in providers" :key="provider.id" :value="provider.id" :label="provider.name" />
                 </ElSelect>
               </div>
@@ -78,7 +80,9 @@
                 v-model="prompt"
                 class="trial-input"
                 type="textarea"
-                :autosize="{ minRows: 2, maxRows: 4 }"
+                :autosize="{ minRows: 2, maxRows: 6 }"
+                :maxlength="2000"
+                show-word-limit
                 :disabled="sending || !canChat"
                 placeholder="写一句话，比如：帮我把这段话改得更礼貌"
                 @keydown="onPromptKeydown"
@@ -151,11 +155,19 @@
               </div>
             </ElCard>
 
-            <!-- 服务商连不上：主按钮去检查连接，发送降为次级 -->
+            <!-- 服务商连不上：主按钮去模型服务商页，发送降为次级 -->
             <ElAlert v-if="outcome === 'fail'" type="warning" :closable="false" class="trial-notice">
-              <div class="trial-notice__text">{{ failBannerText }}</div>
+              <div class="trial-notice__title">{{ outcomeMessage }}</div>
               <div class="trial-notice__actions">
-                <ElButton type="primary" @click="goProvider">去检查连接</ElButton>
+                <ElButton type="primary" @click="goProvider">去模型服务商</ElButton>
+              </div>
+            </ElAlert>
+
+            <!-- 服务商繁忙或本地等待超时：白话提示 + 同幂等键重试 -->
+            <ElAlert v-else-if="outcome === 'busy' || outcome === 'neterr'" type="warning" :closable="false" class="trial-notice">
+              <div class="trial-notice__title">{{ outcomeMessage }}</div>
+              <div class="trial-notice__actions">
+                <ElButton :loading="sending" @click="resend">重试</ElButton>
               </div>
             </ElAlert>
 
@@ -163,19 +175,24 @@
             <ElAlert v-else-if="outcome === 'syserr'" type="error" :closable="false" class="trial-notice">
               <div class="trial-notice__title">系统出了点问题，请稍后再试</div>
               <div class="trial-notice__actions">
-                <ElButton :loading="copying" @click="copyProblemInfo">复制问题信息</ElButton>
+                <ElButton :loading="copying" @click="copyProblemDetails">复制问题信息</ElButton>
                 <ElButton v-if="retryAttempt" link type="primary" @click="resend">重新发送</ElButton>
               </div>
             </ElAlert>
 
-            <!-- 其它业务提示：后端白话原因原文 -->
+            <!-- 其它业务提示：后端白话原因原文，预算/配置类附带跳转按钮 -->
             <ElAlert
               v-else-if="outcome === 'business'"
               type="warning"
               :closable="false"
               class="trial-notice"
-              :title="outcomeMessage"
-            />
+            >
+              <div class="trial-notice__title">{{ outcomeMessage }}</div>
+              <div v-if="noticeAction !== ''" class="trial-notice__actions">
+                <ElButton v-if="noticeAction === 'provider'" @click="goProvider">去模型服务商</ElButton>
+                <ElButton v-else @click="goUsage">去费用页</ElButton>
+              </div>
+            </ElAlert>
 
             <!-- 已停止等待：语义诚实，不宣称服务端已取消 -->
             <ElAlert
@@ -186,6 +203,15 @@
               title="已停止等待；这次请求可能仍在后台完成，结果请在调用记录中查看。"
             />
           </template>
+            </ElTabPane>
+            <!-- 后端尚未就绪：页签禁用，内容只留占位说明 -->
+            <ElTabPane label="文档整理（即将提供）" name="document" disabled>
+              <p class="trial-muted">即将提供</p>
+            </ElTabPane>
+            <ElTabPane label="录音转写（即将提供）" name="speech" disabled>
+              <p class="trial-muted">即将提供</p>
+            </ElTabPane>
+          </ElTabs>
         </template>
       </div>
     </div>
@@ -216,7 +242,9 @@
 
   type PageState = 'loading' | 'apps-error' | 'no-apps' | 'ready'
   type OptionsState = 'loading' | 'ready' | 'error'
-  type Outcome = 'idle' | 'stopped' | 'business' | 'fail' | 'syserr'
+  type Outcome = 'idle' | 'stopped' | 'business' | 'fail' | 'busy' | 'neterr' | 'syserr'
+  /** 业务提示可附带的跳转动作：费用页或模型服务商页。 */
+  type NoticeAction = '' | 'provider' | 'usage'
   interface RetryAttempt {
     readonly key: string
     readonly payload: TrialChatInput
@@ -237,6 +265,7 @@
   const optionsError = ref('')
   const options = ref<TrialOptions | null>(null)
 
+  const activeTab = ref<string>('chat')
   const prompt = ref('')
   const selectedProviderId = ref<number | null>(null)
   const modelId = ref<number | null>(null)
@@ -246,7 +275,7 @@
   const answer = ref<TrialAnswer | null>(null)
   const outcome = ref<Outcome>('idle')
   const outcomeMessage = ref('')
-  const outcomeProviderName = ref('')
+  const noticeAction = ref<NoticeAction>('')
   const retryAttempt = ref<RetryAttempt | null>(null)
   const lastChatError = ref<unknown>(null)
   const copying = ref(false)
@@ -266,16 +295,10 @@
       !sending.value &&
       optionsState.value === 'ready' &&
       selectedProvider.value !== null &&
-      applicationId.value !== null &&
-      prompt.value.trim() !== ''
+      applicationId.value !== null
   )
-  // fail/syserr 态主按钮让位给横幅内的去检查连接/复制问题信息，发送降为次级
+  // fail/syserr 态主按钮让位给横幅内的去模型服务商/复制问题信息，发送降为次级
   const primarySend = computed(() => outcome.value !== 'fail' && outcome.value !== 'syserr')
-  // 规格文案为单串「连不上「{服务商名}」：{后端白话原因}」
-  const failBannerText = computed(() => {
-    const head = `连不上「${outcomeProviderName.value}」`
-    return outcomeMessage.value === '' ? head : `${head}：${outcomeMessage.value}`
-  })
 
   watch(applicationId, (id) => {
     if (pageState.value === 'ready' && id !== null) void loadOptions(id)
@@ -290,7 +313,7 @@
     abortController?.abort()
   })
 
-  /* ---------- 应用与选项加载 ---------- */
+  // 应用与选项加载
 
   async function boot(): Promise<void> {
     pageState.value = 'loading'
@@ -357,7 +380,7 @@
     if (applicationId.value !== null) void loadOptions(applicationId.value)
   }
 
-  /* ---------- 选项规整与选择 ---------- */
+  // 选项规整与选择
 
   function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -412,11 +435,15 @@
   }
 
   function onProviderPick(): void {
+    // 服务商下拉可清空：清空瞬间回到第一个可用服务商，保证总有可发的选项
+    if (typeof selectedProviderId.value !== 'number') {
+      selectedProviderId.value = providers.value[0]?.id ?? null
+    }
     clearConversation()
     syncModelSelection()
   }
 
-  /* ---------- 发送 / 停止 / 重发 ---------- */
+  // 发送 / 停止 / 重发
 
   function onPromptKeydown(event: Event | KeyboardEvent): void {
     // ElInput 的 keydown 载荷类型为 Event | KeyboardEvent，先收窄再读键盘字段
@@ -452,8 +479,12 @@
     const provider = selectedProvider.value
     if (sending.value || !canChat.value || provider === null || optionsState.value !== 'ready') return
     const payload = override?.payload ?? buildPayload(provider)
-    if (payload === null) return
-    // 每次用户主动发送生成新键；override 只来自系统故障态的「重新发送」，
+    if (payload === null) {
+      // 空输入不静默吞掉：点发送/回车都明确提示先写一句话（override 必有载荷，不会走到这里）
+      ElMessage.warning('请先写一句话再发送')
+      return
+    }
+    // 每次用户主动发送生成新键；override 只来自失败态的「重试/重新发送」，
     // 复用同键同载荷做不确定重试，绝不换键重发。
     const key = override?.key ?? newIdempotencyKey()
     const attemptProviderName = override?.providerName ?? provider.name
@@ -483,16 +514,8 @@
       lastChatError.value = error
       if (controller.signal.aborted) {
         outcome.value = 'stopped'
-      } else if (isProviderUnreachable(error)) {
-        outcome.value = 'fail'
-        outcomeProviderName.value = attemptProviderName
-        outcomeMessage.value = unreachableReason(stripCodePrefix(rawErrorMessage(error)), attemptProviderName)
-      } else if (isSystemFailure(error)) {
-        outcome.value = 'syserr'
-        retryAttempt.value = { key, payload, providerName: attemptProviderName }
       } else {
-        outcome.value = 'business'
-        outcomeMessage.value = chineseErrorText(error, '这次试用没有成功，请稍后重试')
+        classifyChatError(error, key, payload, attemptProviderName)
       }
     } finally {
       sending.value = false
@@ -514,12 +537,68 @@
     answer.value = null
     outcome.value = 'idle'
     outcomeMessage.value = ''
-    outcomeProviderName.value = ''
+    noticeAction.value = ''
     retryAttempt.value = null
     lastChatError.value = null
   }
 
-  /* ---------- 错误分类与文案 ---------- */
+  // 错误分类与文案
+
+  /**
+   * 试用失败分类：优先读后端脱敏的 data.reason_code（业务信封 transport 为空时
+   * error.data 即业务负载），再退回传输层特征，最后才是通用业务文案。
+   * 界面只展示白话中文，错误码/请求号只进 console 与「复制问题信息」。
+   */
+  function classifyChatError(error: unknown, key: string, payload: TrialChatInput, providerName: string): void {
+    const reason = trialReasonCode(error)
+    if (reason === 'provider_unreachable' || (reason === '' && isProviderUnreachable(error))) {
+      // 服务商连不上：后端文案已含「去模型服务商点测试连接」指引
+      outcome.value = 'fail'
+      outcomeMessage.value = chineseErrorText(error, '连不上模型服务商，请到「模型服务商」点「测试连接」看看。')
+      return
+    }
+    if (reason === 'provider_busy' || (isHttpError(error) && error.transport === 'timeout')) {
+      // 服务商繁忙或本地 150s 等待超时：结果不确定，同键同载荷可安全重试
+      outcome.value = 'busy'
+      outcomeMessage.value = reason === 'provider_busy'
+        ? chineseErrorText(error, 'AI 服务商这会儿太忙，请过一会儿再试')
+        : 'AI 服务商这会儿太忙，请过一会儿再试'
+      retryAttempt.value = { key, payload, providerName }
+      return
+    }
+    if (reason === 'budget_exhausted' || reason === 'budget_blocked') {
+      outcome.value = 'business'
+      outcomeMessage.value = chineseErrorText(error, '本月 AI 预算已经用完，请到费用页调高预算')
+      noticeAction.value = 'usage'
+      return
+    }
+    if (reason === 'provider_config_invalid') {
+      outcome.value = 'business'
+      outcomeMessage.value = chineseErrorText(error, '服务商配置有问题，请到「模型服务商」页检查密钥和地址后再试')
+      noticeAction.value = 'provider'
+      return
+    }
+    if (reason !== '') {
+      // egress_blocked / routes_not_published / balance / unknown / idempotency_required 等：
+      // 后端白话原文即最终文案，未知原因统一落到「这次试用没有成功，请稍后重试」。
+      outcome.value = 'business'
+      outcomeMessage.value = chineseErrorText(error, '这次试用没有成功，请稍后重试')
+      return
+    }
+    if (isNetworkFailure(error)) {
+      outcome.value = 'neterr'
+      outcomeMessage.value = '网络好像断了，请检查网络后再试'
+      retryAttempt.value = { key, payload, providerName }
+      return
+    }
+    if (isSystemFailure(error)) {
+      outcome.value = 'syserr'
+      retryAttempt.value = { key, payload, providerName }
+      return
+    }
+    outcome.value = 'business'
+    outcomeMessage.value = chineseErrorText(error, '这次试用没有成功，请稍后重试')
+  }
 
   function rawErrorMessage(error: unknown): string {
     if (error instanceof Error && typeof error.message === 'string') return error.message
@@ -547,6 +626,18 @@
     return hintForRuntimeErrorCode(code) ?? fallback
   }
 
+  /** 业务信封（transport 为空）的 data 即后端负载；只认严格 snake_case 的 reason_code。 */
+  function trialReasonCode(error: unknown): string {
+    if (!isHttpError(error) || error.transport !== undefined || !isRecord(error.data)) return ''
+    const code = error.data.reason_code
+    return typeof code === 'string' && /^[a-z][a-z0-9_]{0,63}$/.test(code) ? code : ''
+  }
+
+  /** 断网类传输失败：请求可能根本没到服务端，同键重试安全。 */
+  function isNetworkFailure(error: unknown): boolean {
+    return isHttpError(error) && (error.transport === 'network' || error.transport === 'unknown')
+  }
+
   /** trialProblem 把服务商不可达映射为业务码 502；仅业务信封（transport 空）可判，真实 HTTP/传输层 502 归系统故障。 */
   function isProviderUnreachable(error: unknown): boolean {
     if (!isHttpError(error) || error.transport !== undefined) return false
@@ -558,17 +649,6 @@
     if (!isHttpError(error)) return true
     if (error.transport !== undefined && error.transport !== 'http') return true
     return error.code >= 500
-  }
-
-  /** 「连不上{服务商名}：{原因}」拆出原因原文，避免标题与正文重复。 */
-  function unreachableReason(message: string, providerName: string): string {
-    const prefix = providerName !== '' ? `连不上${providerName}：` : ''
-    if (prefix !== '' && message.startsWith(prefix)) return message.slice(prefix.length).trim()
-    if (message.startsWith('连不上')) {
-      const index = message.indexOf('：')
-      if (index > 0) return message.slice(index + 1).trim()
-    }
-    return stripCodePrefix(message)
   }
 
   function formatLatency(ms: number): string {
@@ -583,7 +663,7 @@
     return `trial-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
   }
 
-  /* ---------- 复制 ---------- */
+  // 复制
 
   async function copyText(text: string, successMessage: string): Promise<void> {
     copying.value = true
@@ -615,7 +695,7 @@
   }
 
   /** 「复制问题信息」只含时间/页面/错误码/请求号（如可得），不上屏。 */
-  function copyProblemInfo(): void {
+  function copyProblemDetails(): void {
     const error = lastChatError.value
     const fault = describeBoundaryFault(error)
     const lines = [
@@ -629,10 +709,14 @@
     void copyText(lines.join('\n'), '已复制，可发给管理员')
   }
 
-  /* ---------- 跳转 ---------- */
+  // 跳转
 
   function goProvider(): void {
     void router.push('/sand-ai/provider')
+  }
+
+  function goUsage(): void {
+    void router.push('/sand-ai/usage')
   }
 
   function goApplications(): void {

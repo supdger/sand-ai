@@ -1,24 +1,27 @@
 <template>
-  <ElCard class="expert-selection-help" shadow="never">
-    <h2 class="selection-title">按任务选择能力</h2>
-    <p class="selection-intro">先看要完成什么，再选能力。展开查看输入、成果、准备条件和组合方式。</p>
-    <ElCollapse accordion>
-      <ElCollapseItem v-for="choice in choices" :key="choice.id" :name="choice.id" :title="choice.title">
-        <dl class="selection-detail">
-          <dt>适合输入</dt><dd>{{ choice.input }}</dd>
-          <dt>能得到什么</dt><dd>{{ choice.result }}</dd>
-          <dt>先准备什么</dt><dd>{{ choice.preparation }}</dd>
-          <dt>在哪里使用</dt><dd>{{ choice.location }}</dd>
-          <dt>如何组合</dt><dd>{{ choice.combination }}</dd>
-        </dl>
-      </ElCollapseItem>
-    </ElCollapse>
-    <p class="selection-note">AI 成果需要人工复核。AI 工作流按步骤执行 AI 任务；业务审批由独立的业务流程处理。</p>
-  </ElCard>
+  <ElCollapse class="expert-selection-help">
+    <ElCollapseItem :title="title" name="help">
+      <p class="selection-intro">先看要完成什么，再选能力。展开查看输入、成果、准备条件和组合方式。</p>
+      <ElCollapse accordion>
+        <ElCollapseItem v-for="choice in choices" :key="choice.id" :name="choice.id" :title="choice.title">
+          <dl class="selection-detail">
+            <dt>适合输入</dt><dd>{{ choice.input }}</dd>
+            <dt>能得到什么</dt><dd>{{ choice.result }}</dd>
+            <dt>先准备什么</dt><dd>{{ choice.preparation }}</dd>
+            <dt>在哪里使用</dt><dd>{{ choice.location }}</dd>
+            <dt>如何组合</dt><dd>{{ choice.combination }}</dd>
+          </dl>
+        </ElCollapseItem>
+      </ElCollapse>
+      <p class="selection-note">AI 成果需要人工复核。AI 工作流按步骤执行 AI 任务；业务审批由独立的业务流程处理。</p>
+    </ElCollapseItem>
+  </ElCollapse>
 </template>
 
 <script setup lang="ts">
-  import { ElCard, ElCollapse, ElCollapseItem } from 'element-plus'
+  import { ElCollapse, ElCollapseItem } from 'element-plus'
+
+  withDefaults(defineProps<{ title?: string }>(), { title: '按任务选择能力' })
 
   interface CapabilityChoice {
     id: 'knowledge' | 'skill' | 'agent' | 'bot' | 'workflow'
@@ -81,7 +84,6 @@
 
 <style scoped lang="scss">
   .expert-selection-help { margin-bottom: 16px; }
-  .selection-title { margin: 0; font-size: 18px; }
   .selection-intro, .selection-note { color: var(--el-text-color-secondary); line-height: 1.6; }
   .selection-detail { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 0; }
   .selection-detail dt { font-weight: 600; }
