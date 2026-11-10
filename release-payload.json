@@ -3,7 +3,7 @@
   "app": "sand-ai",
   "version": "0.4.10",
   "files": {
-    "CHANGELOG.md": "56a425152fec278c915e54aa723566e276ecdf30625c5506f8fd7fba8f648a68",
+    "CHANGELOG.md": "ab93dee85411cb12a90a3fce286cdf9009586384e2d1aad9c7771a72e154e8ac",
     "LICENSE": "36cc6aebd8dfd4a2b772ba26399172051c007ceda352f3f95bac0d83ec35d2f7",
     "README.md": "59c437539af2a6df12e8cb4ff6ac8ba8618553d8907dfa2009f582466252c1ca",
     "app/Api/Controller/AgentController.php": "a8284016035506a7f076123d3e212bed701001dc8bf4f0198edef6e31caf1d63",
@@ -1031,7 +1031,7 @@
     "host-payload.json": "e8c151d794d0607f77cde581de1c42481e53e3efe6b08804500c63c30c62b111",
     "info.ini": "a42777df5a258c3fae93c4fb9269a670f5bbabf18a5525ea8e98ad940200d775",
     "install.sql": "d96d93e38e423c5e92afaa84abd05becfea7d5a72f610f471ccb456483d7f735",
-    "plugin/sand-ai/CHANGELOG.md": "9665b3a5752b43ecdea43b53d9c1ffca8eab5ae1b934c0d2d2e068e79f3fd4b9",
+    "plugin/sand-ai/CHANGELOG.md": "d23db931687d037ac99c086d3f9ae9f6375b531f1f399386964f3217d75eea91",
     "plugin/sand-ai/app/admin/controller/AdminTrialController.php": "bfd13d88ffd6c11017423a2ea4bc4e45595064994f417aa10014fc5f3af45dfa",
     "plugin/sand-ai/app/admin/controller/AgentDefinitionController.php": "b664a440aac010b7b68eac43a36a13f5dea475e6e402e5e8a73fd4ac01868fb8",
     "plugin/sand-ai/app/admin/controller/AuditController.php": "58c148c5583077d244d14809645c97e5e26f7a6778c52b47d2501fe6fe75c7e3",
