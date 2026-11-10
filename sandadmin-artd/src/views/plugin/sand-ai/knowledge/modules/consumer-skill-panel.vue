@@ -1,36 +1,31 @@
 <template>
   <ElCard class="consumer-skill-card" shadow="never">
     <template #header>
-      <h2>应用技能模板 · 消费范围</h2>
-      <p>使用消费后端取得的工作负载凭证，查看和管理该消费范围的技能模板。后台登录不提供消费身份。</p>
+      <h2>应用技能模板 · 使用范围</h2>
+      <p>粘贴应用后端签发的调用密钥（见本页顶部），声明使用范围后查看和管理该范围的技能模板。后台登录不等于应用身份。</p>
     </template>
     <ElAlert
       type="info"
       :closable="false"
-      title="范围与操作者是消费应用声明，不代表平台已验证个人或团队成员。真实人员及成员关系须由已授权消费应用核实并传入，手填引用不能证明认证；组织引用由服务端核对。"
+      title="范围与操作者是应用声明，不代表平台已验证个人或团队成员。真实人员及成员关系须由已授权应用核实并传入，手填引用不能证明认证；组织引用由服务端核对。"
     />
     <ElAlert v-if="error" type="error" :title="error" closable @close="error = ''" />
     <ElForm label-width="110px" @submit.prevent>
-      <RuntimeApiKeyField
-        v-model="bearer"
-        :persist-in-session="false"
-        placeholder="由消费后端取得的 SandAI 工作负载调用密钥，仅保留在本页"
-      />
-      <ElFormItem label="消费范围">
-        <ElSelect v-model="scopeType" placeholder="选择消费后端声明的范围">
+      <ElFormItem label="使用范围">
+        <ElSelect v-model="scopeType" placeholder="选择应用声明的范围">
           <ElOption label="个人" value="personal" /><ElOption label="团队" value="team" />
           <ElOption label="组织" value="organization" />
         </ElSelect>
       </ElFormItem>
       <ElFormItem label="范围引用"
-        ><ElInput v-model="scopeRef" placeholder="消费后端提供的范围引用"
+        ><ElInput v-model="scopeRef" placeholder="应用后端提供的范围引用"
       /></ElFormItem>
       <ElFormItem label="操作者引用"
-        ><ElInput v-model="actorRef" placeholder="消费后端提供的操作者引用"
+        ><ElInput v-model="actorRef" placeholder="应用后端提供的操作者引用"
       /></ElFormItem>
       <ElFormItem
         ><ElButton :disabled="!ready || busy" :loading="busy" @click="loadWorkspace(1)"
-          >读取消费范围</ElButton
+          >读取使用范围</ElButton
         ></ElFormItem
       >
     </ElForm>
@@ -39,7 +34,7 @@
         原{{ managementLabel(managementReceipt.operation) }}回执已读取：{{ managementReceipt.code }} · 固定版本 {{ managementReceipt.version }}
         <span v-if="'case_id' in managementReceipt"> · 案例 #{{ managementReceipt.case_id }}</span>
         <span v-if="'verdict' in managementReceipt"> · 原判定 {{ managementReceipt.verdict === 'pass' ? '通过' : '未通过' }}</span>
-        · 原请求 {{ managementReceipt.request_id }}。当前列表和判定仍以重新读取为准。
+        · 原请求号 {{ managementReceipt.request_id }}。当前列表和判定仍以重新读取为准。
       </p>
       <ElAlert
         v-if="managementPending"
@@ -84,10 +79,10 @@
         </ElFormItem>
         <ElFormItem v-else-if="managementPending?.draft_code" label="原技能模板">{{ managementPending.draft_code }}</ElFormItem>
         <p v-if="managementPending?.operation === 'draft' || managementPending?.receipt">读取原保存结果不会再次发送保存请求。未找到、无权、状态变化或网络错误时仍保留原请求号。</p>
-        <p v-else>旧案例记录缺少固定目标，暂不能只读确认。请保留原请求记录，不重填私有内容再次 POST 或换号。</p>
+        <p v-else>旧案例记录缺少固定目标，暂不能只读确认。请保留原请求记录，不重填私有内容再次发送或换号。</p>
         <ElButton :disabled="busy || !ready || !workloadIdentity || (managementPending?.operation !== 'draft' && !managementPending?.receipt)" @click="recoverSavedManagement">找回原保存结果</ElButton>
       </ElForm>
-      <ElTable :data="rows" row-key="id" :empty-text="page > 1 ? '本页没有更多技能模板，可返回上一页' : '这个消费范围尚无技能模板'">
+      <ElTable :data="rows" row-key="id" :empty-text="page > 1 ? '本页没有更多技能模板，可返回上一页' : '这个使用范围还没有技能模板'">
         <ElTableColumn label="技能模板" prop="name" /><ElTableColumn label="代码" prop="code" />
         <ElTableColumn label="状态"
           ><template #default="{ row }">{{ stateLabel(row.state) }}</template></ElTableColumn
@@ -140,7 +135,7 @@
           ><ElInput v-model="draft.description" maxlength="1000"
         /></ElFormItem>
         <ElFormItem label="知识版本">
-          <ElSelect v-model="draft.sourceId" placeholder="选择本消费环境已开放版本">
+          <ElSelect v-model="draft.sourceId" placeholder="选择本应用环境已开放的版本">
             <ElOption
               v-for="source in sources"
               :key="source.knowledge_base_version_id"
@@ -180,7 +175,7 @@
       </h3>
       <p>
         归属：{{ detail.skill.scope.type }} /
-        {{ detail.skill.scope.ref }}（消费应用声明）。版本内容只读。
+        {{ detail.skill.scope.ref }}（应用声明）。版本内容只读。
       </p>
       <ElSelect v-model="selectedVersion" :disabled="busy" @change="loadCases">
         <ElOption
@@ -309,7 +304,7 @@
       </template>
     </template>
     <h3>找回原测试或运行</h3>
-    <p>使用原请求键、原固定版本及当前正式上下文。可独立读取其他历史调用；找回只读，不重发模型请求。</p>
+    <p>使用原请求号、原固定版本及当前正式上下文。可独立读取其他历史调用；找回只读，不重发模型请求。</p>
     <ElForm label-width="110px" @submit.prevent>
       <ElFormItem label="代码"
         ><ElInput v-model="recovery.code" :disabled="runReadBusy"
@@ -324,7 +319,7 @@
             label="固定版本运行"
           /> </ElSelect
       ></ElFormItem>
-      <ElFormItem label="原请求键"
+      <ElFormItem label="原请求号"
         ><ElInput v-model="recovery.key" :disabled="runReadBusy"
       /></ElFormItem>
       <ElFormItem
@@ -340,7 +335,7 @@
     <template v-if="pending">
       <p>
         待确认：{{ pending.code }} · 固定版本 {{ pending.version }} ·
-        {{ pending.kind === 'test' ? '草稿测试' : '固定版本运行' }} · 原请求键 {{ pending.key }}。
+        {{ pending.kind === 'test' ? '草稿测试' : '固定版本运行' }} · 原请求号 {{ pending.key }}。
         读取其他历史调用不会解除这次意图的锁定。
       </p>
       <ElButton :disabled="runReadBusy || !readerReady" :loading="runReadBusy" @click="recoverPendingRun">只读找回这次待确认调用</ElButton>
@@ -357,7 +352,7 @@
       >以原键和原输入恢复失败意图</ElButton
     >
     <p v-if="pending && pending.input_hash === null">
-      本页没有原输入的保存指纹，仅提供只读找回。显式恢复执行须由持有原输入与原键的消费后端完成。
+      本页没有原输入的保存指纹，仅提供只读找回。显式恢复执行须由持有原输入与原键的应用后端完成。
     </p>
     <ElAlert v-if="runReadError" type="warning" :title="runReadError" :closable="false" />
     <p v-if="runReadBusy">正在按原固定目标读取调用结果；不会再次发送模型请求。</p>
@@ -365,24 +360,24 @@
       <p v-if="visibleResultLocator">
         当前结果：{{ visibleResultLocator.code }} · 固定版本 {{ visibleResultLocator.version }} ·
         {{ visibleResultLocator.kind === 'test' ? '草稿测试' : '固定版本运行' }} ·
-        原请求键 {{ visibleResultLocator.key }}
+        原请求号 {{ visibleResultLocator.key }}
       </p>
       <p>
-        运行 #{{ visibleResult.run_id }} · {{ visibleResult.state }} ·
+        {{ runStateLabel(visibleResult.state) }} ·
         {{ visibleResult.review_required ? '结果需要复核' : '请按业务规则核对' }}
       </p>
       <ElAlert
         v-if="visibleResult.error_code"
         type="warning"
-        :title="visibleResult.error_code"
+        :title="resultErrorText(visibleResult.error_code)"
         :closable="false"
       />
       <pre>{{ JSON.stringify(visibleResult.output, null, 2) }}</pre>
       <ElTable :data="visibleResult.citations" empty-text="本次没有可读来源">
-        <ElTableColumn label="来源块" prop="source_block_id" />
+        <ElTableColumn label="片段" prop="source_block_id" />
         <ElTableColumn label="定位"
           ><template #default="{ row }"
-            >{{ row.locator_type }} {{ JSON.stringify(row.locator) }}</template
+            >{{ knowledgeSourceLocation(row) }}</template
           ></ElTableColumn
         >
         <ElTableColumn label="来源摘录" prop="excerpt" />
@@ -405,7 +400,7 @@
     </template>
     <h3>原调用费用</h3>
     <p>
-      用原请求键读取当前范围内的测试或运行费用，无需先找回成果。
+      用原请求号读取当前范围内的测试或运行费用，无需先找回成果。
       启用、版本废弃或撤销后仍可读取；需要独立费用权限，未知金额不代表免费。
     </p>
     <ElForm label-width="110px" @submit.prevent>
@@ -414,7 +409,7 @@
       <ElFormItem label="原调用类型"><ElSelect v-model="costLocator.kind">
         <ElOption label="草稿测试" value="test" /><ElOption label="固定版本运行" value="run" />
       </ElSelect></ElFormItem>
-      <ElFormItem label="原请求键"><ElInput v-model="costLocator.key" placeholder="原请求编号" /></ElFormItem>
+      <ElFormItem label="原请求号"><ElInput v-model="costLocator.key" placeholder="填写此前保留的原请求号" /></ElFormItem>
       <ElFormItem><ElButton :disabled="costReadBusy || !readerReady || !costLocator.code.trim() || !costLocator.key.trim()" :loading="costReadBusy" @click="readCost">
         只读原调用费用
       </ElButton></ElFormItem>
@@ -446,11 +441,17 @@
   import type { SkillRow, SkillSource, SkillCaseRow, SkillTestResult } from '../../api/skill'
   import type { SandAiInvocationCost } from '../../api/types'
   import SkillSourceSuggestions from './skill-source-suggestions.vue'
-  import RuntimeApiKeyField from '../../components/RuntimeApiKeyField.vue'
+  import { knowledgeSourceLocation } from '../../api/knowledgeSource'
   import InvocationCostDetails from '../../usage/modules/invocation-cost-details.vue'
 
+  const props = defineProps<{ apiKey: string }>()
+  const emit = defineEmits<{ 'update:apiKey': [value: string] }>()
+  // 调用密钥由应用试用页统一持有，面板只读写同一份值。
+  const bearer = computed<string>({
+    get: () => props.apiKey,
+    set: (value: string) => emit('update:apiKey', value)
+  })
   const userStore = useUserStore()
-  const bearer = ref('')
   const scopeType = ref<SkillConsumerDeclaration['scope']['type'] | ''>('')
   const scopeRef = ref('')
   const actorRef = ref('')
@@ -637,6 +638,23 @@
       )[state] ?? state
     )
   }
+  function runStateLabel(state: string): string {
+    return (
+      (
+        {
+          succeeded: '已完成',
+          failed: '失败',
+          pending: '处理中',
+          running: '执行中',
+          cancelled: '已取消',
+          outcome_unknown: '结果待确认'
+        } as Record<string, string>
+      )[state] ?? '状态待确认'
+    )
+  }
+  function resultErrorText(code: string): string {
+    return errorDisplayText(new Error(code), '本次调用未成功，原请求与费用已保留。')
+  }
   function object(text: string): Record<string, unknown> {
     const value: unknown = JSON.parse(text)
     if (typeof value !== 'object' || value === null || Array.isArray(value))
@@ -652,7 +670,7 @@
     freshOperationKeys: string[]
   } {
     if (!ready.value || scopeType.value === '')
-      throw new Error('请填写消费后端提供的凭证、范围和操作者声明')
+      throw new Error('请填写应用后端提供的调用密钥、范围和操作者声明')
     for (const value of [scopeRef.value, actorRef.value]) {
       if (new TextEncoder().encode(value).length > 128 || /[\u0000-\u001f\u007f]/.test(value))
         throw new Error('声明引用须为不含控制字符的 1–128 字节文本')
@@ -670,7 +688,7 @@
     }
   }
   function assertCurrent(c: ReturnType<typeof context>): void {
-    if (c.epoch !== generation) throw new Error('消费上下文或目标已改变')
+    if (c.epoch !== generation) throw new Error('使用范围或目标已改变')
   }
   function clearRunReader(): void {
     ++runReadSequence
@@ -690,7 +708,7 @@
   }
   function readerContext() {
     const c = context()
-    if (!c.identity) throw new Error('请先读取当前消费工作区，确认工作负载范围')
+    if (!c.identity) throw new Error('请先读取当前应用工作区，确认调用身份')
     const actor = adminIdentity()
     const adminCredential = userStore.accessToken
     const ownerEpoch = readerContextEpoch
@@ -738,7 +756,7 @@
         value.workload_client_id
       ].every((id) => /^[1-9][0-9]*$/.test(id))
     )
-      throw new Error('消费工作区未返回有效的当前工作负载身份，请重新读取')
+      throw new Error('应用工作区未返回有效的调用身份，请重新读取')
     return {
       organization_id: value.organization_id,
       application_id: value.application_id,
@@ -767,7 +785,7 @@
       (value.input_hash !== null &&
         (typeof value.input_hash !== 'string' || !/^[a-f0-9]{64}$/.test(value.input_hash)))
     )
-      throw new Error('原请求键记录无效')
+      throw new Error('原请求号记录无效')
     return {
       code: value.code,
       version: value.version,
@@ -951,7 +969,7 @@
     confirmIntent?: () => void
   ): Promise<string> {
     assertCurrent(c)
-    if (managementPending.value) throw new Error('原管理请求尚未确认，请只读找回原回执；不能再 POST 或换号')
+    if (managementPending.value) throw new Error('原管理请求尚未确认，请只读找回原回执；不能再发送或换号')
     if (managementScope) {
       const durablePending = savedManagement(managementScope)
       if (durablePending) {
@@ -964,17 +982,17 @@
     const conflictTarget = target ?? (draftLocator?.draft_base_version ? { code: draftLocator.draft_code, version: draftLocator.draft_base_version } : undefined)
     if (pending.value && conflictTarget?.code === pending.value.code &&
       (conflictTarget.allVersions || conflictTarget.version === pending.value.version))
-      throw new Error('此操作影响原未确认调用的代码或版本，请先用原请求键只读找回')
-    if (!c.identity) throw new Error('请先读取当前消费工作区，确认工作负载范围')
+      throw new Error('此操作影响原未确认调用的代码或版本，请先用原请求号只读找回')
+    if (!c.identity) throw new Error('请先读取当前应用工作区，确认调用身份')
     const current = generation
     const freshKey = crypto.randomUUID()
     const tag = await digest(
       canonical([adminIdentity(), c.identity, c.declaration, operation, body])
     )
     const inputSha256 = upstream === undefined ? undefined : await digest(upstream)
-    if (current !== generation) throw new Error('消费上下文已改变，请重新读取')
+    if (current !== generation) throw new Error('使用范围已改变，请重新读取')
     confirmIntent?.()
-    if (!managementScope) throw new Error('请先读取当前消费工作区')
+    if (!managementScope) throw new Error('请先读取当前应用工作区')
     if (managementPending.value) throw new Error('原管理请求尚未确认，请只读找回，不能再次发送')
     const name = `sand-ai:consumer-skill:operation:v2:${tag}`
     const storedKey = sessionStorage.getItem(name)
@@ -1012,7 +1030,7 @@
     assertCurrent(c)
     const receipt = await api.readOperationReceipt(c.token, c.declaration, original.recovery_target, original.key, original.input_sha256)
     assertCurrent(c)
-    if (managementPending.value !== original) throw new Error('原管理请求或消费范围已改变')
+    if (managementPending.value !== original) throw new Error('原管理请求或使用范围已改变')
     managementReceipt.value = receipt
     return receipt
   }
@@ -1220,7 +1238,7 @@
   function recoverSuggestion(): void {
     const key = suggestionKey.value.trim()
     void act(async (c) => {
-      if (!c.identity) throw new Error('请先读取当前消费范围')
+      if (!c.identity) throw new Error('请先读取当前使用范围')
       const value = await api.readSuggestion(c.token, c.declaration, key)
       assertCurrent(c)
       if (managementPending.value?.operation === 'suggest' && managementPending.value.key === key)
@@ -1481,7 +1499,7 @@
       cost.value = null
       costError.value = ''
       await act(async (c) => {
-        if (!storageScope) throw new Error('浏览器尚未准备好保存原请求键')
+        if (!storageScope) throw new Error('浏览器尚未准备好保存原请求号')
         target.input_hash = await digest(canonical(body))
         assertCurrent(c)
         sessionStorage.setItem(storageScope, JSON.stringify(target))
@@ -1565,7 +1583,7 @@
           result.value = null
           resultLocator.value = null
         }
-        runReadError.value = errorDisplayText(cause, '原调用读取失败；原请求键仍保留')
+        runReadError.value = errorDisplayText(cause, '原调用读取失败；原请求号仍保留')
       }
     } finally {
       if (readersLive && sequence === runReadSequence) runReadBusy.value = false
@@ -1684,12 +1702,12 @@
     const locator = original?.receipt ?? (original?.operation === 'draft' ? { operation: 'draft' as const } : undefined)
     if (!original || !locator || busy.value) return
     void act(async (c) => {
-      if (managementPending.value !== original) throw new Error('原保存请求或消费范围已改变')
+      if (managementPending.value !== original) throw new Error('原保存请求或使用范围已改变')
       const value = locator.operation === 'draft'
         ? await api.readDraftReceipt(c.token, c.declaration, original.key, original.draft_code || undefined)
         : await api.readCreatedCase(c.token, c.declaration, locator.code, locator.version, original.key)
       assertCurrent(c)
-      if (managementPending.value !== original) throw new Error('原保存请求或消费范围已改变')
+      if (managementPending.value !== original) throw new Error('原保存请求或使用范围已改变')
       c.operationKeys.push(`sand-ai:consumer-skill:operation:v2:${original.intent_hash}`, managementScope)
       return value
     }, (value) => {
@@ -1714,10 +1732,10 @@
     try { target = legacyOperationTarget(original) }
     catch (cause) { error.value = errorDisplayText(cause, '请填写原操作目标'); return }
     await act(async (c) => {
-      if (managementPending.value !== original) throw new Error('原管理请求或消费范围已改变')
+      if (managementPending.value !== original) throw new Error('原管理请求或使用范围已改变')
       const receipt = await api.readOperationReceipt(c.token, c.declaration, target, original.key, original.input_sha256)
       assertCurrent(c)
-      if (managementPending.value !== original) throw new Error('原管理请求或消费范围已改变')
+      if (managementPending.value !== original) throw new Error('原管理请求或使用范围已改变')
       // A legacy read uses server-held immutable proof; returned hash is never saved as a missing original hash.
       c.operationKeys.push(`sand-ai:consumer-skill:operation:v2:${original.intent_hash}`, managementScope)
       return receipt
@@ -1873,7 +1891,7 @@
       // Ownership and original-key linkage are proven by the scoped server endpoint.
       cost.value = value
     } catch (cause) {
-      if (isCurrent()) costError.value = errorDisplayText(cause, '费用读取失败，原请求键仍保留')
+      if (isCurrent()) costError.value = errorDisplayText(cause, '费用读取失败，原请求号仍保留')
     } finally {
       if (readersLive && sequence === costReadSequence) costReadBusy.value = false
     }
@@ -1955,7 +1973,6 @@
     versionForms.clear()
     formTarget = ''
     ++generation
-    bearer.value = ''
     result.value = null
     resultLocator.value = null
     cost.value = null

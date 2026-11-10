@@ -23,6 +23,22 @@ function positiveId(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
 
+/** 把来源定位转成可读位置描述，供知识检索、应用问答与技能建议共用。 */
+export function knowledgeSourceLocation(source: { locator_type: string; locator: Record<string, unknown> }): string {
+  if (source.locator_type !== 'line') return `${source.locator_type} · ${JSON.stringify(source.locator)}`
+  const { line, char_start: start, char_end: end, part } = source.locator
+  if (typeof line !== 'number' || !Number.isSafeInteger(line) || line < 1) return '原行位置无法确认'
+  const positions = [`第 ${line} 行`]
+  if (typeof start === 'number' && Number.isSafeInteger(start) && start >= 1
+    && typeof end === 'number' && Number.isSafeInteger(end) && end >= start) {
+    positions.push(`字符 ${start}–${end}`)
+  } else {
+    positions.push('字符范围未提供或无法确认')
+  }
+  if (typeof part === 'number' && Number.isSafeInteger(part) && part >= 2) positions.push(`原分片 ${part}`)
+  return positions.join(' · ')
+}
+
 /** Historical citations without these persisted fields cannot identify a public source. */
 export function knowledgeSourceReference(value: unknown): KnowledgeSourceReference | null {
   if (!isRecord(value)

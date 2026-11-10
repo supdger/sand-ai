@@ -1,18 +1,16 @@
 <template>
   <section class="knowledge-query">
     <h3>应用知识检索</h3>
-    <p class="hint">使用消费环境的应用凭证查询已开放资料。有已激活向量索引时执行关键词与向量混合检索，查询向量按实际调用计费；开启重排会另产生所选服务的调用费用。</p>
+    <p class="hint">使用应用环境的调用密钥，查询这个环境已开放的资料。开启语义检索或重排时按实际调用计费，费用以正式记录为准。</p>
     <ElForm label-width="110px" @submit.prevent>
-      <RuntimeApiKeyField v-model="apiKey" :persist-in-session="false" placeholder="填写所选消费环境的调用密钥（仅本页面）" />
-      <ElFormItem label="开放关系">
-        <ElSelect v-model="code" filterable :disabled="busy || !!pending" placeholder="选择当前消费环境的知识库" class="query-input">
+      <ElFormItem label="知识库">
+        <ElSelect v-model="code" filterable :disabled="busy || !!pending" placeholder="选择已开放的知识库" class="query-input">
           <ElOption v-for="item in available" :key="item.id" :label="publicationLabel(item)" :value="item.code" />
         </ElSelect>
-        <ElButton :loading="versionsBusy" :disabled="busy || props.environmentId === null" @click="loadVersions">刷新当前启用版本</ElButton>
-        <span v-if="!available.length" class="hint">请先选择消费环境并开放知识库。</span>
+        <ElButton :disabled="busy || props.environmentId === null" @click="emit('refresh')">刷新开放知识库</ElButton>
+        <span v-if="!available.length" class="hint">请先选择应用环境并确认已开放知识库。</span>
       </ElFormItem>
-      <ElAlert v-if="versionsError" type="error" :title="versionsError" :closable="false" class="notice" />
-      <p v-if="selectedVersion" class="hint">当前启用预览：{{ selectedVersion.owner_name }} · 第 {{ selectedVersion.version_no }} 版。实际查询版本由服务端受理时固定，按原结果读取；预览不锁定该版本。刷新版本会清除已显示的来源和费用，原请求仍保留。</p>
+      <p v-if="selectedVersion" class="hint">当前版本预览：{{ selectedVersion.owner_name }} · 第 {{ selectedVersion.version_no }} 版。实际查询版本由服务端受理时固定，按原结果读取；预览不锁定该版本。刷新列表会清除已显示的来源和费用，原请求仍保留。</p>
       <ElFormItem label="查询操作">
         <ElSelect v-model="operationMode" :disabled="busy || !!pending" class="query-input">
           <ElOption label="新检索" value="new" />
@@ -20,7 +18,7 @@
         </ElSelect>
       </ElFormItem>
       <template v-if="operationMode === 'recover'">
-        <p class="hint">请使用此前保留的原请求号、原查询内容、返回数量、重排方式和原模型代码。参数必须与原请求一致；不要猜测。找回只读取原结果，不重新检索或调用模型。</p>
+        <p class="hint">请使用此前保留的原请求号、原查询内容、返回数量、重排方式和原模型。参数必须与原请求一致；不要猜测。找回只读取原结果，不重新检索或调用模型。</p>
         <ElFormItem label="原请求号">
           <ElInput v-model="recoveryKey" :disabled="busy || !!pending" maxlength="512" class="query-input" placeholder="粘贴此前保留的完整请求号" />
         </ElFormItem>
@@ -28,7 +26,7 @@
       </template>
       <ElFormItem v-if="currentRequestKey" :label="pending ? '当前原请求号' : '已确认请求号'">
         <ElInput :model-value="currentRequestKey" readonly class="query-input" aria-label="可选中保留的原查询请求号" />
-        <span class="hint">仅在本页展示，请自行保留；页面不会持久保存原查询或凭证。</span>
+        <span class="hint">仅在本页展示，请自行保留；页面不会持久保存原查询或调用密钥。</span>
       </ElFormItem>
       <ElFormItem label="检索内容">
         <ElInput v-model="query" maxlength="500" show-word-limit :disabled="parametersLocked" placeholder="输入要查找的内容" class="query-input" @keyup.enter="search" />
@@ -45,77 +43,75 @@
       </ElFormItem>
       <template v-if="rerankMode !== 'off'">
         <ElFormItem label="重排模型">
-          <ElInput v-if="operationMode === 'recover'" v-model="rerankModel" :disabled="parametersLocked" class="query-input" placeholder="填写原请求使用的完整模型代码，无需当前目录仍包含该模型" />
+          <ElInput v-if="operationMode === 'recover'" v-model="rerankModel" :disabled="parametersLocked" class="query-input" placeholder="填写原请求使用的模型，无需当前列表仍包含该模型" />
           <ElSelect v-else v-model="rerankModel" filterable :disabled="busy || !!pending || modelsBusy" :placeholder="rerankMode === 'professional' ? '读取并选择已授权的专业重排模型' : '读取并选择已授权的聊天模型'" class="query-input">
             <ElOption v-for="item in models" :key="item.code" :label="item.name" :value="item.code" />
           </ElSelect>
           <ElButton v-if="operationMode === 'new'" :loading="modelsBusy" :disabled="!ready || busy || !!pending" @click="loadModels">读取可用模型</ElButton>
         </ElFormItem>
-        <p v-if="operationMode === 'new'" class="hint">重排会将来源摘录发送至所选服务，可能产生费用，最多返回 10 条。少于 2 条来源时不调用重排服务。{{ rerankMode === 'professional' ? '专业目录按当前知识库的 knowledge.query 授权读取。' : '聊天模型目录需 model.read 权限。' }}</p>
+        <p v-if="operationMode === 'new'" class="hint">重排会将来源摘录发送至所选服务，可能产生费用，最多返回 10 条。少于 2 条来源时不调用重排服务。{{ rerankMode === 'professional' ? '专业目录按当前知识库的授权读取。' : '聊天模型目录需模型读取权限。' }}</p>
         <p v-if="operationMode === 'new' && rerankMode === 'professional'" class="hint">软预算的未定费用调用遵循已配置策略，返回真实用量后结算；硬预算无法证明费用上限时会拒绝发送。</p>
         <ElAlert v-if="operationMode === 'new' && modelsError" type="error" :title="modelsError" :closable="false" class="notice" />
-        <p v-if="operationMode === 'new' && modelsLoaded && !models.length" class="hint">当前应用没有可用的{{ rerankMode === 'professional' ? '专业重排' : '聊天' }}模型，请在模型与能力配置中启用对应服务，并核对消费环境授权。</p>
+        <p v-if="operationMode === 'new' && modelsLoaded && !models.length" class="hint">当前应用没有可用的{{ rerankMode === 'professional' ? '专业重排' : '聊天' }}模型，请在模型与能力配置中启用对应服务，并核对应用环境授权。</p>
         <p v-if="typeof limit === 'number' && limit > 10" class="hint">请将最多返回数量改为 10 或更少后检索。</p>
       </template>
       <ElFormItem>
         <ElButton type="primary" :loading="busy" :disabled="!canSearch" @click="search">{{ pending || operationMode === 'recover' ? '只读找回原查询' : '检索知识库' }}</ElButton>
       </ElFormItem>
     </ElForm>
-    <ElAlert v-if="pending" type="warning" :closable="false" title="本次结果尚未确认，原查询、重排设置和请求标识已保留。" description="请保持原消费环境、开放关系和凭证，只读找回原结果。找回不会继续模型调用或重新检索派发；离开页面会丢失本页恢复信息；请先自行保留原请求号与完整原参数，之后可选择只读找回原查询。" class="notice" />
+    <ElAlert v-if="pending" type="warning" :closable="false" title="本次结果尚未确认，原查询、重排设置和请求标识已保留。" description="请保持原应用环境、已开放知识库和调用密钥，只读找回原结果。找回不会继续模型调用或重新检索派发；离开页面会丢失本页恢复信息；请先自行保留原请求号与完整原参数，之后可选择只读找回原查询。" class="notice" />
     <p v-if="pending" class="hint">{{ recoveryState }}</p>
     <p v-if="pending" class="hint">原请求设置：{{ originalRerankLabel(pending.options) }} · 最多返回 {{ pending.limit }} 条</p>
     <ElButton v-if="canCorrectRecovery && !editingRecoveryParameters" :disabled="busy" @click="editRecoveryParameters">编辑原参数后按同号找回</ElButton>
-    <p v-if="editingRecoveryParameters" class="hint">正在修正手工找回的原参数。原请求号、知识库、消费环境和凭证保持固定；再次点击“只读找回原查询”只读取同号结果。</p>
+    <p v-if="editingRecoveryParameters" class="hint">正在修正手工找回的原参数。原请求号、知识库、应用环境和调用密钥保持固定；再次点击“只读找回原查询”只读取同号结果。</p>
     <ElAlert v-if="error" type="error" :title="error" :closable="false" class="notice" />
     <template v-if="result">
       <p>知识库 {{ result.knowledge_base.code }} · 第 {{ result.knowledge_base.version }} 版 · 查询：{{ result.query }}</p>
-      <p class="hint">{{ result.embedding_invocation ? '关键词与向量混合检索；分数为融合排序分数，不是置信度。' : '本次仅关键词检索；没有已激活的向量索引，未产生向量调用。分数为关键词相关性分数。' }}</p>
+      <p class="hint">{{ result.embedding_invocation ? '关键词与语义混合检索；分数为融合排序分数，不是置信度。' : '本次仅关键词检索；没有可用的语义索引，未产生语义检索调用。分数为关键词相关性分数。' }}</p>
       <p class="hint">{{ rerankLabel(result.rerank_state, result.rerank_mode) }}</p>
       <ElAlert v-if="result.rerank_mode === 'professional' && result.budget"
         :type="result.budget.state === 'settled' ? 'success' : result.budget.state === 'released' ? 'info' : 'warning'"
         :title="budgetLabel(result.budget.state)" :closable="false" class="notice" />
       <p v-if="result.rerank_mode === 'professional' && result.budget?.warnings.length" class="hint">预算提醒：{{ result.budget.warnings.map(item => item.code).join('、') }}</p>
-      <ElTable :data="result.citations" row-key="source_block_id" empty-text="没有命中来源块">
+      <ElTable :data="result.citations" row-key="source_block_id" empty-text="没有命中内容片段">
         <ElTableColumn type="index" label="排名" width="70" />
         <ElTableColumn prop="score" label="原检索分数" width="130" />
         <ElTableColumn v-if="result.rerank_mode === 'professional'" label="专业相关性分数" width="160"><template #default="{ row }">{{ relevanceScore(row) }}</template></ElTableColumn>
-        <ElTableColumn label="文件 / 来源块" width="150"><template #default="{ row }">{{ row.file_id }} / {{ row.source_block_id }}</template></ElTableColumn>
+        <ElTableColumn label="文件 / 片段" width="150"><template #default="{ row }">{{ row.file_id }} / {{ row.source_block_id }}</template></ElTableColumn>
         <ElTableColumn prop="excerpt" label="来源摘录" min-width="260" />
-        <ElTableColumn label="定位" min-width="240"><template #default="{ row }">{{ sourceLocation(row) }}</template></ElTableColumn>
+        <ElTableColumn label="定位" min-width="240"><template #default="{ row }">{{ knowledgeSourceLocation(row) }}</template></ElTableColumn>
         <ElTableColumn label="来源正文" width="110"><template #default="{ row }"><ElButton link type="primary" :disabled="busy" @click="openSource(row)">查看来源</ElButton></template></ElTableColumn>
       </ElTable>
     </template>
     <template v-if="queryUsage">
       <div v-if="queryUsage.embedding_usage" class="query-cost">
-        <p>向量调用 {{ queryUsage.embedding_invocation?.id }}</p>
+        <p>语义检索调用</p>
         <ElButton :loading="costBusy" :disabled="busy" @click="loadCost('embedding')">查看 / 刷新本次费用</ElButton>
-        <p class="hint">费用读取需该应用具备 usage.read 权限；未知金额保留为待核实。</p>
+        <p class="hint">费用读取需应用具备用量查看权限；未知金额保留为待核实。</p>
         <ElAlert v-if="costError" type="error" :title="costError" :closable="false" class="notice" />
         <template v-if="cost">
           <p>本次计量金额：{{ money(cost.price.metered_amount, cost.price.currency) }} · 计量：{{ usageLabel(cost.usage.state) }}</p>
           <p class="hint">总词元：{{ cost.tokens.total_tokens ?? '未提供' }} · 对账：{{ reconciliationLabel(cost.reconciliation.state) }}</p>
-          <p class="hint">请求标识：{{ cost.request_id }}</p>
         </template>
       </div>
       <div v-if="queryUsage.rerank_usage" class="query-cost">
-        <p>重排服务调用 {{ queryUsage.rerank_usage.request_id }}</p>
+        <p>重排服务调用</p>
         <ElButton :loading="rerankCostBusy" :disabled="busy" @click="loadCost('rerank')">查看 / 刷新重排费用</ElButton>
-        <p class="hint">费用读取需 usage.read 权限；金额以真实调用计量为准，未知金额保留为待核实。</p>
+        <p class="hint">费用读取需用量查看权限；金额以真实调用计量为准，未知金额保留为待核实。</p>
         <ElAlert v-if="rerankCostError" type="error" :title="rerankCostError" :closable="false" class="notice" />
         <template v-if="rerankCost">
           <p>重排计量金额：{{ money(rerankCost.price.metered_amount, rerankCost.price.currency) }} · 计量：{{ usageLabel(rerankCost.usage.state) }}</p>
           <p v-if="queryUsage.rerank_mode === 'professional'" class="hint">专业计量：{{ professionalMeteringLabel }} · 对账：{{ reconciliationLabel(rerankCost.reconciliation.state) }}</p>
           <p v-else class="hint">总词元：{{ rerankCost.tokens.total_tokens ?? '未提供' }} · 对账：{{ reconciliationLabel(rerankCost.reconciliation.state) }}</p>
-          <p class="hint">请求标识：{{ rerankCost.request_id }}</p>
         </template>
       </div>
     </template>
     <ElDialog :model-value="sourceVisible" title="知识来源正文" width="min(760px, 94vw)" destroy-on-close @update:model-value="setSourceVisible">
-      <p v-if="sourceTarget">{{ sourceTarget.knowledge_base_code }} · 第 {{ sourceTarget.knowledge_base_version }} 版 · 文件 {{ sourceTarget.file_id }} · 解析 {{ sourceTarget.parse_id }} · 来源块 {{ sourceTarget.source_block_id }}</p>
+      <p v-if="sourceTarget">知识库 {{ sourceTarget.knowledge_base_code }} · 第 {{ sourceTarget.knowledge_base_version }} 版 · 文件 {{ sourceTarget.file_id }} · 片段 {{ sourceTarget.source_block_id }}</p>
       <p v-if="sourceBusy" role="status">正在核对当前授权并读取来源…</p>
       <ElAlert v-if="sourceError" type="error" :title="sourceError" :closable="false" />
       <template v-if="sourceBody">
-        <p class="hint">来源位置：{{ sourceLocation(sourceBody) }}</p>
+        <p class="hint">来源位置：{{ knowledgeSourceLocation(sourceBody) }}</p>
         <pre class="source-text" tabindex="0" aria-label="知识来源正文">{{ sourceBody.content }}</pre>
       </template>
       <template #footer><ElButton @click="clearSource">关闭</ElButton></template>
@@ -126,38 +122,24 @@
 <script setup lang="ts">
 import { ElMessageBox } from 'element-plus'
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
-import RuntimeApiKeyField from '../../components/RuntimeApiKeyField.vue'
 import queryApi, { professionalRerankMetering, type KnowledgeQueryResult, type KnowledgeQueryRerank, type KnowledgeQueryRerankState, type KnowledgeQueryBudget } from '../../api/knowledgeQuery'
-import sourceApi, { knowledgeSourceReference, type KnowledgeSourceReference, type KnowledgeSourceBody } from '../../api/knowledgeSource'
+import sourceApi, { knowledgeSourceLocation, knowledgeSourceReference, type KnowledgeSourceReference, type KnowledgeSourceBody } from '../../api/knowledgeSource'
 import chatApi from '../../api/chat'
 import conversationApi from '../../api/knowledgeConversation'
 import { newRuntimeRequestId, SandAiRuntimeError } from '../../api/runtime'
 import { errorDisplayText } from '../../api/errorText'
-import publicationApi, { type KnowledgePublication, type ConsumerKnowledgePublication } from '../../api/knowledgePublication'
+import type { ConsumerKnowledgePublication } from '../../api/knowledgePublication'
 import type { SandAiInvocationCost } from '../../api/types'
 
-const props = defineProps<{ publications: KnowledgePublication[]; environmentId: number | null }>()
-function sourceLocation(source: Pick<KnowledgeSourceBody, 'locator_type' | 'locator'>): string {
-  if (source.locator_type !== 'line') return `${source.locator_type} · ${JSON.stringify(source.locator)}`
-  const { line, char_start: start, char_end: end, part } = source.locator
-  if (typeof line !== 'number' || !Number.isSafeInteger(line) || line < 1) return '原行位置无法确认'
-  const positions = [`第 ${line} 行`]
-  if (typeof start === 'number' && Number.isSafeInteger(start) && start >= 1
-    && typeof end === 'number' && Number.isSafeInteger(end) && end >= start) {
-    positions.push(`字符 ${start}–${end}`)
-  } else {
-    positions.push('字符范围未提供或无法确认')
-  }
-  if (typeof part === 'number' && Number.isSafeInteger(part) && part >= 2) positions.push(`原分片 ${part}`)
-  return positions.join(' · ')
-}
-const available = computed(() => props.publications.filter(item => item.state === 'published' && item.consumer_environment_id === props.environmentId))
-const versions = ref<ConsumerKnowledgePublication[]>([])
-const versionsBusy = ref(false)
-const versionsError = ref('')
-let versionsEpoch = 0
-const selectedVersion = computed(() => versions.value.find(item => item.code === code.value && available.value.some(publication => publication.id === item.id && publication.knowledge_base_id === item.knowledge_base_id)))
-const apiKey = ref('')
+const props = defineProps<{ apiKey: string; publications: ConsumerKnowledgePublication[]; environmentId: number | null }>()
+const emit = defineEmits<{ 'update:apiKey': [value: string]; refresh: [] }>()
+// 调用密钥由应用试用页统一持有，面板只读写同一份值。
+const apiKey = computed<string>({
+  get: () => props.apiKey,
+  set: (value: string) => emit('update:apiKey', value)
+})
+const available = computed(() => props.publications.filter(item => item.consumer_environment_id === props.environmentId))
+const selectedVersion = computed(() => available.value.find(item => item.code === code.value) ?? null)
 const code = ref('')
 const query = ref('')
 const operationMode = ref<'new' | 'recover'>('new')
@@ -188,7 +170,7 @@ const currentRequestKey = computed(() => pending.value?.key ?? confirmedRequestK
 const recoveryState = ref('原查询是否完成尚未确认，保留原请求只读找回。')
 let pendingBearer = ''
 let epoch = 0
-const ready = computed(() => !!apiKey.value.trim() && props.environmentId !== null && !versionsBusy.value && !!selectedVersion.value)
+const ready = computed(() => !!apiKey.value.trim() && props.environmentId !== null && !!selectedVersion.value)
 const validParameters = computed(() => query.value.trim().length >= 1 && query.value.trim().length <= 500 && typeof limit.value === 'number' && Number.isInteger(limit.value) && limit.value >= 1 && limit.value <= (rerankMode.value !== 'off' ? 10 : 20)
     && (operationMode.value !== 'recover' || validRecoveryKey.value)
     && (rerankMode.value === 'off' || (operationMode.value === 'recover'
@@ -226,7 +208,7 @@ function message(cause: unknown): string {
 function recoveryLabel(cause: unknown): string {
   if (!(cause instanceof SandAiRuntimeError)) return '原结果尚未确认；只读找回不会重新派发。'
   if (cause.errorCode === 'SAND_AI_DISPATCH_AMBIGUOUS') return '原查询仍在处理或派发结果不明；保留原请求，稍后只读找回。'
-  if (cause.errorCode === 'SAND_AI_RESOURCE_NOT_FOUND') return '未找到当前凭证范围内可恢复的原意图或调用；原请求保留，不另建请求。'
+  if (cause.errorCode === 'SAND_AI_RESOURCE_NOT_FOUND') return '未找到当前调用密钥范围内可恢复的原意图或调用；原请求保留，不另建请求。'
   if (['SAND_AI_RECEIPT_INVALID', 'SAND_AI_RECEIPT_UNAVAILABLE'].includes(cause.errorCode ?? '')) return '原结果回执无法读取；原请求保留，不重新调用模型。'
   if (cause.errorCode === 'SAND_AI_INVOCATION_NOT_SUCCEEDED') return '原调用未成功；保留原请求，找回不会续发或重算。'
   if (cause.errorCode === 'SAND_AI_IDEMPOTENCY_CONFLICT') return '原请求号与查询参数不匹配，请核对此前保留的完整原参数；原请求保持锁定，不生成新请求号。'
@@ -279,10 +261,10 @@ async function search(): Promise<void> {
     if (!recovering) {
       try {
         await ElMessageBox.confirm(
-          `在消费环境 #${original.environmentId} 检索 ${original.code}，最多返回 ${original.limit} 条；${originalRerankLabel(original.options)}。` +
-          `当前启用预览为第 ${previewVersion ?? '未确认'} 版，实际版本由服务端受理时固定，按原结果读取。` +
-          '存在活动向量索引时会调用查询向量；开启重排且至少命中两条来源时会向所选服务发送摘录，可能产生费用。授权、预算和实际费用由正式调用记录确认，未知金额不代表零。' +
-          `确认后只发送这份查询与设置；原请求号 ${original.key}，结果不明时仅按原号只读找回。`,
+          `将以当前应用环境身份检索「${publicationName(original.code)}」，最多返回 ${original.limit} 条；${originalRerankLabel(original.options)}。` +
+          `当前版本预览为第 ${previewVersion ?? '未确认'} 版，实际版本由服务端受理时固定，按原结果读取。` +
+          '存在可用语义索引时会产生语义检索调用；开启重排且至少命中两条来源时会向所选服务发送摘录，可能产生费用。授权、预算和实际费用以正式记录为准，未知金额不代表零。' +
+          '确认后只发送这份查询与设置；结果不明时仅按原请求号只读找回。',
           '确认知识检索', { type: 'warning', confirmButtonText: '确认检索', cancelButtonText: '取消' }
         )
       } catch { return }
@@ -392,30 +374,11 @@ async function loadModels(): Promise<void> {
     if (scope === modelsEpoch) modelsError.value = message(cause)
   } finally { if (scope === modelsEpoch) modelsBusy.value = false }
 }
-function publicationLabel(item: KnowledgePublication): string {
-  const version = versions.value.find(value => value.id === item.id && value.code === item.code && value.knowledge_base_id === item.knowledge_base_id)
-  return version ? `${item.code} · 第 ${version.version_no} 版` : `${item.code} · 当前版本待核对`
+function publicationLabel(item: ConsumerKnowledgePublication): string {
+  return `${item.owner_name} · ${item.code}（第 ${item.version_no} 版）`
 }
-async function loadVersions(): Promise<void> {
-  const scope = ++versionsEpoch
-  const environmentId = props.environmentId
-  clearResults(); clearModels(); versions.value = []; versionsError.value = ''; versionsBusy.value = false
-  if (environmentId === null) return
-  versionsBusy.value = true
-  const current = () => scope === versionsEpoch && environmentId === props.environmentId
-  try {
-    const items: ConsumerKnowledgePublication[] = []
-    for (let page = 1; ; ++page) {
-      const response = await publicationApi.consumer(environmentId, page, 100)
-      if (!current()) return
-      items.push(...response.data)
-      if (items.length >= response.total) break
-      if (!response.data.length) throw new Error('当前启用版本列表不完整，请重新读取。')
-    }
-    if (current()) versions.value = items
-  } catch (cause) {
-    if (current()) versionsError.value = message(cause)
-  } finally { if (current()) versionsBusy.value = false }
+function publicationName(target: string): string {
+  return available.value.find(item => item.code === target)?.owner_name ?? target
 }
 function clearModels(): void {
   ++modelsEpoch; models.value = []; if (!pending.value) rerankModel.value = ''; modelsBusy.value = false
@@ -456,12 +419,11 @@ watch([apiKey, () => props.environmentId], () => {
 watch(code, () => { clearResults(); confirmedRequestKey.value = ''; error.value = '' }, { flush: 'sync' })
 watch(available, values => {
   clearResults(); clearModels()
-  void loadVersions()
   if (code.value && !values.some(item => item.code === code.value)) { clearResults(); if (!pending.value) code.value = '' }
 }, { flush: 'sync', immediate: true })
 watch(operationMode, () => { clearResults(); confirmedRequestKey.value = ''; error.value = ''; clearModels() }, { flush: 'sync' })
 watch([apiKey, code, () => props.environmentId, rerankMode], clearModels, { flush: 'sync' })
-onUnmounted(() => { ++versionsEpoch; clearResults(); clearModels() })
+onUnmounted(() => { clearResults(); clearModels() })
 </script>
 
 <style scoped>
