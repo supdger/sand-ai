@@ -1,234 +1,196 @@
 <template>
   <SandAiErrorBoundary>
-    <div>
-      <ExpertSelectionHelp />
-      <KnowledgeBasePanel :key="userStore.info.id" />
-      <PublicationPanel :key="userStore.info.id" />
-      <ConsumerSkillPanel :key="userStore.info.id" />
-      <ElAlert type="info" :closable="false"
-        title="下方为旧环境技能模板配置。个人、团队或组织消费范围的技能模板，请使用上方“应用技能模板”入口。" />
-      <SkillPanel :key="userStore.info.id" />
-      <ElCard class="art-table-card" shadow="never">
-        <div class="know-header">
-          <div>
-            <h2 class="know-title">检索 / 知识</h2>
-            <p class="know-desc">
-              仅检索当前环境已解析私有文件的来源块。返回定位与短摘录，不暴露存储位置细节。
-            </p>
-          </div>
-          <ElTag type="success" effect="plain">私有来源检索</ElTag>
+    <div class="sand-ai-page knowledge-page">
+      <div class="page-head">
+        <div class="page-head-text">
+          <h2 class="page-title">知识库</h2>
+          <p class="page-desc">放资料给 AI 查，让回答更准</p>
         </div>
+        <ElButton type="primary" :disabled="environmentId === null" @click="openCreate">
+          {{ activeTab === 'skill' ? '新建技能模板' : '新建知识库' }}
+        </ElButton>
+      </div>
 
-        <ElForm label-width="110px" @submit.prevent>
-          <RuntimeApiKeyField
-            v-model="apiKey"
-            placeholder="当前应用的 SandIAM 短期运行身份"
+      <ElAlert
+        v-if="providerMissing"
+        type="warning"
+        :closable="false"
+        class="page-alert"
+        title="还没有连接 AI 服务商，资料能加进来，但 AI 暂时不能查"
+      >
+        <template #default>
+          <ElButton link type="primary" @click="goProvider">去连接</ElButton>
+        </template>
+      </ElAlert>
+
+      <div v-if="environments.length > 1" class="env-bar">
+        <ElSelect
+          v-model="environmentIdModel"
+          clearable
+          filterable
+          placeholder="选择环境"
+          class="env-select"
+        >
+          <ElOption
+            v-for="item in environments"
+            :key="item.id"
+            :label="`${item.name}（${item.code}）`"
+            :value="item.id"
           />
-          <p class="know-footnote">需允许使用“私有来源检索”；来源文件仍按当前应用的访问权限核验。</p>
-          <ElFormItem label="查询">
-            <ElSpace wrap>
-              <ElInput
-                v-model="query"
-                clearable
-                placeholder="关键词，≤500 字"
-                style="width: 420px"
-                @keyup.enter="handleSearch"
-              />
-              <ElInputNumber v-model="limit" :min="1" :max="20" :controls="false" />
-              <ElButton :loading="busy" @click="handleSearch">检索</ElButton>
-            </ElSpace>
-          </ElFormItem>
-          <ElFormItem>
-            <ElSpace wrap>
-              <ElButton
-                type="primary"
-                :disabled="selectedIds.length === 0"
-                @click="() => goAiTask()"
-              >
-                用选中来源提交 AI（{{ selectedIds.length }}）
-              </ElButton>
-              <ElButton :disabled="selectedIds.length === 0" @click="selectedIds = []">清空选择</ElButton>
-            </ElSpace>
-          </ElFormItem>
-        </ElForm>
+        </ElSelect>
+      </div>
+      <ElAlert
+        v-else-if="environmentsLoaded && environments.length === 0"
+        type="info"
+        :closable="false"
+        class="page-alert"
+        title="还没有可用环境，请先在应用里开通环境后再管理知识库。"
+      />
 
-        <ElAlert
-          v-if="lastError"
-          class="know-alert"
-          type="error"
-          :closable="true"
-          :title="lastError.title"
-          :description="lastError.description"
-          @close="lastError = null"
-        />
-
-        <ArtTable
-          row-key="source_block_id"
-          :loading="busy"
-          :data="matches"
-          :columns="columns"
-          @selection-change="onSelectionChange"
-        />
-        <p v-if="searchedQuery" class="know-footnote">
-          查询“{{ searchedQuery }}” · 命中 {{ matches.length }} 条
-        </p>
-      </ElCard>
+      <ElTabs v-model="activeTab" class="page-tabs">
+        <ElTabPane label="知识库" name="knowledge">
+          <KnowledgeTab
+            v-if="activeTab === 'knowledge'"
+            ref="knowledgeTab"
+            :key="`knowledge:${userStore.info.id}`"
+            :environment-id="environmentId"
+          />
+        </ElTabPane>
+        <ElTabPane label="技能模板" name="skill">
+          <SkillTemplateTab
+            v-if="activeTab === 'skill'"
+            ref="skillTab"
+            :key="`skill:${userStore.info.id}`"
+            :environment-id="environmentId"
+          />
+        </ElTabPane>
+      </ElTabs>
     </div>
   </SandAiErrorBoundary>
 </template>
 
 <script setup lang="ts">
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
-  import ExpertSelectionHelp from '../components/ExpertSelectionHelp.vue'
-  import { h, onMounted, ref, watch } from 'vue'
+  import '../components/sandAiPage.css'
+  import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
   import { useUserStore } from '@/store/modules/user'
-  import { ElButton, ElMessage } from 'element-plus'
-  import type { ColumnOption } from '@/types'
-  import { readRuntimeBearer } from '../api/runtimeBearerSession'
-  import retrievalApi from '../api/retrieval'
-  import { toRuntimeUiError } from '../api/runtimeErrors'
-  import type { RuntimeUiError } from '../api/runtimeErrors'
-  import type { SandAiRetrievalMatch } from '../api/types'
-  import RuntimeApiKeyField from '../components/RuntimeApiKeyField.vue'
-  import PublicationPanel from './modules/publication-panel.vue'
-  import KnowledgeBasePanel from './modules/knowledge-base-panel.vue'
-  import SkillPanel from './modules/skill-panel.vue'
-  import ConsumerSkillPanel from './modules/consumer-skill-panel.vue'
+  import iamApi, { type SandIamEnvironmentReference } from '../api/iam'
+  import providerApi from '../api/provider'
+  import KnowledgeTab from './modules/knowledge-tab.vue'
+  import SkillTemplateTab from './modules/skill-template-tab.vue'
 
   const router = useRouter()
   const userStore = useUserStore()
-  let viewGeneration = 0
-  const apiKey = ref('')
-  const query = ref('')
-  const limit = ref(10)
-  const busy = ref(false)
-  const matches = ref<SandAiRetrievalMatch[]>([])
-  const searchedQuery = ref('')
-  const lastError = ref<RuntimeUiError | null>(null)
-  const selectedIds = ref<number[]>([])
 
-  const columns: ColumnOption<SandAiRetrievalMatch>[] = [
-    { type: 'selection', width: 48 },
-    { prop: 'source_block_id', label: '来源块', width: 90, align: 'center' },
-    { prop: 'file_id', label: '文件', width: 90 },
-    { prop: 'locator_type', label: '定位方式', width: 100 },
-    {
-      prop: 'locator',
-      label: '位置',
-      minWidth: 140,
-      showOverflowTooltip: true,
-      formatter: (row) => JSON.stringify(row.locator)
-    },
-    { prop: 'score', label: '相关度', width: 90 },
-    { prop: 'excerpt', label: '摘录', minWidth: 240 },
-    {
-      prop: 'source_block_id',
-      label: '操作',
-      width: 100,
-      fixed: 'right',
-      formatter: (row) =>
-        h(
-          ElButton,
-          {
-            size: 'small',
-            link: true,
-            type: 'primary',
-            onClick: () => goAiTask([row.source_block_id])
-          },
-          () => '去 AI'
-        )
+  const activeTab = ref<'knowledge' | 'skill'>('knowledge')
+  const environmentId = ref<number | null>(null)
+  // 清除时组件会写入空串，这里统一收敛回 null，避免下游把空串当环境号。
+  const environmentIdModel = computed<number | null>({
+    get: () => environmentId.value,
+    set: (value) => {
+      environmentId.value = typeof value === 'number' ? value : null
     }
-  ]
+  })
+  const environments = ref<SandIamEnvironmentReference[]>([])
+  const environmentsLoaded = ref(false)
+  const providerMissing = ref(false)
+  const knowledgeTab = ref<InstanceType<typeof KnowledgeTab> | null>(null)
+  const skillTab = ref<InstanceType<typeof SkillTemplateTab> | null>(null)
 
-  function onSelectionChange(rows: SandAiRetrievalMatch[]): void {
-    selectedIds.value = rows.map((row) => row.source_block_id)
-  }
+  let alive = true
+  let loadGeneration = 0
 
-  function goAiTask(ids?: number[]): void {
-    const sourceIds = ids && ids.length > 0 ? ids : selectedIds.value
-    if (sourceIds.length === 0) {
-      ElMessage.warning('请先选择来源块')
-      return
-    }
-    void router.push({
-      path: '/sand-ai/task',
-      query: {
-        source_block_ids: sourceIds.join(','),
-        q: searchedQuery.value || query.value.trim() || undefined
-      }
-    })
-  }
-
-  function toUiError(error: unknown): RuntimeUiError {
-    return toRuntimeUiError(error)
-  }
-
-  async function handleSearch(): Promise<void> {
-    if (!query.value.trim()) {
-      ElMessage.warning('请输入查询词')
-      return
-    }
-    busy.value = true
-    lastError.value = null
-    const current = viewGeneration
+  async function loadEnvironments(): Promise<void> {
+    const generation = ++loadGeneration
     try {
-      const result = await retrievalApi.search(apiKey.value, query.value.trim(), limit.value)
-      if (current !== viewGeneration) return
-      matches.value = result.matches
-      searchedQuery.value = result.query
-    } catch (error) {
-      if (current !== viewGeneration) return
-      lastError.value = toUiError(error)
-      matches.value = []
-    } finally {
-      if (current === viewGeneration) busy.value = false
+      const result = await iamApi.listEnvironments({ page: 1, limit: 100 })
+      if (!alive || generation !== loadGeneration) return
+      environments.value = result.data.filter((item) => item.status === 1)
+      environmentsLoaded.value = true
+      if (environmentId.value === null && environments.value.length > 0) {
+        environmentId.value = environments.value[0].id
+      }
+    } catch {
+      if (!alive || generation !== loadGeneration) return
+      environmentsLoaded.value = true
     }
   }
 
-  watch(apiKey, () => {
-    ++viewGeneration
-    matches.value = []
-    selectedIds.value = []
-    searchedQuery.value = ''
-    lastError.value = null
-    busy.value = false
-  }, { flush: 'sync' })
+  async function checkProvider(): Promise<void> {
+    try {
+      const result = await providerApi.list({ page: 1, limit: 1 })
+      if (!alive) return
+      providerMissing.value = result.total === 0
+    } catch {
+      // 权限或网络异常时不挡页面，只在能确认「一个都没有」时提示。
+      providerMissing.value = false
+    }
+  }
+
+  function openCreate(): void {
+    if (activeTab.value === 'skill') {
+      void skillTab.value?.openCreate()
+      return
+    }
+    void knowledgeTab.value?.openCreate()
+  }
+
+  function goProvider(): void {
+    void router.push('/sand-ai/provider')
+  }
 
   onMounted(() => {
-    apiKey.value = readRuntimeBearer()
+    void loadEnvironments()
+    void checkProvider()
+  })
+
+  onBeforeUnmount(() => {
+    alive = false
+    ++loadGeneration
   })
 </script>
 
 <style scoped lang="scss">
-  .know-header {
+  .knowledge-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .page-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 16px;
   }
 
-  .know-title {
+  .page-title {
     margin: 0;
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
   }
 
-  .know-desc {
+  .page-desc {
     margin: 4px 0 0;
     font-size: 13px;
     color: var(--el-text-color-secondary);
-    max-width: 760px;
   }
 
-  .know-alert {
-    margin-bottom: 16px;
+  .page-alert {
+    margin-bottom: 0;
   }
 
-  .know-footnote {
-    margin: 12px 0 0;
-    font-size: 12px;
-    color: var(--el-text-color-secondary);
+  .env-bar {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .env-select {
+    width: 280px;
+  }
+
+  .page-tabs {
+    flex: 1;
   }
 </style>
