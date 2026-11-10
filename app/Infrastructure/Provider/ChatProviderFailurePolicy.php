@@ -14,12 +14,16 @@ final class ChatProviderFailurePolicy
     private const MODEL_UNAVAILABLE = '服务商没有提供请求的聊天模型或接口，请核对模型标识与 API 基础地址';
     private const ENDPOINT_UNSUPPORTED = '服务商未接受聊天接口，请核对 API 基础地址和模型聊天能力';
     private const PARAMETERS_REJECTED = '服务商拒绝了模型或参数，请核对聊天能力、Token 额度与推理额度';
+    private const BALANCE_INSUFFICIENT = '服务商账户余额不足，请先充值后再试';
     private const TIMEOUT = '服务商请求超时，可能已发送并产生费用，请核查调用记录后再决定后续操作';
+    private const HTTP_UNCONFIRMED = '服务商响应未确认，可能已处理请求，请核对调用记录和验证状态';
+    private const NETWORK_UNCONFIRMED = '服务商连接未确认，请核对网络、服务地址和调用记录';
 
     public static function http(int $status): ApiProblem
     {
         $problems = [
             401 => new ApiProblem('SAND_AI_PROVIDER_REJECTED', self::INVALID_KEY),
+            402 => new ApiProblem('SAND_AI_PROVIDER_BALANCE_INSUFFICIENT', self::BALANCE_INSUFFICIENT),
             403 => new ApiProblem('SAND_AI_PROVIDER_REJECTED', self::FORBIDDEN),
             404 => new ApiProblem('SAND_AI_PROVIDER_REJECTED', self::MODEL_UNAVAILABLE),
             405 => new ApiProblem('SAND_AI_PROVIDER_REJECTED', self::ENDPOINT_UNSUPPORTED),
@@ -27,7 +31,7 @@ final class ChatProviderFailurePolicy
             422 => new ApiProblem('SAND_AI_PROVIDER_REJECTED', self::PARAMETERS_REJECTED),
             429 => new ApiProblem('SAND_AI_PROVIDER_RATE_LIMITED', '服务商当前限流，请稍后核对验证状态', true),
         ];
-        return $problems[$status] ?? new ApiProblem('SAND_AI_PROVIDER_UNAVAILABLE', '服务商响应未确认，可能已处理请求，请核对调用记录和验证状态', true);
+        return $problems[$status] ?? new ApiProblem('SAND_AI_PROVIDER_UNAVAILABLE', self::HTTP_UNCONFIRMED, true);
     }
 
     public static function network(?int $curlErrno): ApiProblem
@@ -35,7 +39,7 @@ final class ChatProviderFailurePolicy
         $timeoutErrno = 28;
         return new ApiProblem(
             'SAND_AI_PROVIDER_UNAVAILABLE',
-            $curlErrno === $timeoutErrno ? self::TIMEOUT : '服务商连接未确认，请核对网络、服务地址和调用记录',
+            $curlErrno === $timeoutErrno ? self::TIMEOUT : self::NETWORK_UNCONFIRMED,
             true,
         );
     }
@@ -59,6 +63,28 @@ final class ChatProviderFailurePolicy
         if ($problem->errorCode === 'SAND_AI_PROVIDER_RATE_LIMITED') {
             return 'provider_rate_limited';
         }
+        if ($problem->errorCode === 'SAND_AI_PROVIDER_BALANCE_INSUFFICIENT') {
+            return 'provider_balance_insufficient';
+        }
         return null;
+    }
+
+    /**
+     * Coarse failure family for administrator-facing surfaces. Returns one of
+     * unreachable, busy, config, balance or null when the problem is not a
+     * provider transport/configuration fact.
+     */
+    public static function family(ApiProblem $problem): ?string
+    {
+        return match ($problem->errorCode) {
+            'SAND_AI_PROVIDER_REJECTED', 'SAND_AI_PROVIDER_CONFIG_INVALID' => 'config',
+            'SAND_AI_PROVIDER_BALANCE_INSUFFICIENT' => 'balance',
+            'SAND_AI_PROVIDER_RATE_LIMITED', 'SAND_AI_PROVIDER_TIMEOUT', 'SAND_AI_PROVIDER_FAILURE' => 'busy',
+            'SAND_AI_PROVIDER_UNAVAILABLE' => match ($problem->getMessage()) {
+                self::TIMEOUT, self::HTTP_UNCONFIRMED => 'busy',
+                default => 'unreachable',
+            },
+            default => null,
+        };
     }
 }

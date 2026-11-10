@@ -288,6 +288,8 @@ Route::group('/app/sand-ai/admin/usage', function (): void {
     Route::get('/scopes', [UsageSummaryController::class, 'scopes']);
     Route::get('/summary', [UsageSummaryController::class, 'summary']);
     Route::get('/summary/export.csv', [UsageSummaryController::class, 'export']);
+    Route::get('/monthly', [UsageSummaryController::class, 'monthly']);
+    Route::get('/daily', [UsageSummaryController::class, 'daily']);
 })->middleware([CheckLogin::class, CheckAuth::class]);
 Route::group('/app/sand-ai/admin/budget', function (): void {
     Route::get('/references', [BudgetPolicyController::class, 'references']);

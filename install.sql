@@ -12410,4 +12410,27 @@ ALTER TABLE sand_ai_config_revision
 
 INSERT INTO sand_ai_schema_migration (version, checksum, applied_time) VALUES ('202611070170_config_revision_published_at', 'a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11', CURRENT_TIMESTAMP(0));
 
+-- Migration 202611100171_budget_unlimited_reminder (sha256 51ada4ce783c4df29b14b26f28f4ef0011f9abd86ebe357fbb0103e63d2febce)
+-- 0.5.0 UX declutter: an empty monthly limit means the budget has no
+-- ceiling, and each published revision may carry its own reminder
+-- percentage (default 80, matching the historical fixed notice level).
+-- Unlimited windows keep tracking reserved/settled/held amounts; only the
+-- limit ceiling and the alert thresholds change meaning.
+ALTER TABLE sand_ai_budget_policy
+    ALTER COLUMN limit_amount DROP NOT NULL,
+    ADD COLUMN reminder_percent smallint NOT NULL DEFAULT 80,
+    DROP CONSTRAINT ck_sand_ai_budget_policy_limit,
+    ADD CONSTRAINT ck_sand_ai_budget_policy_limit CHECK (limit_amount IS NULL OR limit_amount > 0),
+    ADD CONSTRAINT ck_sand_ai_budget_policy_reminder CHECK (reminder_percent BETWEEN 1 AND 100);
+
+ALTER TABLE sand_ai_budget_window
+    ALTER COLUMN limit_amount DROP NOT NULL,
+    DROP CONSTRAINT ck_sand_ai_budget_window_amounts,
+    ADD CONSTRAINT ck_sand_ai_budget_window_amounts CHECK (
+        (limit_amount IS NULL OR limit_amount > 0)
+        AND reserved_amount >= 0 AND settled_amount >= 0 AND held_amount >= 0
+    );
+
+INSERT INTO sand_ai_schema_migration (version, checksum, applied_time) VALUES ('202611100171_budget_unlimited_reminder', '51ada4ce783c4df29b14b26f28f4ef0011f9abd86ebe357fbb0103e63d2febce', CURRENT_TIMESTAMP(0));
+
 COMMIT;

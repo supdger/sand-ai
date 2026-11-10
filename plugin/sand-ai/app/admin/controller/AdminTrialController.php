@@ -61,7 +61,7 @@ final class AdminTrialController extends SandAiAdminController
                 $this->adminInfo,
             );
         } catch (ApiProblem $problem) {
-            throw $this->trialProblem($problem);
+            return $this->trialProblemResponse($problem);
         }
 
         return $this->success($result)->header('Cache-Control', 'no-store');
@@ -87,7 +87,7 @@ final class AdminTrialController extends SandAiAdminController
                 $request,
             );
         } catch (ApiProblem $problem) {
-            throw $this->trialProblem($problem);
+            return $this->trialProblemResponse($problem);
         }
 
         return $this->success($result)->header('Cache-Control', 'no-store');
@@ -101,8 +101,14 @@ final class AdminTrialController extends SandAiAdminController
         return (int) trim($raw);
     }
 
-    /** Trial endpoints answer with plain Chinese copy; codes stay internal. */
-    private function trialProblem(ApiProblem $problem): ApiException
+    /**
+     * Trial endpoints answer with plain Chinese copy; codes stay internal.
+     * When the service attached a sanitized `reason_code` detail the JSON
+     * envelope carries it under `data` so the frontend can branch on a stable
+     * machine key without parsing the Chinese message. Only a strict
+     * snake_case reason_code is ever exposed — never raw details.
+     */
+    private function trialProblemResponse(ApiProblem $problem): Response
     {
         $status = match ($problem->errorCode) {
             'SAND_AI_TRIAL_APPLICATION_NOT_FOUND' => 404,
@@ -119,8 +125,17 @@ final class AdminTrialController extends SandAiAdminController
             // as a client error; validation and authorization keep 400/4xx.
             default => $problem->retryable ? 503 : 400,
         };
+        $reasonCode = $problem->details['reason_code'] ?? null;
+        $data = is_string($reasonCode) && preg_match('/^[a-z][a-z0-9_]{0,63}$/', $reasonCode) === 1
+            ? ['reason_code' => $reasonCode]
+            : null;
         $message = trim($problem->getMessage());
-        return new ApiException($message !== '' ? $message : '试用请求未完成，请稍后重试', $status);
+
+        return json([
+            'code' => $status,
+            'message' => $message !== '' ? $message : '试用请求未完成，请稍后重试',
+            'data' => $data,
+        ], JSON_UNESCAPED_UNICODE)->header('Cache-Control', 'no-store');
     }
 
     /**

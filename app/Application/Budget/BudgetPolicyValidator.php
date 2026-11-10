@@ -12,7 +12,7 @@ use DateTimeZone;
 /** Validation and lifecycle rules for environment-scoped budget revisions. */
 final class BudgetPolicyValidator
 {
-    private const FIELDS = ['id', 'environment_id', 'scope_kind', 'scope_ref', 'reference_environment_id', 'period_start', 'period_end', 'currency', 'limit_amount', 'enforcement', 'unpriced_policy', 'unmeasured_policy'];
+    private const FIELDS = ['id', 'environment_id', 'scope_kind', 'scope_ref', 'reference_environment_id', 'period_start', 'period_end', 'currency', 'limit_amount', 'reminder_percent', 'enforcement', 'unpriced_policy', 'unmeasured_policy'];
 
     public function normalizeRequestKey(mixed $value): string
     {
@@ -65,13 +65,20 @@ final class BudgetPolicyValidator
         if (preg_match('/^[A-Z]{3}$/', $currency) !== 1) {
             throw new ApiProblem('SAND_AI_BUDGET_VALIDATION_ERROR', 'currency must be a three-letter uppercase code');
         }
-        try {
-            $limit = BudgetDecimal::normalize($input['limit_amount'] ?? null, false);
-        } catch (\InvalidArgumentException) {
-            throw new ApiProblem('SAND_AI_BUDGET_VALIDATION_ERROR', 'limit_amount must be a positive numeric(20,6) decimal string');
-        }
-        if (!BudgetDecimal::isPositive($limit)) {
-            throw new ApiProblem('SAND_AI_BUDGET_VALIDATION_ERROR', 'limit_amount must be positive');
+        // An empty limit means the monthly ceiling is disabled; a present
+        // limit must still be a positive numeric(20,6) decimal string.
+        $rawLimit = $input['limit_amount'] ?? null;
+        if ($rawLimit === null || $rawLimit === '') {
+            $limit = null;
+        } else {
+            try {
+                $limit = BudgetDecimal::normalize($rawLimit, false);
+            } catch (\InvalidArgumentException) {
+                throw new ApiProblem('SAND_AI_BUDGET_VALIDATION_ERROR', 'limit_amount must be empty or a positive numeric(20,6) decimal string');
+            }
+            if (!BudgetDecimal::isPositive($limit)) {
+                throw new ApiProblem('SAND_AI_BUDGET_VALIDATION_ERROR', 'limit_amount must be positive');
+            }
         }
         $enforcement = $input['enforcement'] ?? null;
         $unpriced = $input['unpriced_policy'] ?? null;
@@ -84,6 +91,7 @@ final class BudgetPolicyValidator
         if ($enforcement === 'hard' && ($unpriced !== 'block' || $unmeasured !== 'hold')) {
             throw new ApiProblem('SAND_AI_BUDGET_VALIDATION_ERROR', 'hard budgets require unpriced=block and unmeasured=hold');
         }
+        $reminderPercent = $this->reminderPercent($input['reminder_percent'] ?? null);
 
         return [
             ...$target,
@@ -91,10 +99,26 @@ final class BudgetPolicyValidator
             'period_end' => $end->format('Y-m-d H:i:s'),
             'currency' => $currency,
             'limit_amount' => $limit,
+            'reminder_percent' => $reminderPercent,
             'enforcement' => $enforcement,
             'unpriced_policy' => $unpriced,
             'unmeasured_policy' => $unmeasured,
         ];
+    }
+
+    private function reminderPercent(mixed $value): int
+    {
+        if ($value === null || $value === '') {
+            return BudgetAlertPolicy::DEFAULT_REMINDER_PERCENT;
+        }
+        if (is_string($value) && ctype_digit($value)) {
+            $value = (int) $value;
+        }
+        if (!is_int($value) || $value < 1 || $value > 100) {
+            throw new ApiProblem('SAND_AI_BUDGET_VALIDATION_ERROR', 'reminder_percent must be an integer between 1 and 100');
+        }
+
+        return $value;
     }
 
     /** @param array<string,mixed> $input @return array{scope_kind:string,scope_ref:string,environment_id:?int} */

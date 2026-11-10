@@ -15,6 +15,7 @@ use app\Identity\Infrastructure\ChatInvocationAccessGuard;
 use app\Infrastructure\Persistence\Model\AiModel;
 use app\Infrastructure\Persistence\Model\AuditLog;
 use app\Infrastructure\Persistence\Model\Provider;
+use app\Infrastructure\Provider\ChatProviderFailurePolicy;
 use support\Request;
 use Throwable;
 
@@ -398,36 +399,84 @@ final class AdminTrialService
         throw new ApiProblem('SAND_AI_TRIAL_VALIDATION_ERROR', '请求参数不完整或格式不正确，请刷新后重试', false, ['field' => $field]);
     }
 
-    /** Provider/egress failures surface as safe Chinese copy, never raw codes. */
+    /**
+     * Provider/egress failures surface as safe Chinese copy plus a stable
+     * snake_case reason_code inside `details`, never raw codes, upstream
+     * bodies or request ids. The reason_code is the frontend's only branch
+     * key; the trial error codes stay internal.
+     */
     private function mapGatewayProblem(ApiProblem $problem, string $providerName): ApiProblem
     {
-        return match ($problem->errorCode) {
-            'SAND_AI_IDEMPOTENCY_KEY_REQUIRED' => new ApiProblem(
+        if ($problem->errorCode === 'SAND_AI_IDEMPOTENCY_KEY_REQUIRED') {
+            return new ApiProblem(
                 'SAND_AI_TRIAL_IDEMPOTENCY_REQUIRED', '缺少请求标识，请刷新页面后重试',
-            ),
-            'SAND_AI_PROVIDER_UNAVAILABLE', 'SAND_AI_PROVIDER_REJECTED', 'SAND_AI_PROVIDER_FAILURE',
-            'SAND_AI_PROVIDER_TIMEOUT' => new ApiProblem(
-                'SAND_AI_TRIAL_PROVIDER_UNREACHABLE',
-                $providerName !== ''
-                    ? "连不上{$providerName}：服务暂时没有响应，请稍后重试或检查服务商连接"
-                    : '连不上所选服务商：服务暂时没有响应，请稍后重试或检查服务商连接',
-                true,
-            ),
-            'SAND_AI_BUDGET_EXCEEDED', 'SAND_AI_BUDGET_INSUFFICIENT' => new ApiProblem(
-                'SAND_AI_TRIAL_BUDGET_BLOCKED', '这个应用的 AI 额度不足或已超出预算，请联系管理员调整后再试',
-            ),
-            'SAND_AI_DATA_EGRESS_FORBIDDEN' => new ApiProblem(
+                false, ['reason_code' => 'idempotency_required'],
+            );
+        }
+        if (in_array($problem->errorCode, ['SAND_AI_BUDGET_EXCEEDED', 'SAND_AI_BUDGET_INSUFFICIENT'], true)) {
+            return new ApiProblem(
+                'SAND_AI_TRIAL_BUDGET_BLOCKED', '本月 AI 预算已经用完，请到费用页调高预算',
+                false, ['reason_code' => 'budget_exhausted'],
+            );
+        }
+        if (str_starts_with($problem->errorCode, 'SAND_AI_BUDGET_')) {
+            return new ApiProblem(
+                'SAND_AI_TRIAL_BUDGET_BLOCKED', '预算设置暂时不能放行这次调用，请到费用页检查预算配置后再试',
+                false, ['reason_code' => 'budget_blocked'],
+            );
+        }
+        if ($problem->errorCode === 'SAND_AI_DATA_EGRESS_FORBIDDEN') {
+            return new ApiProblem(
                 'SAND_AI_TRIAL_EGRESS_BLOCKED', '这个应用的 AI 数据策略不允许这次调用，请联系管理员调整后再试',
-            ),
-            'SAND_AI_CONFIGURATION_NOT_PUBLISHED' => new ApiProblem(
+                false, ['reason_code' => 'egress_blocked'],
+            );
+        }
+        if ($problem->errorCode === 'SAND_AI_CONFIGURATION_NOT_PUBLISHED') {
+            return new ApiProblem(
                 'SAND_AI_TRIAL_NOT_PUBLISHED', '这个应用的 AI 线路还没有发布完成，请联系管理员检查配置后再试',
-            ),
-            // Gateway internals carry English diagnostics; the trial surface
-            // only ever shows plain Chinese copy to the administrator.
-            default => new ApiProblem(
-                'SAND_AI_TRIAL_CHAT_FAILED', '这次试用没有成功，请稍后重试', $problem->retryable,
-            ),
-        };
+                false, ['reason_code' => 'routes_not_published'],
+            );
+        }
+        $family = ChatProviderFailurePolicy::family($problem);
+        if ($family !== null) {
+            return match ($family) {
+                'unreachable' => new ApiProblem(
+                    'SAND_AI_TRIAL_PROVIDER_UNREACHABLE', $this->unreachableMessage($providerName),
+                    true, ['reason_code' => 'provider_unreachable'],
+                ),
+                'busy' => new ApiProblem(
+                    'SAND_AI_TRIAL_PROVIDER_UNREACHABLE', 'AI 服务商这会儿太忙，请过一会儿再试',
+                    true, ['reason_code' => 'provider_busy'],
+                ),
+                'balance' => new ApiProblem(
+                    'SAND_AI_TRIAL_CHAT_FAILED', '服务商的余额不够了，请先去服务商网站充值后再试',
+                    false, ['reason_code' => 'provider_balance_insufficient'],
+                ),
+                default => new ApiProblem(
+                    'SAND_AI_TRIAL_CHAT_FAILED', '服务商配置有问题，请到「模型服务商」页检查密钥和地址后再试',
+                    false, ['reason_code' => 'provider_config_invalid'],
+                ),
+            };
+        }
+        if (in_array($problem->errorCode, ['SAND_AI_MODEL_NOT_AVAILABLE', 'SAND_AI_CONFIGURATION_INVALID'], true)) {
+            return new ApiProblem(
+                'SAND_AI_TRIAL_CHAT_FAILED', '服务商配置有问题，请到「模型服务商」页检查密钥和地址后再试',
+                false, ['reason_code' => 'provider_config_invalid'],
+            );
+        }
+        // Gateway internals carry English diagnostics; the trial surface
+        // only ever shows plain Chinese copy to the administrator.
+        return new ApiProblem(
+            'SAND_AI_TRIAL_CHAT_FAILED', '这次试用没有成功，请稍后重试', $problem->retryable,
+            ['reason_code' => 'unknown'],
+        );
+    }
+
+    private function unreachableMessage(string $providerName): string
+    {
+        return $providerName !== ''
+            ? "连不上{$providerName}，请到「模型服务商」点「测试连接」看看。"
+            : '连不上模型服务商，请到「模型服务商」点「测试连接」看看。';
     }
 
     /**

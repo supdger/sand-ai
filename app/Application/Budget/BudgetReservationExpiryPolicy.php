@@ -8,10 +8,10 @@ namespace app\Application\Budget;
 final class BudgetReservationExpiryPolicy
 {
     /**
-     * @param array<string,string> $window
+     * @param array<string,string|null> $window
      * @param array{state:string,estimate_amount:string,metered_amount:?string,currency:string} $reservation
      * @param null|array{state:string} $invocation
-     * @return array{window:array<string,string>,reservation:array{state:string,metered_amount:null,reason:string},close_running_invocation:bool,preserve_running_invocation:bool}
+     * @return array{window:array<string,string|null>,reservation:array{state:string,metered_amount:null,reason:string},close_running_invocation:bool,preserve_running_invocation:bool}
      */
     public function expire(array $window, array $reservation, ?array $invocation): array
     {

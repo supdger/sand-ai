@@ -12,8 +12,176 @@ use think\facade\Db;
 final class UsageSummaryGateway
 {
     private const GROUP_LIMIT = 100;
+    private const PERIOD_GROUP_LIMIT = 5000;
 
-    /** @param array<string,int|string|null> $filters @param list<array<string,mixed>> $scope */
+    /**
+     * Monthly ranking buckets. `create_time` persists UTC wall-clock values,
+     * so each local calendar label is produced by re-interpreting the stored
+     * timestamp in the trusted host timezone before formatting.
+     *
+     * @param array<string,int|string|null> $filters @param list<array<string,mixed>> $scope
+     * @return array{rows:list<array<string,mixed>>,truncated:bool}
+     */
+    public function monthly(array $filters, array $scope, string $groupBy, string $timezone): array
+    {
+        $this->assertTimezone($timezone);
+        $bucket = "to_char((usage_event.create_time AT TIME ZONE 'UTC' AT TIME ZONE '{$timezone}'), 'YYYY-MM')";
+        $dimension = $groupBy === 'model'
+            ? "COALESCE(usage_event.model_id::text, 'unattributed')"
+            : "COALESCE(usage_event.application_id::text, 'unattributed')";
+
+        return $this->readSnapshot(function () use ($filters, $scope, $bucket, $dimension, $groupBy): array {
+            $rows = $this->periodRows($filters, $scope, $bucket, $dimension);
+            $truncated = count($rows) > self::PERIOD_GROUP_LIMIT;
+            if ($truncated) {
+                array_pop($rows);
+            }
+
+            return [
+                'rows' => array_map(
+                    static fn (array $row): array => self::monthlyRow($row, $groupBy),
+                    $rows,
+                ),
+                'truncated' => $truncated,
+            ];
+        });
+    }
+
+    /**
+     * Per-day chart buckets over one bounded local date range, zero-filled so
+     * the frontend can draw a continuous series per currency.
+     *
+     * @param array<string,int|string|null> $filters @param list<array<string,mixed>> $scope
+     * @return array{rows:list<array<string,mixed>>,truncated:bool}
+     */
+    public function daily(array $filters, array $scope, string $timezone, string $dateFrom, string $dateTo): array
+    {
+        $this->assertTimezone($timezone);
+        $bucket = "to_char((usage_event.create_time AT TIME ZONE 'UTC' AT TIME ZONE '{$timezone}'), 'YYYY-MM-DD')";
+
+        return $this->readSnapshot(function () use ($filters, $scope, $bucket, $dateFrom, $dateTo): array {
+            $rows = $this->periodRows($filters, $scope, $bucket, null);
+            $truncated = count($rows) > self::PERIOD_GROUP_LIMIT;
+            if ($truncated) {
+                array_pop($rows);
+            }
+            $shaped = array_map(self::dailyRow(...), $rows);
+            if ($truncated) {
+                return ['rows' => $shaped, 'truncated' => true];
+            }
+
+            return ['rows' => self::zeroFillDaily($shaped, $dateFrom, $dateTo), 'truncated' => false];
+        });
+    }
+
+    /**
+     * @param array<string,int|string|null> $filters @param list<array<string,mixed>> $scope
+     * @return list<array<string,mixed>>
+     */
+    private function periodRows(array $filters, array $scope, string $bucket, ?string $dimension): array
+    {
+        $fields = $dimension === null
+            ? "{$bucket} AS bucket_value, usage_event.currency"
+            : "{$bucket} AS bucket_value, {$dimension} AS dimension_value, usage_event.currency";
+        $groupBy = $dimension === null
+            ? 'bucket_value, usage_event.currency'
+            : 'bucket_value, dimension_value, usage_event.currency';
+        $query = $this->filtered($filters, $scope)
+            ->fieldRaw("{$fields}, COUNT(*) AS call_count, SUM(CASE WHEN invocation.state = 'failed' THEN 1 ELSE 0 END) AS failed_count, SUM(CASE WHEN usage_event.pricing_state = 'unpriced' THEN 1 ELSE 0 END) AS unpriced_count, SUM(CASE WHEN usage_event.usage_state = 'unmeasured' THEN 1 ELSE 0 END) AS unmeasured_count, SUM(CASE WHEN usage_event.usage_state = 'measured' AND usage_event.pricing_state = 'priced' THEN usage_event.metered_amount ELSE NULL END) AS amount")
+            ->group($groupBy)
+            ->orderRaw('bucket_value ASC')
+            ->orderRaw('usage_event.currency ASC NULLS LAST')
+            ->limit(self::PERIOD_GROUP_LIMIT + 1);
+        if ($dimension !== null) {
+            $query->orderRaw('dimension_value ASC');
+        }
+        $rows = $query->select()->toArray();
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    /** @param array<string,mixed> $row @return array<string,mixed> */
+    private static function monthlyRow(array $row, string $groupBy): array
+    {
+        $dimension = (string) ($row['dimension_value'] ?? '');
+        $id = $dimension === '' || $dimension === 'unattributed' ? null : (int) $dimension;
+
+        return [
+            'month' => (string) ($row['bucket_value'] ?? ''),
+            $groupBy . '_id' => $id,
+            'currency' => $row['currency'] === null ? null : (string) $row['currency'],
+            'amount' => self::amount($row['amount'] ?? null),
+            'call_count' => (int) ($row['call_count'] ?? 0),
+            'failed_count' => (int) ($row['failed_count'] ?? 0),
+            'unpriced_count' => (int) ($row['unpriced_count'] ?? 0),
+            'unmeasured_count' => (int) ($row['unmeasured_count'] ?? 0),
+        ];
+    }
+
+    /** @param array<string,mixed> $row @return array<string,mixed> */
+    private static function dailyRow(array $row): array
+    {
+        return [
+            'date' => (string) ($row['bucket_value'] ?? ''),
+            'currency' => $row['currency'] === null ? null : (string) $row['currency'],
+            'amount' => self::amount($row['amount'] ?? null),
+            'call_count' => (int) ($row['call_count'] ?? 0),
+            'failed_count' => (int) ($row['failed_count'] ?? 0),
+            'unpriced_count' => (int) ($row['unpriced_count'] ?? 0),
+            'unmeasured_count' => (int) ($row['unmeasured_count'] ?? 0),
+        ];
+    }
+
+    /** @param list<array<string,mixed>> $rows @return list<array<string,mixed>> */
+    private static function zeroFillDaily(array $rows, string $dateFrom, string $dateTo): array
+    {
+        $byCell = [];
+        $currencies = [];
+        foreach ($rows as $row) {
+            $currency = $row['currency'];
+            $key = $row['date'] . "\0" . ($currency ?? '');
+            $byCell[$key] = $row;
+            $currencies[$currency === null ? "\0" : $currency] = $currency;
+        }
+        uksort($currencies, static fn (string $left, string $right): int => $left === "\0"
+            ? ($right === "\0" ? 0 : 1)
+            : ($right === "\0" ? -1 : strcmp($left, $right)));
+        $filled = [];
+        $date = new \DateTimeImmutable($dateFrom);
+        $end = new \DateTimeImmutable($dateTo);
+        while ($date <= $end) {
+            $day = $date->format('Y-m-d');
+            foreach ($currencies as $currency) {
+                $key = $day . "\0" . ($currency ?? '');
+                $filled[] = $byCell[$key] ?? [
+                    'date' => $day,
+                    'currency' => $currency,
+                    'amount' => $currency === null ? null : '0.000000',
+                    'call_count' => 0,
+                    'failed_count' => 0,
+                    'unpriced_count' => 0,
+                    'unmeasured_count' => 0,
+                ];
+            }
+            $date = $date->modify('+1 day');
+        }
+
+        return $filled;
+    }
+
+    private static function amount(mixed $value): ?string
+    {
+        return $value === null || $value === '' ? null : (string) $value;
+    }
+
+    private function assertTimezone(string $timezone): void
+    {
+        if (!in_array($timezone, timezone_identifiers_list(\DateTimeZone::ALL_WITH_BC), true)) {
+            throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Usage period timezone is invalid');
+        }
+    }
+
+    /** @param array<string, int|string|null> $filters @param list<array<string,mixed>> $scope */
     public function compositionBreakdown(array $filters, array $scope): array
     {
         return $this->readSnapshot(fn (): array => $this->aggregates($filters, $scope, [

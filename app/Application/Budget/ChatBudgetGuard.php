@@ -216,7 +216,9 @@ final class ChatBudgetGuard
                 $this->event((int) $policy->id, $reservationId, (int) $invocation->id, 'reserve', $estimate['estimated_amount'], $estimate['currency'], null,
                     ['request_id' => $requestId, 'price_revision_id' => $estimate['price_revision_id'],
                         'reserved_input_tokens' => $estimate['reserved_input_tokens'], 'output_token_upper_bound' => $estimate['output_token_upper_bound'],
-                        'input_bound' => $estimate['input_bound'] ?? null, 'enforcement' => (string) $policy->enforcement, 'overrun' => BudgetDecimal::compare($transition['window']['available_amount'], '0.000000') < 0]);
+                        'input_bound' => $estimate['input_bound'] ?? null, 'enforcement' => (string) $policy->enforcement,
+                        'overrun' => $transition['window']['available_amount'] !== null
+                            && BudgetDecimal::compare($transition['window']['available_amount'], '0.000000') < 0]);
             }
             $this->afterAcceptedInvocation($invocation, $pricingSnapshot, $afterAcceptedInvocation);
             return ['invocation' => $invocation, 'reservation_id' => $anchor, 'estimated_amount' => $estimate['estimated_amount'] ?? null,
@@ -598,17 +600,18 @@ final class ChatBudgetGuard
         return is_array($config) ? $config : [];
     }
 
-    /** @return array<string,string> */
+    /** @return array<string,string|null> */
     private function windowSnapshot(BudgetWindow $window): array
     {
         return [
-            'currency' => (string) $window->currency, 'limit_amount' => (string) $window->limit_amount,
+            'currency' => (string) $window->currency,
+            'limit_amount' => $window->limit_amount === null ? null : (string) $window->limit_amount,
             'reserved_amount' => (string) $window->reserved_amount, 'settled_amount' => (string) $window->settled_amount,
             'held_amount' => (string) $window->held_amount,
         ];
     }
 
-    /** @return array<string,string> */
+    /** @return array<string,string|null> */
     public function holdExpiredReservations(BudgetWindow $window, string $calledAt): array
     {
         $snapshot = $this->windowSnapshot($window);
@@ -625,7 +628,7 @@ final class ChatBudgetGuard
         return $snapshot;
     }
 
-    /** @param array<string,string>|null $windowSnapshot @return array{window:array<string,string>} */
+    /** @param array<string,string|null>|null $windowSnapshot @return array{window:array<string,string|null>} */
     private function expireReservation(BudgetWindow $window, BudgetReservation $reservation, string $expiredAt, ?array $windowSnapshot = null): array
     {
         $transition = (new BudgetReservationExpiryPolicy())->expire(
@@ -648,7 +651,7 @@ final class ChatBudgetGuard
         return ['window' => $transition['window']];
     }
 
-    /** @param array<string,string> $snapshot */
+    /** @param array<string,string|null> $snapshot */
     private function persistWindow(int $windowId, array $snapshot): void
     {
         self::requireExactlyOneAffectedRow(Db::connect('pgsql')->execute(

@@ -9,22 +9,29 @@ use app\Api\Support\ApiProblem;
 /** Pure amount-conservation rules shared by runtime persistence and tests. */
 final class BudgetReservationStateMachine
 {
-    /** @param array<string,mixed> $window @return array<string,string> */
+    /**
+     * A NULL limit_amount means the published policy has no ceiling: amounts
+     * are still tracked for reporting, but available_amount stays NULL and no
+     * reservation can ever exceed the limit.
+     *
+     * @param array<string,mixed> $window @return array<string,string|null>
+     */
     public function summary(array $window): array
     {
         $normalized = $this->window($window);
-        $available = BudgetDecimal::subtract(
-            BudgetDecimal::subtract(BudgetDecimal::subtract($normalized['limit_amount'], $normalized['settled_amount']), $normalized['reserved_amount']),
-            $normalized['held_amount'],
-        );
+        $available = $normalized['limit_amount'] === null
+            ? null
+            : BudgetDecimal::subtract(
+                BudgetDecimal::subtract(BudgetDecimal::subtract($normalized['limit_amount'], $normalized['settled_amount']), $normalized['reserved_amount']),
+                $normalized['held_amount'],
+            );
 
         if (array_key_exists('available_amount', $window)) {
-            try {
-                $reported = BudgetDecimal::normalize($window['available_amount']);
-            } catch (\InvalidArgumentException) {
-                throw new ApiProblem('SAND_AI_BUDGET_SNAPSHOT_INCONSISTENT', 'budget window available amount is invalid');
-            }
-            if (BudgetDecimal::compare($reported, $available) !== 0) {
+            $reported = $window['available_amount'];
+            $consistent = $available === null
+                ? $reported === null || $reported === ''
+                : (is_string($reported) && BudgetDecimal::compare(BudgetDecimal::normalize($reported), $available) === 0);
+            if (!$consistent) {
                 throw new ApiProblem('SAND_AI_BUDGET_SNAPSHOT_INCONSISTENT', 'budget window totals do not conserve its limit');
             }
         }
@@ -32,13 +39,14 @@ final class BudgetReservationStateMachine
         return $normalized + ['available_amount' => $available];
     }
 
-    /** @param array<string,mixed> $window @return array{window:array<string,string>,reservation:array<string,string|null>} */
+    /** @param array<string,mixed> $window @return array{window:array<string,string|null>,reservation:array<string,string|null>} */
     public function reserve(array $window, string $amount, string $currency, bool $allowOverrun = false): array
     {
         $summary = $this->summary($window);
         $amount = $this->positive($amount);
         $this->currency($summary['currency'], $currency);
-        if (!$allowOverrun && BudgetDecimal::compare($amount, $summary['available_amount']) > 0) {
+        if (!$allowOverrun && $summary['available_amount'] !== null
+            && BudgetDecimal::compare($amount, $summary['available_amount']) > 0) {
             throw new ApiProblem('SAND_AI_BUDGET_EXCEEDED', 'budget reservation exceeds available amount');
         }
         $summary['reserved_amount'] = BudgetDecimal::add($summary['reserved_amount'], $amount);
@@ -50,25 +58,25 @@ final class BudgetReservationStateMachine
         ];
     }
 
-    /** @param array<string,mixed> $window @param array<string,mixed> $reservation @return array{window:array<string,string>,reservation:array<string,string|null>,overrun:bool} */
+    /** @param array<string,mixed> $window @param array<string,mixed> $reservation @return array{window:array<string,string|null>,reservation:array<string,string|null>,overrun:bool} */
     public function settle(array $window, array $reservation, string $actualAmount, string $currency): array
     {
         return $this->transition($window, $reservation, 'settled', $actualAmount, $currency);
     }
 
-    /** @param array<string,mixed> $window @param array<string,mixed> $reservation @return array{window:array<string,string>,reservation:array<string,string|null>,overrun:bool} */
+    /** @param array<string,mixed> $window @param array<string,mixed> $reservation @return array{window:array<string,string|null>,reservation:array<string,string|null>,overrun:bool} */
     public function hold(array $window, array $reservation, string $currency): array
     {
         return $this->transition($window, $reservation, 'held', null, $currency);
     }
 
-    /** @param array<string,mixed> $window @param array<string,mixed> $reservation @return array{window:array<string,string>,reservation:array<string,string|null>,overrun:bool} */
+    /** @param array<string,mixed> $window @param array<string,mixed> $reservation @return array{window:array<string,string|null>,reservation:array<string,string|null>,overrun:bool} */
     public function release(array $window, array $reservation, string $currency): array
     {
         return $this->transition($window, $reservation, 'released', null, $currency);
     }
 
-    /** @param array<string,mixed> $window @param array<string,mixed> $reservation @return array{window:array<string,string>,reservation:array<string,string|null>,overrun:bool} */
+    /** @param array<string,mixed> $window @param array<string,mixed> $reservation @return array{window:array<string,string|null>,reservation:array<string,string|null>,overrun:bool} */
     private function transition(array $window, array $reservation, string $target, ?string $actualAmount, string $currency): array
     {
         $summary = $this->summary($window);
@@ -82,7 +90,7 @@ final class BudgetReservationStateMachine
         }
         if ($state === $target) {
             $this->assertTargetSnapshot($summary, $reservation, $target, $estimate, $metered);
-            return ['window' => $summary, 'reservation' => $this->reservation($reservation, $estimate, $summary['currency']), 'overrun' => BudgetDecimal::compare($summary['available_amount'], '0.000000') < 0];
+            return ['window' => $summary, 'reservation' => $this->reservation($reservation, $estimate, $summary['currency']), 'overrun' => $this->overLimit($summary)];
         }
         if (!in_array($state, ['reserved', 'held'], true) || ($state === 'held' && !in_array($target, ['settled', 'released'], true))) {
             throw new ApiProblem('SAND_AI_BUDGET_STATE_INVALID', 'budget reservation transition is invalid');
@@ -113,25 +121,40 @@ final class BudgetReservationStateMachine
         $out['state'] = $target;
         $out['metered_amount'] = $metered;
         $overrun = ($target === 'settled' && BudgetDecimal::compare($metered, $estimate) > 0)
-            || BudgetDecimal::compare($summary['available_amount'], '0.000000') < 0;
+            || $this->overLimit($summary);
 
         return ['window' => $summary, 'reservation' => $out, 'overrun' => $overrun];
     }
 
-    /** @param array<string,mixed> $window @return array<string,string> */
+    /** @param array<string,mixed> $window @return array<string,string|null> */
     private function window(array $window): array
     {
         $currency = strtoupper((string) ($window['currency'] ?? ''));
         if (preg_match('/^[A-Z]{3}$/', $currency) !== 1) {
             throw new ApiProblem('SAND_AI_BUDGET_CURRENCY_MISMATCH', 'budget currency is invalid');
         }
-        $values = ['limit_amount', 'reserved_amount', 'settled_amount', 'held_amount'];
+        $rawLimit = $window['limit_amount'] ?? null;
         $normalized = ['currency' => $currency];
-        foreach ($values as $key) {
+        if ($rawLimit === null || $rawLimit === '') {
+            $normalized['limit_amount'] = null;
+        } else {
+            $normalized['limit_amount'] = $this->nonNegative($rawLimit);
+            if (!BudgetDecimal::isPositive($normalized['limit_amount'])) {
+                throw new ApiProblem('SAND_AI_BUDGET_VALIDATION_ERROR', 'budget limit must be positive');
+            }
+        }
+        foreach (['reserved_amount', 'settled_amount', 'held_amount'] as $key) {
             $normalized[$key] = $this->nonNegative($window[$key] ?? null);
         }
 
         return $normalized;
+    }
+
+    /** @param array<string,string|null> $summary */
+    private function overLimit(array $summary): bool
+    {
+        return $summary['available_amount'] !== null
+            && BudgetDecimal::compare($summary['available_amount'], '0.000000') < 0;
     }
 
     /** @param array<string,mixed> $reservation @return array<string,string|null> */
@@ -150,7 +173,7 @@ final class BudgetReservationStateMachine
         ];
     }
 
-    /** @param array<string,string> $summary @param array<string,mixed> $reservation */
+    /** @param array<string,string|null> $summary @param array<string,mixed> $reservation */
     private function assertTargetSnapshot(array $summary, array $reservation, string $target, string $estimate, ?string $metered): void
     {
         if ($target === 'settled') {

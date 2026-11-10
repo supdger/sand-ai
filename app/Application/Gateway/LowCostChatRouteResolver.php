@@ -108,7 +108,8 @@ final class LowCostChatRouteResolver
                 $amount = BudgetDecimal::isPositive($estimate['estimated_amount']) ? $estimate['estimated_amount'] : '0.000001';
                 try {
                     (new BudgetReservationStateMachine())->reserve([
-                        'currency' => (string) $window->currency, 'limit_amount' => (string) $window->limit_amount,
+                        'currency' => (string) $window->currency,
+                        'limit_amount' => $window->limit_amount === null ? null : (string) $window->limit_amount,
                         'reserved_amount' => (string) $window->reserved_amount, 'settled_amount' => (string) $window->settled_amount,
                         'held_amount' => (string) $window->held_amount,
                     ], $amount, $price->currency, (string) $policy->enforcement === 'soft');

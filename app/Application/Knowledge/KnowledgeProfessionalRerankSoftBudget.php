@@ -10,6 +10,7 @@ use app\Application\Budget\BudgetAlertPolicy;
 use app\Application\Budget\ChatBudgetGuard;
 use app\Application\Gateway\RequestPayloadFingerprint;
 use app\Infrastructure\Persistence\Model\AuditLog;
+use app\Infrastructure\Persistence\Model\BudgetPolicy;
 use app\Infrastructure\Persistence\Model\BudgetWindow;
 use app\Infrastructure\Persistence\Model\Invocation;
 use app\Infrastructure\Persistence\Model\InvocationDispatch;
@@ -185,14 +186,22 @@ final class KnowledgeProfessionalRerankSoftBudget
             ? [['code' => 'SAND_AI_BUDGET_COST_PENDING']] : []];
     }
 
-    /** Existing 80/90/100 percent alerts use only known window money. */
+    /** Existing percent alerts use only known window money and the policy reminder. */
     private function recordCurrentWindowAlert(int $id, int $invocationId, int $policyId): void
     {
         $window = BudgetWindow::where('policy_id', $policyId)->find();
         if ($window === null) throw new ApiProblem('SAND_AI_BUDGET_WINDOW_MISSING', 'Soft budget alert window is unavailable');
-        $used = BudgetDecimal::add(BudgetDecimal::add((string) $window->reserved_amount, (string) $window->settled_amount), (string) $window->held_amount);
-        $alert = BudgetAlertPolicy::forWindow(['limit_amount' => (string) $window->limit_amount,
-            'available_amount' => BudgetDecimal::subtract((string) $window->limit_amount, $used)]);
+        $limit = $window->limit_amount === null ? null : (string) $window->limit_amount;
+        $policy = BudgetPolicy::find($policyId);
+        $alert = $limit === null
+            ? ['level' => 'normal', 'threshold_percent' => null]
+            : BudgetAlertPolicy::forWindow([
+                'limit_amount' => $limit,
+                'available_amount' => BudgetDecimal::subtract($limit, BudgetDecimal::add(
+                    BudgetDecimal::add((string) $window->reserved_amount, (string) $window->settled_amount),
+                    (string) $window->held_amount,
+                )),
+            ], (int) ($policy->reminder_percent ?? BudgetAlertPolicy::DEFAULT_REMINDER_PERCENT));
         if ($alert['level'] === 'normal') return;
         AuditLog::create(['actor_type' => 'system_worker', 'actor_ref' => 'rerank:' . $invocationId,
             'action' => 'budget.soft.threshold_alert', 'resource_type' => 'rerank_soft_budget', 'resource_id' => $id,

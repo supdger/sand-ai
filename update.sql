@@ -1087,7 +1087,8 @@ BEGIN
         ('202611050167_provider_timeout_default','9345f4b253fe6013c3c04d5f1dfcbf96572d6d2848932314884fbe1d0e2fe66e'),
         ('202611060168_trial_managed_permissions','b438cf4f3f791cf380e673efb25197a0c3145a5a7e1df0873be707181f5b3ae8'),
         ('202611060169_g2_trial_menu','dd896d48e2a89f4931dc816881b067fa57a8d4e6e65abcca0b3cddf74be7a1dd'),
-        ('202611070170_config_revision_published_at','a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11')
+        ('202611070170_config_revision_published_at','a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11'),
+        ('202611100171_budget_unlimited_reminder','51ada4ce783c4df29b14b26f28f4ef0011f9abd86ebe357fbb0103e63d2febce')
     ) AS expected(version,checksum) ON expected.version=applied.version
     WHERE expected.version IS NULL OR applied.checksum IS DISTINCT FROM expected.checksum
     ORDER BY applied.version LIMIT 1;
@@ -14487,5 +14488,37 @@ $sand_ai_migration_0170$;
   INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611070170_config_revision_published_at','a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11',CURRENT_TIMESTAMP(0));
  END IF;
 END $sand_ai_upgrade_0170$;
+
+
+DO $sand_ai_upgrade_0171$
+BEGIN
+ IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611100171_budget_unlimited_reminder' AND checksum IS DISTINCT FROM '51ada4ce783c4df29b14b26f28f4ef0011f9abd86ebe357fbb0103e63d2febce') THEN
+  RAISE EXCEPTION 'SandAI migration 171 checksum mismatch';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611100171_budget_unlimited_reminder') THEN
+  EXECUTE $sand_ai_migration_0171$
+-- 0.5.0 UX declutter: an empty monthly limit means the budget has no
+-- ceiling, and each published revision may carry its own reminder
+-- percentage (default 80, matching the historical fixed notice level).
+-- Unlimited windows keep tracking reserved/settled/held amounts; only the
+-- limit ceiling and the alert thresholds change meaning.
+ALTER TABLE sand_ai_budget_policy
+    ALTER COLUMN limit_amount DROP NOT NULL,
+    ADD COLUMN reminder_percent smallint NOT NULL DEFAULT 80,
+    DROP CONSTRAINT ck_sand_ai_budget_policy_limit,
+    ADD CONSTRAINT ck_sand_ai_budget_policy_limit CHECK (limit_amount IS NULL OR limit_amount > 0),
+    ADD CONSTRAINT ck_sand_ai_budget_policy_reminder CHECK (reminder_percent BETWEEN 1 AND 100);
+
+ALTER TABLE sand_ai_budget_window
+    ALTER COLUMN limit_amount DROP NOT NULL,
+    DROP CONSTRAINT ck_sand_ai_budget_window_amounts,
+    ADD CONSTRAINT ck_sand_ai_budget_window_amounts CHECK (
+        (limit_amount IS NULL OR limit_amount > 0)
+        AND reserved_amount >= 0 AND settled_amount >= 0 AND held_amount >= 0
+    );
+$sand_ai_migration_0171$;
+  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611100171_budget_unlimited_reminder','51ada4ce783c4df29b14b26f28f4ef0011f9abd86ebe357fbb0103e63d2febce',CURRENT_TIMESTAMP(0));
+ END IF;
+END $sand_ai_upgrade_0171$;
 
 COMMIT;

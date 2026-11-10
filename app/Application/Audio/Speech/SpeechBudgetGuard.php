@@ -190,11 +190,11 @@ final class SpeechBudgetGuard
         }
     }
 
-    /** @return array<string,string> */
+    /** @return array<string,string|null> */
     private function window(BudgetWindow $window): array
     {
         return ['currency' => (string) $window->currency,
-            'limit_amount' => (string) $window->limit_amount,
+            'limit_amount' => $window->limit_amount === null ? null : (string) $window->limit_amount,
             'reserved_amount' => (string) $window->reserved_amount,
             'settled_amount' => (string) $window->settled_amount,
             'held_amount' => (string) $window->held_amount];
