@@ -265,14 +265,14 @@ final class AdminTrialService
             static fn (array $route): bool => (int) $route['provider_id'] === $providerId,
         ));
         if ($providerRoutes === []) {
-            throw new ApiProblem('SAND_AI_TRIAL_MODEL_INVALID', '这个服务商当前没有可用的对话线路，请在服务商配置里检查后重试');
+            throw new ApiProblem('SAND_AI_TRIAL_MODEL_INVALID', '这个服务商当前没有可用的对话模型，请在服务商配置里检查后重试');
         }
         $modelIds = [];
         foreach ($providerRoutes as $route) {
             $modelIds[(int) $route['model_id']] = min($modelIds[(int) $route['model_id']] ?? PHP_INT_MAX, (int) $route['priority']);
         }
         if ($modelId !== null && !isset($modelIds[$modelId])) {
-            throw new ApiProblem('SAND_AI_TRIAL_MODEL_INVALID', '所选模型不属于这个服务商的可用线路，请刷新后重试');
+            throw new ApiProblem('SAND_AI_TRIAL_MODEL_INVALID', '所选模型不属于这个服务商的可用模型，请刷新后重试');
         }
         if ($modelId === null) {
             asort($modelIds);
@@ -298,9 +298,9 @@ final class AdminTrialService
         try {
             $routes = ($this->routes ?? new CapabilityProfileResolver())->routes($environmentId, 'chat');
         } catch (ApiProblem $problem) {
-            throw new ApiProblem('SAND_AI_TRIAL_ROUTES_UNAVAILABLE', '暂时无法读取这个应用的可用线路，请稍后重试', false, ['cause' => $problem->errorCode]);
+            throw new ApiProblem('SAND_AI_TRIAL_ROUTES_UNAVAILABLE', '暂时无法读取这个应用的可用模型，请稍后重试', false, ['cause' => $problem->errorCode]);
         } catch (Throwable) {
-            throw new ApiProblem('SAND_AI_TRIAL_ROUTES_UNAVAILABLE', '暂时无法读取这个应用的可用线路，请稍后重试');
+            throw new ApiProblem('SAND_AI_TRIAL_ROUTES_UNAVAILABLE', '暂时无法读取这个应用的可用模型，请稍后重试');
         }
         return is_array($routes) ? $routes : [];
     }
@@ -429,7 +429,7 @@ final class AdminTrialService
         }
         if (in_array($problem->errorCode, ['SAND_AI_BUDGET_EXCEEDED', 'SAND_AI_BUDGET_INSUFFICIENT'], true)) {
             return new ApiProblem(
-                'SAND_AI_TRIAL_BUDGET_BLOCKED', '本月 AI 预算已经用完，请到费用页调高预算',
+                'SAND_AI_TRIAL_BUDGET_BLOCKED', '本月预算已用完，可以去费用页调高预算',
                 false, ['reason_code' => 'budget_exhausted'],
             );
         }
@@ -447,7 +447,7 @@ final class AdminTrialService
         }
         if ($problem->errorCode === 'SAND_AI_CONFIGURATION_NOT_PUBLISHED') {
             return new ApiProblem(
-                'SAND_AI_TRIAL_NOT_PUBLISHED', '这个应用的 AI 线路还没有发布完成，请联系管理员检查配置后再试',
+                'SAND_AI_TRIAL_NOT_PUBLISHED', '这个应用的 AI 模型还没有发布完成，请联系管理员检查配置后再试',
                 false, ['reason_code' => 'routes_not_published'],
             );
         }

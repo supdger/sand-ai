@@ -8,6 +8,7 @@ use app\Api\Support\ApiProblem;
 use app\Application\Budget\BudgetDecimal;
 use app\Application\Budget\BudgetPolicyService;
 use app\Application\Budget\BudgetReservationStateMachine;
+use app\Application\Budget\BudgetSpendGate;
 use app\Application\Budget\ChatBudgetGuard;
 use app\Application\Usage\UsageAttribution;
 use app\Infrastructure\Persistence\Model\BudgetReservation;
@@ -22,20 +23,25 @@ final class OcrBudgetGuard
     {
         $policies = (new BudgetPolicyService())->applicable($attribution, $modelId, 'image_ocr', $at, true);
         $prepared = [];
+        $priced = $price->revisionId !== null && $price->reservationAmount !== null && $price->currency !== null;
         foreach ($policies as $policy) {
-            if (!in_array((string) $policy->enforcement, ['hard', 'soft'], true)
-                || (string) $policy->unpriced_policy !== 'block' || (string) $policy->unmeasured_policy !== 'hold') {
+            if (!in_array((string) $policy->enforcement, ['hard', 'soft'], true)) {
                 throw new ApiProblem('SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE', 'OCR budget policy is not executable');
             }
-            if ($price->revisionId === null || $price->reservationAmount === null || $price->currency === null) {
-                throw new ApiProblem('SAND_AI_BUDGET_UNPRICED', 'A published OCR request price is required under the active budget');
-            }
-            if ((string) $policy->currency !== $price->currency) throw new ApiProblem('SAND_AI_BUDGET_CURRENCY_MISMATCH', 'OCR price currency differs from budget');
+            if ($priced && (string) $policy->currency !== $price->currency) throw new ApiProblem('SAND_AI_BUDGET_CURRENCY_MISMATCH', 'OCR price currency differs from budget');
             $window = BudgetWindow::where('policy_id', (int) $policy->id)->lock(true)->find();
             if ($window === null) throw new ApiProblem('SAND_AI_BUDGET_WINDOW_MISSING', 'OCR budget window is missing');
-            $estimate = BudgetDecimal::isPositive($price->reservationAmount) ? $price->reservationAmount : '0.000001';
             $snapshot = (new ChatBudgetGuard())->holdExpiredReservations($window, $at);
-            $transition = (new BudgetReservationStateMachine())->reserve($snapshot, $estimate, $price->currency, (string) $policy->enforcement === 'soft');
+            if (!BudgetSpendGate::allowsWindowCall((string) $policy->enforcement, $snapshot)) {
+                throw new ApiProblem('SAND_AI_BUDGET_EXCEEDED', BudgetSpendGate::EXHAUSTED_MESSAGE);
+            }
+            // A reservation row needs a price revision foreign key; an
+            // unpriced call owns none but is still judged by the check above.
+            if (!$priced) {
+                continue;
+            }
+            $estimate = BudgetDecimal::isPositive($price->reservationAmount) ? $price->reservationAmount : BudgetSpendGate::NOMINAL_ESTIMATE;
+            $transition = (new BudgetReservationStateMachine())->reserve($snapshot, $estimate, $price->currency, true);
             $prepared[] = ['policy_id' => (int) $policy->id, 'window_id' => (int) $window->id, 'estimate' => $estimate, 'window' => $transition['window']];
         }
         return $prepared;

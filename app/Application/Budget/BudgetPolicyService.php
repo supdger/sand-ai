@@ -21,12 +21,11 @@ final class BudgetPolicyService
     /** The caller holds its preparation/dispatch transaction; zero means this call has no model. */
     public function assertUnpricedCallAllowed(UsageAttribution $attribution, string $capabilityCode, string $at, int $modelId = 0): void
     {
-        foreach ($this->applicable($attribution, $modelId, $capabilityCode, $at, true) as $policy) {
-            if ((string) $policy->unpriced_policy !== 'block' || (string) $policy->unmeasured_policy !== 'hold') {
-                throw new ApiProblem('SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE', 'The active budget policy is not executable');
-            }
-            throw new ApiProblem('SAND_AI_BUDGET_UNPRICED', 'This capability has no frozen price upper bound and an applicable budget blocks dispatch');
-        }
+        // Budgets only judge money already committed to the window, so an
+        // unpriced call is never blocked by an applicable policy. The probe
+        // stays to surface scope conflicts (two published revisions in one
+        // scope remain a configuration error).
+        $this->applicable($attribution, $modelId, $capabilityCode, $at, true);
     }
 
     /** @return list<BudgetPolicy> */
@@ -59,7 +58,6 @@ final class BudgetPolicyService
         $policies = $query->select()->all();
         if ($lock) {
             \app\Application\Knowledge\KnowledgeProfessionalRerankSoftBudget::lockHardCapacityWindows($policies, $originalInvocationId);
-            \app\Application\Knowledge\KnowledgeProfessionalRerankSoftBudget::assertHardCapacityPolicies($policies);
         }
         return $policies;
     }

@@ -264,7 +264,7 @@ $map = static fn (ApiProblem $problem): ApiProblem => $mapMethod->invoke($servic
 $budget = $map(new ApiProblem('SAND_AI_BUDGET_EXCEEDED', 'budget window exhausted'));
 ok($budget->errorCode === 'SAND_AI_TRIAL_BUDGET_BLOCKED'
     && $budget->details['reason_code'] === 'budget_exhausted'
-    && str_contains($budget->getMessage(), '预算') && hasCjk($budget->getMessage()), 'trial: budget exhausted copy');
+    && $budget->getMessage() === '本月预算已用完，可以去费用页调高预算', 'trial: budget exhausted copy');
 $budgetConfig = $map(new ApiProblem('SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE', 'not executable'));
 ok($budgetConfig->details['reason_code'] === 'budget_blocked' && hasCjk($budgetConfig->getMessage()), 'trial: budget config blocked copy');
 $providerDown = $map(ChatProviderFailurePolicy::network(7));

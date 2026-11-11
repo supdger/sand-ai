@@ -8,6 +8,7 @@ use app\Api\Support\ApiProblem;
 use app\Application\Budget\BudgetDecimal;
 use app\Application\Budget\BudgetPolicyService;
 use app\Application\Budget\BudgetReservationStateMachine;
+use app\Application\Budget\BudgetSpendGate;
 use app\Application\Budget\ChatBudgetGuard;
 use app\Application\Usage\AudioCallStartPricingSnapshot;
 use app\Application\Usage\AudioSeconds;
@@ -73,21 +74,17 @@ final class AudioBudgetGuard
         $policies = (new BudgetPolicyService())->applicable($attribution, $modelId,
             'audio_transcription', gmdate('Y-m-d H:i:s'), true);
         if ($policies === []) { return null; }
-        if ($pricing->price === null) {
-            throw new ApiProblem('SAND_AI_BUDGET_UNPRICED', 'Published ASR price is required under an active budget');
-        }
-        if ($seconds === null) {
-            throw new ApiProblem('SAND_AI_BUDGET_ESTIMATE_UNAVAILABLE', 'Verified private audio duration is required');
-        }
-        $amount = $pricing->usagePricing($seconds)['metered_amount'];
-        $estimate = BudgetDecimal::isPositive($amount) ? $amount : '0.000001';
+        $priced = $pricing->price !== null;
+        // A missing duration bound still admits the call; the reservation only
+        // needs a positive placeholder for bookkeeping.
+        $amount = !$priced || $seconds === null ? null : $pricing->usagePricing($seconds)['metered_amount'];
+        $estimate = $amount !== null && BudgetDecimal::isPositive($amount) ? $amount : BudgetSpendGate::NOMINAL_ESTIMATE;
         $windows = [];
         foreach ($policies as $policy) {
-            if (!in_array((string)$policy->enforcement,['hard','soft'],true)
-                || (string)$policy->unpriced_policy !== 'block' || (string)$policy->unmeasured_policy !== 'hold') {
+            if (!in_array((string)$policy->enforcement,['hard','soft'],true)) {
                 throw new ApiProblem('SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE','ASR budget policy is not executable');
             }
-            if ((string) $policy->currency !== $pricing->price->currency) {
+            if ($priced && (string) $policy->currency !== $pricing->price->currency) {
                 throw new ApiProblem('SAND_AI_BUDGET_CURRENCY_MISMATCH', 'ASR price currency differs from budget');
             }
             $window = BudgetWindow::where('policy_id', (int) $policy->id)->lock(true)->find();
@@ -97,10 +94,18 @@ final class AudioBudgetGuard
         foreach ($windows as &$member) {
             $policy = $member['policy'];
             $snapshot = (new ChatBudgetGuard())->holdExpiredReservations($member['window'], gmdate('Y-m-d H:i:s'));
-            $member['transition'] = (new BudgetReservationStateMachine())->reserve($snapshot, $estimate,
-                $pricing->price->currency, (string) $policy->enforcement === 'soft');
+            if (!BudgetSpendGate::allowsWindowCall((string) $policy->enforcement, $snapshot)) {
+                throw new ApiProblem('SAND_AI_BUDGET_EXCEEDED', BudgetSpendGate::EXHAUSTED_MESSAGE);
+            }
+            // A reservation row needs a price revision foreign key; an
+            // unpriced call owns none but is still judged by the check above.
+            $member['transition'] = $priced
+                ? (new BudgetReservationStateMachine())->reserve($snapshot, $estimate,
+                    $pricing->price->currency, true)
+                : null;
         }
         unset($member);
+        if (!$priced) { return null; }
         $expires = gmdate('Y-m-d H:i:s', time() + 3600);
         foreach ($windows as $member) {
             $policy = $member['policy']; $window = $member['transition']['window'];
@@ -114,7 +119,7 @@ final class AudioBudgetGuard
             if (count($rows) !== 1) { throw new ApiProblem('SAND_AI_BUDGET_RESERVATION_MISSING', 'ASR budget reservation failed'); }
             $id = (int) $rows[0]['id']; $anchor ??= $id;
             Db::connect('pgsql')->execute('INSERT INTO sand_ai_budget_event (policy_id,reservation_id,external_audio_dispatch_id,audio_task_run_id,audio_execution_id,event_type,amount,currency,idempotency_key,snapshot) VALUES (?,?,?,?,?,\'reserve\',CAST(? AS numeric(20,6)),?,?,CAST(? AS jsonb))',
-                [(int) $policy->id,$id,$dispatchId,$dispatchId === null ? $taskId : null,$executionId,$estimate,$pricing->price->currency,'reservation:' . $id . ':reserve',json_encode(['price_revision_id'=>$pricing->price->revisionId,'audio_seconds'=>$seconds->value],JSON_THROW_ON_ERROR)]);
+                [(int) $policy->id,$id,$dispatchId,$dispatchId === null ? $taskId : null,$executionId,$estimate,$pricing->price->currency,'reservation:' . $id . ':reserve',json_encode(['price_revision_id'=>$pricing->price->revisionId,'audio_seconds'=>$seconds?->value],JSON_THROW_ON_ERROR)]);
         }
         return $anchor;
     }

@@ -28,9 +28,6 @@ final class KnowledgeProfessionalRerankSoftBudget
                 || !in_array((string) $policy->unmeasured_policy, ['allow', 'hold'], true)) {
                 throw new ApiProblem('SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE', 'Unbounded cost requires an executable soft policy');
             }
-            if ($price->revisionId === null && (string) $policy->unpriced_policy === 'block') {
-                throw new ApiProblem('SAND_AI_BUDGET_UNPRICED', 'This soft policy blocks unpublished prices');
-            }
             if ($price->currency !== null && $price->currency !== (string) $policy->currency) {
                 throw new ApiProblem('SAND_AI_BUDGET_CURRENCY_MISMATCH', 'Professional price differs from soft budget currency');
             }
@@ -83,23 +80,6 @@ final class KnowledgeProfessionalRerankSoftBudget
         $windows = BudgetWindow::whereIn('policy_id', $policyIds)->order('policy_id')->lock(true)->select()->all();
         if (count($windows) !== count($policyIds)) throw new ApiProblem('SAND_AI_BUDGET_WINDOW_MISSING', 'Hard capacity pending-cost window is unavailable');
         if ($pendingIds !== []) $db->table('sand_ai_rerank_soft_budget')->whereIn('id', array_values(array_unique($pendingIds)))->order('policy_id')->order('id')->lock(true)->select();
-    }
-
-    /** Call under the existing current scope/policy selection locks. */
-    public static function assertHardCapacityPolicies(array $currentPolicies): void
-    {
-        foreach ($currentPolicies as $policy) {
-            if ((string) $policy->enforcement !== 'hard') continue;
-            $pending = Db::connect('pgsql')->table('sand_ai_rerank_soft_budget')->alias('pending')
-                ->join('sand_ai_budget_policy original_policy', 'original_policy.id=pending.policy_id')
-                ->where('original_policy.scope_kind', (string) $policy->scope_kind)
-                ->where('original_policy.scope_ref', (string) $policy->scope_ref)
-                ->where('original_policy.period_start', '<', (string) $policy->period_end)
-                ->where('original_policy.period_end', '>', (string) $policy->period_start)
-                ->whereIn('pending.state', ['prepared', 'held'])->field('pending.id')->find();
-            if ($pending !== null) throw new ApiProblem('SAND_AI_BUDGET_CAPACITY_UNVERIFIED',
-                'An original professional soft cost in this hard budget scope remains unquantified; dispatch was not sent');
-        }
     }
 
     /** Lock all original windows before pending rows and invocation/dispatch owners. */

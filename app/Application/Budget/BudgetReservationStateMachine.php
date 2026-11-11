@@ -47,7 +47,7 @@ final class BudgetReservationStateMachine
         $this->currency($summary['currency'], $currency);
         if (!$allowOverrun && $summary['available_amount'] !== null
             && BudgetDecimal::compare($amount, $summary['available_amount']) > 0) {
-            throw new ApiProblem('SAND_AI_BUDGET_EXCEEDED', 'budget reservation exceeds available amount');
+            throw new ApiProblem('SAND_AI_BUDGET_EXCEEDED', '本月预算已用完，可以去费用页调高预算');
         }
         $summary['reserved_amount'] = BudgetDecimal::add($summary['reserved_amount'], $amount);
         unset($summary['available_amount']);
