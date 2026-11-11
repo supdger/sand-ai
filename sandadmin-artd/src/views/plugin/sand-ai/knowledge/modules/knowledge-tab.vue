@@ -113,7 +113,10 @@
                 <template #dropdown>
                   <ElDropdownMenu>
                     <ElDropdownItem v-if="row.state === 'draft'" command="publish">发布</ElDropdownItem>
+                    <ElDropdownItem v-if="row.state === 'disabled' && row.active_version_id" command="enable">启用</ElDropdownItem>
                     <ElDropdownItem v-if="row.state === 'published'" command="disable" divided>停用</ElDropdownItem>
+                    <ElDropdownItem v-if="row.state === 'disabled'" command="retire" divided>删除</ElDropdownItem>
+                    <ElDropdownItem v-else disabled divided>删除（先停用才能删）</ElDropdownItem>
                   </ElDropdownMenu>
                 </template>
               </ElDropdown>
@@ -202,7 +205,7 @@
           type="success"
           :closable="false"
           class="detail-alert"
-          title="建好了，现在加几份资料吧"
+          title="还没建好，先选几份资料"
         />
         <dl class="detail-meta">
           <dt>说明</dt>
@@ -649,7 +652,6 @@
     detailRow.value = null
     pendingDetail.value = pendingKnowledgeBase.value
     detailOpen.value = true
-    ElMessage.success('建好了，现在加几份资料吧')
   }
 
   function resetCreateForm(): void {
@@ -751,7 +753,7 @@
       pendingKnowledgeBase.value = null
       filePickerOpen.value = false
       closeDetail()
-      ElMessage.success('知识库已建好，正在整理资料')
+      ElMessage.success(`已新建知识库「${pending.name}」`)
       await load()
       const created = rows.value.find((row) => row.id === draft.knowledge_base.id)
       if (created !== undefined) openDetail(created)
@@ -840,9 +842,68 @@
     }
   }
 
+  function knowledgeDeleteReason(error: unknown): string {
+    const raw = error instanceof Error ? error.message : ''
+    if (raw.includes('publication')) return '还有应用在用这个知识库，先解除后再删'
+    if (raw.includes('vector') || raw.includes('sources')) return '资料引用还在，请稍后再试'
+    return errorDisplayText(error, '删除没有成功，请稍后再试。')
+  }
+
+  async function confirmEnable(row: KnowledgeBaseRow): Promise<void> {
+    const envId = props.environmentId
+    if (envId === null || disablingId.value !== null) return
+    disablingId.value = row.id
+    const mark = identity.capture()
+    const current = generation
+    try {
+      await knowledgeApi.enable(envId, row.id, crypto.randomUUID())
+      if (!alive || current !== generation || !identity.current(mark)) return
+      ElMessage.success(`已启用「${row.name}」`)
+      await load()
+    } catch (error) {
+      if (!alive || current !== generation || !identity.current(mark)) return
+      ElMessage.error(errorDisplayText(error, '启用没有成功，请稍后再试。'))
+    } finally {
+      if (alive && current === generation) disablingId.value = null
+    }
+  }
+
+  async function confirmRetire(row: KnowledgeBaseRow): Promise<void> {
+    const envId = props.environmentId
+    if (envId === null || row.state !== 'disabled' || disablingId.value !== null) return
+    try {
+      await ElMessageBox.confirm(
+        '删除后不能恢复。用过的费用记录会保留。',
+        `删除「${row.name}」？`,
+        { confirmButtonText: '删除', cancelButtonText: '再想想', type: 'warning' }
+      )
+    } catch {
+      return
+    }
+    disablingId.value = row.id
+    const mark = identity.capture()
+    const current = generation
+    try {
+      await knowledgeApi.purgeEmbeddingIndex(envId, row.id, crypto.randomUUID())
+      await knowledgeApi.purgeSources(envId, row.id, crypto.randomUUID())
+      await knowledgeApi.retire(envId, row.id, crypto.randomUUID())
+      if (!alive || current !== generation || !identity.current(mark)) return
+      ElMessage.success(`已删除「${row.name}」`)
+      await load()
+      closeDetail()
+    } catch (error) {
+      if (!alive || current !== generation || !identity.current(mark)) return
+      ElMessage.error(knowledgeDeleteReason(error))
+    } finally {
+      if (alive && current === generation) disablingId.value = null
+    }
+  }
+
   function onRowCommand(command: unknown, row: KnowledgeBaseRow): void {
     if (command === 'publish') void publishDraft(row)
     else if (command === 'disable') void confirmDisable(row)
+    else if (command === 'enable') void confirmEnable(row)
+    else if (command === 'retire') void confirmRetire(row)
   }
 
   function openTrial(row: KnowledgeBaseRow): void {

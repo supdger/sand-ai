@@ -346,6 +346,8 @@ Route::group('/app/sand-ai/admin/knowledge-bases', function (): void {
     Route::get('/publish/by-request-key', [AdminKnowledgeBaseController::class, 'publishByRequestKey']);
     Route::post('/publish', [AdminKnowledgeBaseController::class, 'publish']);
     Route::post('/disable', [AdminKnowledgeBaseController::class, 'disable']);
+    Route::post('/enable', [AdminKnowledgeBaseController::class, 'enable']);
+    Route::post('/retire', [AdminKnowledgeBaseController::class, 'retire']);
     Route::post('/trial', [AdminKnowledgeBaseController::class, 'trial']);
     Route::post('/publications/publish', [AdminKnowledgeBaseController::class, 'publishPublication']);
     Route::post('/publications/revoke', [AdminKnowledgeBaseController::class, 'revokePublication']);
@@ -405,6 +407,7 @@ Route::group('/app/sand-ai/admin/agents/definitions', function (): void {
     Route::post('/draft', [AdminAgentDefinitionController::class, 'draft']);
     Route::post('/publish', [AdminAgentDefinitionController::class, 'publish']);
     Route::post('/disable', [AdminAgentDefinitionController::class, 'disable']);
+    Route::post('/retire', [AdminAgentDefinitionController::class, 'retire']);
     Route::get('/read', [AdminAgentDefinitionController::class, 'read']);
     Route::get('/index', [AdminAgentDefinitionController::class, 'index']);
     Route::get('/versions', [AdminAgentDefinitionController::class, 'versions']);

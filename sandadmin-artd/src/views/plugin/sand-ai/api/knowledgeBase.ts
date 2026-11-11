@@ -72,6 +72,20 @@ function isKnowledgeDisableResult(value: unknown, knowledgeBaseId: number): valu
     && typeof value.idempotent_replay === 'boolean'
 }
 
+function isKnowledgeEnabled(value: unknown, knowledgeBaseId: number): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const base = 'knowledge_base' in value ? value.knowledge_base : null
+  return typeof base === 'object' && base !== null && !Array.isArray(base)
+    && 'id' in base && base.id === knowledgeBaseId
+    && 'state' in base && base.state === 'published'
+}
+
+function isKnowledgeRetired(value: unknown, knowledgeBaseId: number): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    && 'knowledge_base_id' in value && value.knowledge_base_id === knowledgeBaseId
+    && 'state' in value && value.state === 'deleted'
+}
+
 function isKnowledgeVectorsPurge(value: unknown, knowledgeBaseId: number): value is KnowledgeVectorsPurge {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     && 'knowledge_base_id' in value && value.knowledge_base_id === knowledgeBaseId
@@ -360,6 +374,28 @@ export default {
       throw new Error('停用响应与原知识库不一致，请保留原请求号继续确认')
     }
     return result
+  },
+  async enable(environmentId: number, knowledgeBaseId: number, key: string): Promise<void> {
+    const result: unknown = await request.post<unknown>({
+      url: `${base}/enable`,
+      data: { environment_id: environmentId, knowledge_base_id: knowledgeBaseId },
+      headers: { 'Idempotency-Key': key },
+      showErrorMessage: false
+    })
+    if (!isKnowledgeEnabled(result, knowledgeBaseId)) {
+      throw new Error('启用响应与原知识库不一致，请刷新后再看')
+    }
+  },
+  async retire(environmentId: number, knowledgeBaseId: number, key: string): Promise<void> {
+    const result: unknown = await request.post<unknown>({
+      url: `${base}/retire`,
+      data: { environment_id: environmentId, knowledge_base_id: knowledgeBaseId },
+      headers: { 'Idempotency-Key': key },
+      showErrorMessage: false
+    })
+    if (!isKnowledgeRetired(result, knowledgeBaseId)) {
+      throw new Error('删除响应与原知识库不一致，请刷新后再看')
+    }
   },
   async purgeEmbeddingIndex(environmentId: number, knowledgeBaseId: number, key: string): Promise<KnowledgeVectorsPurge> {
     const result: unknown = await request.post<unknown>({
