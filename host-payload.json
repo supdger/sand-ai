@@ -3280,7 +3280,7 @@
     },
     {
       "path": "app/Infrastructure/Agent/NeuronControlledProvider.php",
-      "sha256": "aa23662082f8c4ceca05e4a6330852ea7f13d11cd5d40acaad27d0a604a17597"
+      "sha256": "f0e327ea3f8eb6ed5f65177059945d30f39205aad6d0896640628956f24f4bce"
     },
     {
       "path": "app/Infrastructure/Agent/NeuronKnowledgeConversationSummarization.php",
@@ -3744,7 +3744,7 @@
     },
     {
       "path": "app/Infrastructure/Provider/AgentToolChatRequest.php",
-      "sha256": "86518d6d84ce67c73a618b5dd12dc09fd297ee61d67b0da85ab2c28dda752eef"
+      "sha256": "de45387ed528d1ff446360978da80ec4f8b8750b19133c72e61dc06da5444880"
     },
     {
       "path": "app/Infrastructure/Provider/AgentToolProviderOutcome.php",
