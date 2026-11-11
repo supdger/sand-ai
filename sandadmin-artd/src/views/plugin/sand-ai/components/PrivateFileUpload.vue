@@ -90,7 +90,10 @@ async function acceptReceipt(receipt: UploadReceipt, original: Pending, credenti
   sessionStorage.removeItem(storageKey)
   if (sessionStorage.getItem(storageKey) !== null) throw new Error('原记录仍待确认')
   pending.value = null; retryAllowed.value = false; problem.value = false
-  message.value = file.state === 'deleted' ? '原文件已删除，不会重新上传。' : `已找回文件 #${file.id}。`
+  const uploadedName = file.original_name.trim()
+  message.value = file.state === 'deleted'
+    ? '原文件已删除，不会重新上传。'
+    : (uploadedName === '' ? '已上传' : `已上传「${uploadedName}」`)
   emit('file', file)
 }
 /** Only this new POST's exact pre-intent rejection can release its local slot. */

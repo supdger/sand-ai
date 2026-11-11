@@ -47,9 +47,9 @@
         </el-select>
       </el-form-item>
       <el-form-item label="状态" prop="status">
-        <el-radio-group v-model="formData.status" aria-label="模型状态">
-          <el-radio :value="1">启用</el-radio>
-          <el-radio :value="2">停用</el-radio>
+        <el-radio-group v-model="formData.status" aria-label="模型状态" class="status-radio-group">
+          <el-radio :value="1" @click="formData.status = 1">启用</el-radio>
+          <el-radio :value="2" @click="formData.status = 2">停用</el-radio>
         </el-radio-group>
       </el-form-item>
     </el-form>
@@ -321,3 +321,10 @@
   }, { flush: 'sync' })
   onUnmounted(() => { live = false; ++epoch; clearPrivateForm() })
 </script>
+
+<style scoped lang="scss">
+  /* 停用单选首次点击被视觉层 span 拦截：内层圆圈穿透，点击落到原生 input。 */
+  .status-radio-group :deep(.el-radio__inner) {
+    pointer-events: none;
+  }
+</style>

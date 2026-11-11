@@ -116,9 +116,9 @@
         </div>
       </el-form-item>
       <el-form-item label="状态" prop="status">
-        <el-radio-group v-model="formData.status" aria-label="服务商状态">
-          <el-radio :value="1">启用</el-radio>
-          <el-radio :value="2">停用</el-radio>
+        <el-radio-group v-model="formData.status" aria-label="服务商状态" class="status-radio-group">
+          <el-radio :value="1" @click="formData.status = 1">启用</el-radio>
+          <el-radio :value="2" @click="formData.status = 2">停用</el-radio>
         </el-radio-group>
       </el-form-item>
     </el-form>
@@ -149,7 +149,7 @@
   import providerApi from '../../api/provider'
   import { generateCatalogCode } from '../../api/catalogCode'
   import { HttpError } from '@/utils/http/error'
-  import { errorDisplayText } from '../../api/errorText'
+  import { connectionTestFailureText, errorDisplayText } from '../../api/errorText'
   import { egressBlockedDetails, type EgressBlockedDetails } from '../../api/egressBlocked'
   import EgressBlockedHint from '../../components/EgressBlockedHint.vue'
   import type { DiscoveredModel, ProviderGuide } from '../../api/onboarding'
@@ -294,19 +294,15 @@
       const result = await providerApi.testConnection(payload)
       testResult.value = {
         ok: true,
-        message: `连接成功，发现 ${result.models.length} 个可用模型`,
+        message: result.models.length > 0 ? `连上了，发现 ${result.models.length} 个可用模型` : '连上了',
         models: Array.isArray(result.models) ? result.models : []
       }
     } catch (error) {
       const blocked = egressBlockedDetails(error)
-      let message = '连接失败，请检查接口地址和 API Key 后重试'
+      let message = connectionTestFailureText(error)
       if (blocked !== null) {
         egressHint.value = blocked
         message = '连接被安全策略拦下，请按弹窗提示处理。'
-      } else if (error instanceof HttpError) {
-        if (error.transport === 'timeout') message = '连接超时，请检查网络后重试'
-        else if (error.transport === 'network') message = '网络不通，无法连接到服务器，请检查后重试'
-        else message = errorDisplayText(error, message)
       }
       testResult.value = { ok: false, message, models: [] }
     } finally {
@@ -568,6 +564,11 @@
   .api-key-field,
   .test-connection {
     width: 100%;
+  }
+
+  /* 停用单选首次点击被视觉层 span 拦截：内层圆圈穿透，点击落到原生 input。 */
+  .status-radio-group :deep(.el-radio__inner) {
+    pointer-events: none;
   }
 
   .model-tag {
