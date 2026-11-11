@@ -419,6 +419,7 @@ Route::group('/app/sand-ai/admin/channels/bindings', function (): void {
     Route::get('/operations/by-request-key', [AdminChannelBindingController::class, 'readOperationByRequestKey']);
     Route::post('/save', [AdminChannelBindingController::class, 'save']);
     Route::post('/disable', [AdminChannelBindingController::class, 'disable']);
+    Route::post('/retire', [AdminChannelBindingController::class, 'retire']);
     Route::post('/deliveries/retry', [AdminChannelBindingController::class, 'retryDelivery']);
     Route::get('/deliveries/retry/by-request-key', [AdminChannelBindingController::class, 'readDeliveryRetryByRequestKey']);
     Route::post('/wecom-deliveries/retry', [AdminChannelBindingController::class, 'retryWecomDelivery']);
@@ -456,6 +457,7 @@ Route::group('/app/sand-ai/admin/ai-workflows', function (): void {
     Route::post('/save-draft', [$controller, 'saveDraft']);
     Route::post('/publish', [$controller, 'publish']);
     Route::post('/disable', [$controller, 'disable']);
+    Route::post('/retire', [$controller, 'retire']);
 })->middleware([CheckLogin::class, CheckAuth::class]);
 
 Route::post('/api/sand-ai/v1/ai-workflows/{code}/versions/{version}/runs', [\app\Api\Controller\CompositionController::class, 'submit']);

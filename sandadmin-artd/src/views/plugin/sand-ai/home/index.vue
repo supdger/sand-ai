@@ -74,6 +74,7 @@
           <ElButton v-if="intent" :loading="busy === 'recover'" :disabled="Boolean(busy)" @click="recoverActivation">
             找回原开通状态
           </ElButton>
+          <ElButton v-if="intent" :disabled="Boolean(busy)" @click="abandonActivation">放弃此次变更</ElButton>
           <ElAlert v-if="intentStorageError" type="error" :closable="false"
             title="本机的原开通记录无法确认，已锁定写入。请恢复浏览器会话存储后找回原状态。" />
           <ElAlert v-if="ambiguous" type="warning" :closable="false"
@@ -234,12 +235,15 @@
   import type { SandAiModel, SandAiProvider, SandAiUsageSummary } from '../api/types'
   import { formatMoney } from '../usage/modules/usagePeriod'
   import {
+    abandonHomeActivationIntent,
     readHomeActivationIntent,
     retainHomeActivationIntent,
     resolveHomeActivationIntent,
     updateHomeActivationIntent,
     type HomeActivationIntent
   } from '../api/homeActivationIntent'
+  import { isWriteRejected, writeRejectionText } from '../api/writeRejection'
+  import { confirmAbandonPendingWrite } from '../composables/pendingWrite'
   import ExpertSelectionHelp from '../components/ExpertSelectionHelp.vue'
   import { useSetupBootstrap } from '../composables/useSetupBootstrap'
   import { describeBoundaryFault, problemInfoText } from '../composables/errorBoundary'
@@ -759,6 +763,12 @@
           }
           current = persistIntent({ ...current, phase: 'published' })
         } catch (error) {
+          if (isWriteRejected(error)) {
+            abandonHomeActivationIntent(current.admin_id)
+            intent.value = null
+            notice(writeRejectionText(error, '这次启用被拒绝了。'), 'error')
+            return
+          }
           if (conflictError(error)) {
             conflict.value = '模型修订在启用前已变化，请找回原开通状态核对当前修订。'
           }
@@ -798,7 +808,11 @@
       notice('默认对话模型已启用，可以开始试用。', 'success')
       await refreshStatus()
     } catch (error) {
-      if (conflictError(error)) {
+      if (isWriteRejected(error)) {
+        abandonHomeActivationIntent(current.admin_id)
+        intent.value = null
+        notice(writeRejectionText(error, '这次绑定被拒绝了。'), 'error')
+      } else if (conflictError(error)) {
         conflict.value = '目标环境已有其他已启用配置，请到「能力配置」核对后再绑定。'
         notice('目标环境已有其他已启用配置，请先核对；不会覆盖现有配置。', 'warning')
       } else {
@@ -806,6 +820,17 @@
       }
     }
     return current
+  }
+
+  function abandonActivation(): void {
+    const adminId = Number(userStore.info.id)
+    if (!Number.isSafeInteger(adminId) || adminId < 1) return
+    confirmAbandonPendingWrite(() => {
+      abandonHomeActivationIntent(adminId)
+      intent.value = null
+      conflict.value = ''
+      ambiguous.value = false
+    })
   }
 
   /** 结果未确认时只读找回：按意图阶段逐步确认事实，绝不重发已发送的写请求。 */

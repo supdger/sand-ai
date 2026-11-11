@@ -79,6 +79,24 @@ final class ChannelBindingGateway
         });
     }
 
+    /** @return array{channel_binding_id:int,state:string} */
+    public function retire(int $environmentId, int $id, string $actor): array
+    {
+        $this->requireEnvironment($environmentId);
+        if ($id <= 0 || trim($actor) === '') self::invalid();
+        return Db::connect('pgsql')->transaction(function () use ($environmentId, $id, $actor): array {
+            $this->lock($environmentId . ':channel-binding:retire:' . $id);
+            $db = Db::connect('pgsql');
+            $rows = $db->query('SELECT * FROM sand_ai_channel_binding WHERE environment_id=? AND id=? AND delete_time IS NULL FOR UPDATE', [$environmentId, $id]);
+            if ($rows === []) throw new ApiProblem('SAND_AI_RESOURCE_NOT_FOUND', '找不到这条渠道，请刷新列表。');
+            $reason = ChannelBindingPolicy::retireRefusal((int) $rows[0]['status']);
+            if ($reason !== null) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', $reason);
+            $db->execute('UPDATE sand_ai_channel_binding SET delete_time=CURRENT_TIMESTAMP(0), updated_by=?, update_time=CURRENT_TIMESTAMP(0) WHERE id=? AND delete_time IS NULL', [$actor, $id]);
+            $this->audit($actor, 'channel_binding.retire', $id, (int) $rows[0]['revision']);
+            return ['channel_binding_id' => $id, 'state' => 'deleted'];
+        });
+    }
+
     /** Reads the existing immutable operation proof; never repeats a binding mutation.
      * @param callable():void $revalidateAdmin @return array<string,mixed>
      */

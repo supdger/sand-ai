@@ -32,7 +32,7 @@ export interface CompositionRunCost {
   nodes: { node_code: string; state: string; coverage: 'complete' | 'pending'; rows: SandAiUsageSummaryRow[]; charge?: CompositionNodeCharge }[]
 }
 export interface CompositionReceipt { definition_id: number; version_id: number | null; code: string; version_no: number | null; revision: number; state: string; snapshot_sha256: string | null }
-export type CompositionOperation = 'draft' | 'publish' | 'disable'
+export type CompositionOperation = 'draft' | 'publish' | 'disable' | 'retire'
 const base = '/app/sand-ai/admin/ai-workflows'
 const headers = (key: string) => ({ 'Idempotency-Key': key })
 export default {
@@ -43,6 +43,7 @@ export default {
   save(data: { environment_id: number; code: string; name: string; expected_revision: number; graph: CompositionGraph; version_id?: number }, key: string) { return request.post<CompositionReceipt>({ url: `${base}/save-draft`, data, headers: headers(key), showErrorMessage: false }) },
   publish(environmentId: number, code: string, revision: number, key: string, versionId?: number) { return request.post<CompositionReceipt>({ url: `${base}/publish`, data: { environment_id: environmentId, code, expected_revision: revision, ...(versionId === undefined ? {} : { version_id: versionId }) }, headers: headers(key), showErrorMessage: false }) },
   disable(environmentId: number, code: string, key: string) { return request.post<CompositionReceipt>({ url: `${base}/disable`, data: { environment_id: environmentId, code }, headers: headers(key), showErrorMessage: false }) },
+  retire(environmentId: number, code: string, key: string) { return request.post<CompositionReceipt>({ url: `${base}/retire`, data: { environment_id: environmentId, code }, headers: headers(key), showErrorMessage: false }) },
   submit(apiKey: string, code: string, version: number, input: Record<string, JsonValue>, key: string) { return runtimeRequest<CompositionRun>({ method: 'POST', path: `/ai-workflows/${encodeURIComponent(code)}/versions/${version}/runs`, apiKey, data: { input }, headers: headers(key) }) },
   recover(apiKey: string, code: string, version: number, key: string) { return runtimeRequest<CompositionRun>({ method: 'GET', path: '/ai-workflow-runs/by-request-key', apiKey, params: { code, version, request_key: key } }) },
   run(apiKey: string, id: number) { return runtimeRequest<CompositionRun>({ method: 'GET', path: `/ai-workflow-runs/${id}`, apiKey }) },

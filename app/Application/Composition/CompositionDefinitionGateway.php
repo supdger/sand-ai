@@ -81,6 +81,11 @@ final class CompositionDefinitionGateway
                 $authorize();
                 $version = Db::connect('pgsql')->query("UPDATE sand_ai_composition_version SET state='published',snapshot=CAST(? AS jsonb),snapshot_sha256=?,published_time=CURRENT_TIMESTAMP(0) WHERE id=? RETURNING *", [CompositionGraphPolicy::json($snapshot), CompositionGraphPolicy::digest($snapshot), (int) $version['id']])[0];
                 Db::connect('pgsql')->execute("UPDATE sand_ai_composition_definition SET state='published',status=1,active_version_id=?,updated_by=?,update_time=CURRENT_TIMESTAMP(0) WHERE id=?", [(int) $version['id'], $actor, (int) $definition['id']]);
+            } elseif ($operation === 'retire') {
+                $blocked = self::retireBlocked((string) $definition['state']);
+                if ($blocked !== null) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', $blocked);
+                Db::connect('pgsql')->execute('UPDATE sand_ai_composition_definition SET delete_time=CURRENT_TIMESTAMP(0), updated_by=?, update_time=CURRENT_TIMESTAMP(0) WHERE id=? AND delete_time IS NULL', [$actor, (int) $definition['id']]);
+                $version = ['id' => 0, 'version_no' => 0, 'revision' => 0, 'state' => 'deleted', 'snapshot_sha256' => ''];
             } elseif ($operation === 'disable') {
                 $versions = Db::connect('pgsql')->query('SELECT * FROM sand_ai_composition_version WHERE id=?', [(int) $definition['active_version_id']]);
                 if ($versions === []) self::missing();
@@ -92,7 +97,7 @@ final class CompositionDefinitionGateway
             $authorize();
             $result = ['definition_id' => (int) $definition['id'], 'version_id' => (int) $version['id'], 'code' => $code,
                 'version_no' => (int) $version['version_no'], 'revision' => (int) $version['revision'],
-                'state' => $operation === 'disable' ? 'disabled' : (string) $version['state'], 'snapshot_sha256' => (string) $version['snapshot_sha256']];
+                'state' => $operation === 'disable' ? 'disabled' : ($operation === 'retire' ? 'deleted' : (string) $version['state']), 'snapshot_sha256' => (string) $version['snapshot_sha256']];
             \app\Infrastructure\Persistence\Model\AuditLog::create(['actor_type' => 'admin', 'actor_ref' => $actor, 'action' => 'sand_ai.composition.' . $operation, 'resource_type' => 'composition_definition', 'resource_id' => (int) $definition['id'], 'summary' => 'AI 工作流配置变更', 'context' => ['version_no' => (int) $version['version_no'], 'snapshot_sha256' => (string) $version['snapshot_sha256']]]);
             Db::connect('pgsql')->execute('INSERT INTO sand_ai_composition_operation(environment_id,operation,request_key,actor_ref,fingerprint,definition_id,response) VALUES(?,?,?,?,?,?,CAST(? AS jsonb))', [$environmentId, $operation, $key, $actor, $fingerprint, (int) $definition['id'], CompositionGraphPolicy::json($result)]);
             return $result;
@@ -134,6 +139,13 @@ final class CompositionDefinitionGateway
     }
     private function definition(int $environmentId, string $code): array { $rows = Db::connect('pgsql')->query('SELECT * FROM sand_ai_composition_definition WHERE environment_id=? AND code=? AND delete_time IS NULL', [$environmentId, $code]); if ($rows === []) self::missing(); $row = $rows[0]; foreach (['id','environment_id'] as $field) $row[$field] = (int) $row[$field]; $row['active_version_id'] = $row['active_version_id'] === null ? null : (int) $row['active_version_id']; return $row; }
     private function environment(int $id): void { try { (new HostSandIamEnvironmentReferenceVerifier())->requireEnvironment($id); } catch (\app\Identity\Contract\IdentityContextException $exception) { throw \app\Api\Support\IdentityContextProblem::from($exception); } }
+    /** 已启用的工作流不能直接删。返回 null 表示可以删。 */
+    public static function retireBlocked(string $state): ?string
+    {
+        if ($state === 'published') return '先停用才能删';
+        return null;
+    }
+
     private function name(mixed $name): string { if (!is_string($name) || trim($name) === '' || strlen($name) > 300) self::invalid(); return trim($name); }
     public static function decode(mixed $value): array { $decoded = is_string($value) ? json_decode($value, true, 64, JSON_THROW_ON_ERROR) : $value; if (!is_array($decoded)) self::invalid(); return $decoded; }
     public static function key(string $key): void { if (trim($key) === '' || strlen($key) > 128) self::invalid(); }

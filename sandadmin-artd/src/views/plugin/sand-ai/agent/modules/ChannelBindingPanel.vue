@@ -46,6 +46,7 @@
           {{ item.operation === 'save' ? `保存渠道 ${item.code}` : '停用渠道' }}
           <ElButton link type="primary" :loading="bindingRecoveringKey === item.request_key"
             :disabled="!!bindingRecoveringKey" @click="confirmBindingMutation(item)">查看这次操作的结果</ElButton>
+          <ElButton link type="warning" :disabled="!!bindingRecoveringKey" @click="abandonBinding(item)">放弃此次变更</ElButton>
         </p>
       </div>
 
@@ -99,6 +100,8 @@
                   <ElDropdownItem v-if="row.feishu_configured || row.wecom_configured" @click="openToolsMenu(row)">聊天工具配置</ElDropdownItem>
                   <ElDropdownItem v-if="row.feishu_configured || row.wecom_configured" @click="showDeliveries(row)">回信记录</ElDropdownItem>
                   <ElDropdownItem v-if="row.status === 1" divided :disabled="writing || !!pendingBindingMutation" @click="disable(row)">停用</ElDropdownItem>
+                  <ElDropdownItem v-if="row.status !== 1" :disabled="writing || !!pendingBindingMutation" @click="retireChannel(row)">删除</ElDropdownItem>
+                  <ElDropdownItem v-else disabled>删除（先停用才能删）</ElDropdownItem>
                 </ElDropdownMenu>
               </template>
             </ElDropdown>
@@ -308,6 +311,8 @@
   import { requestAgentTrial, requestAgentTrialTask, isAgentTrialTerminal } from '../../api/adminTrial'
   import { newRuntimeRequestId } from '../../api/runtime'
   import { errorDisplayText } from '../../api/errorText'
+  import { isWriteRejected, writeRejectionText } from '../../api/writeRejection'
+  import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
   import { displayableRuntimeMessage, hintForRuntimeErrorCode } from '../../api/runtimeErrors'
   import iamApi, { type SandIamEnvironmentReference, type SandIamWorkloadClientReference } from '../../api/iam'
   import { AGENT_PAGE_BRIDGE } from '../pageBridge'
@@ -405,6 +410,12 @@
   }
   function completeBindingJournal(item: BindingJournalReference): boolean {
     return persistBindingJournal(bindingJournal.value.filter(existing => existing.request_key !== item.request_key))
+  }
+  function abandonBinding(item: BindingJournalReference): void {
+    confirmAbandonPendingWrite(() => {
+      completeBindingJournal(item)
+      error.value = ''
+    })
   }
   const feishuWriting = ref(false)
   const feishuVisible = ref(false)
@@ -1195,6 +1206,7 @@
     writingFlag.value = true
     error.value = ''
     let reference: BindingJournalReference | null = null
+    let rejected = false
     try {
       const hash = await channelBindingInputSha256(input)
       if (identity !== bindingIdentityEpoch || token !== userStore.accessToken || userId !== currentAdminId.value || environment.id !== props.environment?.id) return
@@ -1217,6 +1229,11 @@
       await load(1)
     } catch (failure) {
       if (identity === bindingIdentityEpoch && token === userStore.accessToken &&
+        reference && bindingIdentityCurrent(reference, identity, token) && isWriteRejected(failure)) {
+        completeBindingJournal(reference)
+        error.value = writeRejectionText(failure, '这次操作被拒绝了。')
+        rejected = true
+      } else if (identity === bindingIdentityEpoch && token === userStore.accessToken &&
         (!reference || bindingIdentityCurrent(reference, identity, token))) {
         error.value = `${errorDisplayText(failure, '渠道操作结果未确认')}；保留原请求，只读找回。`
       }
@@ -1224,8 +1241,30 @@
       if (bindingWriteOwner.value === owner) {
         bindingWriteOwner.value = null
         writingFlag.value = false
-        if (reference && bindingIdentityCurrent(reference, identity, token)) void confirmBindingMutation(reference)
+        if (!rejected && reference && bindingIdentityCurrent(reference, identity, token)) void confirmBindingMutation(reference)
       }
+    }
+  }
+  async function retireChannel(row: ChannelBindingRow): Promise<void> {
+    const environment = props.environment
+    if (!environment || writing.value || pendingBindingMutation.value || row.status === 1) return
+    try {
+      await ElMessageBox.confirm(`删除后「${row.name}」不能恢复。`, `删除「${row.name}」？`, {
+        type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想'
+      })
+    } catch {
+      return
+    }
+    writingFlag.value = true
+    error.value = ''
+    try {
+      await channelBindingApi.retire(environment.id, row.channel_binding_id)
+      ElMessage.success(`已删除「${row.name}」`)
+      await load(1)
+    } catch (failure) {
+      error.value = errorDisplayText(failure, '删除没有成功，请稍后再试。')
+    } finally {
+      writingFlag.value = false
     }
   }
   async function save(): Promise<void> {

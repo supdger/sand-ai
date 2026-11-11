@@ -43,6 +43,10 @@ function bindingRecord(value: unknown): value is Record<string, unknown> {
 function positiveBindingInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
+function isDeletedChannelReceipt(value: unknown, bindingId: number): boolean {
+  return bindingRecord(value) && value.channel_binding_id === bindingId && value.state === 'deleted'
+}
+
 export function isChannelBindingSnapshot(value: unknown): value is ChannelBindingSnapshot {
   if (!bindingRecord(value)) return false
   const fields = ['channel_binding_id', 'environment_id', 'code', 'name', 'agent_definition_id',
@@ -446,6 +450,14 @@ export default {
     })
     if (!isChannelBindingSnapshot(result)) throw new Error('渠道停用回执无法确认')
     return result
+  },
+  async retire(environmentId: number, bindingId: number): Promise<void> {
+    const result = await request.post<unknown>({
+      url: `${base}/retire`,
+      data: { environment_id: environmentId, channel_binding_id: bindingId },
+      showErrorMessage: false
+    })
+    if (!isDeletedChannelReceipt(result, bindingId)) throw new Error('渠道删除回执无法确认')
   },
   async operationByRequestKey(original: ChannelBindingOperationReference): Promise<ChannelBindingOperationRecovery> {
     const result = await request.get<unknown>({

@@ -50,14 +50,17 @@ function reportRaw(error: unknown): void {
  */
 export function errorDisplayText(error: unknown, fallback = '操作未完成，请稍后重试。'): string {
   if (error instanceof SandAiRuntimeError) {
-    const hint = hintForRuntimeErrorCode(error.errorCode)
-    if (hint) return hint
+    // 服务端已经给了中文原因时优先用它，通用码映射只作兜底。
     const text = displayableRuntimeMessage(error.message)
     if (text) return text
+    const hint = hintForRuntimeErrorCode(error.errorCode)
+    if (hint) return hint
     reportRaw(error)
     return fallback
   }
   if (error instanceof Error) {
+    const text = displayableRuntimeMessage(error.message)
+    if (text) return text
     const code = STABLE_CODE.exec(error.message)?.[0]
     if (code) {
       const hint = hintForRuntimeErrorCode(code)

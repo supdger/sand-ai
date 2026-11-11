@@ -31,6 +31,19 @@ final class ChannelBindingController extends SandAiAdminController
         });
     }
 
+    #[Permission('SandAI 删除渠道绑定', 'sand_ai:channel:binding:manage')]
+    public function retire(Request $request): Response
+    {
+        return $this->guard(function () use ($request): array {
+            $body = $this->body($request, ['environment_id', 'channel_binding_id']);
+            return (new ChannelBindingGateway())->retire(
+                $this->positiveInt($body['environment_id'] ?? null),
+                $this->positiveInt($body['channel_binding_id'] ?? null),
+                (string) $this->authenticatedAdminId()
+            );
+        });
+    }
+
     #[Permission('SandAI 停用渠道绑定', 'sand_ai:channel:binding:manage')]
     public function disable(Request $request): Response
     {
