@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onUnmounted, ref, watch } from 'vue'
+  import { computed, onUnmounted, reactive, ref, watch } from 'vue'
   import { ElMessage } from 'element-plus'
   import { Loading } from '@element-plus/icons-vue'
   import {
@@ -96,8 +96,9 @@
     return `会先查「${props.knowledgeName}」，再用配置的模型回答。试用调用会记账并算进预算。`
   })
 
+  /** 返回响应式 turn：applyResult/schedulePoll 经同一引用写字段，裸对象写入不会触发渲染。 */
   function createTurn(query: string): TrialTurn {
-    return { query, status: 'sending', answer: '', sources: [], reviewRequired: false, errorText: '' }
+    return reactive<TrialTurn>({ query, status: 'sending', answer: '', sources: [], reviewRequired: false, errorText: '' })
   }
 
   function sourcePosition(source: SandAiSourceReference): string {

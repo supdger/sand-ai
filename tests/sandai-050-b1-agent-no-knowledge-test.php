@@ -462,6 +462,14 @@ ok(str_contains($trialSource, 'trial-answer--error'),
     'trial: failed turn keeps the error display');
 ok(str_contains($trialSource, "turn.status === 'thinking' && typeof result.task_id === 'number'"),
     'trial: in-flight submit state keeps polling');
+// Every turn field write (submit, catch, poll and timeout paths) goes through
+// the same reference returned by createTurn, so the factory must hand out a
+// reactive proxy: writing a raw target stored inside turns.value never
+// triggers a re-render and terminal states would never reach the DOM.
+ok(str_contains($trialSource, 'reactive<TrialTurn>({ query'),
+    'trial: createTurn hands out a reactive turn so field writes re-render');
+ok(!str_contains($trialSource, 'return { query'),
+    'trial: createTurn no longer returns a raw object');
 
 // The transport layer: an empty-tools frozen request is routed to the same
 // text-only pinned contract as the paragraph stream, so it no longer trips
