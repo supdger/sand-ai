@@ -164,6 +164,7 @@ final class ChannelConversationGateway
     {
         $scope = $this->scope($channel);
         $this->assertAgentSnapshot($agent);
+        [$knowledgePredicate, $knowledgeParameters] = self::knowledgePredicate($agent, 'input');
         $rows = Db::connect('pgsql')->query(
             "SELECT id FROM sand_ai_task_run
              WHERE environment_id=? AND organization_id=? AND application_id=? AND workload_client_id=?
@@ -172,15 +173,12 @@ final class ChannelConversationGateway
                AND input#>>'{_channel,conversation_scope}'=?
                AND input#>>'{_channel,revision}'=?
                AND input#>>'{_agent_definition,version_id}'=?
-               AND input#>>'{_agent_definition,knowledge_publication_id}'=?
-               AND input#>>'{_agent_definition,knowledge_version_id}'=?
-               AND input#>>'{_agent_definition,knowledge_scope_sha256}'=?
+               {$knowledgePredicate}
              ORDER BY id DESC LIMIT ?",
             [$environmentId, $attribution->organizationId, $attribution->applicationId,
                 $attribution->workloadClientId, $beforeTaskId ?? PHP_INT_MAX,
                 (string) $channel['channel_binding_id'], $scope, (string) $channel['revision'],
-                (string) $agent['version_id'], (string) $agent['knowledge_publication_id'],
-                (string) $agent['knowledge_version_id'], $agent['knowledge_scope_sha256'], $limit],
+                (string) $agent['version_id'], ...$knowledgeParameters, $limit],
         );
         return array_map(static fn (array $row): int => (int) $row['id'], $rows);
     }
@@ -267,11 +265,11 @@ final class ChannelConversationGateway
                 AND NOT EXISTS (SELECT 1 FROM sand_ai_feishu_delivery d WHERE d.task_id=t.id AND d.environment_id=t.environment_id)
                 AND NOT EXISTS (SELECT 1 FROM sand_ai_wecom_delivery d WHERE d.task_id=t.id AND d.environment_id=t.environment_id)";
         }
+        [$knowledgePredicate, $knowledgeParameters] = self::knowledgePredicate($agent, 't.input');
         $parameters = [(int) $task->environment_id, $attribution->organizationId, $attribution->applicationId,
             $attribution->workloadClientId, (int) $task->id, $closedAfterTaskId,
             (string) $channel['channel_binding_id'], $scope, (string) $channel['revision'],
-            (string) $agent['version_id'], (string) $agent['knowledge_publication_id'],
-            (string) $agent['knowledge_version_id'], $agent['knowledge_scope_sha256']];
+            (string) $agent['version_id'], ...$knowledgeParameters];
         if ($platform !== null) $parameters[] = $platform;
         $rows = Db::connect('pgsql')->query(
             "SELECT t.id,t.state,t.input,t.result,count(*) OVER() AS eligible_turns FROM sand_ai_task_run t
@@ -282,9 +280,7 @@ final class ChannelConversationGateway
                AND t.input#>>'{_channel,conversation_scope}'=?
                AND t.input#>>'{_channel,revision}'=?
                AND t.input#>>'{_agent_definition,version_id}'=?
-               AND t.input#>>'{_agent_definition,knowledge_publication_id}'=?
-               AND t.input#>>'{_agent_definition,knowledge_version_id}'=?
-               AND t.input#>>'{_agent_definition,knowledge_scope_sha256}'=?
+               {$knowledgePredicate}
                {$platformPredicate}
                AND t.result#>>'{review_required}'='false'
              ORDER BY t.id DESC LIMIT ?",
@@ -300,7 +296,17 @@ final class ChannelConversationGateway
     /** @param array<string,mixed> $agent */
     private function assertAgentSnapshot(array $agent): void
     {
-        foreach (['version_id', 'knowledge_publication_id', 'knowledge_version_id'] as $field) {
+        if (!is_int($agent['version_id'] ?? null) || $agent['version_id'] < 1) {
+            throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'Channel agent snapshot is invalid');
+        }
+        // Agents published without a knowledge base freeze all three knowledge
+        // fields as null; a partially empty triple is never a valid snapshot.
+        if (($agent['knowledge_publication_id'] ?? null) === null
+            && ($agent['knowledge_version_id'] ?? null) === null
+            && ($agent['knowledge_scope_sha256'] ?? null) === null) {
+            return;
+        }
+        foreach (['knowledge_publication_id', 'knowledge_version_id'] as $field) {
             if (!is_int($agent[$field] ?? null) || $agent[$field] < 1) {
                 throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'Channel agent snapshot is invalid');
             }
@@ -309,6 +315,27 @@ final class ChannelConversationGateway
             || preg_match('/^[a-f0-9]{64}$/D', $agent['knowledge_scope_sha256']) !== 1) {
             throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'Channel agent snapshot is invalid');
         }
+    }
+
+    /**
+     * Agents without a knowledge base store JSON null in the frozen binding,
+     * which `#>>` projects as SQL NULL; equality never matches NULL, so the
+     * knowledge triple predicate must switch to IS NULL for those agents.
+     *
+     * @param array<string,mixed> $agent
+     * @return array{0:string,1:list<string>} SQL fragment and its parameters
+     */
+    private static function knowledgePredicate(array $agent, string $inputColumn): array
+    {
+        $fields = ['knowledge_publication_id', 'knowledge_version_id', 'knowledge_scope_sha256'];
+        $columns = array_map(static fn (string $field): string =>
+            "{$inputColumn}#>>'{_agent_definition,{$field}}'", $fields);
+        if ($agent['knowledge_publication_id'] === null) {
+            return [' AND ' . implode(' IS NULL AND ', $columns) . ' IS NULL', []];
+        }
+        return [' AND ' . implode('=? AND ', $columns) . '=?',
+            [(string) $agent['knowledge_publication_id'], (string) $agent['knowledge_version_id'],
+                $agent['knowledge_scope_sha256']]];
     }
 
     /** @param array<string,mixed> $channel */

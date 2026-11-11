@@ -738,7 +738,6 @@ final class AdminTrialService
             foreach ([
                 AdminTrialIamGateway::AGENT_SUBMIT_ACTION,
                 AdminTrialIamGateway::AGENT_RUN_ACTION,
-                AdminTrialIamGateway::KNOWLEDGE_QUERY_ACTION,
             ] as $action) {
                 if (!$iam->actionGrantActive($workloadClientId, $action)) {
                     throw new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
@@ -768,6 +767,14 @@ final class AdminTrialService
             'query' => trim($query),
             ...($conversationId === null ? [] : ['conversation_id' => $conversationId]),
         ]);
+        // Knowledge grants and the query action only apply when the published
+        // agent actually binds a knowledge base.
+        $knowledgeBound = $definition['config']['knowledge_base_code'] !== null;
+        if ($knowledgeBound && !$iam->actionGrantActive($workloadClientId, AdminTrialIamGateway::KNOWLEDGE_QUERY_ACTION)) {
+            $problem = new ApiProblem('SAND_AI_TRIAL_NOT_GRANTED', '这个应用还没开通试用功能，请先在应用授权里开通');
+            $this->auditDeniedAccess($adminId, $applicationId, 'trial.agent', $problem, $workloadClientId);
+            throw $problem;
+        }
 
         $requestId = 'atrial-agent:' . $adminId . ':' . bin2hex(random_bytes(8));
         RequestIdempotencyKey::preflight($request);
@@ -778,7 +785,7 @@ final class AdminTrialService
                 [
                     AdminTrialIamGateway::AGENT_SUBMIT_ACTION,
                     AdminTrialIamGateway::AGENT_RUN_ACTION,
-                    AdminTrialIamGateway::KNOWLEDGE_QUERY_ACTION,
+                    ...($knowledgeBound ? [AdminTrialIamGateway::KNOWLEDGE_QUERY_ACTION] : []),
                 ],
             );
         } catch (ApiProblem $problem) {

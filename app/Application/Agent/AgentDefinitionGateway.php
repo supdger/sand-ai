@@ -212,12 +212,10 @@ final class AgentDefinitionGateway
             }
             $config = AgentDefinitionPolicy::publishedConfig((string) $definition['code'], $version);
             (new AgentReadonlyToolCatalog())->assertCurrent($environmentId, AgentDefinitionPolicy::readonlyBindings($version));
-            if ($config['knowledge_base_code'] === null) {
-                throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'A published agent requires a knowledge base');
-            }
-            $publication = (new \app\Application\Knowledge\KnowledgePublicationGateway())
-                ->findForConsumer($environmentId, $config['knowledge_base_code']);
-            if ((int) $publication['owner_environment_id'] !== $environmentId) {
+            $publication = $config['knowledge_base_code'] === null ? null
+                : (new \app\Application\Knowledge\KnowledgePublicationGateway())
+                    ->findForConsumer($environmentId, $config['knowledge_base_code']);
+            if ($publication !== null && (int) $publication['owner_environment_id'] !== $environmentId) {
                 throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Agent knowledge must belong to this environment');
             }
             $models = (new ChatGateway())->availableModels($environmentId);
@@ -303,9 +301,11 @@ final class AgentDefinitionGateway
             if (!in_array($config['model'], array_column((new ChatGateway())->availableModels($environmentId), 'code'), true)) {
                 throw new ApiProblem('SAND_AI_MODEL_UNAVAILABLE', 'Agent model is not available in this environment');
             }
-            if ($config['knowledge_base_code'] === null) throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'Published agent has no knowledge base');
-            $publication = (new \app\Application\Knowledge\KnowledgePublicationGateway())->findForConsumer($environmentId, $config['knowledge_base_code']);
-            if ((int) $publication['owner_environment_id'] !== $environmentId) throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'Agent knowledge belongs to another environment');
+            $publication = $config['knowledge_base_code'] === null ? null
+                : (new \app\Application\Knowledge\KnowledgePublicationGateway())->findForConsumer($environmentId, $config['knowledge_base_code']);
+            if ($publication !== null && (int) $publication['owner_environment_id'] !== $environmentId) {
+                throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'Agent knowledge belongs to another environment');
+            }
             $db->execute('UPDATE sand_ai_agent_definition SET active_version_id=?,updated_by=?,update_time=CURRENT_TIMESTAMP(0) WHERE id=? AND environment_id=? AND status=1', [(int) $version['id'], $actor, $definitionId, $environmentId]);
             $result = ['agent_definition_id' => $definitionId, 'agent_version_id' => (int) $version['id'],
                 'code' => $definition['code'], 'version' => $versionNo, 'state' => 'published', 'snapshot_sha256' => $version['snapshot_sha256']];
@@ -367,12 +367,10 @@ final class AgentDefinitionGateway
         $readonly = AgentDefinitionPolicy::readonlyBindings($row);
         (new AgentReadonlyToolCatalog())->assertCurrent($environmentId, $readonly);
         $knowledgeCode = $config['knowledge_base_code'];
-        if ($knowledgeCode === null) {
-            throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'Published agent has no knowledge base');
-        }
-        $publication = (new \app\Application\Knowledge\KnowledgePublicationGateway())
-            ->findForConsumer($environmentId, $knowledgeCode);
-        if ((int) $publication['owner_environment_id'] !== $environmentId) {
+        $publication = $knowledgeCode === null ? null
+            : (new \app\Application\Knowledge\KnowledgePublicationGateway())
+                ->findForConsumer($environmentId, $knowledgeCode);
+        if ($publication !== null && (int) $publication['owner_environment_id'] !== $environmentId) {
             throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'Agent knowledge belongs to another environment');
         }
         return ['binding' => [
@@ -381,9 +379,9 @@ final class AgentDefinitionGateway
             'version_id' => (int) $row['id'],
             'code' => $code,
             'snapshot_sha256' => (string) $row['snapshot_sha256'],
-            'knowledge_publication_id' => (int) $publication['id'],
-            'knowledge_version_id' => (int) $publication['active_version_id'],
-            'knowledge_scope_sha256' => (string) $publication['source_scope_sha256'],
+            'knowledge_publication_id' => $publication === null ? null : (int) $publication['id'],
+            'knowledge_version_id' => $publication === null ? null : (int) $publication['active_version_id'],
+            'knowledge_scope_sha256' => $publication === null ? null : (string) $publication['source_scope_sha256'],
         ], 'config' => $config];
     }
 
@@ -392,9 +390,9 @@ final class AgentDefinitionGateway
     {
         if (!is_array($binding) || !is_int($binding['definition_id'] ?? null) || !is_int($binding['version_id'] ?? null)
             || !is_string($binding['code'] ?? null) || !is_string($binding['snapshot_sha256'] ?? null)
-            || !is_int($binding['knowledge_publication_id'] ?? null)
-            || !is_int($binding['knowledge_version_id'] ?? null)
-            || !is_string($binding['knowledge_scope_sha256'] ?? null)) {
+            || !self::nullableId($binding['knowledge_publication_id'] ?? null)
+            || !self::nullableId($binding['knowledge_version_id'] ?? null)
+            || !self::nullableHash($binding['knowledge_scope_sha256'] ?? null)) {
             throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'Agent binding is invalid');
         }
         $current = $this->resolve($environmentId, $binding['code']);
@@ -407,6 +405,18 @@ final class AgentDefinitionGateway
                 throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'Agent or knowledge version is no longer active');
             }
         }
+    }
+
+    /** Agents published without a knowledge base carry a null publication id. */
+    private static function nullableId(mixed $value): bool
+    {
+        return $value === null || (is_int($value) && $value >= 1);
+    }
+
+    /** Agents published without a knowledge base carry a null scope hash. */
+    private static function nullableHash(mixed $value): bool
+    {
+        return $value === null || (is_string($value) && preg_match('/^[a-f0-9]{64}$/D', $value) === 1);
     }
 
     private function definitionById(int $environmentId, int $id, bool $lock): array

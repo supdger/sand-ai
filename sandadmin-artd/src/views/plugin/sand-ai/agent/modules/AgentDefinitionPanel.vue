@@ -700,16 +700,12 @@
     finally { if (managementFlight.value === flight) managementFlight.value = null }
     return confirmed
   }
-  /** 保存草稿 → 启用最新草稿；未绑定知识库时停在草稿并说明，避免必然被服务端拒绝。 */
+  /** 保存草稿 → 启用最新草稿；不选知识库也可以启用，运行时只靠模型回答。 */
   async function saveAndEnable(): Promise<void> {
     if (writing.value) return
     const code = form.code.trim()
     const saved = await save()
     if (!saved) return
-    if (!form.knowledge_base_code.trim()) {
-      ElMessage.info('草稿已保存；启用前需要先选一个知识库')
-      return
-    }
     const row = rows.value.find(item => item.code === code)
     if (!row) {
       error.value = '已保存，但暂时读不到这个智能体，请刷新后再试。'
