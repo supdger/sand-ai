@@ -37,7 +37,8 @@ final class KnowledgeBaseGateway
         );
         $rows = $database->query(
             "SELECT kb.id,kb.code,kb.name,kb.description,kb.state,kb.active_version_id,
-                    active.version_no AS active_version_no,draft.id AS draft_version_id,
+                    active.version_no AS active_version_no,active.source_count AS active_source_count,
+                    draft.id AS draft_version_id,
                     draft.version_no AS draft_version_no,draft.source_count AS draft_source_count,
                     draft.snapshot_sha256 AS draft_snapshot_sha256,
                     kb.update_time,draft.create_time AS draft_create_time,
@@ -86,6 +87,8 @@ final class KnowledgeBaseGateway
                 'draft_version_id' => $row['draft_version_id'] === null ? null : (int) $row['draft_version_id'],
                 'draft_version_no' => $row['draft_version_no'] === null ? null : (int) $row['draft_version_no'],
                 'draft_source_count' => $row['draft_source_count'] === null ? null : (int) $row['draft_source_count'],
+                'active_source_count' => $row['active_source_count'] === null ? null : (int) $row['active_source_count'],
+                'material_count' => self::materialCount($row),
                 'draft_snapshot_sha256' => $row['draft_snapshot_sha256'] === null ? null : (string) $row['draft_snapshot_sha256'],
                 'update_time' => self::recentUpdateTime($row),
                 'source_state' => $sourceState,
@@ -579,6 +582,22 @@ final class KnowledgeBaseGateway
 
     /** @param array<string,mixed> $context */
     private function audit(string $actorRef, string $action, int $resourceId, array $context): void { AuditLog::create(['actor_type' => 'admin', 'actor_ref' => $actorRef, 'action' => $action, 'resource_type' => 'knowledge_base', 'resource_id' => $resourceId, 'summary' => 'SandAI knowledge base changed', 'context' => $context]); }
+    /** 产品面「资料数」：优先当前草稿版本段数，其次已发布版本段数；都没有资料时为 null。 */
+    private static function materialCount(array $row): ?int
+    {
+        foreach (['draft_source_count', 'active_source_count'] as $key) {
+            $count = $row[$key] ?? null;
+            if ($count === null) {
+                continue;
+            }
+            $count = (int) $count;
+            if ($count > 0) {
+                return $count;
+            }
+        }
+        return null;
+    }
+
     /** 产品面「最近更新」：取知识库行、当前草稿版本、已发布版本三个时间点的最大值。 */
     private static function recentUpdateTime(array $row): ?string
     {

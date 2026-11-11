@@ -75,5 +75,21 @@ ok($recent([
     'draft_create_time' => '2026-11-05 10:00:00',
 ]) === '2026-11-05 10:00:00', 'recent update: DateTime values normalised');
 
+$materials = new ReflectionMethod(KnowledgeBaseGateway::class, 'materialCount');
+$materials->setAccessible(true);
+$material = static fn (array $row): ?int => $materials->invoke(null, $row);
+
+// Draft segments win while a draft is open.
+ok($material(['draft_source_count' => 7, 'active_source_count' => 3]) === 7, 'material count: draft wins');
+
+// Published-only bases report the active version segment count.
+ok($material(['draft_source_count' => null, 'active_source_count' => 3]) === 3, 'material count: published fallback');
+ok($material(['active_source_count' => '4']) === 4, 'material count: numeric string normalised');
+
+// Empty or missing counts degrade to null so the UI shows a dash.
+ok($material(['draft_source_count' => 0, 'active_source_count' => null]) === null, 'material count: zero draft ignored');
+ok($material(['draft_source_count' => null, 'active_source_count' => 0]) === null, 'material count: zero published ignored');
+ok($material([]) === null, 'material count: empty row yields null');
+
 echo "sandai-050-b1-knowledge-list passed={$passed} failed={$failed}\n";
 exit($failed === 0 ? 0 : 1);

@@ -2,6 +2,7 @@
   <ElDialog :model-value="modelValue" title="设预算" width="480px"
     :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving"
     @update:model-value="emit('update:modelValue', $event)">
+    <p class="mb-3 text-xs text-gray-400">调整范围：{{ scopeLabel }}</p>
     <ElForm label-width="110px" @submit.prevent>
       <ElFormItem label="每月预算">
         <ElInputNumber v-model="limit" :min="0" :precision="2" :controls="false" placeholder="不填表示不设上限"
@@ -34,13 +35,14 @@
   import { computed, ref, watch } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { errorDisplayText } from '../../api/errorText'
-  import budgetApi, { type BudgetPolicyExpectation, type BudgetSummary } from '../../api/budget'
+  import budgetApi, { type BudgetPolicyExpectation, type BudgetScope, type BudgetSummary } from '../../api/budget'
   import { monthBoundsUtc, formatMoney } from './usagePeriod'
 
   /**
-   * 「设预算」弹窗：把 service/sand_ai 范围的按月预算翻译成草稿+启用两步调用。
+   * 「设预算」弹窗：把当前展示预算范围（缺省 service/sand_ai）的按月预算翻译成草稿+启用两步调用。
    * 同范围同月已有生效预算时先停用旧版本再启用新版本；覆盖本月但周期不同的
-   * 预算不在此弹窗处理，引导去费用核对。
+   * 预算不在此弹窗处理，引导去费用核对。组织与应用范围的写入需要验证环境见证，
+   * 本弹窗不收集，提示去「费用核对」调整。
    */
   const props = defineProps<{
     modelValue: boolean
@@ -50,6 +52,10 @@
     month: string
     /** 本月已花金额，按币种分列（只含已定价部分） */
     spendByCurrency: { currency: string; amount: string }[]
+    /** 费用页当前展示的已发布预算范围；缺省回到 service/sand_ai */
+    budgetScope?: BudgetScope | null
+    /** 该范围的人话标签，只读展示 */
+    budgetScopeLabel?: string
   }>()
   const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [] }>()
 
@@ -63,6 +69,12 @@
   const activeLoading = ref(false)
   const activeFailed = ref(false)
   let requestKey = ''
+
+  const targetScope = computed<BudgetScope>(() =>
+    props.budgetScope ?? { scope_kind: 'service', scope_ref: 'sand_ai' })
+  const scopeLabel = computed(() => props.budgetScopeLabel || '服务·SandAI')
+  const scopeNeedsWitness = computed(() =>
+    targetScope.value.scope_kind === 'organization' || targetScope.value.scope_kind === 'application')
 
   const currency = computed(() => activeSummary.value?.window.currency ?? pickSpendCurrency() ?? 'CNY')
 
@@ -97,7 +109,7 @@
     activeFailed.value = false
     activeLoading.value = true
     try {
-      const result = await budgetApi.active({ scope_kind: 'service', scope_ref: 'sand_ai' })
+      const result = await budgetApi.active(targetScope.value)
       activeSummary.value = result.active ? result.summary : null
     } catch (cause) {
       activeFailed.value = true
@@ -129,6 +141,10 @@
     }
     if (limit.value !== undefined && (!Number.isFinite(limit.value) || limit.value < 0)) {
       formError.value = '请填 0 或更大的数'
+      return
+    }
+    if (scopeNeedsWitness.value) {
+      formError.value = '组织或应用范围的预算需要验证环境，请到「费用核对」调整'
       return
     }
     const bounds = monthBoundsUtc(props.month, props.timezone)
@@ -165,8 +181,8 @@
     formError.value = ''
     try {
       const payload = {
-        scope_kind: 'service' as const,
-        scope_ref: 'sand_ai',
+        scope_kind: targetScope.value.scope_kind,
+        scope_ref: targetScope.value.scope_ref,
         period_start: bounds.from,
         period_end: bounds.to,
         currency: currency.value,
@@ -178,7 +194,8 @@
       }
       const saved = await budgetApi.saveDraft(payload, requestKey)
       if (saved.state === 'not_saved') throw new Error('服务端确认本次未保存；请核对后重试')
-      if (saved.scope_ref !== 'sand_ai' || !Number.isSafeInteger(saved.id))
+      if (saved.scope_kind !== targetScope.value.scope_kind || saved.scope_ref !== targetScope.value.scope_ref
+        || !Number.isSafeInteger(saved.id))
         throw new Error('保存收据与本次预算不一致；请到「费用核对」核对后再试')
       const expectedPolicy: BudgetPolicyExpectation = {
         revision: saved.revision,

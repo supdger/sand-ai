@@ -90,6 +90,14 @@ export default {
       showErrorMessage: false
     })
   },
+  /** 全范围已发布预算版本；不传 scope 时后端不过滤范围。 */
+  listPublished(page: number) {
+    return request.get<SandAiPage<BudgetPolicy>>({
+      url: `${prefix}/policy/index`,
+      params: { state: 'published', page, limit: 100 },
+      showErrorMessage: false
+    })
+  },
   readPolicy(id: number) {
     return request.get<BudgetPolicy>({
       url: `${prefix}/policy/read`, params: { id }, headers: { 'Cache-Control': 'no-store' }, showErrorMessage: false

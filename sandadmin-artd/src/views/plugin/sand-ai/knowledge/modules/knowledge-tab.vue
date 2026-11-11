@@ -500,12 +500,9 @@
     return value.slice(0, 16)
   }
 
-  /** 资料数：后端列表只投影草稿版本的资料段数，已发布版本的份数暂不可得，缺省显示 —。 */
+  /** 资料数：后端已按草稿优先、已发布兜底投影 material_count；无资料显示 —。 */
   function materialCount(row: KnowledgeBaseRow): string {
-    if (row.state === 'draft' && typeof row.draft_source_count === 'number' && row.draft_source_count > 0) {
-      return `${row.draft_source_count} 段`
-    }
-    return '—'
+    return typeof row.material_count === 'number' && row.material_count > 0 ? `${row.material_count} 段` : '—'
   }
 
   const filteredRows = computed<KnowledgeBaseRow[]>(() => {

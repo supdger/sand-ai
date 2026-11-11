@@ -59,7 +59,9 @@
         title="你还没有查看费用的权限；如需查看，请联系管理员开通。" class="sand-ai-page-card" />
 
       <MonthlyBudgetDialog v-if="canBudgetWrite" v-model="budgetOpen" :timezone="timezone"
-        :month="selectedMonth" :spend-by-currency="pricedSpendTotals" @saved="loadBudget" />
+        :month="selectedMonth" :spend-by-currency="pricedSpendTotals"
+        :budget-scope="displayedBudgetScope" :budget-scope-label="budgetScopeText"
+        @saved="loadBudget" />
     </div>
   </SandAiErrorBoundary>
 </template>
@@ -75,7 +77,7 @@
   import { errorDisplayText } from '../api/errorText'
   import usageApi from '../api/usage'
   import usagePeriodApi from '../api/usage-period'
-  import budgetApi, { type BudgetSummary } from '../api/budget'
+  import budgetApi, { type BudgetPolicy, type BudgetReference, type BudgetScope, type BudgetScopeKind, type BudgetSummary } from '../api/budget'
   import iamApi from '../api/iam'
   import type { SandIamApplicationReference, SandIamEnvironmentReference } from '../api/iam'
   import type { SandAiUsageSummaryQuery } from '../api/types'
@@ -112,7 +114,15 @@
   const monthlyApp = ref<UsageMonthlyResult | null>(null)
   const monthlyModel = ref<UsageMonthlyResult | null>(null)
   const dailyResult = ref<UsageDailyResult | null>(null)
-  const budgetResult = ref<{ active: boolean; summary: BudgetSummary | null } | null>(null)
+  const budgetSummary = ref<BudgetSummary | null>(null)
+  // 覆盖当期的已发布预算候选；卡片只展示其中一份并标明范围
+  const budgetCandidates = ref<BudgetPolicy[]>([])
+  const budgetError = ref('')
+  const budgetRefs = ref<{
+    capabilities: { code: string; name: string }[]
+    models: BudgetReference[]
+    organizations: BudgetReference[]
+  } | null>(null)
   const loading = ref(false)
   const overviewError = ref('')
   const budgetLoading = ref(false)
@@ -198,8 +208,38 @@
     return diffs.length ? diffs.join('；') : ''
   })
 
-  const budgetSummary = computed<BudgetSummary | null>(() =>
-    budgetResult.value?.active ? budgetResult.value.summary : null)
+  const BUDGET_SCOPE_KIND_LABELS: Record<BudgetScopeKind, string> = {
+    organization: '组织', application: '应用', environment: '环境',
+    service: '服务', capability: '能力', model: '模型'
+  }
+
+  /** 展示预算的人话范围标签；名称查不到时回退范围引用本身。 */
+  const budgetScopeText = computed(() => {
+    const policy = budgetSummary.value?.policy
+    if (!policy) return '服务·SandAI'
+    const kindLabel = BUDGET_SCOPE_KIND_LABELS[policy.scope_kind] ?? policy.scope_kind
+    let name = ''
+    if (policy.scope_kind === 'service') {
+      name = 'SandAI'
+    } else if (policy.scope_kind === 'capability') {
+      name = budgetRefs.value?.capabilities.find(item => item.code === policy.scope_ref)?.name ?? ''
+    } else if (policy.scope_kind === 'model') {
+      name = budgetRefs.value?.models.find(item => String(item.id) === policy.scope_ref)?.name ?? ''
+    } else if (policy.scope_kind === 'environment') {
+      name = environments.value.find(item => String(item.id) === policy.scope_ref)?.name ?? ''
+    } else if (policy.scope_kind === 'application') {
+      name = applications.value.find(item => String(item.id) === policy.scope_ref)?.name ?? ''
+    } else if (policy.scope_kind === 'organization') {
+      name = budgetRefs.value?.organizations.find(item => String(item.id) === policy.scope_ref)?.name ?? ''
+    }
+    return `${kindLabel}·${name || policy.scope_ref}`
+  })
+
+  /** 「设预算」弹窗编辑的范围：跟随卡片展示的预算，缺省回到 service/sand_ai。 */
+  const displayedBudgetScope = computed<BudgetScope | null>(() => {
+    const policy = budgetSummary.value?.policy
+    return policy ? { scope_kind: policy.scope_kind, scope_ref: policy.scope_ref } : null
+  })
 
   const budgetLines = computed(() => {
     if (!canBudgetRead.value) return ['没有预算查看权限']
@@ -217,22 +257,26 @@
   })
 
   const budgetHint = computed(() => {
+    if (budgetError.value) return '预算暂时读不到，请稍后重试'
     if (!canBudgetRead.value) return '需要预算查看权限'
     const summary = budgetSummary.value
     if (!summary) return '还没有设预算，点这里设置'
     const money = (value: string | null) => formatMoney(value, summary.window.currency)
+    const scopeText = budgetCandidates.value.length > 1
+      ? `${budgetScopeText.value}（另有 ${budgetCandidates.value.length - 1} 份生效）`
+      : budgetScopeText.value
     if (summary.window.limit_amount === null) {
-      return `已花 ${money(summary.window.settled_amount)}，不设上限`
+      return `已花 ${money(summary.window.settled_amount)}，不设上限 · ${scopeText}`
     }
     const limitText = `本月预算 ${money(summary.window.limit_amount)}`
     const level = summary.alert.level
     if (level === 'exhausted') {
       return summary.policy.enforcement === 'hard'
-        ? `${limitText} · 已用完，AI 暂停使用`
-        : `${limitText} · 已用完`
+        ? `${limitText} · ${scopeText} · 已用完，AI 暂停使用`
+        : `${limitText} · ${scopeText} · 已用完`
     }
-    if (level === 'warning' || level === 'notice') return `${limitText} · 快用完了`
-    return limitText
+    if (level === 'warning' || level === 'notice') return `${limitText} · ${scopeText} · 快用完了`
+    return `${limitText} · ${scopeText}`
   })
 
   const callTotals = computed(() => totalsByCurrency(currentRows.value)
@@ -353,17 +397,96 @@
     void discover()
   }
 
+  /** 能力/模型/组织的中文名只在卡片展示这类范围时才需要，懒加载一次。 */
+  let budgetRefsLoading = false
+  async function ensureBudgetRefs(): Promise<void> {
+    if (budgetRefs.value !== null || budgetRefsLoading) return
+    budgetRefsLoading = true
+    try {
+      const [refs, orgs] = await Promise.all([budgetApi.references(1), budgetApi.organizations(1)])
+      budgetRefs.value = {
+        capabilities: refs.capabilities,
+        models: refs.models.data,
+        organizations: orgs.data
+      }
+    } catch {
+      budgetRefs.value = { capabilities: [], models: [], organizations: [] }
+    } finally {
+      budgetRefsLoading = false
+    }
+  }
+
+  /**
+   * 预算范围是否覆盖当前环境/应用筛选。service、capability、model 全局生效；
+   * 组织与应用范围经 SandIAM 目录核对归属，目录查不到时保留展示，不误藏生效预算。
+   */
+  function budgetScopeApplies(policy: BudgetPolicy): boolean {
+    const envFilter = filterEnvironmentId.value ? String(filterEnvironmentId.value) : ''
+    const appFilter = filterApplicationId.value ? String(filterApplicationId.value) : ''
+    if (envFilter === '' && appFilter === '') return true
+    if (policy.environment_id !== null || policy.scope_kind === 'environment') {
+      const target = policy.environment_id !== null ? String(policy.environment_id) : policy.scope_ref
+      if (envFilter !== '') return target === envFilter
+      if (appFilter === '') return true
+      const env = environments.value.find(item => String(item.id) === target)
+      return env === undefined || String(env.application_id) === appFilter
+    }
+    if (policy.scope_kind === 'service' || policy.scope_kind === 'capability' || policy.scope_kind === 'model') return true
+    if (envFilter !== '') {
+      const env = environments.value.find(item => String(item.id) === envFilter)
+      if (env === undefined) return true
+      if (policy.scope_kind === 'application') return String(env.application_id) === policy.scope_ref
+      const app = applications.value.find(item => item.id === env.application_id)
+      return app === undefined || String(app.organization_id) === policy.scope_ref
+    }
+    if (policy.scope_kind === 'application') return policy.scope_ref === appFilter
+    const app = applications.value.find(item => String(item.id) === appFilter)
+    return app === undefined || String(app.organization_id) === policy.scope_ref
+  }
+
   async function loadBudget(): Promise<void> {
     if (!canBudgetRead.value) return
     const owner = identity.capture()
     if (owner === null) return
     budgetLoading.value = true
+    budgetError.value = ''
     try {
-      const result = await budgetApi.active({ scope_kind: 'service', scope_ref: 'sand_ai' })
+      const policies: BudgetPolicy[] = []
+      for (let page = 1; page <= 10; page++) {
+        const result = await budgetApi.listPublished(page)
+        if (!identity.current(owner)) return
+        policies.push(...result.data)
+        if (policies.length >= result.total || result.data.length === 0) break
+      }
+      // 时段按 UTC 字符串比较，与后端 period_start/period_end 同格式
+      const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+      const candidates = policies.filter(policy =>
+        policy.state === 'published'
+        && policy.period_start <= now && policy.period_end > now
+        && budgetScopeApplies(policy))
+      budgetCandidates.value = candidates
+      // 全服务预算最能代表整体约束；没有时取接口序第一份，范围标签如实标明
+      const picked = candidates.find(policy => policy.scope_kind === 'service' && policy.scope_ref === 'sand_ai')
+        ?? candidates[0] ?? null
+      if (picked === null) {
+        budgetSummary.value = null
+        return
+      }
+      if (picked.scope_kind === 'capability' || picked.scope_kind === 'model' || picked.scope_kind === 'organization') {
+        void ensureBudgetRefs()
+      }
+      const summary = await budgetApi.summary(picked.id)
       if (!identity.current(owner)) return
-      budgetResult.value = result
+      if (summary.policy.id !== picked.id || summary.policy.state !== 'published') {
+        throw new Error('预算窗口与所选版本不一致')
+      }
+      budgetSummary.value = summary
     } catch {
-      if (identity.current(owner)) budgetResult.value = null
+      if (identity.current(owner)) {
+        budgetSummary.value = null
+        budgetCandidates.value = []
+        budgetError.value = '预算暂时读不到'
+      }
     } finally {
       if (identity.current(owner)) budgetLoading.value = false
     }
@@ -459,7 +582,10 @@
     monthlyApp.value = null
     monthlyModel.value = null
     dailyResult.value = null
-    budgetResult.value = null
+    budgetSummary.value = null
+    budgetCandidates.value = []
+    budgetError.value = ''
+    budgetRefs.value = null
     monthPicker.value = ''
     currentMonth.value = ''
     timezone.value = 'UTC'
@@ -468,6 +594,9 @@
     void discover()
     void loadBudget()
   }, { flush: 'sync' })
+
+  // 环境/应用筛选会改变「当期生效预算」的候选范围，卡片跟随刷新
+  watch([filterEnvironmentId, filterApplicationId], () => { void loadBudget() })
 
   onMounted(() => {
     if (canView.value) {
