@@ -1352,7 +1352,7 @@
     "sandadmin-artd/src/views/plugin/sand-ai/api/usage.ts": "7b6b6713d212bce77004d78228a4f730f77a42420f031ce74e1677890789e300",
     "sandadmin-artd/src/views/plugin/sand-ai/app-trial/index.vue": "e2256ee90f1f7c3597e355405363487a192478e29bf49e988d08823b33b792ca",
     "sandadmin-artd/src/views/plugin/sand-ai/audit/index.vue": "f404a8094a996f8b6cad9eb0324a44c49403d046f75b5eb890107a81dde0eed8",
-    "sandadmin-artd/src/views/plugin/sand-ai/capability/index.vue": "46452445c60ced8335af1a343f3b1fae6e545585b7e94e4a5021290cf5f927cd",
+    "sandadmin-artd/src/views/plugin/sand-ai/capability/index.vue": "269d407d20b9cc83d46540ca0992331dcfee2cbecdc5229c2af3ae395e934ec6",
     "sandadmin-artd/src/views/plugin/sand-ai/components/ChatRouteTrialPanel.vue": "5e711c225ed9b9b3136c15ac4c25fa7df143815a8cf46a211d934e4a4be83d73",
     "sandadmin-artd/src/views/plugin/sand-ai/components/CodeNameStatusSearch.vue": "1c7ec963792fdc645c49cfe092434693b469a54bc132bd3493414ef1a23dfac1",
     "sandadmin-artd/src/views/plugin/sand-ai/components/EgressBlockedHint.vue": "3202ddabf2386573cd1ae30a1dcb9526ccdd5ea6455ea950c19fc695cd627b18",

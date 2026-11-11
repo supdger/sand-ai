@@ -360,6 +360,7 @@
                 <ElFormItem label="默认模型" :error="card.fieldError || offlineModelText(card, card.defaultDeploymentId)">
                   <ElSelect
                     v-model="card.defaultDeploymentId"
+                    :key="cardDeploymentsKey(card, 'default')"
                     clearable
                     filterable
                     remote
@@ -380,6 +381,7 @@
                 <ElFormItem label="备用模型" :error="offlineModelText(card, card.backupDeploymentId)">
                   <ElSelect
                     v-model="card.backupDeploymentId"
+                    :key="cardDeploymentsKey(card, 'backup')"
                     clearable
                     filterable
                     remote
@@ -412,6 +414,7 @@
                 <ElFormItem label="默认模型" :error="offlineModelText(card, card.defaultDeploymentId)">
                   <ElSelect
                     v-model="card.defaultDeploymentId"
+                    :key="cardDeploymentsKey(card, 'default')"
                     clearable
                     filterable
                     remote
@@ -442,6 +445,7 @@
                 <ElFormItem label="备用模型" :error="offlineModelText(card, card.backupDeploymentId)">
                   <ElSelect
                     v-model="card.backupDeploymentId"
+                    :key="cardDeploymentsKey(card, 'backup')"
                     clearable
                     filterable
                     remote
@@ -1171,6 +1175,13 @@
 
   function offlineModelText(card: CapabilityCard, id: number | undefined): string {
     return deploymentOffline(card, id) ? '这个模型已下线，请换一个' : ''
+  }
+
+  /** remote 下拉的选中文案只在挂载、选项成员增删或 modelValue 变化时重算；
+      * 目录到达后同 key 选项只是纯 label 补丁，不会触发重算，因此换 key 强制重挂。 */
+  function cardDeploymentsKey(card: CapabilityCard, slot: 'default' | 'backup'): string {
+    const ready = card.modelType !== null && cardDeploymentCatalog.value[card.modelType] !== undefined ? 'ready' : 'pending'
+    return `${card.modelType ?? 'none'}-${ready}-${slot}`
   }
 
   /** 当前已选值不在过滤后目录时补一条占位选项：目录里能找到就显示真实名称，确认下线才标注。 */
