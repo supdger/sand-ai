@@ -21,12 +21,11 @@ final class BudgetPolicyService
     /** The caller holds its preparation/dispatch transaction; zero means this call has no model. */
     public function assertUnpricedCallAllowed(UsageAttribution $attribution, string $capabilityCode, string $at, int $modelId = 0): void
     {
-        foreach ($this->applicable($attribution, $modelId, $capabilityCode, $at, true) as $policy) {
-            if ((string) $policy->unpriced_policy !== 'block' || (string) $policy->unmeasured_policy !== 'hold') {
-                throw new ApiProblem('SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE', 'The active budget policy is not executable');
-            }
-            throw new ApiProblem('SAND_AI_BUDGET_UNPRICED', 'This capability has no frozen price upper bound and an applicable budget blocks dispatch');
-        }
+        // Budgets only judge money already committed to the window, so an
+        // unpriced call is never blocked by an applicable policy. The probe
+        // stays to surface scope conflicts (two published revisions in one
+        // scope remain a configuration error).
+        $this->applicable($attribution, $modelId, $capabilityCode, $at, true);
     }
 
     /** @return list<BudgetPolicy> */
@@ -59,7 +58,6 @@ final class BudgetPolicyService
         $policies = $query->select()->all();
         if ($lock) {
             \app\Application\Knowledge\KnowledgeProfessionalRerankSoftBudget::lockHardCapacityWindows($policies, $originalInvocationId);
-            \app\Application\Knowledge\KnowledgeProfessionalRerankSoftBudget::assertHardCapacityPolicies($policies);
         }
         return $policies;
     }
@@ -169,14 +167,14 @@ final class BudgetPolicyService
                 $this->lockScope($data['scope_kind'], $data['scope_ref']);
                 $revision = (int) BudgetPolicy::where('scope_kind', $data['scope_kind'])->where('scope_ref', $data['scope_ref'])->max('revision') + 1;
                 $rows = Db::connect('pgsql')->query(
-                    "INSERT INTO sand_ai_budget_policy (revision, environment_id, scope_kind, scope_ref, period_start, period_end, currency, limit_amount, enforcement, unpriced_policy, unmeasured_policy, state) VALUES (?, ?, ?, ?, ?, ?, ?, CAST(? AS numeric(20,6)), ?, ?, ?, 'draft') RETURNING id",
-                    [max(1, $revision), $data['environment_id'], $data['scope_kind'], $data['scope_ref'], $data['period_start'], $data['period_end'], $data['currency'], $data['limit_amount'], $data['enforcement'], $data['unpriced_policy'], $data['unmeasured_policy']]
+                    "INSERT INTO sand_ai_budget_policy (revision, environment_id, scope_kind, scope_ref, period_start, period_end, currency, limit_amount, reminder_percent, enforcement, unpriced_policy, unmeasured_policy, state) VALUES (?, ?, ?, ?, ?, ?, ?, CAST(? AS numeric(20,6)), ?, ?, ?, ?, 'draft') RETURNING id",
+                    [max(1, $revision), $data['environment_id'], $data['scope_kind'], $data['scope_ref'], $data['period_start'], $data['period_end'], $data['currency'], $data['limit_amount'], $data['reminder_percent'], $data['enforcement'], $data['unpriced_policy'], $data['unmeasured_policy']]
                 );
                 $id = (int) $rows[0]['id'];
             } else {
                 Db::connect('pgsql')->execute(
-                    'UPDATE sand_ai_budget_policy SET environment_id = ?, scope_kind = ?, scope_ref = ?, period_start = ?, period_end = ?, currency = ?, limit_amount = CAST(? AS numeric(20,6)), enforcement = ?, unpriced_policy = ?, unmeasured_policy = ?, update_time = CURRENT_TIMESTAMP WHERE id = ?',
-                    [$data['environment_id'], $data['scope_kind'], $data['scope_ref'], $data['period_start'], $data['period_end'], $data['currency'], $data['limit_amount'], $data['enforcement'], $data['unpriced_policy'], $data['unmeasured_policy'], $data['id']]
+                    'UPDATE sand_ai_budget_policy SET environment_id = ?, scope_kind = ?, scope_ref = ?, period_start = ?, period_end = ?, currency = ?, limit_amount = CAST(? AS numeric(20,6)), reminder_percent = ?, enforcement = ?, unpriced_policy = ?, unmeasured_policy = ?, update_time = CURRENT_TIMESTAMP WHERE id = ?',
+                    [$data['environment_id'], $data['scope_kind'], $data['scope_ref'], $data['period_start'], $data['period_end'], $data['currency'], $data['limit_amount'], $data['reminder_percent'], $data['enforcement'], $data['unpriced_policy'], $data['unmeasured_policy'], $data['id']]
                 );
                 $id = (int) $data['id'];
             }
@@ -286,9 +284,15 @@ final class BudgetPolicyService
             $this->draftReceiptMissing();
         }
         $fields = ['id', 'revision', 'environment_id', 'scope_kind', 'scope_ref', 'period_start', 'period_end', 'currency',
-            'limit_amount', 'enforcement', 'unpriced_policy', 'unmeasured_policy', 'state', 'published_time', 'create_time', 'update_time'];
-        if (!is_array($snapshot) || array_is_list($snapshot) || array_diff(array_keys($snapshot), $fields) !== []
-            || count($snapshot) !== count($fields) || (int) ($snapshot['id'] ?? 0) !== (int) $receipt['budget_policy_id']
+            'limit_amount', 'reminder_percent', 'enforcement', 'unpriced_policy', 'unmeasured_policy', 'state', 'published_time', 'create_time', 'update_time'];
+        // Receipts written before reminder_percent existed replay their original
+        // 15-field snapshot; new receipts always carry all 16 fields.
+        $expectedFields = is_array($snapshot) && array_key_exists('reminder_percent', $snapshot)
+            ? $fields
+            : array_values(array_diff($fields, ['reminder_percent']));
+        if (!is_array($snapshot) || array_is_list($snapshot) || array_diff(array_keys($snapshot), $expectedFields) !== []
+            || array_diff($expectedFields, array_keys($snapshot)) !== []
+            || (int) ($snapshot['id'] ?? 0) !== (int) $receipt['budget_policy_id']
             || (int) ($snapshot['revision'] ?? 0) < 1 || ($snapshot['scope_kind'] ?? null) !== $scopeKind
             || ($snapshot['scope_ref'] ?? null) !== $scopeRef || ($snapshot['state'] ?? null) !== 'draft') {
             $this->draftReceiptMissing();
@@ -355,7 +359,7 @@ final class BudgetPolicyService
             Db::connect('pgsql')->execute("UPDATE sand_ai_budget_policy SET state = 'published', published_time = CURRENT_TIMESTAMP, update_time = CURRENT_TIMESTAMP WHERE id = ?", [$id]);
             Db::connect('pgsql')->query(
                 'INSERT INTO sand_ai_budget_window (policy_id, currency, limit_amount) VALUES (?, ?, CAST(? AS numeric(20,6))) ON CONFLICT (policy_id) DO NOTHING',
-                [$id, (string) $policy->currency, (string) $policy->limit_amount]
+                [$id, (string) $policy->currency, $policy->limit_amount === null ? null : (string) $policy->limit_amount]
             );
 
             $published = $this->read($id);
@@ -369,14 +373,29 @@ final class BudgetPolicyService
     private function assertPublicationExpectation(BudgetPolicy $policy, array $expected): void
     {
         $fields = ['revision', 'scope_kind', 'scope_ref', 'environment_id', 'period_start', 'period_end',
-            'currency', 'limit_amount', 'enforcement', 'unpriced_policy', 'unmeasured_policy'];
-        if (count($expected) !== count($fields) || array_diff(array_keys($expected), $fields) !== []
+            'currency', 'limit_amount', 'reminder_percent', 'enforcement', 'unpriced_policy', 'unmeasured_policy'];
+        // reminder_percent joined the contract with 0.5.0: expectations frozen
+        // by older clients legitimately omit it, so it is asserted only when
+        // the caller actually sends it.
+        $reminderAsserted = array_key_exists('reminder_percent', $expected);
+        $required = array_values(array_diff($fields, ['reminder_percent']));
+        if (count($expected) !== count($required) + ($reminderAsserted ? 1 : 0)
+            || array_diff(array_keys($expected), $fields) !== []
+            || array_diff($required, array_keys($expected)) !== []
             || !is_int($expected['revision'] ?? null) || $expected['revision'] <= 0
-            || ($expected['environment_id'] !== null && (!is_int($expected['environment_id']) || $expected['environment_id'] <= 0))) {
+            || ($expected['environment_id'] !== null && (!is_int($expected['environment_id']) || $expected['environment_id'] <= 0))
+            || ($reminderAsserted && (!is_int($expected['reminder_percent'])
+                || $expected['reminder_percent'] < 1 || $expected['reminder_percent'] > 100))) {
             throw new ApiProblem('SAND_AI_BUDGET_VALIDATION_ERROR', 'Expected policy must contain the complete published budget configuration');
         }
-        foreach ($fields as $field) {
-            if (!in_array($field, ['revision', 'environment_id'], true) && !is_string($expected[$field])) {
+        foreach ($expected as $field => $value) {
+            if (in_array($field, ['revision', 'environment_id', 'reminder_percent'], true)) {
+                continue;
+            }
+            if ($field === 'limit_amount' && $value === null) {
+                continue;
+            }
+            if (!is_string($value)) {
                 throw new ApiProblem('SAND_AI_BUDGET_VALIDATION_ERROR', 'Expected policy configuration fields must be strings');
             }
         }
@@ -394,11 +413,15 @@ final class BudgetPolicyService
             'period_start' => (string) $policy->period_start,
             'period_end' => (string) $policy->period_end,
             'currency' => (string) $policy->currency,
-            'limit_amount' => (string) $policy->limit_amount,
+            'limit_amount' => $policy->limit_amount === null ? null : (string) $policy->limit_amount,
+            'reminder_percent' => (int) ($policy->reminder_percent ?? BudgetAlertPolicy::DEFAULT_REMINDER_PERCENT),
             'enforcement' => (string) $policy->enforcement,
             'unpriced_policy' => (string) $policy->unpriced_policy,
             'unmeasured_policy' => (string) $policy->unmeasured_policy,
         ]);
+        if (!$reminderAsserted) {
+            unset($normalized['reminder_percent'], $current['reminder_percent']);
+        }
         if ($revision !== (int) $policy->revision || $normalized !== $current) {
             throw new ApiProblem('SAND_AI_BUDGET_CONFIGURATION_CONFLICT', 'Budget draft changed after confirmation; the confirmed configuration was not published');
         }
@@ -451,7 +474,7 @@ final class BudgetPolicyService
         }
         $amounts = (new BudgetReservationStateMachine())->summary([
             'currency' => (string) $window->currency,
-            'limit_amount' => (string) $window->limit_amount,
+            'limit_amount' => $window->limit_amount === null ? null : (string) $window->limit_amount,
             'reserved_amount' => (string) $window->reserved_amount,
             'settled_amount' => (string) $window->settled_amount,
             'held_amount' => (string) $window->held_amount,
@@ -460,7 +483,7 @@ final class BudgetPolicyService
         return [
             'policy' => $this->summary($policy->toArray()),
             'window' => $amounts,
-            'alert' => BudgetAlertPolicy::forWindow($amounts),
+            'alert' => BudgetAlertPolicy::forWindow($amounts, (int) ($policy->reminder_percent ?? BudgetAlertPolicy::DEFAULT_REMINDER_PERCENT)),
         ];
     }
 
@@ -487,11 +510,14 @@ final class BudgetPolicyService
     {
         $summary = array_intersect_key($data, array_flip([
             'id', 'revision', 'environment_id', 'scope_kind', 'scope_ref', 'period_start', 'period_end', 'currency',
-            'limit_amount', 'enforcement', 'unpriced_policy', 'unmeasured_policy', 'state', 'published_time',
+            'limit_amount', 'reminder_percent', 'enforcement', 'unpriced_policy', 'unmeasured_policy', 'state', 'published_time',
             'create_time', 'update_time',
         ]));
         if (isset($summary['limit_amount'])) {
             $summary['limit_amount'] = (string) $summary['limit_amount'];
+        }
+        if (isset($summary['reminder_percent'])) {
+            $summary['reminder_percent'] = (int) $summary['reminder_percent'];
         }
 
         return $summary;

@@ -33,6 +33,7 @@ use app\Infrastructure\Persistence\Model\ConfigRevision;
 use app\Infrastructure\Persistence\Model\ModelDeployment;
 use app\Infrastructure\Persistence\Model\Provider;
 use app\Identity\Infrastructure\HostSandIamServiceCatalog;
+use plugin\SandAi\app\admin\logic\CapabilityTargetLogic;
 use plugin\sandadmin\exception\ApiException;
 use plugin\sandadmin\service\Permission;
 use support\Container;
@@ -70,9 +71,13 @@ final class SetupController extends SandAiAdminController
     public function capabilityProfileRead(Request $request): Response
     {
         return $this->capabilityResponse(function () use ($request): array {
-            $input = $this->capabilityQuery($request, ['environment_id']);
+            $input = $this->capabilityQuery($request, ['application_id', 'environment_id']);
+            $target = (new CapabilityTargetLogic())->resolve($input, $this->authenticatedAdminId(), $this->adminInfo);
 
-            return ['profile' => (new CapabilityProfileGateway())->read($this->positiveInt($input['environment_id'] ?? null))];
+            return [
+                'profile' => (new CapabilityProfileGateway())->read($target['environment_id']),
+                'target' => $target,
+            ];
         });
     }
 
@@ -81,8 +86,13 @@ final class SetupController extends SandAiAdminController
     {
         return $this->capabilityResponse(function () use ($request): array {
             $input = $this->capabilitySaveInput($request->post());
+            $target = (new CapabilityTargetLogic())->resolve($input, $this->authenticatedAdminId(), $this->adminInfo);
+            $input['environment_id'] = $target['environment_id'];
 
-            return ['profile' => (new CapabilityProfileGateway())->save($input, $this->capabilityActor())];
+            return [
+                'profile' => (new CapabilityProfileGateway())->save($input, $this->capabilityActor()),
+                'target' => $target,
+            ];
         }, '能力配置草稿已保存');
     }
 
@@ -90,14 +100,18 @@ final class SetupController extends SandAiAdminController
     public function capabilityProfilePublish(Request $request): Response
     {
         return $this->capabilityResponse(function () use ($request): array {
-            $input = $this->capabilityPost($request, ['environment_id', 'id', 'expected_revision']);
+            $input = $this->capabilityPost($request, ['application_id', 'environment_id', 'id', 'expected_revision']);
+            $target = (new CapabilityTargetLogic())->resolve($input, $this->authenticatedAdminId(), $this->adminInfo);
 
-            return ['profile' => (new CapabilityProfileGateway())->publish(
-                $this->positiveInt($input['environment_id'] ?? null),
-                $this->positiveInt($input['id'] ?? null),
-                $this->capabilityActor(),
-                $this->optionalExpectedRevision($input),
-            )];
+            return [
+                'profile' => (new CapabilityProfileGateway())->publish(
+                    $target['environment_id'],
+                    $this->positiveInt($input['id'] ?? null),
+                    $this->capabilityActor(),
+                    $this->optionalExpectedRevision($input),
+                ),
+                'target' => $target,
+            ];
         }, '能力配置已发布');
     }
 
@@ -600,7 +614,7 @@ final class SetupController extends SandAiAdminController
     /** @param mixed $input @return array<string,mixed> */
     private function capabilitySaveInput(mixed $input): array
     {
-        if (!is_array($input) || array_diff(array_keys($input), ['environment_id', 'expected_revision', 'name', 'template_code', 'data_egress_policy', 'routes']) !== []) {
+        if (!is_array($input) || array_diff(array_keys($input), ['application_id', 'environment_id', 'expected_revision', 'name', 'template_code', 'data_egress_policy', 'routes']) !== []) {
             throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Capability profile request contains unsupported fields');
         }
         if (!array_key_exists('expected_revision', $input)
@@ -609,7 +623,7 @@ final class SetupController extends SandAiAdminController
             throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'expected_revision must be null or a positive integer');
         }
         if (!is_string($input['name'] ?? null) || trim($input['name']) === '' || !array_key_exists('routes', $input) || !is_array($input['routes'])) {
-            throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'environment_id, name and routes are required');
+            throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'name and routes are required');
         }
         CapabilityProfilePolicy::assertRouteRequestShape($input['routes']);
         if (array_key_exists('template_code', $input)
@@ -622,7 +636,8 @@ final class SetupController extends SandAiAdminController
         }
 
         return [
-            'environment_id' => $this->positiveInt($input['environment_id'] ?? null),
+            'application_id' => $input['application_id'] ?? null,
+            'environment_id' => $input['environment_id'] ?? null,
             'expected_revision' => $input['expected_revision'],
             'name' => trim($input['name']),
             'template_code' => $input['template_code'] ?? null,

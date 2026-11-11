@@ -1,0 +1,13 @@
+# 命名豁免登记（规范 v2 §一）：确有理由不照做的名字，一行一个，# 后写原因。
+# 仅存量契约类型：定义于 api/channelBinding.ts、api/iam.ts（不在本 PR 改动列表），
+# .vue 文件只做 import/使用，契约名不私自更换。
+ChannelCredentialSaveReference # 存量契约类型，定义于 api/channelBinding.ts
+ChannelCredentialSaveReceipt # 存量契约类型，定义于 api/channelBinding.ts
+ChannelBindingOperationReference # 存量契约类型，定义于 api/channelBinding.ts
+SandIamEnvironmentReference # 存量契约类型，定义于 api/iam.ts
+SandIamWorkloadClientReference # 存量契约类型，定义于 api/iam.ts
+created_at # 存量契约字段：AgentDefinitionPanel.vue 模板对应后端既有响应字段
+canceled # 存量任务状态契约值：AgentTrialDialog.vue 对应后端单写 l 状态机
+AgentToolChatRequest # 存量协议类名：本轮最小修复不改名，改名属跨文件重构超出本包范围
+OpenAiCompatibleChatProvider # 存量适配器类名：本轮传输层最小修复不改名，改名属跨文件重构超出本包范围
+newToolCall # 第三方 SDK HandleWithTools 契约方法名：tests/stubs 替身逐字对齐真实 API

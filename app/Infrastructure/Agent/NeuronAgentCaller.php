@@ -18,7 +18,7 @@ use NeuronAI\Chat\Messages\UserMessage;
 /** Actual SDK Agent/ChatNode/ToolNode/MessageStore execution, with SandAI controlling every inference. */
 final class NeuronAgentCaller
 {
-    public function complete(string $model,string $instructions,string $query,string $threadId,array $historyMessages,\Closure $dispatchRound,\Closure $retrieve,?\Closure $dispatchSummary=null,array $summaryScope=[],bool $stream=false,array $readonlyTools=[],?NeuronAgentCheckpoint $checkpoint=null): array
+    public function complete(string $model,string $instructions,string $query,string $threadId,array $historyMessages,\Closure $dispatchRound,?\Closure $retrieve,?\Closure $dispatchSummary=null,array $summaryScope=[],bool $stream=false,array $readonlyTools=[],?NeuronAgentCheckpoint $checkpoint=null): array
     {
         if (!NeuronRuntime::available()) {
             throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID','The required Neuron agent runtime is unavailable');
@@ -50,11 +50,13 @@ final class NeuronAgentCaller
             'stream'=>$stream,'readonly_tools'=>array_map(static fn(NeuronAuthorizedReadonlyTool $tool):array=>$tool->checkpointBinding(),$readonlyTools),
         ],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)));
         foreach ($readonlyTools as $readonlyTool) $readonlyTool->bindJournal($journal);
-        $tool=new NeuronAuthorizedRetrievalTool($retrieve,$readonlyTools===[]?2:1,$journal);
+        // A null $retrieve means the agent has no knowledge base; no
+        // retrieval tool is registered and no tool call is required.
+        $tool=$retrieve===null?null:new NeuronAuthorizedRetrievalTool($retrieve,$readonlyTools===[]?2:1,$journal);
         $provider=new NeuronControlledProvider($model,$dispatchRound,$stream,$checkpoint===null?null:$journal);
         $store=new NeuronScopedMessageStore($threadId,$history,$checkpoint===null?null:$journal);
         $agent=new Agent($threadId);
-        $agent->setAiProvider($provider)->setInstructions($instructions)->setTools([$tool,...$readonlyTools])
+        $agent->setAiProvider($provider)->setInstructions($instructions)->setTools($tool===null?$readonlyTools:[$tool,...$readonlyTools])
             ->toolMaxRuns($readonlyTools===[]?2:3)->parallelToolCalls(false)->setMessageStore($store)->setContextWindow(1000000);
         if ($checkpoint!==null) {
             $agent->setPersistence($checkpoint->persistence)->setSerializer(new NeuronCheckpointSerializer())->retainCompletionUntilAcknowledged();
@@ -87,9 +89,9 @@ final class NeuronAgentCaller
         $rounds=$checkpoint===null?$provider->rounds():$state->get('__sandai_rounds',[]);
         $last=$rounds===[]?null:$rounds[array_key_last($rounds)];
         if ($state->getStatus()!==WorkflowStatus::Completed || $state->getResponse()===null || !is_array($last) || ($last['response_kind']??null)!=='text'
-            || $tool->executions()===[]) throw new ApiProblem('SAND_AI_AGENT_PROTOCOL_INVALID','Agent must complete an authorized retrieval tool call before its final answer');
-        try { \support\Log::info('SandAI Neuron agent completed',['framework_version'=>'4.0.2','model_round_count'=>count($rounds),'tool_run_count'=>count($tool->executions())]); } catch (\Throwable) {}
-        return ['response'=>$last,'rounds'=>$rounds,'tool_calls'=>$tool->executions(),'readonly_tool_runs'=>array_merge(...array_map(static fn(NeuronAuthorizedReadonlyTool $tool):array=>$tool->executions(),$readonlyTools)),'summary'=>$summaryProvider?->result()??self::restoredSummary($journal),...($checkpoint===null?[]:['checkpoint'=>['run_id'=>$state->getRunId(),'execution_attempt'=>$state->getExecutionAttempt(),'state'=>$state->getStatus()->value]])];
+            || ($tool!==null && $tool->executions()===[])) throw new ApiProblem('SAND_AI_AGENT_PROTOCOL_INVALID','Agent must complete an authorized retrieval tool call before its final answer');
+        try { \support\Log::info('SandAI Neuron agent completed',['framework_version'=>'4.0.2','model_round_count'=>count($rounds),'tool_run_count'=>count($tool===null?[]:$tool->executions())]); } catch (\Throwable) {}
+        return ['response'=>$last,'rounds'=>$rounds,'tool_calls'=>$tool===null?[]:$tool->executions(),'readonly_tool_runs'=>array_merge(...array_map(static fn(NeuronAuthorizedReadonlyTool $tool):array=>$tool->executions(),$readonlyTools)),'summary'=>$summaryProvider?->result()??self::restoredSummary($journal),...($checkpoint===null?[]:['checkpoint'=>['run_id'=>$state->getRunId(),'execution_attempt'=>$state->getExecutionAttempt(),'state'=>$state->getStatus()->value]])];
     }
     private static function restoredSummary(NeuronAgentExecutionJournal $journal): ?array
     {

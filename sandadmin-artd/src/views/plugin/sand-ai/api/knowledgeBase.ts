@@ -14,9 +14,34 @@ export interface KnowledgeBaseRow {
   draft_version_id: number | null
   draft_version_no: number | null
   draft_source_count: number | null
+  /** 已发布（active）版本的资料段数；未发布过为 null */
+  active_source_count: number | null
+  /** 产品面资料数：草稿段数优先、已发布段数兜底；无资料为 null */
+  material_count: number | null
   draft_snapshot_sha256?: string | null
+  /** 最近更新：知识库行、当前草稿、已发布版本三个时间点的最大值，格式 YYYY-MM-DD HH:MM:SS */
+  update_time: string | null
   source_state: 'ready' | 'source_changed' | 'unavailable' | 'purged'
   sources_purged: boolean
+  /** 0.5.0 产品面三态：indexing 索引中 / ready 可用 / failed 索引失败（可重试）；未发布或无生效版本时为 null */
+  index_state?: 'indexing' | 'ready' | 'failed' | null
+  /** 失败时的白话原因（后端已脱敏），可直接展示 */
+  index_error?: string | null
+}
+
+/** 索引重试回执：只回投影状态，不含内部索引号 */
+export interface IndexRetryResult {
+  knowledge_base_id: number
+  index_state: 'indexing' | 'ready' | 'failed'
+  index_error: string | null
+}
+
+function isIndexRetryResult(value: unknown, knowledgeBaseId: number): value is IndexRetryResult {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const data = value as Record<string, unknown>
+  return data.knowledge_base_id === knowledgeBaseId
+    && (data.index_state === 'indexing' || data.index_state === 'ready' || data.index_state === 'failed')
+    && (data.index_error === null || typeof data.index_error === 'string')
 }
 
 export interface KnowledgeSourcesPurge {
@@ -407,5 +432,17 @@ export default {
       showErrorMessage: false
     })
     return indexStatusResult(result, indexId)
+  },
+  /** 0.5.0：索引失败后一键重试；只传知识库号，后端自己定位生效版本。 */
+  async retryIndex(environmentId: number, knowledgeBaseId: number): Promise<IndexRetryResult> {
+    const result: unknown = await request.post<unknown>({
+      url: `${base}/embedding-index/retry`,
+      data: { environment_id: environmentId, knowledge_base_id: knowledgeBaseId },
+      showErrorMessage: false
+    })
+    if (!isIndexRetryResult(result, knowledgeBaseId)) {
+      throw new Error('索引重试回执与原知识库不一致，请刷新后核对状态')
+    }
+    return result
   }
 }

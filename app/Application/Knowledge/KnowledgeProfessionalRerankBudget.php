@@ -8,6 +8,7 @@ use app\Api\Support\ApiProblem;
 use app\Application\Budget\BudgetDecimal;
 use app\Application\Budget\BudgetPolicyService;
 use app\Application\Budget\BudgetReservationStateMachine;
+use app\Application\Budget\BudgetSpendGate;
 use app\Application\Budget\ChatBudgetGuard;
 use app\Application\Budget\PreparedBudgetPolicySelection;
 use app\Application\Gateway\RequestPayloadFingerprint;
@@ -69,22 +70,30 @@ final class KnowledgeProfessionalRerankBudget
                         || ($hard && ((string) $policy->unpriced_policy !== 'block' || (string) $policy->unmeasured_policy !== 'hold'))) {
                         throw new ApiProblem('SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE', 'Professional rerank budget policy is not executable');
                     }
-                    if ($hard && $upperBound === null) throw new ApiProblem('SAND_AI_BUDGET_CAPACITY_UNVERIFIED', 'Hard budget requires an official professional rerank capacity bound');
-                    if ($price->revisionId === null && (string) $policy->unpriced_policy === 'block') throw new ApiProblem('SAND_AI_BUDGET_UNPRICED', 'This policy requires a published professional rerank price');
                     if ($price->currency !== null && (string) $policy->currency !== $price->currency) throw new ApiProblem('SAND_AI_BUDGET_CURRENCY_MISMATCH', 'Professional rerank price and budget currencies differ');
-                    if ($hard && ($amount === null || !BudgetDecimal::isPositive($amount))) throw new ApiProblem('SAND_AI_BUDGET_CAPACITY_UNVERIFIED', 'Hard monetary reservation requires a verified positive cost bound');
                 }
                 foreach ($policies as $policy) {
                     $window = BudgetWindow::where('policy_id', (int) $policy->id)->lock(true)->find();
                     if ($window === null) throw new ApiProblem('SAND_AI_BUDGET_WINDOW_MISSING', 'Professional rerank budget window is unavailable');
                     $snapshot = (new ChatBudgetGuard())->holdExpiredReservations($window, $price->calledAt);
-                    if ($amount === null || !BudgetDecimal::isPositive($amount)) {
-                        $pendingPolicies[] = $policy;
+                    if (!BudgetSpendGate::allowsWindowCall((string) $policy->enforcement, $snapshot)) {
+                        throw new ApiProblem('SAND_AI_BUDGET_EXCEEDED', BudgetSpendGate::EXHAUSTED_MESSAGE);
+                    }
+                    // Monetary rows need a price revision; an unpriced or
+                    // unbounded call is admitted without one (hard) or as a
+                    // pending soft obligation (soft).
+                    $estimate = $price->revisionId === null
+                        ? null
+                        : ($amount !== null && BudgetDecimal::isPositive($amount)
+                            ? $amount
+                            : BudgetSpendGate::NOMINAL_ESTIMATE);
+                    if ($estimate === null) {
+                        if ((string) $policy->enforcement !== 'hard') $pendingPolicies[] = $policy;
                         continue;
                     }
-                    $plans[] = ['policy' => $policy, 'window' => $window, 'estimate' => $amount,
+                    $plans[] = ['policy' => $policy, 'window' => $window, 'estimate' => $estimate,
                         'transition' => (new BudgetReservationStateMachine())->reserve(
-                            $snapshot, $amount, (string) $policy->currency, (string) $policy->enforcement === 'soft')];
+                            $snapshot, $estimate, (string) $policy->currency, true)];
                 }
             } catch (ApiProblem $problem) {
                 $rejected = $problem;
@@ -202,9 +211,6 @@ final class KnowledgeProfessionalRerankBudget
             (string) $route['deployment_remote_model'], $bodyDigest, $price->meteringUnit);
         $reservations = BudgetReservation::where('invocation_id', $invocationId)->select();
         foreach ($reservations as $reservation) {
-            if ($capacityProof === null) {
-                throw new ApiProblem('SAND_AI_BUDGET_CAPACITY_UNVERIFIED', 'Professional rerank reserved capacity is missing');
-            }
             $this->assertReservation($reservation, $price, $route, $bodyDigest, $capacityProof);
         }
     }
@@ -218,14 +224,21 @@ final class KnowledgeProfessionalRerankBudget
         $proof = is_object($proof) ? (array) $proof : $proof;
         $capacity = is_array($proof) ? ($proof['capacity_proof'] ?? null) : null;
         $capacity = is_object($capacity) ? (array) $capacity : $capacity;
-        if (!is_array($proof) || !is_array($capacity) || ($proof['metering_unit'] ?? null) !== $price->meteringUnit
+        if (!is_array($proof) || ($proof['metering_unit'] ?? null) !== $price->meteringUnit
             || ($proof['reservation_rounding'] ?? null) !== TokenPriceCalculator::RESERVATION_ROUNDING
             || ($proof['body_sha256'] ?? null) !== $bodyDigest
             || ($proof['route_sha256'] ?? null) !== ($route['snapshot_sha256'] ?? null)
             || ($proof['price_revision_id'] ?? null) !== $price->revisionId
             || (int) $reservation->price_revision_id !== $price->revisionId
-            || (string) $reservation->currency !== $price->currency || (string) $reservation->state !== 'reserved'
-            || ($expectedCapacity !== null && !RequestPayloadFingerprint::same($capacity, $expectedCapacity, []))) {
+            || (string) $reservation->currency !== $price->currency || (string) $reservation->state !== 'reserved') {
+            throw new ApiProblem('SAND_AI_BUDGET_PREPARED_REVALIDATION_REQUIRED', 'Professional rerank original capacity is unverified');
+        }
+        // A nominal reservation carries no capacity proof to re-verify; the
+        // bookkeeping identity above is all that can be checked.
+        if (!is_array($capacity)) {
+            return;
+        }
+        if ($expectedCapacity !== null && !RequestPayloadFingerprint::same($capacity, $expectedCapacity, [])) {
             throw new ApiProblem('SAND_AI_BUDGET_PREPARED_REVALIDATION_REQUIRED', 'Professional rerank original capacity is unverified');
         }
         $upperBound = NeuronProfessionalRerankCapacity::assertBinding($capacity, (string) $route['provider_adapter'],

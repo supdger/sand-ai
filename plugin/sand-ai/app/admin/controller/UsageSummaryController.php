@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace plugin\SandAi\app\admin\controller;
 
 use app\Api\Support\ApiProblem;
+use app\Application\Usage\UsagePeriodPolicy;
 use app\Application\Usage\UsageSummaryCsvExporter;
 use app\Application\Usage\UsageSummaryGateway;
 use app\Application\Usage\UsageSummaryPolicy;
+use plugin\SandAi\app\admin\logic\UsagePeriodLogic;
 use plugin\sandadmin\service\Permission;
 use support\Request;
 use support\Response;
@@ -44,6 +46,57 @@ final class UsageSummaryController extends SandAiAdminController
             return $this->problemResponse($problem);
         }
     }
+    /** Monthly spend ranking by application or model, in host-local months. */
+    #[Permission('SandAI 费用汇总', 'sand_ai:usage:summary')]
+    public function monthly(Request $request): Response
+    {
+        try {
+            if ($request->rawBody() !== '') {
+                throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Usage monthly accepts query parameters only');
+            }
+            $period = (new UsagePeriodPolicy())->monthly($request->get());
+            $scope = (new \plugin\SandAi\app\admin\logic\UsageAdminScopeLogic())->resolve($request->header('check_admin', []), $period['filters']);
+            $result = (new UsageSummaryGateway())->monthly($period['filters'], $scope, $period['group_by'], $period['timezone']);
+
+            return $this->success([
+                'group_by' => $period['group_by'],
+                'timezone' => $period['timezone'],
+                'month_from' => $period['month_from'],
+                'month_to' => $period['month_to'],
+                'filters' => $period['filters'],
+                'rows' => (new UsagePeriodLogic())->monthlyNames($period['group_by'], $result['rows']),
+                'truncated' => $result['truncated'],
+            ]);
+        } catch (ApiProblem $problem) {
+            return $this->problemResponse($problem);
+        }
+    }
+
+    /** Per-day spend series for the fee chart, in host-local days. */
+    #[Permission('SandAI 费用汇总', 'sand_ai:usage:summary')]
+    public function daily(Request $request): Response
+    {
+        try {
+            if ($request->rawBody() !== '') {
+                throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Usage daily accepts query parameters only');
+            }
+            $period = (new UsagePeriodPolicy())->daily($request->get());
+            $scope = (new \plugin\SandAi\app\admin\logic\UsageAdminScopeLogic())->resolve($request->header('check_admin', []), $period['filters']);
+            $result = (new UsageSummaryGateway())->daily($period['filters'], $scope, $period['timezone'], $period['date_from'], $period['date_to']);
+
+            return $this->success([
+                'timezone' => $period['timezone'],
+                'date_from' => $period['date_from'],
+                'date_to' => $period['date_to'],
+                'filters' => $period['filters'],
+                'rows' => $result['rows'],
+                'truncated' => $result['truncated'],
+            ]);
+        } catch (ApiProblem $problem) {
+            return $this->problemResponse($problem);
+        }
+    }
+
     #[Permission('SandAI 费用允许环境', 'sand_ai:usage:summary')]
     public function scopes(Request $request): Response
     {

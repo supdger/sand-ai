@@ -4,10 +4,10 @@
       <ElCard class="art-table-card sand-ai-page-card" shadow="never">
         <div class="home-head">
           <div>
-            <h2 class="home-title">AI 能力</h2>
-            <p class="home-desc">让本系统和应用使用 AI 对话、读取文档。跟着下面几步即可。</p>
+            <h2 class="home-title">AI 首页</h2>
+            <p class="home-desc">看开通进度，并马上试用 AI</p>
           </div>
-          <ElButton :loading="loading" type="primary" @click="loadAll">刷新</ElButton>
+          <ElButton :loading="loading" @click="loadAll">刷新</ElButton>
         </div>
 
         <p v-if="bootstrapNotice" class="home-bootstrap">
@@ -19,39 +19,42 @@
           <ElSkeleton :rows="6" animated />
         </div>
 
-        <ElResult v-else-if="loadError" icon="error" title="加载失败" :sub-title="loadError">
+        <ElResult v-else-if="loadError" icon="error" title="AI 首页没能加载出来"
+          :sub-title="loadError || '系统出了点问题，请稍后再试'">
           <template #extra>
-            <ElButton type="primary" @click="loadAll">重试</ElButton>
+            <ElSpace wrap>
+              <ElButton type="primary" @click="loadAll">重新加载</ElButton>
+              <ElButton :loading="copyingProblem" @click="copyProblemDetails">复制问题信息</ElButton>
+            </ElSpace>
           </template>
         </ElResult>
 
+        <template v-else>
         <!-- 已完成：状态面板 -->
-        <div v-else-if="completed" class="home-body">
+        <div v-if="completed" class="home-body">
           <ElAlert type="success" :closable="false" title="AI 对话已经可以使用。" />
-          <ElDescriptions :column="1" border class="home-panel">
-            <ElDescriptionsItem label="默认模型">
-              <span class="home-panel__value">{{ panel.modelName || '读取中…' }}</span>
-              <ElButton link type="primary" @click="go('/sand-ai/onboarding')">更换</ElButton>
-            </ElDescriptionsItem>
-            <ElDescriptionsItem label="本月花费">
-              <span class="home-panel__value">{{ panel.monthCost }}</span>
-              <ElButton link type="primary" @click="go('/sand-ai/usage')">查看费用</ElButton>
-            </ElDescriptionsItem>
-            <ElDescriptionsItem label="今日调用">
-              <span class="home-panel__value">{{ panel.todayCalls }}</span>
-              <ElButton link type="primary" @click="go('/sand-ai/invocation')">查看调用记录</ElButton>
-            </ElDescriptionsItem>
-            <ElDescriptionsItem label="使用中的应用">
-              <span class="home-panel__value">{{ panel.applications }}</span>
-              <ElButton link type="primary" @click="go('/sand-iam/application')">管理</ElButton>
-            </ElDescriptionsItem>
-          </ElDescriptions>
+          <div class="home-cards">
+            <div v-for="card in statusCards" :key="card.key" class="home-card">
+              <template v-if="panelStates[card.key] === 'loading'">
+                <ElSkeleton :rows="2" animated />
+              </template>
+              <template v-else-if="panelStates[card.key] === 'error'">
+                <div class="home-card__label">{{ card.label }}</div>
+                <div class="home-card__error">
+                  暂时读不到
+                  <ElButton link type="primary" @click="retryPanelField(card.key)">重试</ElButton>
+                </div>
+              </template>
+              <template v-else>
+                <div class="home-card__label">{{ card.label }}</div>
+                <div class="home-card__value">{{ card.value }}</div>
+                <ElButton link type="primary" @click="card.open">{{ card.action }}</ElButton>
+              </template>
+            </div>
+          </div>
           <ElSpace wrap>
-            <ElButton type="primary" @click="showTrial = !showTrial">{{ showTrial ? '收起试用' : '试一试对话' }}</ElButton>
-            <ElButton @click="go('/sand-ai/file')">读取文档</ElButton>
-            <ElButton @click="go('/sand-ai/task')">录音转文字</ElButton>
+            <ElButton type="primary" @click="go('/sand-ai/trial')">去试用</ElButton>
           </ElSpace>
-          <ChatRouteTrialPanel v-if="showTrial" :environment-id="environmentId || undefined" />
         </div>
 
         <!-- 未完成：开通向导 -->
@@ -67,7 +70,7 @@
           </ol>
 
           <ElAlert v-if="intent" type="warning" :closable="false" title="原开通操作的结果还没有确认"
-            description="为避免重复提交，页面已锁定写入；请先找回原开通状态。" />
+            description="为避免重复发送，页面已锁定写入；请先找回原开通状态。" />
           <ElButton v-if="intent" :loading="busy === 'recover'" :disabled="Boolean(busy)" @click="recoverActivation">
             找回原开通状态
           </ElButton>
@@ -176,7 +179,7 @@
 
           <section class="home-section">
             <h3>让应用使用 AI</h3>
-            <p class="home-muted">在「应用接入」为应用生成调用密钥并允许使用 AI 能力。</p>
+            <p class="home-muted">在「应用接入」为应用开通 AI 调用权限。</p>
             <ElButton @click="go('/sand-iam/application')">去应用接入</ElButton>
           </section>
 
@@ -185,6 +188,9 @@
             <p>部署 {{ intent.deployment_id ?? '未确认' }} · 修订 {{ intent.revision ?? '未确认' }} · 请求号 {{ intent.save_key }}</p>
           </details>
         </div>
+
+        <ExpertSelectionHelp title="不知道该用哪个？" class="home-help" />
+        </template>
       </ElCard>
       <EgressBlockedHint
         v-if="egressHint"
@@ -213,6 +219,7 @@
     type OnboardingStatus,
     type ProviderGuide,
     type ProviderModelDeployment,
+    type PublishedDeployment,
     type SuccessorDeployment,
     type Verification,
     type VerificationFailure,
@@ -225,6 +232,7 @@
   import capabilityApi from '../api/capability'
   import usageApi from '../api/usage'
   import type { SandAiModel, SandAiProvider, SandAiUsageSummary } from '../api/types'
+  import { formatMoney } from '../usage/modules/usagePeriod'
   import {
     readHomeActivationIntent,
     retainHomeActivationIntent,
@@ -232,8 +240,10 @@
     updateHomeActivationIntent,
     type HomeActivationIntent
   } from '../api/homeActivationIntent'
-  import ChatRouteTrialPanel from '../components/ChatRouteTrialPanel.vue'
+  import ExpertSelectionHelp from '../components/ExpertSelectionHelp.vue'
   import { useSetupBootstrap } from '../composables/useSetupBootstrap'
+  import { describeBoundaryFault, problemInfoText } from '../composables/errorBoundary'
+  import { ElMessage } from 'element-plus'
 
   type HomeFlags = {
     provider: boolean
@@ -244,12 +254,9 @@
     bound: boolean
   }
 
-  type HomePanel = {
-    modelName: string
-    monthCost: string
-    todayCalls: string
-    applications: string
-  }
+  /** 已开通状态卡：四个字段各自独立读取，单项失败只影响该卡。 */
+  type PanelKey = 'model' | 'cost' | 'calls' | 'apps'
+  type PanelFieldState = 'loading' | 'ready' | 'error'
 
   const router = useRouter()
   const userStore = useUserStore()
@@ -294,8 +301,12 @@
   const ambiguous = ref(false)
   const conflict = ref('')
 
-  const showTrial = ref(false)
-  const panel = ref<HomePanel>({ modelName: '', monthCost: '暂无法读取', todayCalls: '暂无法读取', applications: '暂无法读取' })
+  const panelValues = ref<Record<PanelKey, string>>({ model: '', cost: '', calls: '', apps: '' })
+  const panelStates = ref<Record<PanelKey, PanelFieldState>>({
+    model: 'loading', cost: 'loading', calls: 'loading', apps: 'loading'
+  })
+  const loadFailure = ref<unknown>(null)
+  const copyingProblem = ref(false)
   let live = true
   let loadGeneration = 0
 
@@ -332,14 +343,11 @@
   const foreignPending = computed(() => flags.value.deployment && !flags.value.published)
   const showModelStep = computed(() => !completed.value && !intent.value && !flags.value.tested && !foreignPending.value)
 
-  const bootstrapDone = computed(() => bootstrapNotice.value === null)
-
+  // 降密度规格：未完成态只摆三步——连服务商、选模型、试对话；系统准备是自动检查，不占步骤位。
   const steps = computed(() => [
-    { key: 'bootstrap', title: '系统准备', done: bootstrapDone.value, text: bootstrapDone.value ? '已完成' : (bootstrapNotice.value?.message ?? '正在检查') },
     { key: 'provider', title: '连接服务商', done: flags.value.provider, text: flags.value.provider ? '已连接' : '选择一家服务商并粘贴 API Key' },
-    { key: 'model', title: '选择默认对话模型', done: flags.value.tested, text: flags.value.tested ? '已选定并通过测试' : '选一个模型，一键设为默认' },
-    { key: 'bind', title: '启用并绑定', done: flags.value.bound || completed.value, text: (flags.value.bound || completed.value) ? '已启用' : '绑定到应用后即可调用' },
-    { key: 'trial', title: '试一试', done: completed.value, text: completed.value ? '可以直接对话' : '开通完成后即可试用' }
+    { key: 'model', title: '选默认模型', done: flags.value.tested, text: flags.value.tested ? '已选定并通过测试' : '选一个模型，一键设为默认' },
+    { key: 'trial', title: '试一句对话', done: completed.value, text: completed.value ? '可以直接对话' : '绑定并开通完成后即可试用' }
   ])
 
   const environmentLabel = computed(() => {
@@ -348,6 +356,44 @@
     if (!env) return ''
     return app ? `${app.name} / ${env.name}` : env.name
   })
+
+  /** 已开通后的四张状态卡：值来自各自字段读取，失败卡只显示「暂时读不到」+重试。 */
+  const statusCards = computed<Array<{
+    key: PanelKey
+    label: string
+    value: string
+    action: string
+    open: () => void
+  }>>(() => [
+    {
+      key: 'model',
+      label: '默认模型',
+      value: panelValues.value.model || '未设置',
+      action: '更换',
+      open: () => go('/sand-ai/onboarding')
+    },
+    {
+      key: 'cost',
+      label: '本月花费',
+      value: panelValues.value.cost,
+      action: '查看费用',
+      open: () => go('/sand-ai/usage')
+    },
+    {
+      key: 'calls',
+      label: '今日调用',
+      value: panelValues.value.calls,
+      action: '查看调用记录',
+      open: () => go('/sand-ai/invocation')
+    },
+    {
+      key: 'apps',
+      label: '使用中的应用',
+      value: panelValues.value.apps,
+      action: '管理',
+      open: () => go('/sand-iam/application')
+    }
+  ])
 
   const modelOptions = computed<Array<{ value: string; label: string }>>(() => {
     const list: Array<{ value: string; label: string }> = discoveredModels.value.map(value => ({ value, label: value }))
@@ -653,7 +699,7 @@
             } catch {
               intentStorageError.value = true
             }
-            notice('输入未接受，本次没有提交。请核对后重试。', 'warning')
+            notice('输入未接受，本次没有发送。请核对后重试。', 'warning')
           } else {
             notice(accessNotice(error) ?? '保存结果尚未确认。请点击「找回原开通状态」，不会重新保存。', 'warning')
           }
@@ -791,7 +837,7 @@
           } catch {
             intentStorageError.value = true
           }
-          notice('未找到原保存记录，原请求没有提交。请重新填写后开通。', 'warning')
+          notice('未找到原保存记录，原请求没有发送。请重新填写后开通。', 'warning')
           await refreshStatus()
           return
         }
@@ -1027,6 +1073,7 @@
     const generation = ++loadGeneration
     loading.value = true
     loadError.value = ''
+    loadFailure.value = null
     iamChecked.value = false
     try {
       let apps = await iamApi.activeApplications()
@@ -1074,7 +1121,8 @@
       void loadGuides()
     } catch (error) {
       if (live && generation === loadGeneration) {
-        loadError.value = probeFailureText(error, '加载失败，请点击「刷新」重试。')
+        loadFailure.value = error
+        loadError.value = probeFailureText(error, '加载失败，请点击「重新加载」重试。')
       }
     } finally {
       if (live && generation === loadGeneration) loading.value = false
@@ -1118,16 +1166,20 @@
     await refreshStatus()
   }
 
+  /** 首页花费：按币种分别合计后用费用页同一格式（¥/$）展示，跨币种不相加。 */
   function summarizeAmount(summary: SandAiUsageSummary): string {
     const rows = summary.overall?.rows ?? []
-    let total = 0
-    let currency = ''
-    for (const row of rows) {
-      if (row.metered_amount !== null) total += Number(row.metered_amount) || 0
-      if (!currency && row.currency) currency = row.currency
-    }
     if (!rows.length) return '暂无计量'
-    return currency ? `${currency} ${total.toFixed(2)}` : total.toFixed(2)
+    const totals = new Map<string, number>()
+    for (const row of rows) {
+      if (row.metered_amount === null) continue
+      const currency = row.currency ?? ''
+      totals.set(currency, (totals.get(currency) ?? 0) + (Number(row.metered_amount) || 0))
+    }
+    if (totals.size === 0) return '未计价'
+    return [...totals.entries()]
+      .map(([currency, total]) => formatMoney(String(total), currency === '' ? null : currency))
+      .join('；')
   }
 
   function summarizeEvents(summary: SandAiUsageSummary): { events: number; failed: number } {
@@ -1140,31 +1192,97 @@
     return { events, failed }
   }
 
-  async function loadPanel(): Promise<void> {
-    const env = environmentId.value || undefined
-    const next: HomePanel = { modelName: '', monthCost: '暂无法读取', todayCalls: '暂无法读取', applications: '暂无法读取' }
-    const generation = loadGeneration
-    try {
-      const list = await onboardingApi.publishedDeployments('chat', undefined, 'chat', env)
-      next.modelName = list.data[0]?.display_name ?? ''
-    } catch { /* 保留默认文案 */ }
+  /** 已启用部署的展示名：模型名 · 服务商名，不落模型代码；模型名缺失才回退 display_name。 */
+  function deploymentLabel(item: PublishedDeployment): string {
+    if (!item.model_name) return item.display_name
+    return item.provider_name ? `${item.model_name} · ${item.provider_name}` : item.model_name
+  }
+
+  /** 能力档里 chat 默认模型绑定的部署；与能力配置页「默认模型」取同一语义（非停用、优先顺序最小）。 */
+  async function boundChatDeploymentId(env: number | undefined): Promise<number | null> {
+    const result = await capabilityApi.readProfile({ environment_id: env })
+    const routes = (result.profile?.routes ?? [])
+      .filter(route => route.capability_code === 'chat' && route.status !== 2)
+      .sort((left, right) => left.priority - right.priority)
+    const primary = routes.find(route => route.route_kind === 'model_deployment')
+    return primary?.deployment_id ?? null
+  }
+
+  /** 四张状态卡各自的取值函数；任一失败只把该卡标为 error。 */
+  function panelFetchers(env: number | undefined, monthStart: string, todayStart: string): Record<PanelKey, () => Promise<string>> {
+    return {
+      model: async () => {
+        const deploymentId = await boundChatDeploymentId(env)
+        if (deploymentId === null) return ''
+        const page = await onboardingApi.publishedDeployments('chat', undefined, 'chat', env)
+        const target = page.data.find(item => item.id === deploymentId)
+        return target ? deploymentLabel(target) : ''
+      },
+      cost: async () => summarizeAmount(await usageApi.summary({ from_time: monthStart })),
+      calls: async () => {
+        const { events, failed } = summarizeEvents(await usageApi.summary({ from_time: todayStart }))
+        return failed ? `${events} 次，失败 ${failed} 次` : `${events} 次`
+      },
+      apps: async () => {
+        const apps = await iamApi.listApplications({ page: 1, limit: 3 })
+        const names = apps.data.map(item => item.name).filter(Boolean).join('、')
+        return names ? (apps.total > apps.data.length ? `${names} 等 ${apps.total} 个` : names) : '暂无'
+      }
+    }
+  }
+
+  /** 单字段读取：重试与整页刷新共用同一入口。 */
+  async function settlePanelField(key: PanelKey, generation: number): Promise<void> {
+    panelStates.value[key] = 'loading'
     const now = new Date()
     const pad = (value: number): string => String(value).padStart(2, '0')
     const monthStart = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01 00:00:00`
     const todayStart = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} 00:00:00`
+    const fetchers = panelFetchers(environmentId.value || undefined, monthStart, todayStart)
     try {
-      next.monthCost = summarizeAmount(await usageApi.summary({ from_time: monthStart }))
-    } catch { /* 保留默认文案 */ }
+      const value = await fetchers[key]()
+      if (!live || generation !== loadGeneration) return
+      panelValues.value[key] = value
+      panelStates.value[key] = 'ready'
+    } catch {
+      if (!live || generation !== loadGeneration) return
+      panelStates.value[key] = 'error'
+    }
+  }
+
+  async function loadPanel(): Promise<void> {
+    const generation = loadGeneration
+    await Promise.all((Object.keys(panelStates.value) as PanelKey[]).map(key => settlePanelField(key, generation)))
+  }
+
+  function retryPanelField(key: PanelKey): void {
+    void settlePanelField(key, loadGeneration)
+  }
+
+  /** 「复制问题信息」：只含脱敏错误码、时间、版本与请求编号，不含堆栈或密钥。 */
+  async function copyProblemDetails(): Promise<void> {
+    if (loadFailure.value === null) return
+    copyingProblem.value = true
     try {
-      const { events, failed } = summarizeEvents(await usageApi.summary({ from_time: todayStart }))
-      next.todayCalls = failed ? `${events} 次，失败 ${failed} 次` : `${events} 次`
-    } catch { /* 保留默认文案 */ }
-    try {
-      const apps = await iamApi.listApplications({ page: 1, limit: 3 })
-      const names = apps.data.map(item => item.name).filter(Boolean).join('、')
-      next.applications = names ? (apps.total > apps.data.length ? `${names} 等 ${apps.total} 个` : names) : '暂无'
-    } catch { /* 保留默认文案 */ }
-    if (live && generation === loadGeneration) panel.value = next
+      const text = problemInfoText(describeBoundaryFault(loadFailure.value))
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        const area = document.createElement('textarea')
+        area.value = text
+        area.style.position = 'fixed'
+        area.style.opacity = '0'
+        document.body.appendChild(area)
+        area.select()
+        document.execCommand('copy')
+        area.remove()
+      }
+      ElMessage.success('已复制问题信息')
+    } catch {
+      ElMessage.warning('复制未完成，请稍后再试')
+    } finally {
+      copyingProblem.value = false
+    }
   }
 
   function loadIntent(): void {
@@ -1340,12 +1458,41 @@
     font-size: 13px;
   }
 
-  .home-panel {
-    max-width: 720px;
+  .home-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
   }
 
-  .home-panel__value {
-    margin-right: 8px;
+  .home-card {
+    border: 1px solid var(--el-border-color-light);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 84px;
+  }
+
+  .home-card__label {
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+
+  .home-card__value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    overflow-wrap: anywhere;
+  }
+
+  .home-card__error {
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+
+  .home-help {
+    margin-top: 4px;
   }
 
   .home-tech {

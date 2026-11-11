@@ -19,7 +19,7 @@ final class UsageSummaryPolicy
     /** @param array<string, mixed> $query @return array<string, int|string|null> */
     public function normalize(array $query, ?DateTimeImmutable $now = null): array
     {
-        $allowed = ['organization_id', 'environment_id', 'from_time', 'to_time', 'application_id', 'provider_id', 'model_id', 'skill_id', 'skill_version_id', 'skill_run_id', 'composition_run_id', 'composition_node_code', 'workflow_run_id', 'agent_run_id', 'agent_definition_id', 'agent_version_id', 'channel_binding_id', 'delivery_platform', 'knowledge_base_id', 'knowledge_base_version_id', 'knowledge_query_id', 'knowledge_index_id', 'service_code', 'service_action', 'source_kind', 'capability_code', 'pricing_state', 'usage_state', 'reconciliation_state'];
+        $allowed = ['organization_id', 'environment_id', 'from_time', 'to_time', 'application_id', 'provider_id', 'model_id', 'skill_id', 'skill_version_id', 'skill_run_id', 'composition_run_id', 'composition_node_code', 'workflow_run_id', 'agent_run_id', 'agent_definition_id', 'agent_version_id', 'channel_binding_id', 'delivery_platform', 'knowledge_base_id', 'knowledge_base_version_id', 'knowledge_query_id', 'knowledge_index_id', 'service_code', 'service_action', 'source_kind', 'capability_code', 'pricing_state', 'usage_state', 'reconciliation_state', 'trial'];
         if (array_diff(array_keys($query), $allowed) !== []) {
             throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Usage summary query contains unknown fields');
         }
@@ -60,6 +60,10 @@ final class UsageSummaryPolicy
             'pricing_state' => $this->optionalEnum($query['pricing_state'] ?? null, ['priced', 'unpriced'], 'pricing_state'),
             'usage_state' => $this->optionalEnum($query['usage_state'] ?? null, ['measured', 'unmeasured'], 'usage_state'),
             'reconciliation_state' => $this->optionalEnum($query['reconciliation_state'] ?? null, ['unreconciled', 'reconciled', 'discrepancy'], 'reconciliation_state'),
+            // Administrator-trial drilldown: 'only' keeps managed-binding calls,
+            // 'exclude' hides them. Resolved against SandIAM client ids by the
+            // caller; the core query never sees the SandIAM table.
+            'trial' => $this->optionalEnum($query['trial'] ?? null, ['only', 'exclude'], 'trial'),
         ];
 
         if ($result['composition_node_code'] !== null && $result['composition_run_id'] === null) {

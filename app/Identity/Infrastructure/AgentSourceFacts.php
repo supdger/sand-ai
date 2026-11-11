@@ -87,8 +87,13 @@ final class AgentSourceFacts
         if (!array_key_exists('_agent_definition', $input)) return null;
         $binding = $input['_agent_definition'];
         $code = $input['knowledge_base_code'] ?? null;
-        if (!is_array($binding) || !is_string($code)) self::unverified();
+        if (!is_array($binding)) self::unverified();
         (new AgentDefinitionGateway())->assertCurrent((int) $task->environment_id, $binding);
+        if ($code === null) {
+            if (($binding['knowledge_publication_id'] ?? null) !== null) self::unverified();
+            return null;
+        }
+        if (!is_string($code)) self::unverified();
         $publication = (new KnowledgePublicationGateway())->findForConsumer((int) $task->environment_id, $code);
         if ((int) $publication['owner_environment_id'] !== (int) $task->environment_id
             || (int) $publication['id'] !== ($binding['knowledge_publication_id'] ?? null)

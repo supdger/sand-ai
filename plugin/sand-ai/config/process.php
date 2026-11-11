@@ -8,6 +8,7 @@ use app\process\FeishuDeliveryWorker;
 use app\process\WecomDeliveryWorker;
 use app\process\SpeechUsageRecoveryWorker;
 use app\process\FileDeletionRecoveryWorker;
+use app\process\KnowledgeIndexWorker;
 
 // Process configuration is read before autoload.files. Reuse this plugin's
 // existing namespace registrar; the later include_once will not register twice.
@@ -25,7 +26,8 @@ if (!class_exists(TaskWorker::class) || !class_exists(OutcomeReceiptCleanupWorke
     || !class_exists(FeishuDeliveryWorker::class)
     || !class_exists(WecomDeliveryWorker::class)
     || !class_exists(SpeechUsageRecoveryWorker::class)
-    || !class_exists(FileDeletionRecoveryWorker::class)) {
+    || !class_exists(FileDeletionRecoveryWorker::class)
+    || !class_exists(KnowledgeIndexWorker::class)) {
     return [];
 }
 
@@ -73,6 +75,14 @@ return [
     ],
     'sand_ai_file_deletion_recovery' => [
         'handler' => FileDeletionRecoveryWorker::class,
+        'count' => 1,
+        'user' => '',
+        'group' => '',
+        'reloadable' => false,
+        'constructor' => [],
+    ],
+    'sand_ai_knowledge_index' => [
+        'handler' => KnowledgeIndexWorker::class,
         'count' => 1,
         'user' => '',
         'group' => '',

@@ -291,7 +291,11 @@ final class OpenAiCompatibleChatProvider
     /** Official SDK performs stream parsing/tool assembly; SandAI owns bounded transport, usage validation and receipts. */
     private function sendOfficialAgentStream(string $url,string $resolveEntry,array $options,int $maximumBytes,array $payload,string $key,string $model,AgentToolChatRequest $request,array $messages,callable $acceptChunk,ProviderSendBoundary $boundary):array
     {
-        $client=new NeuronAgentStreamHttpClient($url,$resolveEntry,$options,$maximumBytes,ProviderRequestBodyBuilder::digest($payload),$boundary,toolRequest:$request);
+        // A request frozen without tools goes out on the text-only transport
+        // contract: the wire body carries no tool declarations, so tool_calls
+        // frames and a tool_calls finish stay measured protocol violations.
+        $toolFree=$request->tools===[];
+        $client=new NeuronAgentStreamHttpClient($url,$resolveEntry,$options,$maximumBytes,ProviderRequestBodyBuilder::digest($payload),$boundary,allowToolCalls:!$toolFree,toolRequest:$toolFree?null:$request);
         try {
             $provider=new NeuronAgentStreamProvider($key,$model,$payload,$url,$options['headers'],$client);
             $provider->setTools($request->sdkTools);

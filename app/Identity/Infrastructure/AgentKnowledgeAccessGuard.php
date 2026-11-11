@@ -55,6 +55,7 @@ final class AgentKnowledgeAccessGuard
     public function authorizeRead(Request $request, IdentityContext $identity, TaskRun $task, string $requestId): void
     {
         $publication = self::taskPublication($task);
+        if ($publication === null) return;
         $decision = $this->host()->authorize(
             $request, $identity, 'sand_ai.knowledge.query', 'sand_ai.knowledge_publication',
             self::resourceKey($publication, $identity),
@@ -68,6 +69,7 @@ final class AgentKnowledgeAccessGuard
         TaskRun $task, string $requestId,
     ): void {
         $publication = self::taskPublication($task);
+        if ($publication === null) return;
         $decision = $this->host()->authorizeSigned(
             $authorizationHeader, $sourceIp, $identity, 'sand_ai.knowledge.query',
             'sand_ai.knowledge_publication', self::resourceKey($publication, $identity),
@@ -76,14 +78,19 @@ final class AgentKnowledgeAccessGuard
         self::assertDecision($decision, $publication);
     }
 
-    /** @return array<string,mixed> */
-    private static function taskPublication(TaskRun $task): array
+    /** @return array<string,mixed>|null A null knowledge_base_code binds no publication to authorize. */
+    private static function taskPublication(TaskRun $task): ?array
     {
         $input = is_object($task->input) ? (array) $task->input : $task->input;
         $binding = is_array($input) ? ($input['_agent_definition'] ?? null) : null;
         $code = is_array($input) ? ($input['knowledge_base_code'] ?? null) : null;
-        if (!is_array($binding) || !is_string($code)) self::invalid();
+        if (!is_array($binding)) self::invalid();
         (new AgentDefinitionGateway())->assertCurrent((int) $task->environment_id, $binding);
+        if ($code === null) {
+            if (($binding['knowledge_publication_id'] ?? null) !== null) self::invalid();
+            return null;
+        }
+        if (!is_string($code)) self::invalid();
         $publication = (new KnowledgePublicationGateway())->findForConsumer((int) $task->environment_id, $code);
         if ((int) $publication['owner_environment_id'] !== (int) $task->environment_id
             || (int) $publication['id'] !== ($binding['knowledge_publication_id'] ?? null)

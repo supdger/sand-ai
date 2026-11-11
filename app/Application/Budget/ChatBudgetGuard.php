@@ -48,14 +48,16 @@ final class ChatBudgetGuard
         ?InternalModelInvocationContext $internalContext = null,
         ?callable $afterAcceptedInvocation = null, ?SkillAttribution $skillAttribution = null,
         ?callable $afterRejectedInvocation = null,
-        ?string $preDispatchTrustedScope = null,
+        ?string $trustedScope = null,
         ?UsageAttribution $attribution = null,
         ?KnowledgeAnswerAttribution $knowledgeAnswerAttribution = null,
-        ?BudgetInputTokenProof $inputTokenProof = null,
         ?array $providerRequestBody = null,
         ?array $providerRouteSnapshot = null,
         ?string $providerRequestProtocol = null,
     ): array {
+        // The frozen body/route parameters stay in the signature for callers
+        // that freeze them for dispatch; budgets no longer pre-block on
+        // estimated capacity, so they are not consulted.
         if ($reservationTtlSeconds < 60 || $reservationTtlSeconds > 3600) {
             throw new ApiProblem('SAND_AI_BUDGET_VALIDATION_ERROR', 'budget reservation ttl must be between 60 and 3600 seconds');
         }
@@ -79,10 +81,10 @@ final class ChatBudgetGuard
         }
         $calledAt = gmdate('Y-m-d H:i:s');
         $budgetAt = gmdate('Y-m-d H:i:s');
-        $result = Db::connect('pgsql')->transaction(function () use ($environmentId, $modelId, $deployment, $messages, $options, $requestId, $requestFingerprint, $reservationTtlSeconds, $calledAt, $budgetAt, $capabilityCode, $internalContext, $afterAcceptedInvocation, $skillAttribution, $afterRejectedInvocation, $preDispatchTrustedScope, $attribution, $knowledgeAnswerAttribution, $inputTokenProof, $providerRequestBody, $providerRouteSnapshot, $providerRequestProtocol): array {
+        $result = Db::connect('pgsql')->transaction(function () use ($environmentId, $modelId, $deployment, $requestId, $requestFingerprint, $reservationTtlSeconds, $calledAt, $budgetAt, $capabilityCode, $internalContext, $afterAcceptedInvocation, $skillAttribution, $afterRejectedInvocation, $trustedScope, $attribution, $knowledgeAnswerAttribution): array {
             Db::connect('pgsql')->query('SELECT pg_advisory_xact_lock(hashtextextended(?, 132))', ['sand_ai_chat_request:' . $requestId]);
-            if ($preDispatchTrustedScope !== null) {
-                $preRejected = PreDispatchRejection::where('trusted_scope', $preDispatchTrustedScope)->where('request_id', $requestId)->lock(true)->find();
+            if ($trustedScope !== null) {
+                $preRejected = PreDispatchRejection::where('trusted_scope', $trustedScope)->where('request_id', $requestId)->lock(true)->find();
                 if ($preRejected !== null) {
                     if (!is_string($preRejected->request_fingerprint) || !hash_equals($preRejected->request_fingerprint, $requestFingerprint)) {
                         throw new ApiProblem('SAND_AI_IDEMPOTENCY_CONFLICT', 'The request id was already used with different input');
@@ -106,7 +108,7 @@ final class ChatBudgetGuard
                 // out while the local finalizer was unavailable.
                 if ($skillAttribution !== null && (string) $existing->state === 'running') {
                     $pricingSnapshot = $this->pricingSnapshot($existing);
-                    return ['invocation' => $existing, 'reservation_id' => $reservation === null ? null : (int) $reservation->id, 'estimated_amount' => $reservation === null ? null : (string) $reservation->estimate_amount, 'price_revision_id' => $pricingSnapshot->priceRevisionId, 'called_at' => $pricingSnapshot->calledAt, 'pricing_snapshot' => $pricingSnapshot, 'idempotent_replay' => true, 'skill_receipt_recovery' => true];
+                    return ['invocation' => $existing, 'reservation_id' => $reservation === null ? null : (int) $reservation->id, 'estimated_amount' => $this->frozenEstimate($reservation), 'price_revision_id' => $pricingSnapshot->priceRevisionId, 'called_at' => $pricingSnapshot->calledAt, 'pricing_snapshot' => $pricingSnapshot, 'idempotent_replay' => true, 'skill_receipt_recovery' => true];
                 }
                 if ($reservation !== null && $this->lockForCompletion((int) $reservation->id)['expired']) {
                     return ['rejected' => new ApiProblem('SAND_AI_BUDGET_RESERVATION_EXPIRED', 'Budget reservation expired before completion')];
@@ -120,7 +122,7 @@ final class ChatBudgetGuard
                         return [
                             'invocation' => $existing,
                             'reservation_id' => $reservation === null ? null : (int) $reservation->id,
-                            'estimated_amount' => $reservation === null ? null : (string) $reservation->estimate_amount,
+                            'estimated_amount' => $this->frozenEstimate($reservation),
                             'price_revision_id' => $pricingSnapshot->priceRevisionId,
                             'called_at' => $pricingSnapshot->calledAt,
                             'pricing_snapshot' => $pricingSnapshot,
@@ -131,7 +133,7 @@ final class ChatBudgetGuard
                 }
 
                 $pricingSnapshot = $this->pricingSnapshot($existing);
-                return ['invocation' => $existing, 'reservation_id' => $skillAttribution === null || $reservation === null ? null : (int) $reservation->id, 'estimated_amount' => $skillAttribution === null || $reservation === null ? null : (string) $reservation->estimate_amount, 'price_revision_id' => $pricingSnapshot->priceRevisionId, 'called_at' => $pricingSnapshot->calledAt, 'pricing_snapshot' => $pricingSnapshot, 'idempotent_replay' => true];
+                return ['invocation' => $existing, 'reservation_id' => $skillAttribution === null || $reservation === null ? null : (int) $reservation->id, 'estimated_amount' => $skillAttribution === null ? null : $this->frozenEstimate($reservation), 'price_revision_id' => $pricingSnapshot->priceRevisionId, 'called_at' => $pricingSnapshot->calledAt, 'pricing_snapshot' => $pricingSnapshot, 'idempotent_replay' => true];
             }
             $pricingSnapshot = CallStartPricingSnapshot::resolve(
                 new PriceResolver(),
@@ -144,35 +146,24 @@ final class ChatBudgetGuard
                 throw new ApiProblem('SAND_AI_BUDGET_SCOPE_UNVERIFIED', 'Trusted attribution is required before budget selection');
             }
             $policies = [];
-            $estimate = null;
             $plans = [];
             try {
                 $policies = (new BudgetPolicyService())->applicable($attribution, $modelId, $capabilityCode, $budgetAt, true);
                 foreach ($policies as $policy) {
-                    if (!in_array((string) $policy->enforcement, ['hard', 'soft'], true)
-                        || (string) $policy->unpriced_policy !== 'block' || (string) $policy->unmeasured_policy !== 'hold') {
+                    if (!in_array((string) $policy->enforcement, ['hard', 'soft'], true)) {
                         throw new ApiProblem('SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE', 'The active budget policy is not executable');
                     }
                 }
+                $price = $pricingSnapshot->resolvedPrice();
+                foreach ($policies as $policy) {
+                    if ($price !== null && (string) $policy->currency !== $price->currency) {
+                        throw new ApiProblem('SAND_AI_BUDGET_CURRENCY_MISMATCH', 'Budget policy currency differs from the call-start price');
+                    }
+                }
+                // A reservation row needs a price revision foreign key, so an
+                // unpriced call owns none; the window check still applies
+                // because an exhausted hard budget pauses every AI call.
                 if ($policies !== []) {
-                    $config = $this->deploymentConfig($deployment);
-                    $price = $pricingSnapshot->resolvedPrice();
-                    if (array_key_exists('budget_capacity_attestation', $config)) {
-                        if ($providerRequestBody === null || $providerRouteSnapshot === null) {
-                            throw new ApiProblem('SAND_AI_BUDGET_CAPACITY_UNVERIFIED', 'The final provider body and frozen route are required for capacity reservation');
-                        }
-                        $capacity = BudgetCapacityBound::fromRoute($providerRouteSnapshot, $providerRequestBody, $environmentId, $providerRequestProtocol);
-                        $capacity->assertTarget($deployment, $modelId, $environmentId, $providerRouteSnapshot, $providerRequestBody);
-                        $estimate = $capacity->reservation($price, $options->maxOutputTokens ?? 0);
-                        if (!BudgetDecimal::isPositive($estimate['estimated_amount'])) $estimate['estimated_amount'] = '0.000001';
-                    } else {
-                        // A tokenizer receipt proves provenance, not a strict
-                        // monetary input bound. It cannot lower this reservation.
-                        throw new ApiProblem('SAND_AI_BUDGET_CAPACITY_UNVERIFIED', 'A supported official protocol capacity is required under an active budget');
-                    }
-                    if ((int) $estimate['price_revision_id'] !== $pricingSnapshot->priceRevisionId) {
-                        throw new ApiProblem('SAND_AI_BUDGET_PRICE_REVISION_MISMATCH', 'Budget estimation did not use the call-start price revision');
-                    }
                     $ids = array_map(static fn (BudgetPolicy $policy): int => (int) $policy->id, $policies);
                     $windows = BudgetWindow::whereIn('policy_id', $ids)->order('policy_id')->lock(true)->select();
                     $byPolicy = [];
@@ -180,8 +171,14 @@ final class ChatBudgetGuard
                     if (count($byPolicy) !== count($policies)) throw new ApiProblem('SAND_AI_BUDGET_WINDOW_MISSING', 'An active budget policy has no runtime window');
                     foreach ($policies as $policy) {
                         $window = $byPolicy[(int) $policy->id];
-                        $plans[] = ['policy' => $policy, 'window' => $window, 'transition' => (new BudgetReservationStateMachine())->reserve(
-                            $this->windowSnapshot($window), $estimate['estimated_amount'], $estimate['currency'], (string) $policy->enforcement === 'soft')];
+                        $snapshot = $this->windowSnapshot($window);
+                        if (!BudgetSpendGate::allowsWindowCall((string) $policy->enforcement, $snapshot)) {
+                            throw new ApiProblem('SAND_AI_BUDGET_EXCEEDED', BudgetSpendGate::EXHAUSTED_MESSAGE);
+                        }
+                        if ($price !== null) {
+                            $plans[] = ['policy' => $policy, 'window' => $window, 'transition' => (new BudgetReservationStateMachine())->reserve(
+                                $snapshot, BudgetSpendGate::NOMINAL_ESTIMATE, (string) $policy->currency, true)];
+                        }
                     }
                 }
             } catch (ApiProblem $problem) {
@@ -193,7 +190,7 @@ final class ChatBudgetGuard
                 $rejectedInvocation = $this->createInvocation($environmentId, $modelId, (int) $deployment->id, $requestId, $requestFingerprint, $pricingSnapshot, null, $skillAttribution, $attribution, $knowledgeAnswerAttribution);
                 $rejectedInvocation->save(['state' => 'failed', 'completed_at' => $calledAt, 'error_code' => $problem->errorCode, 'error_summary' => $problem->getMessage()]);
                 foreach ($policies as $policy) {
-                    $this->event((int) $policy->id, null, (int) $rejectedInvocation->id, 'reject', $estimate['estimated_amount'] ?? null, (string) $policy->currency, $problem->errorCode,
+                    $this->event((int) $policy->id, null, (int) $rejectedInvocation->id, 'reject', null, (string) $policy->currency, $problem->errorCode,
                         ['request_id' => $requestId, 'request_fingerprint' => $requestFingerprint]);
                 }
                 $this->afterRejectedInvocation($rejectedInvocation, $problem, $afterRejectedInvocation);
@@ -208,18 +205,21 @@ final class ChatBudgetGuard
                 $transition = $plan['transition'];
                 $rows = Db::connect('pgsql')->query(
                     "INSERT INTO sand_ai_budget_reservation (policy_id, invocation_id, request_id, request_fingerprint, estimate_amount, currency, price_revision_id, state, expires_at) VALUES (?, ?, ?, ?, CAST(? AS numeric(20,6)), ?, ?, 'reserved', ?) RETURNING id",
-                    [(int) $policy->id, (int) $invocation->id, $requestId, $requestFingerprint, $estimate['estimated_amount'], $estimate['currency'], $estimate['price_revision_id'], $expiresAt]);
+                    [(int) $policy->id, (int) $invocation->id, $requestId, $requestFingerprint, BudgetSpendGate::NOMINAL_ESTIMATE, (string) $policy->currency, $pricingSnapshot->priceRevisionId, $expiresAt]);
                 if (count($rows) !== 1) throw new ApiProblem('SAND_AI_BUDGET_RESERVATION_MISSING', 'Budget reservation could not be created');
                 $reservationId = (int) $rows[0]['id'];
                 $anchor ??= $reservationId;
                 $this->persistWindow((int) $plan['window']->id, $transition['window']);
-                $this->event((int) $policy->id, $reservationId, (int) $invocation->id, 'reserve', $estimate['estimated_amount'], $estimate['currency'], null,
-                    ['request_id' => $requestId, 'price_revision_id' => $estimate['price_revision_id'],
-                        'reserved_input_tokens' => $estimate['reserved_input_tokens'], 'output_token_upper_bound' => $estimate['output_token_upper_bound'],
-                        'input_bound' => $estimate['input_bound'] ?? null, 'enforcement' => (string) $policy->enforcement, 'overrun' => BudgetDecimal::compare($transition['window']['available_amount'], '0.000000') < 0]);
+                $this->event((int) $policy->id, $reservationId, (int) $invocation->id, 'reserve', BudgetSpendGate::NOMINAL_ESTIMATE, (string) $policy->currency, null,
+                    ['request_id' => $requestId, 'price_revision_id' => $pricingSnapshot->priceRevisionId,
+                        'enforcement' => (string) $policy->enforcement,
+                        'overrun' => $transition['window']['available_amount'] !== null
+                            && BudgetDecimal::compare($transition['window']['available_amount'], '0.000000') < 0]);
             }
             $this->afterAcceptedInvocation($invocation, $pricingSnapshot, $afterAcceptedInvocation);
-            return ['invocation' => $invocation, 'reservation_id' => $anchor, 'estimated_amount' => $estimate['estimated_amount'] ?? null,
+            // A nominal hold is only a placeholder for the spend gate, not a
+            // frozen upper-bound quote; the estimate stays unavailable.
+            return ['invocation' => $invocation, 'reservation_id' => $anchor, 'estimated_amount' => null,
                 'price_revision_id' => $pricingSnapshot->priceRevisionId, 'called_at' => $calledAt, 'pricing_snapshot' => $pricingSnapshot, 'idempotent_replay' => false];
 
         });
@@ -295,7 +295,12 @@ final class ChatBudgetGuard
         };
         if ($dispatch->dispatch_start_time !== null || (string) $dispatch->state !== 'prepared') $reject();
         if ($anchor === null) {
-            if ($attribution === null || (new BudgetPolicyService())->applicable($attribution, (int) $invocation->model_id, (string) $dispatch->capability_code, $budgetAt, true) !== []) $reject();
+            // A priced call under an applicable policy always owns a monetary
+            // reservation; an unpriced call legitimately has none because the
+            // row requires a price revision foreign key.
+            if ($attribution === null) $reject();
+            if ($priceSnapshot->priceRevisionId !== null
+                && (new BudgetPolicyService())->applicable($attribution, (int) $invocation->model_id, (string) $dispatch->capability_code, $budgetAt, true) !== []) $reject();
             return;
         }
         $route = is_object($dispatch->route_snapshot) ? (array) $dispatch->route_snapshot : $dispatch->route_snapshot;
@@ -310,6 +315,16 @@ final class ChatBudgetGuard
             $snapshot = is_object($snapshot) ? (array) $snapshot : $snapshot;
             $bound = is_array($snapshot) ? ($snapshot['input_bound'] ?? null) : null;
             $bound = is_object($bound) ? (array) $bound : $bound;
+            if ($bound === null) {
+                // A nominal reservation carries no capacity proof to
+                // re-verify; only its bookkeeping identity is rechecked.
+                if ((string) $reservation->state !== 'reserved'
+                    || (int) $reservation->invocation_id !== (int) $invocation->id
+                    || (int) $reservation->price_revision_id !== $price->revisionId
+                    || (string) $reservation->currency !== $price->currency
+                    || (is_array($snapshot) && ($snapshot['price_revision_id'] ?? $price->revisionId) !== $price->revisionId)) $reject();
+                continue;
+            }
             if (!is_array($bound) || ($bound['kind'] ?? null) !== 'official_protocol_capacity'
                 || (array_key_exists('amount_rounding', $bound) && $bound['amount_rounding'] !== TokenPriceCalculator::RESERVATION_ROUNDING)
                 || ($bound['counted_input_tokens'] ?? null) !== null
@@ -371,6 +386,16 @@ final class ChatBudgetGuard
         if ($afterRejectedInvocation !== null) {
             $afterRejectedInvocation($invocation, $problem);
         }
+    }
+
+    /** A nominal hold is not a frozen upper-bound quote; it reports as unavailable. */
+    private function frozenEstimate(?BudgetReservation $reservation): ?string
+    {
+        if ($reservation === null) {
+            return null;
+        }
+        $amount = (string) $reservation->estimate_amount;
+        return $amount === BudgetSpendGate::NOMINAL_ESTIMATE ? null : $amount;
     }
 
     /**
@@ -590,25 +615,18 @@ final class ChatBudgetGuard
         }
     }
 
-    /** @return array<string,mixed> */
-    private function deploymentConfig(ModelDeployment $deployment): array
-    {
-        $config = is_object($deployment->config) ? (array) $deployment->config : $deployment->config;
-
-        return is_array($config) ? $config : [];
-    }
-
-    /** @return array<string,string> */
+    /** @return array<string,string|null> */
     private function windowSnapshot(BudgetWindow $window): array
     {
         return [
-            'currency' => (string) $window->currency, 'limit_amount' => (string) $window->limit_amount,
+            'currency' => (string) $window->currency,
+            'limit_amount' => $window->limit_amount === null ? null : (string) $window->limit_amount,
             'reserved_amount' => (string) $window->reserved_amount, 'settled_amount' => (string) $window->settled_amount,
             'held_amount' => (string) $window->held_amount,
         ];
     }
 
-    /** @return array<string,string> */
+    /** @return array<string,string|null> */
     public function holdExpiredReservations(BudgetWindow $window, string $calledAt): array
     {
         $snapshot = $this->windowSnapshot($window);
@@ -625,7 +643,7 @@ final class ChatBudgetGuard
         return $snapshot;
     }
 
-    /** @param array<string,string>|null $windowSnapshot @return array{window:array<string,string>} */
+    /** @param array<string,string|null>|null $windowSnapshot @return array{window:array<string,string|null>} */
     private function expireReservation(BudgetWindow $window, BudgetReservation $reservation, string $expiredAt, ?array $windowSnapshot = null): array
     {
         $transition = (new BudgetReservationExpiryPolicy())->expire(
@@ -648,7 +666,7 @@ final class ChatBudgetGuard
         return ['window' => $transition['window']];
     }
 
-    /** @param array<string,string> $snapshot */
+    /** @param array<string,string|null> $snapshot */
     private function persistWindow(int $windowId, array $snapshot): void
     {
         self::requireExactlyOneAffectedRow(Db::connect('pgsql')->execute(

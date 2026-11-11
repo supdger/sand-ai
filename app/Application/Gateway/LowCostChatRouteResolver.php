@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace app\Application\Gateway;
 
 use app\Api\Support\ApiProblem;
-use app\Application\Budget\BudgetCapacityBound;
+use app\Application\Budget\BudgetSpendGate;
+use app\Application\Usage\TokenPriceCalculator;
 use app\Infrastructure\Persistence\Model\CapabilityProfile;
 use app\Infrastructure\Persistence\Model\CapabilityRoute;
 use app\Infrastructure\Persistence\Model\ConfigRevision;
@@ -15,7 +16,6 @@ use app\Infrastructure\Persistence\Model\AiModel;
 use app\Infrastructure\Persistence\Model\BudgetWindow;
 use app\Application\Budget\BudgetPolicyService;
 use app\Application\Budget\BudgetDecimal;
-use app\Application\Budget\BudgetReservationStateMachine;
 use app\Application\Usage\UsageAttribution;
 use app\Infrastructure\Persistence\Model\ModelDeployment;
 use app\Infrastructure\Persistence\Model\Provider;
@@ -61,34 +61,25 @@ final class LowCostChatRouteResolver
                     continue;
                 }
             }
-            $config = is_object($deployment->config) ? (array) $deployment->config : $deployment->config;
-            if (!is_array($config) || !array_key_exists('budget_capacity_attestation', $config)) continue;
             $price = $prices->resolve((int) $provider->id, (int) $model->id, 'chat', $now);
             if ($price === null) continue;
             try {
-                if (is_array($config) && array_key_exists('budget_capacity_attestation', $config)) {
-                    $frozen = $this->candidateSnapshot($environmentId, $route, $deployment, $provider, $model);
-                    $snapshot = $frozen['route_snapshot'];
-                    $options = new ChatCompletionOptions($maxOutputTokens,
-                        (string) $provider->adapter === 'openai_compatible'
-                            ? DispatchRouteSnapshot::reasoningEffortFromRevision($snapshot, $frozen['deployment_revision']) : null);
-                    if ((string) $provider->adapter === 'openai_compatible') {
-                        $encrypted = is_object($provider->encrypted_config) ? (array) $provider->encrypted_config : $provider->encrypted_config;
-                        if (!is_array($encrypted)) {
-                            throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'Provider configuration is incomplete');
-                        }
-                        $runtime = (new OpenAiCompatibleExecutionConfigPolicy())->normalize(
-                            (new ProviderSecretDecryptor())->decrypt($encrypted));
-                        $body = (new OpenAiCompatibleChatProvider())->requestBody(
-                            $runtime, (string) $deployment->remote_model, $messages, $options, $streamSegments);
-                    } else {
-                        $body = ProviderRequestBodyBuilder::chat((string) $deployment->remote_model, $messages, $options);
+                $frozen = $this->candidateSnapshot($environmentId, $route, $deployment, $provider, $model);
+                $snapshot = $frozen['route_snapshot'];
+                $options = new ChatCompletionOptions($maxOutputTokens,
+                    (string) $provider->adapter === 'openai_compatible'
+                        ? DispatchRouteSnapshot::reasoningEffortFromRevision($snapshot, $frozen['deployment_revision']) : null);
+                if ((string) $provider->adapter === 'openai_compatible') {
+                    $encrypted = is_object($provider->encrypted_config) ? (array) $provider->encrypted_config : $provider->encrypted_config;
+                    if (!is_array($encrypted)) {
+                        throw new ApiProblem('SAND_AI_PROVIDER_CONFIG_INVALID', 'Provider configuration is incomplete');
                     }
-                    $capacity = BudgetCapacityBound::fromRoute($snapshot, $body, $environmentId);
-                    $capacity->assertTarget($deployment, (int) $model->id, $environmentId, $snapshot, $body);
-                    $estimate = $capacity->reservation($price, $maxOutputTokens);
+                    $runtime = (new OpenAiCompatibleExecutionConfigPolicy())->normalize(
+                        (new ProviderSecretDecryptor())->decrypt($encrypted));
+                    $body = (new OpenAiCompatibleChatProvider())->requestBody(
+                        $runtime, (string) $deployment->remote_model, $messages, $options, $streamSegments);
                 } else {
-                    continue;
+                    $body = ProviderRequestBodyBuilder::chat((string) $deployment->remote_model, $messages, $options);
                 }
             } catch (ApiProblem $problem) {
                 if (!in_array($problem->errorCode, ['SAND_AI_BUDGET_INPUT_PROOF_REQUIRED', 'SAND_AI_BUDGET_INPUT_BOUND_EXCEEDED', 'SAND_AI_BUDGET_CAPACITY_UNVERIFIED', 'SAND_AI_CONFIGURATION_NOT_PUBLISHED',
@@ -98,29 +89,26 @@ final class LowCostChatRouteResolver
             $policies = (new BudgetPolicyService())->applicable($attribution, (int) $model->id, 'chat', $now);
             $eligible = true;
             foreach ($policies as $policy) {
-                if ((string) $policy->currency !== $price->currency || !in_array((string) $policy->enforcement, ['hard', 'soft'], true)
-                    || (string) $policy->unpriced_policy !== 'block' || (string) $policy->unmeasured_policy !== 'hold') {
+                if ((string) $policy->currency !== $price->currency || !in_array((string) $policy->enforcement, ['hard', 'soft'], true)) {
                     $eligible = false;
                     break;
                 }
                 $window = BudgetWindow::where('policy_id', (int) $policy->id)->find();
-                if ($window === null) { $eligible = false; break; }
-                $amount = BudgetDecimal::isPositive($estimate['estimated_amount']) ? $estimate['estimated_amount'] : '0.000001';
-                try {
-                    (new BudgetReservationStateMachine())->reserve([
-                        'currency' => (string) $window->currency, 'limit_amount' => (string) $window->limit_amount,
-                        'reserved_amount' => (string) $window->reserved_amount, 'settled_amount' => (string) $window->settled_amount,
-                        'held_amount' => (string) $window->held_amount,
-                    ], $amount, $price->currency, (string) $policy->enforcement === 'soft');
-                } catch (ApiProblem $problem) {
-                    if ($problem->errorCode !== 'SAND_AI_BUDGET_EXCEEDED') throw $problem;
-                    $eligible = false;
-                    break;
-                }
+                if ($window === null || !BudgetSpendGate::allowsWindowCall((string) $policy->enforcement, [
+                    'limit_amount' => $window->limit_amount === null ? null : (string) $window->limit_amount,
+                    'reserved_amount' => (string) $window->reserved_amount, 'settled_amount' => (string) $window->settled_amount,
+                    'held_amount' => (string) $window->held_amount,
+                ])) { $eligible = false; break; }
             }
             if (!$eligible) continue;
+            // Only an output-side bound can be derived without an attested
+            // input capacity; it still orders routes by their frozen prices.
+            $amount = TokenPriceCalculator::calculateReservation(0, $maxOutputTokens,
+                $price->inputRate['unit_price'], $price->inputRate['per_quantity'],
+                $price->outputRate['unit_price'], $price->outputRate['per_quantity'])['amount'];
             $candidates[] = [
-                'estimated_amount' => $estimate['estimated_amount'], 'currency' => $price->currency,
+                'estimated_amount' => BudgetDecimal::isPositive($amount) ? $amount : BudgetSpendGate::NOMINAL_ESTIMATE,
+                'currency' => $price->currency,
                 'priority' => (int) $route['priority'], 'route_id' => (int) $route['route_id'],
                 'model_code' => (string) $model->code, 'deployment_id' => (int) $deployment->id,
                 'price_revision_id' => $price->revisionId,

@@ -34,6 +34,9 @@ final class AdminTrialIamGateway
     public const AUDIENCE = 'sand-ai';
     public const SERVICE_CODE = 'sand_ai';
     public const CHAT_ACTION = 'sand_ai.chat.complete';
+    public const KNOWLEDGE_QUERY_ACTION = 'sand_ai.knowledge.query';
+    public const AGENT_SUBMIT_ACTION = 'sand_ai.agent.submit';
+    public const AGENT_RUN_ACTION = 'sand_ai.agent.run';
     private const CONTEXT_TTL_SECONDS = 300;
     private const CREDENTIAL_TTL_MARGIN_SECONDS = 30;
 
@@ -83,6 +86,22 @@ final class AdminTrialIamGateway
             'name' => (string) $application->name,
             'organization_id' => (int) $application->organization_id,
         ];
+    }
+
+    /**
+     * SandIAM application owning an environment, or null when the environment
+     * is unknown/disabled. Used by the knowledge trial to reach the managed
+     * binding from a knowledge base's owner environment.
+     */
+    public function applicationForEnvironment(int $environmentId): ?int
+    {
+        $this->assertAvailable();
+        if ($environmentId < 1) {
+            return null;
+        }
+        $row = Environment::where('id', $environmentId)->where('status', 1)->find();
+        $applicationId = $row === null ? 0 : (int) ($row->application_id ?? 0);
+        return $applicationId > 0 ? $applicationId : null;
     }
 
     /**
@@ -136,13 +155,22 @@ final class AdminTrialIamGateway
      */
     public function chatGrantActive(int $workloadClientId): bool
     {
+        return $this->actionGrantActive($workloadClientId, self::CHAT_ACTION);
+    }
+
+    /**
+     * Live grant recheck for any single service action on the managed client.
+     * Same fail-closed semantics as chatGrantActive.
+     */
+    public function actionGrantActive(int $workloadClientId, string $action): bool
+    {
         $this->assertAvailable();
         $query = HostSandIamRuntime::serviceGrantQuery();
         if ($query === null) {
             throw new ApiProblem('SAND_AI_TRIAL_IAM_UNAVAILABLE', '身份与授权组件（SandIAM）未安装或未启用，暂时无法使用试用功能');
         }
         try {
-            return $query->hasActiveGrant($workloadClientId, self::AUDIENCE, self::SERVICE_CODE, self::CHAT_ACTION) === true;
+            return $query->hasActiveGrant($workloadClientId, self::AUDIENCE, self::SERVICE_CODE, $action) === true;
         } catch (Throwable) {
             throw new ApiProblem('SAND_AI_TRIAL_IAM_UNAVAILABLE', '身份与授权组件（SandIAM）暂时不可用，请稍后重试');
         }
@@ -163,7 +191,41 @@ final class AdminTrialIamGateway
         string $requestId,
         string $actor,
     ): array {
+        return $this->issueIdentity(
+            $workloadClientId, $organizationId, $applicationId, $sourceIp, $requestId, $actor,
+            [self::CHAT_ACTION],
+        );
+    }
+
+    /**
+     * Same minimum-action issuance for the knowledge-query and published-agent
+     * trial channels. $actions must stay a subset of the actions the managed
+     * binding was granted; callers verify each grant before issuing.
+     *
+     * @param list<string> $actions
+     * @return array{context:string,identity:IdentityContext,credential_id:int,key_prefix:string,expire_time:string}
+     */
+    public function issueIdentity(
+        int $workloadClientId,
+        int $organizationId,
+        int $applicationId,
+        string $sourceIp,
+        string $requestId,
+        string $actor,
+        array $actions,
+    ): array {
         $this->assertAvailable();
+        if ($actions === [] || count($actions) > 4) {
+            throw new ApiProblem('SAND_AI_TRIAL_ISSUE_FAILED', '暂时无法发起试用，请稍后重试');
+        }
+        foreach ($actions as $action) {
+            if (!in_array($action, [
+                self::CHAT_ACTION, self::KNOWLEDGE_QUERY_ACTION,
+                self::AGENT_SUBMIT_ACTION, self::AGENT_RUN_ACTION,
+            ], true)) {
+                throw new ApiProblem('SAND_AI_TRIAL_ISSUE_FAILED', '暂时无法发起试用，请稍后重试');
+            }
+        }
         if (filter_var($sourceIp, FILTER_VALIDATE_IP) === false || $sourceIp === '0.0.0.0' || $sourceIp === '::') {
             throw new ApiProblem('SAND_AI_TRIAL_ISSUE_FAILED', '无法确认请求来源，暂时无法发起试用对话，请稍后重试');
         }
@@ -189,7 +251,7 @@ final class AdminTrialIamGateway
             $issued = $issuer->issue(
                 (string) ($credential['credential'] ?? ''),
                 self::AUDIENCE,
-                [self::CHAT_ACTION],
+                $actions,
                 null,
                 $requestId,
                 $sourceIp,
@@ -203,9 +265,17 @@ final class AdminTrialIamGateway
             throw new ApiProblem('SAND_AI_TRIAL_ISSUE_FAILED', '暂时无法发起试用对话，请稍后重试');
         }
         try {
-            $identity = (new HostSandIamIdentityContextProvider())->requireSignedContext(
-                $signed, self::CHAT_ACTION, $sourceIp, $requestId,
-            );
+            $identity = null;
+            foreach ($actions as $action) {
+                $identity = (new HostSandIamIdentityContextProvider())->requireSignedContext(
+                    $signed, $action, $sourceIp, $requestId,
+                );
+            }
+            if ($identity === null) {
+                throw new ApiProblem('SAND_AI_TRIAL_ISSUE_FAILED', '暂时无法发起试用对话，请稍后重试');
+            }
+        } catch (ApiProblem $problem) {
+            throw $problem;
         } catch (Throwable) {
             throw new ApiProblem('SAND_AI_TRIAL_ISSUE_FAILED', '暂时无法发起试用对话，请稍后重试');
         }

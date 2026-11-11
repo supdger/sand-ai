@@ -9,6 +9,7 @@ use app\Application\Budget\BudgetDecimal;
 use app\Application\Budget\BudgetPolicyService;
 use app\Application\Usage\UsageAttribution;
 use app\Application\Budget\BudgetReservationStateMachine;
+use app\Application\Budget\BudgetSpendGate;
 use app\Application\Budget\ChatBudgetGuard;
 use app\Infrastructure\Persistence\Model\BudgetPolicy;
 use app\Infrastructure\Persistence\Model\BudgetReservation;
@@ -36,6 +37,9 @@ final class SpeechBudgetGuard
             'capability', 'sand_ai.audio.speech');
         $policies = (new BudgetPolicyService())->applicable($attribution, (int) $run['model_id'],
             'audio_speech', $price->calledAt, true);
+        $amount = $price->revisionId === null || $price->currency === null
+            ? null
+            : $price->amount((int) $run['input_characters']);
         if ($policies === []) {
             (new SpeechRunLedger())->markDispatched($runId, $ownerScope, $price);
             return;
@@ -48,30 +52,33 @@ final class SpeechBudgetGuard
         }
         $prepared = [];
         foreach ($policies as $policy) {
-        if (!in_array((string) $policy->enforcement, ['hard', 'soft'], true)
-            || (string) $policy->unpriced_policy !== 'block'
-            || (string) $policy->unmeasured_policy !== 'hold') {
+        if (!in_array((string) $policy->enforcement, ['hard', 'soft'], true)) {
             throw new ApiProblem('SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE', 'Speech budget policy is not executable');
         }
-        if ($price->revisionId === null || $price->currency === null) {
-            throw new ApiProblem('SAND_AI_BUDGET_UNPRICED', 'Published speech price is required under an active budget');
-        }
-        if ((string) $policy->currency !== $price->currency) {
+        if ($amount !== null && (string) $policy->currency !== $price->currency) {
             throw new ApiProblem('SAND_AI_BUDGET_CURRENCY_MISMATCH', 'Speech price currency differs from budget');
         }
-        $amount = $price->amount((int) $run['input_characters']);
-        if ($amount === null) {
-            throw new ApiProblem('SAND_AI_BUDGET_UNPRICED', 'Speech price is unavailable');
-        }
-        // A rounded zero still needs a reservation identity and a matching settlement.
-        $estimate = BudgetDecimal::isPositive($amount) ? $amount : '0.000001';
         $window = $windows[(int) $policy->id];
         $snapshot = (new ChatBudgetGuard())->holdExpiredReservations($window, $price->calledAt);
+        if (!BudgetSpendGate::allowsWindowCall((string) $policy->enforcement, $snapshot)) {
+            throw new ApiProblem('SAND_AI_BUDGET_EXCEEDED', BudgetSpendGate::EXHAUSTED_MESSAGE);
+        }
+        // A reservation row needs a price revision foreign key; an unpriced
+        // call owns none but is still judged by the window check above.
+        if ($amount === null) {
+            continue;
+        }
+        // A rounded zero still needs a reservation identity and a matching settlement.
+        $estimate = BudgetDecimal::isPositive($amount) ? $amount : BudgetSpendGate::NOMINAL_ESTIMATE;
         $transition = (new BudgetReservationStateMachine())->reserve(
             $snapshot, $estimate, (string) $policy->currency,
-            (string) $policy->enforcement === 'soft',
+            true,
         );
         $prepared[] = ['policy' => $policy, 'window' => $window, 'transition' => $transition, 'estimate' => $estimate];
+        }
+        if ($prepared === []) {
+            (new SpeechRunLedger())->markDispatched($runId, $ownerScope, $price);
+            return;
         }
         // No money changes until every applicable window has passed the preflight.
         $locked = Db::connect('pgsql')->query('SELECT id FROM sand_ai_speech_run WHERE id=? AND state=? AND budget_reservation_id IS NULL FOR UPDATE', [$runId, 'prepared']);
@@ -190,11 +197,11 @@ final class SpeechBudgetGuard
         }
     }
 
-    /** @return array<string,string> */
+    /** @return array<string,string|null> */
     private function window(BudgetWindow $window): array
     {
         return ['currency' => (string) $window->currency,
-            'limit_amount' => (string) $window->limit_amount,
+            'limit_amount' => $window->limit_amount === null ? null : (string) $window->limit_amount,
             'reserved_amount' => (string) $window->reserved_amount,
             'settled_amount' => (string) $window->settled_amount,
             'held_amount' => (string) $window->held_amount];

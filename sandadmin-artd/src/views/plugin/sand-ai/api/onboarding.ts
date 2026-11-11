@@ -78,6 +78,12 @@ export interface PublishedDeployment {
   model_type: string
   publication_status: 'published'
   compatible_data_egress_policies: string[]
+  /** 以下为目录返回的可选展示/过滤字段，缺省时按未知处理。 */
+  model_name?: string
+  provider_name?: string
+  provider_adapter?: string
+  remote_model?: string
+  capabilities?: string[]
 }
 
 export interface DraftSave {

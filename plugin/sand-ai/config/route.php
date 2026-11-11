@@ -184,6 +184,11 @@ Route::group('/app/sand-ai/admin', function (): void {
     // manageable application, always through the managed workload binding.
     Route::get('/trial/options', [AdminTrialController::class, 'options']);
     Route::post('/trial/chat', [AdminTrialController::class, 'chat']);
+    // 0.5.0 declutter: billed knowledge-base trial search and published-agent
+    // "试一下", both through the managed trial identity (never raw credentials).
+    Route::post('/trial/knowledge', [AdminTrialController::class, 'knowledge']);
+    Route::post('/trial/agent', [AdminTrialController::class, 'agent']);
+    Route::get('/trial/agent/task', [AdminTrialController::class, 'agentTask']);
 })->middleware([
     CheckLogin::class,
     CheckAuth::class,
@@ -288,6 +293,8 @@ Route::group('/app/sand-ai/admin/usage', function (): void {
     Route::get('/scopes', [UsageSummaryController::class, 'scopes']);
     Route::get('/summary', [UsageSummaryController::class, 'summary']);
     Route::get('/summary/export.csv', [UsageSummaryController::class, 'export']);
+    Route::get('/monthly', [UsageSummaryController::class, 'monthly']);
+    Route::get('/daily', [UsageSummaryController::class, 'daily']);
 })->middleware([CheckLogin::class, CheckAuth::class]);
 Route::group('/app/sand-ai/admin/budget', function (): void {
     Route::get('/references', [BudgetPolicyController::class, 'references']);
@@ -324,6 +331,7 @@ Route::group('/app/sand-ai/admin/knowledge-bases', function (): void {
     Route::get('/eligible-files', [AdminKnowledgeBaseController::class, 'eligibleFiles']);
     Route::post('/embedding-index/start', [AdminKnowledgeBaseController::class, 'startEmbeddingIndex']);
     Route::post('/embedding-index/advance', [AdminKnowledgeBaseController::class, 'advanceEmbeddingIndex']);
+    Route::post('/embedding-index/retry', [AdminKnowledgeBaseController::class, 'retryEmbeddingIndex']);
     Route::get('/embedding-index/status', [AdminKnowledgeBaseController::class, 'embeddingIndexStatus']);
     Route::get('/embedding-index/by-request-key', [AdminKnowledgeBaseController::class, 'embeddingIndexByRequestKey']);
     Route::post('/embedding-index/purge', [AdminKnowledgeBaseController::class, 'purgeEmbeddingIndex']);

@@ -48,7 +48,7 @@ final class NeuronControlledProvider implements AIProviderInterface
 
     private function wireMessages(array $messages): array
     {
-        if ($this->request===null || count($this->rounds)>=(count($this->request->sdkTools)>1?4:3)) throw new ApiProblem('SAND_AI_AGENT_TOOL_LIMIT','Agent model round limit exceeded');
+        if ($this->request===null || count($this->rounds)>=($this->request->countReadonlyTools()>0?4:3)) throw new ApiProblem('SAND_AI_AGENT_TOOL_LIMIT','Agent model round limit exceeded');
         $wire=NeuronTextWireMapper::map($messages,$this->instructions);
         $this->request->assertMessages($wire);
         return $wire;

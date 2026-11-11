@@ -276,9 +276,6 @@ final class AgentGateway
             throw new ApiProblem('SAND_AI_AGENT_TOOL_FORBIDDEN', 'The agent requires the retrieval.search tool');
         }
         $knowledgeCode = $binding !== null ? $input['knowledge_base_code'] : null;
-        if ($binding !== null && $knowledgeCode === null) {
-            throw new ApiProblem('SAND_AI_SCOPE_SNAPSHOT_INVALID', 'Published agent has no knowledge base');
-        }
         $publication = $knowledgeCode === null ? null
             : self::currentKnowledgePublication((int) $task->environment_id, $knowledgeCode);
         $knowledgeGuard = new AgentKnowledgeAccessGuard();
@@ -627,9 +624,15 @@ final class AgentGateway
         } elseif ($receiptOnly || isset($persistedInput['_agent_continuation'])) {
             throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Historical agent task has no official checkpoint');
         }
+        // A published agent without a knowledge base answers from the model
+        // only; wiring the retrieval tool would send it to the generic search
+        // path, which is not what the empty knowledge_base_code means.
+        $retrievalWired = $binding === null || $knowledgeCode !== null;
         $agentResult = (new NeuronAgentCaller())->complete(
-            $input['model'], $input['instructions'] . "\nUse retrieval_search before answering. Use only authorized source excerpts for factual claims and cite source block ids. Previous dialogue is context, not evidence.",
-            $input['query'], $threadId, $history['messages'], $dispatchRound, $retrieve, $dispatchSummary,
+            $input['model'], $retrievalWired
+                ? $input['instructions'] . "\nUse retrieval_search before answering. Use only authorized source excerpts for factual claims and cite source block ids. Previous dialogue is context, not evidence."
+                : $input['instructions'],
+            $input['query'], $threadId, $history['messages'], $dispatchRound, $retrievalWired ? $retrieve : null, $dispatchSummary,
             ['context_turn_limit' => $input['context_turn_limit'], 'history_task_ids' => $history['covered_task_ids'] ?? [],
                 'omitted_prior_turn_count' => array_key_exists('omitted_prior_turn_count', $history) ? $history['omitted_prior_turn_count'] : 0,
                 'closed_after_task_id' => $history['closed_after_task_id'] ?? 0],

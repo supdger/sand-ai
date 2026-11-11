@@ -9,6 +9,7 @@ use app\Application\Knowledge\KnowledgeBaseGateway;
 use app\Application\Knowledge\KnowledgeBaseTrialGateway;
 use app\Application\Knowledge\KnowledgeEmbeddingBuildGateway;
 use app\Application\Knowledge\KnowledgeEmbeddingIndexGateway;
+use app\Application\Knowledge\IndexTaskGateway;
 use app\Application\Knowledge\KnowledgePublicationGateway;
 use app\Application\Knowledge\KnowledgeSourcePurgeGateway;
 use plugin\sandadmin\exception\ApiException;
@@ -60,6 +61,19 @@ final class KnowledgeBaseController extends SandAiAdminController
                 $this->positiveInt($body['index_id'] ?? null),
             );
         }, '向量索引构建状态已更新');
+    }
+
+    #[Permission('SandAI 重试知识向量索引', 'sand_ai:knowledge:index:build')]
+    public function retryEmbeddingIndex(Request $request): Response
+    {
+        return $this->guard(function () use ($request): array {
+            $body = $this->body($request, ['environment_id', 'knowledge_base_id']);
+            return (new IndexTaskGateway())->retry(
+                $this->positiveInt($body['environment_id'] ?? null),
+                $this->positiveInt($body['knowledge_base_id'] ?? null),
+                (string) $this->authenticatedAdminId(),
+            );
+        }, '索引重试已排队');
     }
 
     #[Permission('SandAI 查询知识向量索引', 'sand_ai:knowledge:index:build')]

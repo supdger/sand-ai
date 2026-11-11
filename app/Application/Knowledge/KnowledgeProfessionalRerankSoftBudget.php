@@ -10,6 +10,7 @@ use app\Application\Budget\BudgetAlertPolicy;
 use app\Application\Budget\ChatBudgetGuard;
 use app\Application\Gateway\RequestPayloadFingerprint;
 use app\Infrastructure\Persistence\Model\AuditLog;
+use app\Infrastructure\Persistence\Model\BudgetPolicy;
 use app\Infrastructure\Persistence\Model\BudgetWindow;
 use app\Infrastructure\Persistence\Model\Invocation;
 use app\Infrastructure\Persistence\Model\InvocationDispatch;
@@ -26,9 +27,6 @@ final class KnowledgeProfessionalRerankSoftBudget
                 || !in_array((string) $policy->unpriced_policy, ['allow', 'block'], true)
                 || !in_array((string) $policy->unmeasured_policy, ['allow', 'hold'], true)) {
                 throw new ApiProblem('SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE', 'Unbounded cost requires an executable soft policy');
-            }
-            if ($price->revisionId === null && (string) $policy->unpriced_policy === 'block') {
-                throw new ApiProblem('SAND_AI_BUDGET_UNPRICED', 'This soft policy blocks unpublished prices');
             }
             if ($price->currency !== null && $price->currency !== (string) $policy->currency) {
                 throw new ApiProblem('SAND_AI_BUDGET_CURRENCY_MISMATCH', 'Professional price differs from soft budget currency');
@@ -82,23 +80,6 @@ final class KnowledgeProfessionalRerankSoftBudget
         $windows = BudgetWindow::whereIn('policy_id', $policyIds)->order('policy_id')->lock(true)->select()->all();
         if (count($windows) !== count($policyIds)) throw new ApiProblem('SAND_AI_BUDGET_WINDOW_MISSING', 'Hard capacity pending-cost window is unavailable');
         if ($pendingIds !== []) $db->table('sand_ai_rerank_soft_budget')->whereIn('id', array_values(array_unique($pendingIds)))->order('policy_id')->order('id')->lock(true)->select();
-    }
-
-    /** Call under the existing current scope/policy selection locks. */
-    public static function assertHardCapacityPolicies(array $currentPolicies): void
-    {
-        foreach ($currentPolicies as $policy) {
-            if ((string) $policy->enforcement !== 'hard') continue;
-            $pending = Db::connect('pgsql')->table('sand_ai_rerank_soft_budget')->alias('pending')
-                ->join('sand_ai_budget_policy original_policy', 'original_policy.id=pending.policy_id')
-                ->where('original_policy.scope_kind', (string) $policy->scope_kind)
-                ->where('original_policy.scope_ref', (string) $policy->scope_ref)
-                ->where('original_policy.period_start', '<', (string) $policy->period_end)
-                ->where('original_policy.period_end', '>', (string) $policy->period_start)
-                ->whereIn('pending.state', ['prepared', 'held'])->field('pending.id')->find();
-            if ($pending !== null) throw new ApiProblem('SAND_AI_BUDGET_CAPACITY_UNVERIFIED',
-                'An original professional soft cost in this hard budget scope remains unquantified; dispatch was not sent');
-        }
     }
 
     /** Lock all original windows before pending rows and invocation/dispatch owners. */
@@ -185,14 +166,22 @@ final class KnowledgeProfessionalRerankSoftBudget
             ? [['code' => 'SAND_AI_BUDGET_COST_PENDING']] : []];
     }
 
-    /** Existing 80/90/100 percent alerts use only known window money. */
+    /** Existing percent alerts use only known window money and the policy reminder. */
     private function recordCurrentWindowAlert(int $id, int $invocationId, int $policyId): void
     {
         $window = BudgetWindow::where('policy_id', $policyId)->find();
         if ($window === null) throw new ApiProblem('SAND_AI_BUDGET_WINDOW_MISSING', 'Soft budget alert window is unavailable');
-        $used = BudgetDecimal::add(BudgetDecimal::add((string) $window->reserved_amount, (string) $window->settled_amount), (string) $window->held_amount);
-        $alert = BudgetAlertPolicy::forWindow(['limit_amount' => (string) $window->limit_amount,
-            'available_amount' => BudgetDecimal::subtract((string) $window->limit_amount, $used)]);
+        $limit = $window->limit_amount === null ? null : (string) $window->limit_amount;
+        $policy = BudgetPolicy::find($policyId);
+        $alert = $limit === null
+            ? ['level' => 'normal', 'threshold_percent' => null]
+            : BudgetAlertPolicy::forWindow([
+                'limit_amount' => $limit,
+                'available_amount' => BudgetDecimal::subtract($limit, BudgetDecimal::add(
+                    BudgetDecimal::add((string) $window->reserved_amount, (string) $window->settled_amount),
+                    (string) $window->held_amount,
+                )),
+            ], (int) ($policy->reminder_percent ?? BudgetAlertPolicy::DEFAULT_REMINDER_PERCENT));
         if ($alert['level'] === 'normal') return;
         AuditLog::create(['actor_type' => 'system_worker', 'actor_ref' => 'rerank:' . $invocationId,
             'action' => 'budget.soft.threshold_alert', 'resource_type' => 'rerank_soft_budget', 'resource_id' => $id,

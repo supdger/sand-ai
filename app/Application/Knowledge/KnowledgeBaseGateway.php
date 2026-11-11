@@ -37,9 +37,12 @@ final class KnowledgeBaseGateway
         );
         $rows = $database->query(
             "SELECT kb.id,kb.code,kb.name,kb.description,kb.state,kb.active_version_id,
-                    active.version_no AS active_version_no,draft.id AS draft_version_id,
+                    active.version_no AS active_version_no,active.source_count AS active_source_count,
+                    draft.id AS draft_version_id,
                     draft.version_no AS draft_version_no,draft.source_count AS draft_source_count,
                     draft.snapshot_sha256 AS draft_snapshot_sha256,
+                    kb.update_time,draft.create_time AS draft_create_time,
+                    active.published_time AS active_published_time,
                     EXISTS (SELECT 1 FROM sand_ai_knowledge_operation op
                             WHERE op.knowledge_base_id=kb.id AND op.operation_code='purge_sources')
                         AS sources_purged
@@ -84,11 +87,31 @@ final class KnowledgeBaseGateway
                 'draft_version_id' => $row['draft_version_id'] === null ? null : (int) $row['draft_version_id'],
                 'draft_version_no' => $row['draft_version_no'] === null ? null : (int) $row['draft_version_no'],
                 'draft_source_count' => $row['draft_source_count'] === null ? null : (int) $row['draft_source_count'],
+                'active_source_count' => $row['active_source_count'] === null ? null : (int) $row['active_source_count'],
+                'material_count' => self::materialCount($row),
                 'draft_snapshot_sha256' => $row['draft_snapshot_sha256'] === null ? null : (string) $row['draft_snapshot_sha256'],
+                'update_time' => self::recentUpdateTime($row),
                 'source_state' => $sourceState,
                 'sources_purged' => $sourceState === 'purged',
             ];
         }
+        // Product-facing index state: 索引中 / 可用 / 索引失败（可重试）. Only a
+        // published base with an active version carries one; internal index
+        // rows and index-task bookkeeping stay out of the list payload.
+        $versionIds = [];
+        foreach ($items as $item) {
+            if (($item['state'] ?? null) === 'published' && is_int($item['active_version_id'])) {
+                $versionIds[] = $item['active_version_id'];
+            }
+        }
+        $indexStates = (new IndexTaskGateway())->projection($versionIds);
+        foreach ($items as &$item) {
+            $versionId = $item['active_version_id'] ?? null;
+            $projection = is_int($versionId) ? ($indexStates[$versionId] ?? null) : null;
+            $item['index_state'] = $projection['state'] ?? null;
+            $item['index_error'] = $projection['error'] ?? null;
+        }
+        unset($item);
         return ['current_page' => $page, 'per_page' => $limit, 'total' => (int) ($total[0]['total'] ?? 0), 'data' => $items];
     }
 
@@ -344,7 +367,7 @@ final class KnowledgeBaseGateway
             throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Expected snapshot SHA256 is invalid');
         }
         $fingerprint = self::publishFingerprint($knowledgeBaseId, $expectedSnapshotSha256, $actorRef);
-        return Db::connect('pgsql')->transaction(function () use ($environmentId, $knowledgeBaseId, $idempotencyKey, $actorRef, $expectedSnapshotSha256, $fingerprint): array {
+        $result = Db::connect('pgsql')->transaction(function () use ($environmentId, $knowledgeBaseId, $idempotencyKey, $actorRef, $expectedSnapshotSha256, $fingerprint): array {
             Db::connect('pgsql')->execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", [$environmentId . ':knowledge-operation:publish:' . $idempotencyKey]);
             $previous = Db::connect('pgsql')->query('SELECT * FROM sand_ai_knowledge_operation WHERE environment_id = ? AND operation_code = ? AND idempotency_key = ? FOR UPDATE', [$environmentId, 'publish', $idempotencyKey]);
             if ($previous !== []) {
@@ -398,6 +421,21 @@ final class KnowledgeBaseGateway
             $this->audit(trim($actorRef), 'knowledge_base.publish', $knowledgeBaseId, ['version' => (int) $version->version_no]);
             return $this->summary($knowledgeBaseId, (int) $version->id, false);
         });
+        // Publishing queues the embedding index automatically; the dedicated
+        // worker advances it one block per tick. A queueing failure must not
+        // roll back the committed publication, so it degrades to the failed
+        // projection instead of throwing here.
+        if (($result['idempotent_replay'] ?? false) !== true
+            && ($result['version']['state'] ?? null) === 'published'
+            && is_int($result['version']['id'] ?? null)) {
+            try {
+                (new IndexTaskGateway())->ensure(
+                    $environmentId, $knowledgeBaseId, (int) $result['version']['id']);
+            } catch (\Throwable) {
+                // The retry projection reports the missing index task as failed.
+            }
+        }
+        return $result;
     }
 
     /** @return array<string,mixed> */
@@ -544,5 +582,40 @@ final class KnowledgeBaseGateway
 
     /** @param array<string,mixed> $context */
     private function audit(string $actorRef, string $action, int $resourceId, array $context): void { AuditLog::create(['actor_type' => 'admin', 'actor_ref' => $actorRef, 'action' => $action, 'resource_type' => 'knowledge_base', 'resource_id' => $resourceId, 'summary' => 'SandAI knowledge base changed', 'context' => $context]); }
+    /** 产品面「资料数」：优先当前草稿版本段数，其次已发布版本段数；都没有资料时为 null。 */
+    private static function materialCount(array $row): ?int
+    {
+        foreach (['draft_source_count', 'active_source_count'] as $key) {
+            $count = $row[$key] ?? null;
+            if ($count === null) {
+                continue;
+            }
+            $count = (int) $count;
+            if ($count > 0) {
+                return $count;
+            }
+        }
+        return null;
+    }
+
+    /** 产品面「最近更新」：取知识库行、当前草稿版本、已发布版本三个时间点的最大值。 */
+    private static function recentUpdateTime(array $row): ?string
+    {
+        $latest = null;
+        foreach (['update_time', 'draft_create_time', 'active_published_time'] as $key) {
+            $value = $row[$key] ?? null;
+            if ($value instanceof \DateTimeInterface) {
+                $value = $value->format('Y-m-d H:i:s');
+            }
+            if (!is_string($value) || $value === '') {
+                continue;
+            }
+            if ($latest === null || $value > $latest) {
+                $latest = $value;
+            }
+        }
+        return $latest;
+    }
+
     private function requireEnvironment(int $environmentId): void { if ($environmentId <= 0) throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Environment is required'); try { ($this->environmentReferences ?? new HostSandIamEnvironmentReferenceVerifier())->requireEnvironment($environmentId); } catch (IdentityContextException $exception) { throw IdentityContextProblem::from($exception); } }
 }

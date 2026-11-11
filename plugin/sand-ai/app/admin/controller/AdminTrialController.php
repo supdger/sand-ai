@@ -61,7 +61,7 @@ final class AdminTrialController extends SandAiAdminController
                 $this->adminInfo,
             );
         } catch (ApiProblem $problem) {
-            throw $this->trialProblem($problem);
+            return $this->trialProblemResponse($problem);
         }
 
         return $this->success($result)->header('Cache-Control', 'no-store');
@@ -87,7 +87,82 @@ final class AdminTrialController extends SandAiAdminController
                 $request,
             );
         } catch (ApiProblem $problem) {
-            throw $this->trialProblem($problem);
+            return $this->trialProblemResponse($problem);
+        }
+
+        return $this->success($result)->header('Cache-Control', 'no-store');
+    }
+
+    /**
+     * 0.5.0: knowledge-base "试一下". The call is billed against the managed
+     * trial identity; the frontend only supplies knowledge_base_id + query.
+     */
+    #[Permission('SandAI 知识库试用', 'sand_ai:trial:knowledge')]
+    public function knowledge(Request $request): Response
+    {
+        $input = $request->post();
+        if (!is_array($input) || array_diff(array_keys($input), ['knowledge_base_id', 'query', 'limit']) !== []) {
+            throw new ApiException('请求包含不支持的字段，请刷新后重试', 400);
+        }
+        try {
+            $result = (new AdminTrialService())->knowledgeTrial(
+                $input,
+                $this->authenticatedAdminId(),
+                $this->adminInfo,
+                $request,
+            );
+        } catch (ApiProblem $problem) {
+            return $this->trialProblemResponse($problem);
+        }
+
+        return $this->success($result)->header('Cache-Control', 'no-store');
+    }
+
+    /**
+     * 0.5.0: published-agent "试一下". Runs through the real AgentGateway task
+     * path so billing, budget and citations match a production call.
+     */
+    #[Permission('SandAI 智能体试用', 'sand_ai:trial:agent')]
+    public function agent(Request $request): Response
+    {
+        $input = $request->post();
+        if (!is_array($input) || array_diff(array_keys($input), ['application_id', 'agent_id', 'query', 'conversation_id']) !== []) {
+            throw new ApiException('请求包含不支持的字段，请刷新后重试', 400);
+        }
+        try {
+            $result = (new AdminTrialService())->agentTrial(
+                $input,
+                $this->authenticatedAdminId(),
+                $this->adminInfo,
+                $request,
+            );
+        } catch (ApiProblem $problem) {
+            return $this->trialProblemResponse($problem);
+        }
+
+        return $this->success($result)->header('Cache-Control', 'no-store');
+    }
+
+    /**
+     * Poll projection for an agent trial that was still running at submit
+     * time. Same permission as the submit endpoint.
+     */
+    #[Permission('SandAI 智能体试用', 'sand_ai:trial:agent')]
+    public function agentTask(Request $request): Response
+    {
+        try {
+            $raw = $request->get('task_id');
+            $taskId = is_scalar($raw) ? filter_var($raw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) : false;
+            if ($taskId === false) {
+                throw new ApiProblem('SAND_AI_TRIAL_VALIDATION_ERROR', '请提供有效的试用任务编号');
+            }
+            $result = (new AdminTrialService())->agentTask(
+                (int) $taskId,
+                $this->authenticatedAdminId(),
+                $this->adminInfo,
+            );
+        } catch (ApiProblem $problem) {
+            return $this->trialProblemResponse($problem);
         }
 
         return $this->success($result)->header('Cache-Control', 'no-store');
@@ -101,11 +176,21 @@ final class AdminTrialController extends SandAiAdminController
         return (int) trim($raw);
     }
 
-    /** Trial endpoints answer with plain Chinese copy; codes stay internal. */
-    private function trialProblem(ApiProblem $problem): ApiException
+    /**
+     * Trial endpoints answer with plain Chinese copy; codes stay internal.
+     * When the service attached a sanitized `reason_code` detail the JSON
+     * envelope carries it under `data` so the frontend can branch on a stable
+     * machine key without parsing the Chinese message. Only a strict
+     * snake_case reason_code is ever exposed — never raw details.
+     */
+    private function trialProblemResponse(ApiProblem $problem): Response
     {
         $status = match ($problem->errorCode) {
-            'SAND_AI_TRIAL_APPLICATION_NOT_FOUND' => 404,
+            'SAND_AI_TRIAL_APPLICATION_NOT_FOUND',
+            'SAND_AI_TRIAL_KNOWLEDGE_NOT_FOUND',
+            'SAND_AI_TRIAL_AGENT_NOT_FOUND' => 404,
+            'SAND_AI_TRIAL_KNOWLEDGE_NOT_READY',
+            'SAND_AI_TRIAL_AGENT_NOT_READY' => 409,
             'SAND_AI_TRIAL_APPLICATION_FORBIDDEN',
             'SAND_AI_TRIAL_NOT_GRANTED',
             'SAND_AI_TRIAL_ISSUE_NETWORK_FORBIDDEN' => 403,
@@ -119,8 +204,17 @@ final class AdminTrialController extends SandAiAdminController
             // as a client error; validation and authorization keep 400/4xx.
             default => $problem->retryable ? 503 : 400,
         };
+        $reasonCode = $problem->details['reason_code'] ?? null;
+        $data = is_string($reasonCode) && preg_match('/^[a-z][a-z0-9_]{0,63}$/', $reasonCode) === 1
+            ? ['reason_code' => $reasonCode]
+            : null;
         $message = trim($problem->getMessage());
-        return new ApiException($message !== '' ? $message : '试用请求未完成，请稍后重试', $status);
+
+        return json([
+            'code' => $status,
+            'message' => $message !== '' ? $message : '试用请求未完成，请稍后重试',
+            'data' => $data,
+        ], JSON_UNESCAPED_UNICODE)->header('Cache-Control', 'no-store');
     }
 
     /**

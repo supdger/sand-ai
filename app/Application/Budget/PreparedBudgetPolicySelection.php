@@ -21,7 +21,6 @@ final readonly class PreparedBudgetPolicySelection
         private array $identity,
         private array $scopes,
         private array $policyRevisions,
-        private ?ApiProblem $capacityProblem = null,
     ) {
     }
 
@@ -70,22 +69,11 @@ final readonly class PreparedBudgetPolicySelection
         }
         // applicable() acquires scope locks before policy rows. In particular,
         // do not call it for the first time after the original window locks.
-        $capacityProblem = null;
-        try {
-            $policies = (new BudgetPolicyService())->applicable(
-                $attribution, (int) $invocation->model_id, (string) $dispatch->capability_code, gmdate('Y-m-d H:i:s'), true, $invocationId,
-            );
-        } catch (ApiProblem $problem) {
-            if ($problem->errorCode !== 'SAND_AI_BUDGET_CAPACITY_UNVERIFIED') throw $problem;
-            // Keep its scope/policy/window/member locks and defer the refusal
-            // until the coordinator can release the original unsent group.
-            $capacityProblem = $problem;
-            $policies = (new BudgetPolicyService())->applicable(
-                $attribution, (int) $invocation->model_id, (string) $dispatch->capability_code, gmdate('Y-m-d H:i:s'), false,
-            );
-        }
+        $policies = (new BudgetPolicyService())->applicable(
+            $attribution, (int) $invocation->model_id, (string) $dispatch->capability_code, gmdate('Y-m-d H:i:s'), true, $invocationId,
+        );
         return new self($invocationId, $dispatchId, (int) $invocation->model_id,
-            self::identity($attribution), $scope->scopes, self::revisions($policies), $capacityProblem);
+            self::identity($attribution), $scope->scopes, self::revisions($policies));
     }
 
     /** Compare current policy membership with the original frozen reservation group. */
@@ -98,6 +86,9 @@ final readonly class PreparedBudgetPolicySelection
             if ((int) $reservation->invocation_id !== $this->invocationId) self::changed();
             $ids[] = (int) $reservation->policy_id;
         }
+        // An unpriced call owns no monetary reservation group because the row
+        // needs a price revision; policy membership has nothing to compare.
+        if ($ids === [] && $invocation->call_start_price_revision_id === null) return;
         $this->assertOriginalPolicyIds($ids);
     }
 
@@ -129,14 +120,12 @@ final readonly class PreparedBudgetPolicySelection
             || !self::matches($invocation, $dispatch, $attribution)
             || self::identity($attribution) !== $this->identity
             || BudgetScopeContext::forCall($attribution, $this->modelId, (string) $dispatch->capability_code)->scopes !== $this->scopes) self::changed();
-        if ($this->capacityProblem !== null) throw $this->capacityProblem;
         // Existing shared scope locks prevent configuration changes. A period
         // boundary can still change membership, so check the current time too.
         $current = (new BudgetPolicyService())->applicable(
             $attribution, $this->modelId, (string) $dispatch->capability_code, gmdate('Y-m-d H:i:s'), false,
         );
         if (self::revisions($current) !== $this->policyRevisions) self::changed();
-        \app\Application\Knowledge\KnowledgeProfessionalRerankSoftBudget::assertHardCapacityPolicies($current);
     }
 
     private function assertOriginalPolicyIds(array $ids): void

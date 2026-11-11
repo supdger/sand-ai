@@ -3,122 +3,167 @@
     <template #header>
       <div class="panel-head">
         <div>
-          <h3>智能体配置</h3>
-          <p>选择资料和模型，说明回答要求，再保存并启用。应用和渠道使用同一份配置。</p>
+          <h3>智能体</h3>
+          <p>给 AI 助手起名字、选模型和知识库、写好回答要求，启用后接到渠道上用。</p>
         </div>
-        <ElButton :disabled="!environmentId" :loading="loading" @click="load(1)">刷新</ElButton>
+        <ElButton :disabled="!environmentId" :loading="loading" @click="load()">刷新</ElButton>
       </div>
     </template>
-    <ElEmpty v-if="!environmentId" description="先选择应用环境" />
+    <ElEmpty v-if="!environmentId" description="先在上方选择应用环境" />
     <template v-else>
       <ElAlert v-if="error" type="error" :title="error" show-icon class="panel-alert" @close="error = ''" />
       <ElAlert v-if="!operationLockAvailable || operationJournalInvalid" type="warning" :closable="false" class="notice"
         title="暂不能安全保存智能体变更" description="浏览器缺少跨标签互斥能力，或原变更记录无法保存、读取。暂不能发起新变更；已有原请求仍可只读找回。记录异常不会按未提交处理。" />
       <ElAlert v-if="otherRecoveryCount" type="warning" :closable="false" class="notice"
-        title="其他环境或身份存在未确认变更" description="请切回原应用环境，使用原管理员身份沿原请求号找回；页面刷新与身份切换不会删除原请求锁。" />
+        title="其他环境或身份存在未确认变更" description="请切回原应用环境，使用原管理员身份查看原请求结果；页面刷新与身份切换不会删除原请求锁。" />
       <section v-if="currentRecoveries.length" class="notice" aria-label="智能体变更恢复">
-        <ElAlert type="warning" :closable="false" title="智能体变更提交结果尚未确认"
-          description="保存、启用、停用和回退使用同一智能体变更锁。只沿原请求号读取受理回执；未找到或无权读取时仍保留锁，不重新提交。当前配置以找回后重新读取的结果为准。" />
+        <ElAlert type="warning" :closable="false" title="上次变更的结果还没确认"
+          description="保存、启用、停用和回退共用同一把变更锁。这里只读取原请求的受理回执；读不到或无权读取时仍保留锁，不会重新提交。当前配置以找回后重新读取的结果为准。" />
         <p v-for="item in currentRecoveries" :key="item.key">
           {{ item.code }} · {{ operationLabel(item.operation) }}{{ item.rollback_version ? ` · 第 ${item.rollback_version} 版` : '' }}
-          <ElButton link type="primary" :loading="operationRecoveringKey === item.key" :disabled="writing || Boolean(operationRecoveringKey)" @click="recoverOperation(item)">沿原请求号找回</ElButton>
+          <ElButton link type="primary" :loading="operationRecoveringKey === item.key" :disabled="writing || Boolean(operationRecoveringKey)" @click="recoverOperation(item)">查看结果</ElButton>
         </p>
         <ElAlert v-if="operationRecoveryError" type="error" :closable="false" :title="operationRecoveryError" />
       </section>
-      <ElTable v-loading="loading" :data="rows" row-key="agent_definition_id" empty-text="还没有智能体配置">
-        <ElTableColumn label="名称" prop="name" min-width="170" />
-        <ElTableColumn label="代码" prop="code" min-width="150" />
-        <ElTableColumn label="已启用版本" min-width="125">
-          <template #default="{ row }">{{ row.active_version_no ? `第 ${row.active_version_no} 版` : '未启用' }}</template>
-        </ElTableColumn>
-        <ElTableColumn label="待启用草稿" min-width="125">
-          <template #default="{ row }">{{ row.draft_version_no ? `第 ${row.draft_version_no} 版` : '—' }}</template>
-        </ElTableColumn>
-        <ElTableColumn label="状态" width="100">
-          <template #default="{ row }"><ElTag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '可用' : '已停用' }}</ElTag></template>
-        </ElTableColumn>
-        <ElTableColumn label="操作" min-width="210">
+
+      <div class="filter-row">
+        <ElInput v-model="keyword" clearable placeholder="搜索智能体名称" style="width: 220px" aria-label="搜索智能体名称" />
+        <ElSelect v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px" aria-label="按状态筛选">
+          <ElOption label="已启用" value="enabled" />
+          <ElOption label="已停用" value="disabled" />
+          <ElOption label="还没启用" value="draft" />
+        </ElSelect>
+      </div>
+
+      <ElTable v-loading="loading" :data="pagedRows" row-key="agent_definition_id"
+        :empty-text="rows.length === 0 ? '还没有智能体' : '没有找到符合条件的智能体'">
+        <template #empty>
+          <div v-if="rows.length === 0" class="empty-state">
+            <p class="empty-title">还没有智能体</p>
+            <p class="empty-desc">做一个 AI 助手，接到聊天渠道上让同事用</p>
+            <ElButton type="primary" :disabled="!environmentId" @click="openCreate">新建智能体</ElButton>
+          </div>
+          <div v-else class="empty-state">
+            <p class="empty-title">没有找到符合条件的智能体</p>
+            <ElButton link type="primary" @click="clearFilters">清空筛选条件</ElButton>
+          </div>
+        </template>
+        <ElTableColumn label="名称" prop="name" min-width="160" />
+        <ElTableColumn label="接到哪些渠道" min-width="150">
           <template #default="{ row }">
-            <ElButton link type="primary" :disabled="writing" @click="edit(row)">编辑草稿</ElButton>
-            <ElButton link type="primary" :disabled="writing" @click="openVersions(row)">版本与回退</ElButton>
-            <ElButton v-if="row.draft_version_id" link type="success" :disabled="writing || Boolean(operationRecoveringKey) || operationBlocked(row.code)" @click="publish(row)">启用</ElButton>
-            <ElButton v-if="row.status === 1 && row.active_version_id" link type="danger" :disabled="writing || Boolean(operationRecoveringKey) || operationBlocked(row.code)" @click="disable(row)">停用</ElButton>
+            <span v-if="channelNamesOf(row.agent_definition_id)" class="channel-names">{{ channelNamesOf(row.agent_definition_id) }}</span>
+            <span v-else class="channel-none">未接渠道</span>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="状态" width="110">
+          <template #default="{ row }">
+            <ElTag :type="agentStatus(row).type" size="small">{{ agentStatus(row).label }}</ElTag>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn label="操作" min-width="230">
+          <template #default="{ row }">
+            <ElButton link type="primary" :disabled="writing || editingLoading" @click="edit(row)">编辑</ElButton>
+            <ElButton link type="primary" :disabled="!canTrial(row) || trialOpening" @click="openTrial(row)">试一试</ElButton>
+            <ElDropdown trigger="click" :disabled="writing || Boolean(operationRecoveringKey)">
+              <ElButton link type="primary">更多</ElButton>
+              <template #dropdown>
+                <ElDropdownMenu>
+                  <ElDropdownItem v-if="row.draft_version_id" :disabled="operationBlocked(row.code)" @click="publish(row)">启用</ElDropdownItem>
+                  <ElDropdownItem @click="openVersions(row)">版本与回退</ElDropdownItem>
+                  <ElDropdownItem v-if="row.status === 1 && row.active_version_id" :disabled="operationBlocked(row.code)" divided @click="disable(row)">停用</ElDropdownItem>
+                </ElDropdownMenu>
+              </template>
+            </ElDropdown>
           </template>
         </ElTableColumn>
       </ElTable>
-      <ElPagination v-if="total > 20" class="pager" background layout="prev, pager, next, total"
-        :current-page="page" :page-size="20" :total="total" @current-change="load" />
-      <ElDivider />
-      <ElSteps :active="guideStep" finish-status="success" simple class="guide">
-        <ElStep title="选择资料与模型" /><ElStep title="配置回答要求" /><ElStep title="保存并启用" />
-      </ElSteps>
-      <ElAlert type="info" :closable="false" class="panel-alert" title="从一个用途开始"
-        description="资料来自当前环境已启用的知识库，模型来自环境能力配置。保存草稿不会改变应用正在使用的版本；启用后到“启用版本试用”发送问题、查看来源和费用。" />
-      <ElSpace wrap class="guide">
-        <span>回答要求示例：</span>
-        <ElButton :disabled="writing || editingLoading" @click="usePreset('answer')">资料问答</ElButton>
-        <ElButton :disabled="writing || editingLoading" @click="usePreset('explain')">逐项查证</ElButton>
-      </ElSpace>
-      <div class="panel-head"><h3>{{ editingId ? '编辑草稿' : '新建智能体' }}</h3><ElButton :disabled="writing" @click="newDraft">新建</ElButton></div>
-      <ElForm v-loading="editingLoading" :disabled="writing || editingLoading" label-width="105px" @submit.prevent>
-        <ElFormItem label="名称"><ElInput v-model="form.name" maxlength="128" :disabled="writing || lockedName" placeholder="例如客服知识助手" /></ElFormItem>
-        <ElFormItem label="代码"><ElInput v-model="form.code" maxlength="64" :disabled="writing || !!editingId" placeholder="例如 support" /></ElFormItem>
-        <ElFormItem label="使用模型">
-          <ElSelect v-model="form.model" filterable allow-create default-first-option :loading="modelsLoading"
-            :disabled="writing" placeholder="选择当前环境已启用的聊天模型" style="width: 100%">
-            <ElOption v-for="model in models" :key="model.code" :label="`${model.name} · ${model.code}`" :value="model.code" />
-          </ElSelect>
-          <div class="knowledge-actions">
-            <ElButton link type="primary" :loading="modelsLoading" @click="loadModels">刷新模型</ElButton>
+      <ElPagination v-if="filteredTotal > pageSize" class="pager" background layout="prev, pager, next, total"
+        :current-page="currentPage" :page-size="pageSize" :total="filteredTotal" @current-change="currentPage = $event" />
+
+      <ElDrawer v-model="drawerVisible" :title="editingId ? '编辑智能体' : '新建智能体'"
+        size="min(560px, 94vw)" destroy-on-close>
+        <ElForm v-loading="editingLoading" :disabled="writing || editingLoading" label-position="top" @submit.prevent>
+          <ElFormItem label="名称" required>
+            <ElInput v-model="form.name" maxlength="20" placeholder="例如客服知识助手" />
+            <div v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</div>
+          </ElFormItem>
+          <ElFormItem label="用哪个模型" required>
+            <ElSelect v-model="form.model" filterable clearable allow-create default-first-option :loading="modelsLoading"
+              placeholder="选择当前环境已启用的聊天模型" style="width: 100%" aria-label="用哪个模型"
+              @change="modelTouched = true">
+              <ElOption v-for="model in models" :key="model.code" :label="`${model.name} · ${model.code}`" :value="model.code" />
+            </ElSelect>
+            <div class="knowledge-actions">
+              <ElButton link type="primary" :loading="modelsLoading" @click="loadModels">刷新模型</ElButton>
+            </div>
+            <div v-if="modelsNotPublished" class="knowledge-note knowledge-note--action">
+              这个环境还没有启用的能力配置，请先去『能力配置』保存并启用。
+              <ElButton link type="primary" @click="router.push('/sand-ai/capability')">去能力配置</ElButton>
+            </div>
+            <p v-else-if="modelsError" class="knowledge-note">{{ modelsError }}。草稿仍可手动填写模型代码；启用前需要当前环境有可用的模型。</p>
+            <div v-if="fieldErrors.model" class="field-error">{{ fieldErrors.model }}</div>
+          </ElFormItem>
+          <ElFormItem label="参考哪个知识库">
+            <ElSelect v-model="form.knowledge_base_code" filterable clearable allow-create default-first-option :loading="knowledgeLoading"
+              placeholder="不选就只靠模型自己回答" style="width: 100%" aria-label="参考哪个知识库">
+              <ElOption v-for="item in knowledge" :key="item.id" :value="item.code" :label="knowledgeLabel(item)" />
+            </ElSelect>
+            <div class="knowledge-actions">
+              <ElButton link type="primary" :loading="knowledgeLoading" @click="loadKnowledge(true)">刷新知识库</ElButton>
+              <ElButton v-if="knowledgeMore" link type="primary" :loading="knowledgeLoading" @click="loadKnowledge(false)">更多</ElButton>
+            </div>
+            <p v-if="knowledgeError" class="knowledge-note">{{ knowledgeError }}。有权确认别名时可手动输入。</p>
+            <p v-else class="knowledge-note">不选也能用，只靠模型自己回答。</p>
+          </ElFormItem>
+          <ElFormItem label="它该怎么回答" required>
+            <ElInput v-model="form.instructions" type="textarea" :rows="4" maxlength="2000" show-word-limit
+              placeholder="用大白话说明它该怎么回答，比如依据什么资料、怎么称呼对方" />
+            <div class="example-row">
+              <span class="example-label">点一个试试：</span>
+              <ElButton link type="primary" size="small" @click="usePreset('service')">客服问答</ElButton>
+              <ElButton link type="primary" size="small" @click="usePreset('notice')">写通知</ElButton>
+            </div>
+            <div v-if="fieldErrors.instructions" class="field-error">{{ fieldErrors.instructions }}</div>
+          </ElFormItem>
+          <ElCollapse class="more-settings">
+            <ElCollapseItem title="更多设置" name="more">
+              <ElAlert v-if="unsupportedTools.length" type="warning" :closable="false" class="panel-alert"
+                title="此草稿包含当前页面不支持的工具" :description="`已保留 ${unsupportedTools.join('、')}，请核对运行版本后再编辑。`" />
+              <ElFormItem label="只读外部工具">
+                <ReadonlyToolSelector v-model="form.readonly_tools" :environment-id="environmentId" :disabled="writing || editingLoading" />
+              </ElFormItem>
+              <ElFormItem label="人工复核">
+                <ElSwitch v-model="form.review_required" :disabled="writing" />
+                <span class="hint">打开后，回答要先经人工确认才能对外使用</span>
+              </ElFormItem>
+              <ElFormItem label="历史对话轮数">
+                <ElSelect v-model="form.context_turn_limit" :disabled="writing" aria-label="历史对话轮数" style="width: 200px">
+                  <ElOption v-for="turns in contextTurnOptions" :key="turns" :value="turns"
+                    :label="turns === 0 ? '0 轮（不带历史）' : `最近 ${turns} 轮`" />
+                </ElSelect>
+                <p class="knowledge-note">已启用智能体和渠道回答最多参考最近 0–4 轮对话，默认 2 轮；0 表示不带历史。轮数随智能体版本固定，修改后需保存草稿并启用新版本。</p>
+              </ElFormItem>
+              <ElFormItem label="输出上限">
+                <ElInputNumber v-model="form.max_output_tokens" :min="1" :max="form.readonly_tools.length ? 512 : 2048" :disabled="writing" />
+                <span class="hint">{{ form.readonly_tools.length ? '本组合每轮最多 512；留空为 512' : '留空使用能力默认值' }}</span>
+              </ElFormItem>
+              <ElFormItem v-if="editingId" label="已接渠道">
+                <span class="readonly-text">{{ channelNamesOf(editingId) || '还没有渠道接入' }}</span>
+              </ElFormItem>
+            </ElCollapseItem>
+          </ElCollapse>
+          <p class="combo-preview">{{ comboPreview }}</p>
+          <div class="drawer-actions">
+            <ElButton :disabled="writing" @click="drawerVisible = false">取消</ElButton>
+            <ElButton :loading="writing" :disabled="!canSave" @click="save">保存</ElButton>
+            <ElButton type="primary" :loading="writing" :disabled="!canSave" @click="saveAndEnable">保存并启用</ElButton>
           </div>
-          <div v-if="modelsNotPublished" class="knowledge-note knowledge-note--action">
-            这个环境还没有启用的能力配置，请先去『能力配置』保存并启用。
-            <ElButton link type="primary" @click="router.push('/sand-ai/capability')">去能力配置</ElButton>
-          </div>
-          <p v-else-if="modelsError" class="knowledge-note">{{ modelsError }}。草稿仍可手动填写模型代码，启用需当前环境存在可用路由。</p>
-        </ElFormItem>
-        <ElFormItem label="参考知识库">
-          <ElSelect v-model="form.knowledge_base_code" filterable allow-create default-first-option clearable
-            :loading="knowledgeLoading" :disabled="writing" placeholder="选择当前环境已启用的知识别名" style="width: 100%">
-            <ElOption v-for="item in knowledge" :key="item.id" :value="item.code"
-              :label="`${item.owner_name} · ${item.code}（第 ${item.version_no} 版）`" />
-          </ElSelect>
-          <div class="knowledge-actions">
-            <ElButton link type="primary" :loading="knowledgeLoading" @click="loadKnowledge(true)">刷新知识库</ElButton>
-            <ElButton v-if="knowledgeMore" link type="primary" :loading="knowledgeLoading" @click="loadKnowledge(false)">更多</ElButton>
-          </div>
-          <p v-if="knowledgeError" class="knowledge-note">{{ knowledgeError }}。有权确认别名时可手动输入。</p>
-          <p v-else class="knowledge-note">启用前须绑定当前环境已开放的知识库；启用时服务端会再次核验。</p>
-        </ElFormItem>
-        <ElFormItem label="回答要求"><ElInput v-model="form.instructions" type="textarea" :rows="5" maxlength="16000" show-word-limit :disabled="writing" placeholder="说明用途、回答边界和引用要求" /></ElFormItem>
-        <ElFormItem label="使用工具">
-          <ElCheckbox :model-value="form.tools.includes('retrieval.search')" disabled>私有资料检索</ElCheckbox>
-          <span class="hint">启用智能体必须使用此工具，仅检索当前调用者获授权的资料</span>
-        </ElFormItem>
-        <ElAlert v-if="unsupportedTools.length" type="warning" :closable="false" class="panel-alert"
-          title="此草稿包含当前页面不支持的工具" :description="`已保留 ${unsupportedTools.join('、')}，请核对运行版本后再编辑。`" />
-        <ElFormItem label="只读外部工具"><ReadonlyToolSelector v-model="form.readonly_tools" :environment-id="environmentId" :disabled="writing || editingLoading" /></ElFormItem>
-        <ElFormItem label="人工复核"><ElSwitch v-model="form.review_required" :disabled="writing" /></ElFormItem>
-        <ElFormItem label="历史对话">
-          <ElSelect v-model="form.context_turn_limit" :disabled="writing" aria-label="历史对话轮数">
-            <ElOption v-for="turns in contextTurnOptions" :key="turns" :value="turns"
-              :label="turns === 0 ? '0 轮（不带历史）' : `最近 ${turns} 轮`" />
-          </ElSelect>
-          <p class="knowledge-note">已启用智能体和渠道回答最多参考最近 0–4 轮对话，默认 2 轮；0 表示不带历史。已启用试用仅采用同一身份、同一启用版本与同一会话中已成功且无需复核的回答；渠道另按送达状态核对。</p>
-          <p class="knowledge-note">轮数随智能体版本固定。修改后需保存草稿并启用新版本，才会影响后续新任务。</p>
-        </ElFormItem>
-        <ElFormItem label="输出上限"><ElInputNumber v-model="form.max_output_tokens" :min="1" :max="form.readonly_tools.length ? 512 : 2048" :disabled="writing" /><span class="hint">{{ form.readonly_tools.length ? '本组合每轮最多 512；留空为 512' : '留空使用能力默认值' }}</span></ElFormItem>
-        <ElDescriptions :column="1" border class="preview">
-          <ElDescriptionsItem label="专业组合预览">{{ selectedKnowledge }} → 私有资料检索 → {{ selectedModel }} → {{ form.review_required ? '人工复核后使用' : '由应用使用者确认来源' }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="回答要求">{{ form.instructions.trim() || '请填写回答边界和引用要求' }}</ElDescriptionsItem>
-          <ElDescriptionsItem label="历史上下文">{{ form.context_turn_limit === 0 ? '不带历史对话' : `最多参考最近 ${form.context_turn_limit} 轮有效、无需复核的回答` }}</ElDescriptionsItem>
-        </ElDescriptions>
-        <p class="knowledge-note">以上组合随启用版本固定。只读工具的精确版本、业务范围和参数结构会一起固定；模型、知识库、工具或回答要求变化后需保存并启用新版本。</p>
-        <ElFormItem><ElButton type="primary" :loading="writing" :disabled="!canSave" @click="save">保存草稿</ElButton></ElFormItem>
-      </ElForm>
-      <ElDialog v-model="versionsVisible" title="配置版本与回退" width="760px">
+        </ElForm>
+      </ElDrawer>
+
+      <ElDialog v-model="versionsVisible" title="配置版本与回退" width="min(760px, 94vw)">
         <ElAlert type="info" :closable="false" title="回退配置版本"
-          description="回退恢复此智能体当时的定义配置。模型代码与知识库别名仍按执行时当前可用路由及启用内容解析，不还原历史知识库正文。旧任务保留原实际快照；版本改变后，旧版本任务可能因当前版本限制无法读取。" />
+          description="回退恢复此智能体当时的定义配置。模型代码与知识库别名仍按执行时当前可用模型及启用内容解析，不还原历史知识库正文。旧任务保留原实际快照；版本改变后，旧版本任务可能因当前版本限制无法读取。" />
         <ElAlert v-if="versionError" type="error" :title="versionError" show-icon />
         <ElTable v-loading="versionsLoading" :data="versions" row-key="version_no">
           <ElTableColumn label="版本" width="90"><template #default="{ row }">第 {{ row.version_no }} 版</template></ElTableColumn>
@@ -126,22 +171,29 @@
           <ElTableColumn label="模型 / 知识库" min-width="190"><template #default="{ row }">{{ row.config.model }} / {{ row.config.knowledge_base_code || '未绑定' }}</template></ElTableColumn>
           <ElTableColumn label="只读工具" min-width="180"><template #default="{ row }">{{ toolVersionsLabel(row.config.readonly_tools) }}</template></ElTableColumn>
           <ElTableColumn label="操作" width="130"><template #default="{ row }"><ElButton link type="warning" :disabled="writing || Boolean(operationRecoveringKey) || operationBlocked(versionOwner?.code ?? '') || row.is_active || row.state !== 'published' || versionOwner?.status !== 1" @click="rollback(row)">回退到此配置</ElButton></template></ElTableColumn>
-          <ElTableColumn type="expand"><template #default="{ row }"><p>快照：{{ row.snapshot_sha256 }} · 创建：{{ row.created_at }}</p><pre>{{ JSON.stringify(row.config, null, 2) }}</pre></template></ElTableColumn>
+          <ElTableColumn type="expand"><template #default="{ row }"><p class="tech-detail">技术详情：快照 {{ row.snapshot_sha256 }} · 创建 {{ row.created_at }}</p><pre class="tech-detail">{{ JSON.stringify(row.config, null, 2) }}</pre></template></ElTableColumn>
         </ElTable>
         <ElPagination v-if="versionsTotal > 20" :current-page="versionsPage" :page-size="20" :total="versionsTotal" layout="prev, pager, next" @current-change="loadVersions" />
       </ElDialog>
+
+      <AgentTrialDialog v-model="trialVisible" :application-id="trialApplicationId" :agent-id="trialTarget?.agentId ?? 0"
+        :agent-name="trialTarget?.name ?? ''" :knowledge-name="trialTarget?.knowledgeName" />
     </template>
   </ElCard>
 </template>
 
 <script setup lang="ts">
   import { useUserStore } from '@/store/modules/user'
+  import { useAuth } from '@/hooks/core/useAuth'
   import { computed, onUnmounted, reactive, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import agentDefinitionApi, { type AgentDefinitionOperation, type AgentDefinitionOperationReceipt, type AgentDefinitionRejectedPublishReceipt, type AgentDraft, type AgentAvailableModel, type AgentContextTurnLimit, type AgentDefinitionRow, type AgentReadonlyToolSelection, type AgentVersionHistory } from '../../api/agentDefinition'
   import knowledgePublicationApi, { type ConsumerKnowledgePublication } from '../../api/knowledgePublication'
+  import channelBindingApi from '../../api/channelBinding'
+  import type { SandIamEnvironmentReference } from '../../api/iam'
   import ReadonlyToolSelector from './ReadonlyToolSelector.vue'
+  import AgentTrialDialog from './AgentTrialDialog.vue'
   import { newRuntimeRequestId } from '../../api/runtime'
   import { errorDisplayText } from '../../api/errorText'
 
@@ -153,9 +205,10 @@
   const versionError = ref('')
   const versionOwner = ref<AgentDefinitionRow | null>(null)
   let versionsEpoch = 0
-  const props = defineProps<{ environmentId: number | null }>()
+  const props = defineProps<{ environmentId: number | null; environment: SandIamEnvironmentReference | null }>()
   const router = useRouter()
   const userStore = useUserStore()
+  const { hasAuth } = useAuth()
   const operationJournalKey = 'sand-ai-agent-definition-operation-journal:v1'
   const operationLockAvailable = typeof navigator !== 'undefined' && !!navigator.locks
   type OperationReference = Readonly<{
@@ -171,6 +224,8 @@
   const otherRecoveryCount = computed(() => operationJournal.value.length - currentRecoveries.value.length)
   let identityEpoch = 0
   const rows = ref<AgentDefinitionRow[]>([])
+  /** 渠道绑定按 agent_definition_id 反查，用于「接到哪些渠道」列与抽屉展示。 */
+  const channelRows = ref<{ agent_definition_id: number; name: string }[]>([])
   const models = ref<AgentAvailableModel[]>([])
   const modelsLoading = ref(false)
   const modelsError = ref('')
@@ -183,15 +238,12 @@
   const knowledgeMore = ref(false)
   let knowledgePage = 0
   let knowledgeEpoch = 0
-  const total = ref(0)
-  const page = ref(1)
   const loading = ref(false)
   const managementFlight = ref<symbol | null>(null)
   const writing = computed(() => managementFlight.value !== null)
   const error = ref('')
   const editingId = ref<number | null>(null)
   const editingLoading = ref(false)
-  const lockedName = ref(false)
   let epoch = 0
   let scopeEpoch = 0
   let formEpoch = 0
@@ -209,15 +261,139 @@
     context_turn_limit: AgentContextTurnLimit
   }>({ code: '', name: '', model: '', knowledge_base_code: '', instructions: '', readonly_tools: [], tools: ['retrieval.search'], review_required: true, max_output_tokens: null, context_turn_limit: 2 })
   const unsupportedTools = computed(() => form.tools.filter(tool => tool !== 'retrieval.search'))
-  const canSave = computed(() => !operationBlocked(form.code.trim()) && !operationRecoveringKey.value && !!props.environmentId && /^[a-z][a-z0-9_-]{0,63}$/.test(form.code.trim())
-    && !!form.name.trim() && !!form.model.trim() && !!form.instructions.trim() && !writing.value && !editingLoading.value
+  /** 代码对管理员不可见：新建时按规则自动生成，编辑时保留原值。 */
+  function generateAgentCode(): string {
+    return `agent-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+  }
+  const canSave = computed(() => !operationBlocked(form.code.trim()) && !operationRecoveringKey.value && !!props.environmentId
+    && !!form.name.trim() && form.name.trim().length <= 20 && !!form.model.trim() && !!form.instructions.trim() && form.instructions.trim().length <= 2000
+    && !writing.value && !editingLoading.value
     && unsupportedTools.value.length === 0 && form.tools.includes('retrieval.search')
     && form.readonly_tools.length <= 2 && form.readonly_tools.every(tool => /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(tool.business_scope))
     && (!form.readonly_tools.length || form.max_output_tokens === null || form.max_output_tokens <= 512))
-  const guideStep = computed(() => !form.model || !form.knowledge_base_code ? 0 : !form.instructions.trim() ? 1 : 2)
-  const selectedModel = computed(() => models.value.find(item => item.code === form.model)?.name ?? (form.model || '待选模型'))
-  const selectedKnowledge = computed(() => knowledge.value.find(item => item.code === form.knowledge_base_code)?.owner_name ?? (form.knowledge_base_code || '待选知识库'))
-  async function usePreset(preset: 'answer' | 'explain'): Promise<void> {
+  const submitAttempted = ref(false)
+  /** 用户亲手改过模型下拉后不再自动预选，避免覆盖明确选择。 */
+  const modelTouched = ref(false)
+  /** 可用模型目录来自已发布聊天能力档，第一项即环境默认对话模型。 */
+  const defaultModelCode = computed(() => models.value[0]?.code ?? '')
+  const fieldErrors = computed(() => ({
+    name: submitAttempted.value && !form.name.trim() ? '请填写名称' : '',
+    instructions: submitAttempted.value && !form.instructions.trim() ? '请写几句话告诉它该怎么回答' : '',
+    model: submitAttempted.value && !form.model.trim() ? '请选择用哪个模型' : ''
+  }))
+  const selectedModel = computed(() => models.value.find(item => item.code === form.model)?.name ?? (form.model || ''))
+  const selectedKnowledge = computed(() => {
+    const item = knowledge.value.find(entry => entry.code === form.knowledge_base_code)
+    return item?.owner_name ?? form.knowledge_base_code ?? ''
+  })
+  /** 一行灰字说明组合顺序；未选模型/知识库时给出当前状态。 */
+  const comboPreview = computed(() => {
+    const modelName = selectedModel.value || '所选模型'
+    if (!form.model.trim()) return '先选「用哪个模型」，这里会说明回答怎么组合'
+    if (!form.knowledge_base_code) return `会直接用「${modelName}」回答，不查知识库`
+    return `会先查「${selectedKnowledge.value || '所选知识库'}」，再用「${modelName}」回答`
+  })
+  function knowledgeLabel(item: ConsumerKnowledgePublication): string {
+    return `${item.owner_name} · ${item.code}`
+  }
+  function knowledgeNameOf(code: string | null | undefined): string | undefined {
+    if (!code) return undefined
+    return knowledge.value.find(item => item.code === code)?.owner_name
+  }
+
+  // 列表由后端按环境返回全量，筛选与分页在客户端完成
+  const keyword = ref('')
+  const statusFilter = ref<string>('')
+  const currentPage = ref(1)
+  const pageSize = 20
+  function agentEnabled(row: AgentDefinitionRow): boolean {
+    return row.state === 'published' && row.status === 1 && row.active_version_id !== null && row.active_version_no !== null
+  }
+  function agentStatus(row: AgentDefinitionRow): { label: string; type: 'success' | 'info' | 'warning' } {
+    if (row.status === 2) return { label: '已停用', type: 'info' }
+    if (agentEnabled(row)) return { label: '已启用', type: 'success' }
+    return { label: '还没启用', type: 'warning' }
+  }
+  const filteredRows = computed(() => {
+    const text = keyword.value.trim()
+    return rows.value.filter(row => {
+      if (text && !row.name.includes(text)) return false
+      if (statusFilter.value === 'enabled' && !agentEnabled(row)) return false
+      if (statusFilter.value === 'disabled' && row.status !== 2) return false
+      if (statusFilter.value === 'draft' && !(row.status === 1 && !agentEnabled(row))) return false
+      return true
+    })
+  })
+  const filteredTotal = computed(() => filteredRows.value.length)
+  const pagedRows = computed(() => {
+    const start = (currentPage.value - 1) * pageSize
+    return filteredRows.value.slice(start, start + pageSize)
+  })
+  function clearFilters(): void {
+    keyword.value = ''
+    statusFilter.value = ''
+    currentPage.value = 1
+  }
+  watch([keyword, statusFilter], () => { currentPage.value = 1 })
+  watch(filteredTotal, total => { if (currentPage.value > Math.max(1, Math.ceil(total / pageSize))) currentPage.value = Math.max(1, Math.ceil(total / pageSize)) })
+
+  function channelNamesOf(agentDefinitionId: number): string {
+    return channelRows.value.filter(item => item.agent_definition_id === agentDefinitionId).map(item => item.name).join('、')
+  }
+
+  const trialVisible = ref(false)
+  const trialTarget = ref<{ agentId: number; name: string; knowledgeName?: string } | null>(null)
+  const trialOpening = ref(false)
+  const trialApplicationId = computed(() => props.environment?.application_id ?? 0)
+  function canTrial(row: AgentDefinitionRow): boolean {
+    return agentEnabled(row) && hasAuth('sand_ai:trial:agent')
+  }
+  async function openTrial(row: AgentDefinitionRow): Promise<void> {
+    if (!canTrial(row) || !props.environmentId || trialOpening.value) return
+    trialOpening.value = true
+    try {
+      // 知识库名用于试用区顶部说明；读不到详情时仍可打开，说明退回通用文案。
+      let knowledgeName: string | undefined
+      try {
+        const detail = await agentDefinitionApi.read(props.environmentId, row.code)
+        knowledgeName = knowledgeNameOf(detail.latest_version?.knowledge_base_code ?? null)
+      } catch { /* 详情读取失败不阻断试用 */ }
+      trialTarget.value = { agentId: row.agent_definition_id, name: row.name, knowledgeName }
+      trialVisible.value = true
+    } finally {
+      trialOpening.value = false
+    }
+  }
+
+  const drawerVisible = ref(false)
+  function openCreate(): void {
+    if (!props.environmentId || writing.value) return
+    newDraft()
+    drawerVisible.value = true
+  }
+  const pendingEnableCode = ref('')
+  /** 渠道页「去启用」入口：已有草稿走启用确认，否则打开抽屉让用户先保存草稿。 */
+  function requestEnable(code: string): void {
+    pendingEnableCode.value = code
+    void tryEnablePending()
+  }
+  async function tryEnablePending(): Promise<void> {
+    const code = pendingEnableCode.value
+    if (!code || !props.environmentId || rows.value.length === 0) return
+    const row = rows.value.find(item => item.code === code)
+    if (!row) { pendingEnableCode.value = ''; return }
+    pendingEnableCode.value = ''
+    if (row.draft_version_id) {
+      await publish(row)
+    } else {
+      await edit(row)
+      drawerVisible.value = true
+      ElMessage.info('请先在抽屉里保存草稿，再从「更多」里启用')
+    }
+  }
+  watch(rows, () => { void tryEnablePending() })
+
+  async function usePreset(preset: 'service' | 'notice'): Promise<void> {
     if (writing.value || editingLoading.value) return
     const current = scopeEpoch
     const currentForm = formEpoch
@@ -226,17 +402,24 @@
       catch { return }
     }
     if (current !== scopeEpoch || currentForm !== formEpoch || writing.value || editingLoading.value) return
-    form.instructions = preset === 'answer'
-      ? '根据检索到的资料回答问题，逐项保留来源引用。资料不足或相互矛盾时说明缺口，不补写未查证事实；无法从资料确认的问题请明确告知。'
-      : '逐项核对问题中的事实，仅以检索资料作为依据，为每项结论保留来源引用。区分有依据的结论、不同来源的分歧和待查证的问题，不将推测写成事实。'
+    form.instructions = preset === 'service'
+      ? '你是客服助手。先查知识库里和客户问题相关的资料，再用简洁、礼貌的中文回答；资料里没有的内容不要编，礼貌说明需要人工确认。'
+      : '你是内部通知助手。根据给出的要点写一条简短通知，说明时间、事项和需要大家做什么；语气正式清楚，不添加资料里没有的信息。'
   }
 
   function newDraft(): void {
     ++formEpoch
     editingLoading.value = false
     editingId.value = null
-    lockedName.value = false
-    Object.assign(form, { code: '', name: '', model: '', knowledge_base_code: '', instructions: '', readonly_tools: [], tools: ['retrieval.search'], review_required: true, max_output_tokens: null, context_turn_limit: 2 })
+    submitAttempted.value = false
+    modelTouched.value = false
+    Object.assign(form, { code: generateAgentCode(), name: '', model: '', knowledge_base_code: '', instructions: '', readonly_tools: [], tools: ['retrieval.search'], review_required: true, max_output_tokens: null, context_turn_limit: 2 })
+    applyDefaultModel()
+  }
+  /** 新建草稿时预选环境默认模型；编辑中、已手选或目录未就绪时不覆盖。 */
+  function applyDefaultModel(): void {
+    if (modelTouched.value || editingId.value !== null || form.model.trim() || !defaultModelCode.value) return
+    form.model = defaultModelCode.value
   }
   async function loadModels(): Promise<void> {
     const environmentId = props.environmentId
@@ -249,6 +432,7 @@
       const result = await agentDefinitionApi.models(environmentId)
       if (current !== modelEpoch || props.environmentId !== environmentId) return
       models.value = result.data.filter(item => item.type === 'chat' && item.capabilities.includes('chat'))
+      applyDefaultModel()
     } catch (failure) {
       if (current === modelEpoch) {
         models.value = []
@@ -287,23 +471,40 @@
       if (current === knowledgeEpoch) knowledgeLoading.value = false
     }
   }
-  async function load(targetPage: number): Promise<void> {
+  async function loadChannels(): Promise<void> {
+    const environmentId = props.environmentId
+    if (!environmentId) return
+    try {
+      const result = await channelBindingApi.list(environmentId, 1, 100)
+      channelRows.value = result.data.map(item => ({ agent_definition_id: item.agent_definition_id, name: item.name }))
+    } catch {
+      // 渠道名只是辅助展示，读取失败不阻断智能体列表。
+      channelRows.value = []
+    }
+  }
+  /** 后端按环境返回全量分页；这里循环取完，筛选与分页都在前端完成。 */
+  async function load(): Promise<void> {
     const environmentId = props.environmentId
     if (!environmentId || !currentAdminId.value) return
     const current = ++epoch
     loading.value = true
     error.value = ''
     try {
-      const result = await agentDefinitionApi.list(environmentId, targetPage)
-      if (current !== epoch) return
-      rows.value = result.data
-      total.value = result.total
-      page.value = targetPage
+      const collected: AgentDefinitionRow[] = []
+      for (let targetPage = 1; ; targetPage++) {
+        const result = await agentDefinitionApi.list(environmentId, targetPage, 100)
+        if (current !== epoch) return
+        collected.push(...result.data)
+        if (targetPage * 100 >= result.total || result.data.length === 0) break
+      }
+      rows.value = collected
+      currentPage.value = 1
     } catch (failure) {
       if (current === epoch) error.value = errorDisplayText(failure, '智能体列表读取失败')
     } finally {
       if (current === epoch) loading.value = false
     }
+    void loadChannels()
   }
   async function edit(row: AgentDefinitionRow): Promise<void> {
     const environmentId = props.environmentId
@@ -315,7 +516,8 @@
       const detail = await agentDefinitionApi.read(environmentId, row.code)
       if (current !== formEpoch || props.environmentId !== environmentId) return
       editingId.value = detail.agent_definition_id
-      lockedName.value = detail.state === 'published'
+      submitAttempted.value = false
+      modelTouched.value = false
       Object.assign(form, {
         code: detail.code, name: detail.name,
         model: detail.latest_version?.model ?? '',
@@ -327,6 +529,7 @@
         max_output_tokens: detail.latest_version?.max_output_tokens ?? null,
         context_turn_limit: detail.latest_version?.context_turn_limit ?? 2
       })
+      drawerVisible.value = true
     } catch (failure) {
       if (current === formEpoch) error.value = errorDisplayText(failure, '智能体详情读取失败')
     } finally { if (current === formEpoch) editingLoading.value = false }
@@ -363,7 +566,7 @@
       return true
     } catch {
       operationJournalInvalid.value = true
-      operationRecoveryError.value = '无法保存原变更请求号，暂不能发起新变更。请保留本页并核对原智能体。'
+      operationRecoveryError.value = '无法保存原变更记录，暂不能发起新变更。请保留本页并核对原智能体。'
       return false
     }
   }
@@ -398,7 +601,7 @@
       if (!environment || !stillCurrent()) return null
       readOperationJournal()
       if (operationBlocked(code)) {
-        error.value = '此智能体仍有未确认变更，请先沿原请求号找回，不能改用另一操作重新提交。'
+        error.value = '此智能体仍有未确认变更，请先查看原请求结果，不能改用另一操作重新提交。'
         return null
       }
       const reference: OperationReference = { key: newRuntimeRequestId(`agent-${operation}`), user_id: currentAdminId.value,
@@ -419,13 +622,13 @@
   }
   async function readBackOperation(reference: OperationReference, stillCurrent: () => boolean): Promise<void> {
     if (!stillCurrent()) return
-    await load(page.value)
+    await load()
     if (!stillCurrent()) return
     // Read actual current configuration; the receipt is only an operation snapshot.
     const detail = await agentDefinitionApi.read(reference.environment_id, reference.code)
     if (!stillCurrent()) return
     if (detail.code !== reference.code) throw new Error('重新读取的智能体不一致，请刷新配置')
-    if (form.code.trim() === reference.code) {
+    if (form.code.trim() === reference.code && drawerVisible.value) {
       newDraft()
       const row = rows.value.find(item => item.code === reference.code)
       if (row) await edit(row)
@@ -466,14 +669,16 @@
   }
   async function completeOperation(reference: OperationReference, result: AgentDefinitionOperationReceipt, stillCurrent: () => boolean): Promise<void> {
     if (!stillCurrent()) return
-    if (!receiptMatches(result, reference)) throw new Error('操作回执与原智能体、版本或启用快照不一致，请沿原请求号找回')
+    if (!receiptMatches(result, reference)) throw new Error('操作回执与原智能体、版本或启用快照不一致，请查看原请求结果')
     if (!await acknowledgeOperation(reference, stillCurrent) || !stillCurrent()) return
     ElMessage.success(`${operationLabel(reference.operation)}已确认，当前配置正在重新读取`)
     await readBackOperation(reference, stillCurrent)
   }
-  async function save(): Promise<void> {
+  /** 保存草稿；返回是否已确认完成，供「保存并启用」继续启用。 */
+  async function save(): Promise<boolean> {
     const environmentId = props.environmentId
-    if (!environmentId || !canSave.value || writing.value) return
+    submitAttempted.value = true
+    if (!environmentId || !canSave.value || writing.value) return false
     const current = scopeEpoch
     const identity = identityEpoch
     const stillCurrent = () => current === scopeEpoch && identity === identityEpoch && props.environmentId === environmentId
@@ -484,17 +689,34 @@
     const flight = Symbol('agent-management')
     managementFlight.value = flight
     error.value = ''
+    let confirmed = false
     try {
       const reference = await startOperation('draft', draft.code, editingId.value, null, null, stillCurrent)
-      if (!reference || !stillCurrent()) return
+      if (!reference || !stillCurrent()) return false
       const result = await agentDefinitionApi.draft(draft, reference.key)
       await completeOperation(reference, result, stillCurrent)
-    } catch (failure) { if (stillCurrent()) error.value = `${errorDisplayText(failure, '保存结果未确认')}；请沿原请求号找回，不要重新提交。` }
+      confirmed = stillCurrent()
+    } catch (failure) { if (stillCurrent()) error.value = `${errorDisplayText(failure, '保存结果未确认')}；请查看原请求结果，不要重新提交。` }
     finally { if (managementFlight.value === flight) managementFlight.value = null }
+    return confirmed
   }
-  async function publish(row: AgentDefinitionRow): Promise<void> {
+  /** 保存草稿 → 启用最新草稿；不选知识库也可以启用，运行时只靠模型回答。 */
+  async function saveAndEnable(): Promise<void> {
+    if (writing.value) return
+    const code = form.code.trim()
+    const saved = await save()
+    if (!saved) return
+    const row = rows.value.find(item => item.code === code)
+    if (!row) {
+      error.value = '已保存，但暂时读不到这个智能体，请刷新后再试。'
+      return
+    }
+    await publish(row)
+  }
+  /** 启用；返回是否已确认完成。 */
+  async function publish(row: AgentDefinitionRow): Promise<boolean> {
     const environmentId = props.environmentId
-    if (!environmentId || writing.value || operationRecoveringKey.value || operationBlocked(row.code)) return
+    if (!environmentId || writing.value || operationRecoveringKey.value || operationBlocked(row.code)) return false
     const current = scopeEpoch
     const identity = identityEpoch
     const stillCurrent = () => current === scopeEpoch && identity === identityEpoch && props.environmentId === environmentId
@@ -502,28 +724,33 @@
     managementFlight.value = flight
     error.value = ''
     let dispatched = false
+    let confirmed = false
     try {
       const history = await agentDefinitionApi.versions(environmentId, row.code, 1)
-      if (!stillCurrent()) return
+      if (!stillCurrent()) return false
       const drafts = history.data.filter(version => version.state === 'draft')
       const draft = drafts[0]
       if (drafts.length !== 1 || !draft || draft.version_no !== row.draft_version_no || !/^[a-f0-9]{64}$/.test(draft.snapshot_sha256)) {
         error.value = '未能确认唯一的当前草稿或启用快照，请刷新列表、重新读取配置后再启用。'
-        return
+        return false
       }
       const expectedSha = draft.snapshot_sha256
-      try { await ElMessageBox.confirm(`启用「${row.name}」第 ${draft.version_no} 版草稿（模型 ${draft.config.model}，快照 ${expectedSha.slice(0, 12)}）。应用和渠道将使用此配置，旧版本结果将不可用。确认期间草稿变化会拒绝启用，请刷新并重新确认。`, '启用已确认的智能体草稿', { type: 'warning', confirmButtonText: '启用此版草稿' }) }
-      catch { return }
-      if (!stillCurrent()) return
+      const modelName = draft.config.model
+      const knowledgeName = draft.config.knowledge_base_code ? knowledgeNameOf(draft.config.knowledge_base_code) ?? draft.config.knowledge_base_code : '未绑定知识库'
+      try { await ElMessageBox.confirm(`启用「${row.name}」第 ${draft.version_no} 版草稿（模型 ${modelName}，知识库 ${knowledgeName}）。应用和渠道将使用此配置，旧版本结果将不可用。确认期间草稿变化会拒绝启用，请刷新并重新确认。`, '启用已确认的智能体草稿', { type: 'warning', confirmButtonText: '启用此版草稿' }) }
+      catch { return false }
+      if (!stillCurrent()) return false
       const reference = await startOperation('publish', row.code, row.agent_definition_id, null, expectedSha, stillCurrent)
-      if (!reference || !stillCurrent()) return
+      if (!reference || !stillCurrent()) return false
       dispatched = true
       const result = await agentDefinitionApi.publish(environmentId, row.agent_definition_id, reference.key, expectedSha)
       await completeOperation(reference, result, stillCurrent)
+      confirmed = stillCurrent()
     } catch (failure) { if (stillCurrent()) error.value = dispatched
-      ? `${errorDisplayText(failure, '启用结果未确认')}；请沿原请求号找回。若草稿冲突，请重新读取当前配置并确认，不能自动改版启用。`
+      ? `${errorDisplayText(failure, '启用结果未确认')}；请查看原请求结果。若草稿冲突，请重新读取当前配置并确认，不能自动改版启用。`
       : `${errorDisplayText(failure, '草稿读取失败')}；本次未提交启用，请刷新列表、重新读取配置后确认。` }
     finally { if (managementFlight.value === flight) managementFlight.value = null }
+    return confirmed
   }
   async function disable(row: AgentDefinitionRow): Promise<void> {
     const environmentId = props.environmentId
@@ -535,14 +762,15 @@
     managementFlight.value = flight
     error.value = ''
     try {
-      try { await ElMessageBox.confirm(`停用「${row.name}」后，新任务和旧版本结果都将不可用。`, '停用智能体', { type: 'warning' }) }
+      const boundCount = channelRows.value.filter(item => item.agent_definition_id === row.agent_definition_id).length
+      try { await ElMessageBox.confirm(`停用「${row.name}」后${boundCount > 0 ? `接到的 ${boundCount} 个渠道里的人问了不会再回答` : '新任务和旧版本结果都将不可用'}，随时可以再启用。`, '停用智能体', { type: 'warning', confirmButtonText: '停用' }) }
       catch { return }
       if (!stillCurrent()) return
       const reference = await startOperation('disable', row.code, row.agent_definition_id, null, null, stillCurrent)
       if (!reference || !stillCurrent()) return
       const result = await agentDefinitionApi.disable(environmentId, row.agent_definition_id, reference.key)
       await completeOperation(reference, result, stillCurrent)
-    } catch (failure) { if (stillCurrent()) error.value = `${errorDisplayText(failure, '停用结果未确认')}；请沿原请求号找回，不要重新提交。` }
+    } catch (failure) { if (stillCurrent()) error.value = `${errorDisplayText(failure, '停用结果未确认')}；请查看原请求结果，不要重新提交。` }
     finally { if (managementFlight.value === flight) managementFlight.value = null }
   }
   function toolVersionsLabel(tools: readonly AgentReadonlyToolSelection[] | undefined): string { return tools?.map(tool => `${tool.code} v${tool.version} · ${tool.business_scope}`).join('；') || '仅私有检索' }
@@ -588,9 +816,10 @@
       if (!reference || !stillCurrent()) return
       const result = await agentDefinitionApi.rollback(environment, owner.agent_definition_id, version.version_no, reference.key)
       await completeOperation(reference, result, stillCurrent)
-    } catch (failure) { if (stillCurrent()) versionError.value = `${errorDisplayText(failure, '回退结果未确认')}；请沿原请求号只读找回，不再发送回退。` }
+    } catch (failure) { if (stillCurrent()) versionError.value = `${errorDisplayText(failure, '回退结果未确认')}；请查看原请求结果，不再发送回退。` }
     finally { if (managementFlight.value === flight) managementFlight.value = null }
   }
+  defineExpose({ openCreate, requestEnable })
 
   watch(() => props.environmentId, () => {
     ++epoch
@@ -606,7 +835,7 @@
     ++knowledgeEpoch
     ++modelEpoch
     rows.value = []
-    total.value = 0
+    channelRows.value = []
     models.value = []
     modelsLoading.value = false
     modelsError.value = ''
@@ -616,8 +845,15 @@
     knowledgeMore.value = false
     knowledgeError.value = ''
     knowledgeLoading.value = false
+    keyword.value = ''
+    statusFilter.value = ''
+    currentPage.value = 1
+    drawerVisible.value = false
+    trialVisible.value = false
+    trialTarget.value = null
+    pendingEnableCode.value = ''
     newDraft()
-    void load(1)
+    void load()
     void loadModels()
     void loadKnowledge(true)
   }, { immediate: true, flush: 'sync' })
@@ -629,14 +865,14 @@
     operationRecoveringKey.value = ''; operationRecoveryError.value = ''
     loading.value = false; editingLoading.value = false
     versionsVisible.value = false; versions.value = []; versionOwner.value = null; versionsLoading.value = false
-    rows.value = []; total.value = 0; error.value = ''; versionError.value = ''
-    models.value = []; modelsLoading.value = false; modelsError.value = ''; modelsNotPublished.value = false
+    rows.value = []; channelRows.value = []; models.value = []; modelsLoading.value = false; modelsError.value = ''; modelsNotPublished.value = false
     knowledge.value = []; knowledgeLoading.value = false; knowledgeError.value = ''
     knowledgePage = 0; knowledgeMore.value = false
+    drawerVisible.value = false; trialVisible.value = false; trialTarget.value = null; pendingEnableCode.value = ''
     newDraft()
     readOperationJournal()
-    if (currentAdminId.value) {
-      void load(1)
+    if (currentAdminId.value && props.environmentId) {
+      void load()
       void loadModels()
       void loadKnowledge(true)
     }
@@ -649,10 +885,23 @@
 <style scoped lang="scss">
   .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .panel-head h3 { margin: 0; }
-  .panel-head p, .hint { color: var(--el-text-color-secondary); font-size: 13px; }
+  .panel-head p, .hint, .knowledge-note, .readonly-text { color: var(--el-text-color-secondary); font-size: 13px; }
   .hint { margin-left: 10px; }
-  .guide, .preview { margin: 14px 0; }
-  .panel-alert, .pager { margin: 14px 0; }
+  .filter-row { display: flex; gap: 10px; margin: 12px 0; }
+  .panel-alert, .pager, .notice { margin: 14px 0; }
   .knowledge-actions { display: flex; gap: 8px; }
-  .knowledge-note { margin: 2px 0 0; color: var(--el-text-color-secondary); font-size: 12px; }
+  .knowledge-note { margin: 2px 0 0; }
+  .knowledge-note--action { color: var(--el-color-primary); }
+  .field-error { color: var(--el-color-danger); font-size: 12px; margin-top: 4px; }
+  .example-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .example-label { color: var(--el-text-color-secondary); font-size: 12px; }
+  .more-settings { margin: 8px 0; }
+  .combo-preview { margin: 14px 0 4px; color: var(--el-text-color-secondary); font-size: 12px; }
+  .drawer-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  .empty-state { padding: 28px 0; text-align: center; }
+  .empty-title { margin: 0 0 6px; font-size: 15px; color: var(--el-text-color-primary); }
+  .empty-desc { margin: 0 0 14px; color: var(--el-text-color-secondary); font-size: 13px; }
+  .channel-names { color: var(--el-text-color-regular); }
+  .channel-none { color: var(--el-text-color-secondary); }
+  .tech-detail { color: var(--el-text-color-secondary); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>
