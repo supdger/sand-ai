@@ -1090,7 +1090,8 @@ BEGIN
         ('202611070170_config_revision_published_at','a98c1dba8f6d8bb0ebdf1fe990f7dd5d53839261ddad08d0fa2bef61f3e76e11'),
         ('202611100171_budget_unlimited_reminder','51ada4ce783c4df29b14b26f28f4ef0011f9abd86ebe357fbb0103e63d2febce'),
         ('202611110172_knowledge_index_task','5a9d77874d7375e65aecf0254b4dc1d74202f6a0a3f2b2d471d5ccf0e81c5a02'),
-        ('202611120173_g13_menu_regroup','c83582aecc4190c2205768d0b78b9c21e677417ed206b0ce4c7af4e7006b3585')
+        ('202611120173_g13_menu_regroup','c83582aecc4190c2205768d0b78b9c21e677417ed206b0ce4c7af4e7006b3585'),
+        ('202611130174_rename_capability_menu','9fbd406b483665531e0c0eda25cf7440faecf7e21ea91fc1b9b6e72fa73f7b6c')
     ) AS expected(version,checksum) ON expected.version=applied.version
     WHERE expected.version IS NULL OR applied.checksum IS DISTINCT FROM expected.checksum
     ORDER BY applied.version LIMIT 1;
@@ -14867,5 +14868,25 @@ $sand_ai_migration_0173$;
   INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611120173_g13_menu_regroup','c83582aecc4190c2205768d0b78b9c21e677417ed206b0ce4c7af4e7006b3585',CURRENT_TIMESTAMP(0));
  END IF;
 END $sand_ai_upgrade_0173$;
+
+DO $sand_ai_upgrade_0174$
+BEGIN
+ IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611130174_rename_capability_menu' AND checksum IS DISTINCT FROM '9fbd406b483665531e0c0eda25cf7440faecf7e21ea91fc1b9b6e72fa73f7b6c') THEN
+  RAISE EXCEPTION 'SandAI migration 174 checksum mismatch';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611130174_rename_capability_menu') THEN
+  EXECUTE $sand_ai_migration_0174$
+-- 0.5.0 UX declutter: the 高级 child page SandAICapability is renamed from
+-- "能力与路线" to "能力配置". Code, path, component, sort and role links are
+-- untouched; the update is idempotent on re-run.
+UPDATE sand_system_menu
+SET name='能力配置',
+    update_time=CURRENT_TIMESTAMP
+WHERE code='SandAICapability' AND type=2 AND status=1 AND delete_time IS NULL
+  AND name IS DISTINCT FROM '能力配置';
+$sand_ai_migration_0174$;
+  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611130174_rename_capability_menu','9fbd406b483665531e0c0eda25cf7440faecf7e21ea91fc1b9b6e72fa73f7b6c',CURRENT_TIMESTAMP(0));
+ END IF;
+END $sand_ai_upgrade_0174$;
 
 COMMIT;
