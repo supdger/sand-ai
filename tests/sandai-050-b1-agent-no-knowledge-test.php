@@ -27,6 +27,19 @@ require_once dirname(__DIR__) . '/app/Application/Agent/AgentDefinitionPolicy.ph
 require_once dirname(__DIR__) . '/app/Application/Channel/ChannelConversationPolicy.php';
 require_once dirname(__DIR__) . '/app/Application/Channel/ChannelConversationGateway.php';
 require_once dirname(__DIR__) . '/app/Infrastructure/Agent/NeuronAgentCaller.php';
+// The repository carries no vendor tree; the real SDK wins when it is
+// autoloadable, otherwise the minimal stub surface stands in for it.
+if (!interface_exists(\NeuronAI\Providers\AIProviderInterface::class)) {
+    require_once __DIR__ . '/stubs/NeuronSdk.php';
+}
+require_once dirname(__DIR__) . '/app/Application/Tool/StrictJsonObjectDecoder.php';
+require_once dirname(__DIR__) . '/app/Application/Tool/ToolSchemaPolicy.php';
+require_once dirname(__DIR__) . '/app/Application/Agent/AgentReadonlyToolProtocol.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Agent/NeuronAuthorizedReadonlyTool.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Agent/NeuronAuthorizedRetrievalTool.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Agent/NeuronTextWireMapper.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Agent/NeuronControlledProvider.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Provider/AgentToolChatRequest.php';
 
 use app\Api\Support\ApiProblem;
 use app\Application\Agent\AgentConversationGateway;
@@ -36,6 +49,10 @@ use app\Application\Channel\ChannelConversationGateway;
 use app\Application\Channel\ChannelConversationPolicy;
 use app\Application\Usage\UsageAttribution;
 use app\Infrastructure\Agent\NeuronAgentCaller;
+use app\Infrastructure\Agent\NeuronAuthorizedReadonlyTool;
+use app\Infrastructure\Agent\NeuronAuthorizedRetrievalTool;
+use app\Infrastructure\Agent\NeuronControlledProvider;
+use app\Infrastructure\Provider\AgentToolChatRequest;
 
 $passed = 0;
 $failed = 0;
@@ -257,6 +274,173 @@ ok(!str_contains($panelSource, '启用前需要先选一个知识库'),
     'panel: enable guard removed');
 ok(str_contains($panelSource, '不选也能用，只靠模型自己回答'),
     'panel: model-only hint kept');
+
+// The protocol request accepts an empty tool list as a pure text request and
+// keeps the retrieval-first contract for wired tools.
+$makeTool = static function (string $class, array $properties): object {
+    $reflection = new ReflectionClass($class);
+    $tool = $reflection->newInstanceWithoutConstructor();
+    foreach ($properties as $name => $value) {
+        $reflection->getProperty($name)->setValue($tool, $value);
+    }
+    return $tool;
+};
+$readonlySchema = [
+    'type' => 'object',
+    'properties' => ['q' => ['type' => 'string']],
+    'required' => ['q'],
+    'additionalProperties' => false,
+];
+$readonlyBinding = ['snapshot_sha256' => str_repeat('e', 64), 'input_schema' => $readonlySchema];
+$readonlyName = NeuronAuthorizedReadonlyTool::wireName($readonlyBinding);
+$readonly = $makeTool(NeuronAuthorizedReadonlyTool::class, [
+    'name' => $readonlyName, 'description' => 'Readonly demo',
+    'parameters' => ['parameters' => $readonlySchema],
+]);
+$retrieval = $makeTool(NeuronAuthorizedRetrievalTool::class, [
+    'name' => 'retrieval_search', 'description' => 'Search.',
+    'parameters' => ['parameters' => [
+        'type' => 'object', 'properties' => ['query' => ['type' => 'string']],
+        'required' => ['query'],
+    ]],
+]);
+
+$toolFreeRequest = new AgentToolChatRequest([]);
+ok($toolFreeRequest->tools === [] && $toolFreeRequest->sdkTools === [],
+    'request: empty tool list accepted');
+ok($toolFreeRequest->retrievalWired === false && $toolFreeRequest->countReadonlyTools() === 0,
+    'request: empty tool list is retrieval-free');
+$freeFingerprint = $toolFreeRequest->fingerprint();
+ok($freeFingerprint['version'] === 3 && $freeFingerprint['tools'] === []
+    && !isset($freeFingerprint['tool_choice'], $freeFingerprint['execution_limits']),
+    'request: empty tool fingerprint stays distinct');
+$textWire = [['role' => 'system', 'content' => '指令'], ['role' => 'user', 'content' => '你好']];
+ok(problemCode(static fn () => $toolFreeRequest->assertMessages($textWire)) === null,
+    'request: empty tools accept text messages');
+ok(problemCode(static fn () => $toolFreeRequest->assertOutcome(
+    ['content' => '回答', 'response_kind' => 'text', 'tool_calls' => []], $textWire)) === null,
+    'request: empty tools accept a text outcome');
+ok(problemCode(static fn () => $toolFreeRequest->assertOutcome(
+    ['content' => null, 'response_kind' => 'tool_calls',
+        'tool_calls' => [['id' => 'call_1', 'name' => 'retrieval_search', 'arguments' => ['query' => 'x']]]],
+    $textWire)) === 'SAND_AI_AGENT_PROTOCOL_INVALID',
+    'request: empty tools still reject tool calls');
+
+// A readonly-only list is a retrieval-free request, never a retrieval list.
+$readonlyRequest = new AgentToolChatRequest([$readonly]);
+ok($readonlyRequest->retrievalWired === false && $readonlyRequest->countReadonlyTools() === 1
+    && ($readonlyRequest->tools[0]['function']['name'] ?? null) === $readonlyName,
+    'request: readonly-only list stays retrieval-free');
+$readonlyFingerprint = $readonlyRequest->fingerprint();
+ok($readonlyFingerprint['version'] === 3 && ($readonlyFingerprint['tool_choice'] ?? null) === 'auto'
+    && isset($readonlyFingerprint['execution_limits']),
+    'request: readonly-only fingerprint carries limits');
+
+// The wired contract is unchanged: retrieval first, named retrieval_search,
+// domain bounds rewritten, readonly tools behind it.
+$wiredRequest = new AgentToolChatRequest([$retrieval, $readonly]);
+ok($wiredRequest->retrievalWired && $wiredRequest->countReadonlyTools() === 1,
+    'request: wired list keeps retrieval first');
+$wiredSchema = $wiredRequest->tools[0]['function']['parameters'];
+ok($wiredSchema['additionalProperties'] === false && $wiredSchema['properties']['query']['minLength'] === 1
+    && $wiredSchema['properties']['query']['maxLength'] === 500,
+    'request: retrieval schema bounds kept');
+ok($wiredRequest->fingerprint()['version'] === 2
+    && ($wiredRequest->fingerprint()['tool_choice'] ?? null) === 'auto',
+    'request: wired fingerprint version kept');
+
+ok(problemCode(static fn () => new AgentToolChatRequest([$readonly, $retrieval]))
+    === 'SAND_AI_AGENT_PROTOCOL_INVALID', 'request: retrieval behind readonly rejected');
+ok(problemCode(static fn () => new AgentToolChatRequest([
+        $makeTool(NeuronAuthorizedRetrievalTool::class, [
+            'name' => 'retrieval_fake', 'description' => 'x',
+            'parameters' => ['parameters' => $readonlySchema],
+        ]),
+    ])) === 'SAND_AI_AGENT_PROTOCOL_INVALID', 'request: wired tool must be retrieval_search');
+ok(problemCode(static fn () => new AgentToolChatRequest([$readonly, $readonly, $readonly, $readonly]))
+    === 'SAND_AI_AGENT_PROTOCOL_INVALID', 'request: more than three tools rejected');
+ok(problemCode(static fn () => new AgentToolChatRequest([], stream: true)->streamArgumentLimit('retrieval_search'))
+    === 'SAND_AI_AGENT_PROTOCOL_INVALID', 'request: retrieval-free stream rejects tool arguments');
+
+// The controlled provider completes a pure text round with no tool registered.
+$seenWire = null;
+$seenRequest = null;
+$textDispatch = static function (int $round, array $messages, AgentToolChatRequest $request) use (&$seenWire, &$seenRequest): array {
+    $seenWire = $messages;
+    $seenRequest = $request;
+    return [
+        'content' => '模型直接回答', 'response_kind' => 'text', 'tool_calls' => [],
+        'usage' => ['usage_state' => 'measured', 'input_tokens' => 3, 'output_tokens' => 5],
+        'invocation_id' => 9,
+    ];
+};
+$provider = new NeuronControlledProvider('glm-4.6', $textDispatch);
+$provider->systemPrompt(new \NeuronAI\Chat\Messages\SystemMessage('指令'));
+$response = $provider->setTools([])->chat(new \NeuronAI\Chat\Messages\UserMessage('你好'));
+ok($response->message() instanceof \NeuronAI\Chat\Messages\AssistantMessage
+    && $response->message()->getContent() === '模型直接回答',
+    'provider: empty tools return a text answer');
+ok($seenWire === $textWire && $seenRequest->sdkTools === [],
+    'provider: empty tools wire carries instructions only');
+ok($response->metadata('sandai_round_number') === 1 && count($provider->rounds()) === 1,
+    'provider: empty tools round is accounted');
+
+// A retrieval-free readonly round still executes through the same accounted path.
+$rounds = 0;
+$readonlyDispatch = static function (int $round, array $messages, AgentToolChatRequest $request) use (&$rounds, $readonlyName): array {
+    $rounds = $round;
+    if ($round === 1) {
+        return [
+            'content' => null, 'response_kind' => 'tool_calls',
+            'tool_calls' => [['id' => 'call_1', 'name' => $readonlyName, 'arguments' => ['q' => 'x']]],
+            'usage' => ['usage_state' => 'measured', 'input_tokens' => 1, 'output_tokens' => 1],
+            'invocation_id' => 10,
+        ];
+    }
+    return [
+        'content' => '最终答案', 'response_kind' => 'text', 'tool_calls' => [],
+        'usage' => ['usage_state' => 'measured', 'input_tokens' => 2, 'output_tokens' => 2],
+        'invocation_id' => 11,
+    ];
+};
+$readonlyProvider = new NeuronControlledProvider('glm-4.6', $readonlyDispatch);
+$readonlyProvider->setTools([$readonly]);
+$first = $readonlyProvider->chat(new \NeuronAI\Chat\Messages\UserMessage('你好'));
+ok($first->message() instanceof \NeuronAI\Chat\Messages\ToolCallMessage
+    && $first->message()->getToolCalls()[0]->getName() === $readonlyName,
+    'provider: readonly round resolves the managed call');
+$call = $first->message()->getToolCalls()[0];
+$call->setResult('查询结果');
+$second = $readonlyProvider->chat(
+    new \NeuronAI\Chat\Messages\UserMessage('你好'), $first->message(),
+    new \NeuronAI\Chat\Messages\ToolResultMessage([$call]),
+);
+ok($second->message() instanceof \NeuronAI\Chat\Messages\AssistantMessage
+    && $second->message()->getContent() === '最终答案' && $rounds === 2,
+    'provider: readonly tool result completes the answer');
+
+// The caller still wires only readonly tools when retrieval is absent and only
+// requires a retrieval execution when the tool exists.
+$callerSource = (string) file_get_contents($repositoryRoot . '/app/Infrastructure/Agent/NeuronAgentCaller.php');
+ok(str_contains($callerSource, '$tool===null?$readonlyTools:[$tool,...$readonlyTools]'),
+    'caller: null retrieval wires readonly tools only');
+ok(str_contains($callerSource, '$tool!==null && $tool->executions()===[]'),
+    'caller: retrieval execution required only when wired');
+$requestSource = (string) file_get_contents($repositoryRoot . '/app/Infrastructure/Provider/AgentToolChatRequest.php');
+ok(str_contains($requestSource, "['_agent_definition'] ?? null) === null")
+    && str_contains($requestSource, "['knowledge_base_code'] ?? null) !== null"),
+    'request: scope mirrors the frozen wiring rule');
+
+// The trial dialog renders the returned error for any terminal submit state
+// and keeps polling for in-flight states.
+$trialSource = (string) file_get_contents(
+    $repositoryRoot . '/sandadmin-artd/src/views/plugin/sand-ai/agent/modules/AgentTrialDialog.vue');
+ok(str_contains($trialSource, 'isAgentTrialTerminal(result.state)'),
+    'trial: terminal submit state renders the error');
+ok(str_contains($trialSource, 'trial-answer--error'),
+    'trial: failed turn keeps the error display');
+ok(str_contains($trialSource, "turn.status === 'thinking' && typeof result.task_id === 'number'"),
+    'trial: in-flight submit state keeps polling');
 
 echo "sandai-050-b1-agent-no-knowledge passed={$passed} failed={$failed}\n";
 exit($failed === 0 ? 0 : 1);

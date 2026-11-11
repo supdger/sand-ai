@@ -132,7 +132,7 @@
       if (!turn.answer) turn.errorText = ''
       return
     }
-    if (result.state === 'failed' || result.state === 'canceled') {
+    if (isAgentTrialTerminal(result.state)) {
       turn.status = 'failed'
       const code = typeof result.error_code === 'string' ? result.error_code : ''
       turn.errorText = (code ? hintForRuntimeErrorCode(code) : undefined)

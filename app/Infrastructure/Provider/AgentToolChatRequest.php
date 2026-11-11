@@ -21,6 +21,8 @@ final readonly class AgentToolChatRequest
     public ?array $summaryCoverage;
     /** Actual execution-scoped SDK tool definitions; never serialized to a public body or receipt. */
     public array $sdkTools;
+    /** Whether the authorized retrieval tool leads the list; knowledge-free requests are readonly-only or empty. */
+    public bool $retrievalWired;
 
     /** @param list<ToolInterface> $tools */
     public function __construct(array $tools, ?array $summaryCoverage=null, public bool $stream=false)
@@ -33,26 +35,31 @@ final readonly class AgentToolChatRequest
                 || preg_match('/\A[a-f0-9]{64}\z/D',$summaryCoverage['coverage_sha256'])!==1) self::invalid();
             $unsigned=array_diff_key($summaryCoverage,['coverage_sha256'=>true]);
             if (!hash_equals($summaryCoverage['coverage_sha256'],hash('sha256',json_encode($unsigned,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)))) self::invalid();
+            $this->retrievalWired=false;
             $this->tools=[];
             return;
         }
-        if ($tools === [] || count($tools) > 3 || !$tools[0] instanceof \app\Infrastructure\Agent\NeuronAuthorizedRetrievalTool) self::invalid();
+        if (count($tools) > 3) self::invalid();
+        $this->retrievalWired = $tools !== [] && $tools[0] instanceof \app\Infrastructure\Agent\NeuronAuthorizedRetrievalTool;
         $names = [];
         foreach ($tools as $index => $candidate) {
-            if ($index > 0 && !$candidate instanceof \app\Infrastructure\Agent\NeuronAuthorizedReadonlyTool) self::invalid();
+            if (($index === 0 && !$candidate instanceof \app\Infrastructure\Agent\NeuronAuthorizedRetrievalTool
+                    && !$candidate instanceof \app\Infrastructure\Agent\NeuronAuthorizedReadonlyTool)
+                || ($index > 0 && !$candidate instanceof \app\Infrastructure\Agent\NeuronAuthorizedReadonlyTool)) self::invalid();
             if (isset($names[$candidate->getName()])) self::invalid();
             $names[$candidate->getName()] = true;
         }
-        $tool = $tools[0];
-        if ($tool->getName() !== 'retrieval_search') self::invalid();
         // Official SDK maps function names, descriptions, parameters and tool extensions.
         $mapped = (new ToolMapper())->map($tools);
-        $schema = $mapped[0]['function']['parameters'];
-        // The SDK's ToolProperty exposes type/required; these domain bounds are SandAI's contract.
-        $schema['additionalProperties'] = false;
-        $schema['properties']['query']['minLength'] = 1;
-        $schema['properties']['query']['maxLength'] = 500;
-        $mapped[0]['function']['parameters'] = $schema;
+        if ($this->retrievalWired) {
+            if ($tools[0]->getName() !== 'retrieval_search') self::invalid();
+            $schema = $mapped[0]['function']['parameters'];
+            // The SDK's ToolProperty exposes type/required; these domain bounds are SandAI's contract.
+            $schema['additionalProperties'] = false;
+            $schema['properties']['query']['minLength'] = 1;
+            $schema['properties']['query']['maxLength'] = 500;
+            $mapped[0]['function']['parameters'] = $schema;
+        }
         $this->tools = $mapped;
     }
 
@@ -68,11 +75,22 @@ final readonly class AgentToolChatRequest
         self::invalid();
     }
 
+    /** Readonly slots follow the retrieval slot when wired; a retrieval-free request is all-readonly. */
+    public function countReadonlyTools(): int
+    {
+        return count($this->sdkTools) - ($this->retrievalWired ? 1 : 0);
+    }
+
     public function fingerprint(): array
     {
-        return $this->summaryCoverage===null
-            ? ['version'=>count($this->sdkTools)>1?2:self::VERSION,'tools'=>$this->tools,'tool_choice'=>'auto'] + (count($this->sdkTools)>1?['execution_limits'=>\app\Application\Agent\AgentReadonlyToolProtocol::LIMITS]:[]) + ($this->stream?['stream_version'=>1]:[])
-            : ['version'=>self::VERSION,'purpose'=>'history_summary','tools'=>[],'coverage'=>$this->summaryCoverage];
+        if ($this->summaryCoverage!==null) {
+            return ['version'=>self::VERSION,'purpose'=>'history_summary','tools'=>[],'coverage'=>$this->summaryCoverage];
+        }
+        $readonlyCount=$this->countReadonlyTools();
+        return ['version'=>$this->retrievalWired?($readonlyCount>0?2:self::VERSION):3,'tools'=>$this->tools]
+            + ($this->sdkTools!==[]?['tool_choice'=>'auto']:[])
+            + ($readonlyCount>0?['execution_limits'=>\app\Application\Agent\AgentReadonlyToolProtocol::LIMITS]:[])
+            + ($this->stream?['stream_version'=>1]:[]);
     }
 
     public function assertScope(DispatchExecutionScope $scope, int $environmentId, string $requestId): void
@@ -114,16 +132,22 @@ final readonly class AgentToolChatRequest
         ]);
         if ($this->summaryCoverage === null) {
             $bindings = $task->input['_agent_readonly_tools'] ?? [];
-            if (($bindings === [] && $scope->logicalNode === 'agent_round_4')
+            // Mirrors the gateway's frozen wiring rule: retrieval stays wired
+            // unless the published agent definition has no knowledge base.
+            $expectsRetrieval = ($task->input['_agent_definition'] ?? null) === null
+                || ($task->input['knowledge_base_code'] ?? null) !== null;
+            $toolOffset = $this->retrievalWired ? 1 : 0;
+            if ($expectsRetrieval !== $this->retrievalWired
+                || ($bindings === [] && $scope->logicalNode === 'agent_round_4')
                 || ($bindings !== [] && !\app\Application\Agent\AgentReadonlyToolProtocol::valid($task->input['_agent_readonly_protocol'] ?? null))) self::invalid();
             if (!is_array($bindings) || !array_is_list($bindings) || count($bindings) > 2
-                || count($this->tools) !== count($bindings) + 1) self::invalid();
+                || count($this->tools) !== count($bindings) + $toolOffset) self::invalid();
             foreach ($bindings as $index => $binding) {
                 if (!is_array($binding) || !is_array($binding['input_schema'] ?? null)
-                    || ($this->tools[$index + 1]['function']['name'] ?? null)
+                    || ($this->tools[$index + $toolOffset]['function']['name'] ?? null)
                         !== \app\Infrastructure\Agent\NeuronAuthorizedReadonlyTool::wireName($binding)
                     || !\app\Application\Gateway\RequestPayloadFingerprint::same(
-                        $this->tools[$index + 1]['function']['parameters'] ?? [], $binding['input_schema'], [],
+                        $this->tools[$index + $toolOffset]['function']['parameters'] ?? [], $binding['input_schema'], [],
                     )) self::invalid();
             }
         }
