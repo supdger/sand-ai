@@ -124,6 +124,18 @@ namespace NeuronAI\Chat\Messages\Stream\Chunks {
         public function __construct(public readonly ?string $messageId = null) {}
         abstract public function toArray(): array;
     }
+
+    final class TextChunk extends StreamChunk
+    {
+        public function __construct(public readonly string $content, ?string $messageId = null)
+        {
+            parent::__construct($messageId);
+        }
+        public function toArray(): array
+        {
+            return ['type' => 'text', 'content' => $this->content];
+        }
+    }
 }
 
 namespace NeuronAI\Tools {
@@ -205,7 +217,39 @@ namespace NeuronAI\Tools {
 }
 
 namespace NeuronAI\HttpClient {
+    enum HttpMethod: string
+    {
+        case GET = 'GET';
+        case POST = 'POST';
+    }
+
     interface HttpClientInterface {}
+
+    /** The transport reads raw SSE lines through the pinned stream. */
+    interface StreamInterface
+    {
+        public function eof(): bool;
+        public function readLine(): string;
+        public function read(int $length): string;
+    }
+
+    final class HttpRequest
+    {
+        public function __construct(
+            public readonly HttpMethod $method,
+            public readonly string $uri,
+            public readonly array $headers,
+            public readonly mixed $body,
+            public readonly ?float $timeout = null,
+        ) {}
+
+        public static function post(string $uri, array $body, array $headers): self
+        {
+            return new self(HttpMethod::POST, $uri, $headers, $body);
+        }
+    }
+
+    final class HttpResponse {}
 }
 
 namespace NeuronAI\Providers {
@@ -275,11 +319,20 @@ namespace NeuronAI\Providers {
 
 namespace NeuronAI\Providers\OpenAI {
     use NeuronAI\Chat\Enums\MessageRole;
+    use NeuronAI\Chat\Messages\AssistantMessage;
     use NeuronAI\Chat\Messages\ContentBlocks\TextContent;
     use NeuronAI\Chat\Messages\Message;
+    use NeuronAI\Chat\Messages\Stream\Chunks\TextChunk;
+    use NeuronAI\Chat\Messages\SystemMessage;
     use NeuronAI\Chat\Messages\ToolCallMessage;
     use NeuronAI\Chat\Messages\ToolResultMessage;
+    use NeuronAI\Chat\Messages\Usage;
     use NeuronAI\Exceptions\ProviderException;
+    use NeuronAI\HttpClient\HttpClientInterface;
+    use NeuronAI\HttpClient\HttpRequest;
+    use NeuronAI\Providers\AIProviderInterface;
+    use NeuronAI\Providers\HandleWithTools;
+    use NeuronAI\Providers\ProviderResponse;
     use NeuronAI\Tools\ProviderToolInterface;
     use NeuronAI\Tools\ToolCall;
     use NeuronAI\Tools\ToolInterface;
@@ -361,6 +414,72 @@ namespace NeuronAI\Providers\OpenAI {
                 if ($block instanceof TextContent) $blocks[] = ['type' => 'text', 'text' => $block->content];
             }
             return $blocks;
+        }
+    }
+
+    /**
+     * Stub of the official OpenAI provider's stream surface SandAI pins:
+     * the subclass freezes the request body, this consumes the pinned
+     * transport's SSE lines, yields text chunks and returns usage.
+     */
+    class OpenAI implements AIProviderInterface
+    {
+        use HandleWithTools;
+
+        public function __construct(
+            protected string $key,
+            protected string $model,
+            protected array $parameters = [],
+            protected bool $stream = false,
+            protected ?HttpClientInterface $httpClient = null,
+        ) {}
+
+        public function getModel(): string { return $this->model; }
+        public function systemPrompt(SystemMessage|string|null $prompt): AIProviderInterface { return $this; }
+        public function chat(Message ...$messages): ProviderResponse
+        {
+            throw new ProviderException('Buffered chat is outside the stub surface');
+        }
+        public function stream(Message ...$messages): \Generator
+        {
+            if ($this->httpClient === null) throw new ProviderException('No HTTP client');
+            $stream = $this->httpClient->stream($this->createChatHttpRequest($this->parameters));
+            $content = '';
+            $usage = null;
+            while (!$stream->eof()) {
+                $line = trim($stream->readLine());
+                if (!str_starts_with($line, 'data:')) continue;
+                $data = trim(substr($line, 5));
+                if ($data === '[DONE]') break;
+                if ($data === '') continue;
+                $event = json_decode($data, true);
+                if (!is_array($event)) continue;
+                if (isset($event['usage'])) $usage = $event['usage'];
+                $delta = $event['choices'][0]['delta'] ?? [];
+                $text = is_array($delta) && is_string($delta['content'] ?? null) ? $delta['content'] : '';
+                if ($text !== '') {
+                    $content .= $text;
+                    yield new TextChunk($text);
+                }
+            }
+            $message = new AssistantMessage($content);
+            if (is_array($usage)) {
+                $message->setUsage(new Usage((int) $usage['prompt_tokens'], (int) $usage['completion_tokens']));
+            }
+            return new ProviderResponse($message);
+        }
+        public function structured(array|Message $messages, string $class, array $response_schema): ProviderResponse
+        {
+            throw new ProviderException('Structured output is outside the stub surface');
+        }
+        public function setHttpClient(HttpClientInterface $client): AIProviderInterface
+        {
+            $this->httpClient = $client;
+            return $this;
+        }
+        protected function createChatHttpRequest(array $payload): HttpRequest
+        {
+            return HttpRequest::post('/', $payload, []);
         }
     }
 }

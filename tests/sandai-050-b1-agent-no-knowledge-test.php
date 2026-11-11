@@ -32,6 +32,20 @@ require_once dirname(__DIR__) . '/app/Infrastructure/Agent/NeuronAgentCaller.php
 if (!interface_exists(\NeuronAI\Providers\AIProviderInterface::class)) {
     require_once __DIR__ . '/stubs/NeuronSdk.php';
 }
+if (!class_exists(\Webman\Context::class)) {
+    require_once __DIR__ . '/stubs/WebmanContext.php';
+}
+require_once dirname(__DIR__) . '/app/Application/Gateway/CanonicalProviderRequest.php';
+require_once dirname(__DIR__) . '/app/Application/Gateway/ProviderRequestBodyBuilder.php';
+require_once dirname(__DIR__) . '/app/Application/Gateway/ProviderResponseIdentity.php';
+require_once dirname(__DIR__) . '/app/Application/Gateway/ProviderSendBoundary.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Support/PooledFiberContext.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Provider/MeasuredChatFailure.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Provider/ChatProviderFailurePolicy.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Provider/NeuronPinnedAgentStream.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Provider/NeuronAgentStreamHttpClient.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Provider/NeuronAgentStreamProvider.php';
+require_once dirname(__DIR__) . '/app/Infrastructure/Provider/OpenAiCompatibleChatProvider.php';
 require_once dirname(__DIR__) . '/app/Application/Tool/StrictJsonObjectDecoder.php';
 require_once dirname(__DIR__) . '/app/Application/Tool/ToolSchemaPolicy.php';
 require_once dirname(__DIR__) . '/app/Application/Agent/AgentReadonlyToolProtocol.php';
@@ -47,12 +61,19 @@ use app\Application\Agent\AgentDefinitionPolicy;
 use app\Application\Agent\AgentPolicy;
 use app\Application\Channel\ChannelConversationGateway;
 use app\Application\Channel\ChannelConversationPolicy;
+use app\Application\Gateway\ChatCompletionOptions;
+use app\Application\Gateway\ProviderRequestBodyBuilder;
+use app\Application\Gateway\ProviderSendBoundary;
 use app\Application\Usage\UsageAttribution;
 use app\Infrastructure\Agent\NeuronAgentCaller;
 use app\Infrastructure\Agent\NeuronAuthorizedReadonlyTool;
 use app\Infrastructure\Agent\NeuronAuthorizedRetrievalTool;
 use app\Infrastructure\Agent\NeuronControlledProvider;
 use app\Infrastructure\Provider\AgentToolChatRequest;
+use app\Infrastructure\Provider\NeuronAgentStreamHttpClient;
+use app\Infrastructure\Provider\OpenAiCompatibleChatProvider;
+use NeuronAI\Chat\Messages\Stream\Chunks\StreamChunk;
+use NeuronAI\Chat\Messages\Stream\Chunks\TextChunk;
 
 $passed = 0;
 $failed = 0;
@@ -441,6 +462,121 @@ ok(str_contains($trialSource, 'trial-answer--error'),
     'trial: failed turn keeps the error display');
 ok(str_contains($trialSource, "turn.status === 'thinking' && typeof result.task_id === 'number'"),
     'trial: in-flight submit state keeps polling');
+
+// The transport layer: an empty-tools frozen request is routed to the same
+// text-only pinned contract as the paragraph stream, so it no longer trips
+// the tool-declaration guard and actually consumes a measured SSE exchange.
+$emptyStreamRequest = new AgentToolChatRequest([], stream: true);
+$streamBody = ProviderRequestBodyBuilder::chat(
+    'glm-4.6', $textWire, new ChatCompletionOptions(512), 'max_tokens', false, $emptyStreamRequest);
+ok(($streamBody['stream'] ?? null) === true
+    && ($streamBody['stream_options']['include_usage'] ?? null) === true,
+    'transport: empty tools body stays a measured stream');
+ok(!array_key_exists('tools', $streamBody) && !array_key_exists('tool_choice', $streamBody),
+    'transport: empty tools body omits tool declarations');
+
+// The regression guard: tool-mode construction still demands real tool
+// declarations, so the new routing must not just widen the invariant.
+$streamOptions = [
+    'body' => ProviderRequestBodyBuilder::bytes($streamBody),
+    'headers' => [
+        'Authorization' => 'Bearer test-key',
+        'Accept' => 'text/event-stream',
+        'Content-Type' => 'application/json',
+    ],
+    'timeout' => 10.0,
+    'connect_timeout' => 5.0,
+];
+ok(problemCode(static fn () => new NeuronAgentStreamHttpClient(
+        'http://localhost/', 'localhost:80:127.0.0.1', $streamOptions, 262144,
+        ProviderRequestBodyBuilder::digest($streamBody), new ProviderSendBoundary(),
+        toolRequest: $emptyStreamRequest))
+    === 'SAND_AI_DISPATCH_STATE_INVALID',
+    'transport: tool mode still rejects an empty tool request');
+$wiredStreamRequest = new AgentToolChatRequest([$retrieval], stream: true);
+ok(problemCode(static fn () => new NeuronAgentStreamHttpClient(
+        'http://localhost/', 'localhost:80:127.0.0.1', $streamOptions, 262144,
+        str_repeat('0', 64), new ProviderSendBoundary(), toolRequest: $wiredStreamRequest))
+    === null,
+    'transport: tool mode keeps wired requests');
+
+// Replay the recorded pure-text exchange through the real pinned transport:
+// cURL, the send boundary, SSE frame guards and usage measurement included.
+$server = null;
+$captureFile = tempnam(sys_get_temp_dir(), 'sandai-stream-');
+$serverLog = $captureFile . '.log';
+register_shutdown_function(static function () use (&$server, $captureFile, $serverLog): void {
+    if (is_resource($server)) {
+        proc_terminate($server);
+        proc_close($server);
+    }
+    @unlink($captureFile);
+    @unlink($serverLog);
+});
+$socket = stream_socket_server('tcp://127.0.0.1:0');
+$socketName = $socket === false ? '' : (string) stream_socket_get_name($socket, false);
+$port = $socketName === '' ? 0 : (int) substr($socketName, strrpos($socketName, ':') + 1);
+if ($socket !== false) fclose($socket);
+ok($port > 0, 'transport: fixture port reserved');
+$server = proc_open(
+    [PHP_BINARY, '-S', '127.0.0.1:' . $port, $repositoryRoot . '/tests/fixtures/agent-stream-server.php'],
+    [['pipe', 'r'], ['file', $serverLog, 'a'], ['file', $serverLog, 'a']],
+    $pipes,
+    null,
+    ['SANDAI_STREAM_CAPTURE' => $captureFile, 'PATH' => (string) getenv('PATH')],
+);
+$ready = false;
+if (is_resource($server)) {
+    fclose($pipes[0]);
+    for ($i = 0; $i < 200 && !$ready; $i++) {
+        if (!proc_get_status($server)['running']) break;
+        $probe = @fsockopen('127.0.0.1', $port);
+        if ($probe !== false) {
+            fclose($probe);
+            $ready = true;
+            break;
+        }
+        usleep(10000);
+    }
+}
+ok($ready, 'transport: fixture endpoint is listening');
+
+$sendStream = new ReflectionMethod(OpenAiCompatibleChatProvider::class, 'sendOfficialAgentStream');
+$sendStream->setAccessible(true);
+$adapter = (new ReflectionClass(OpenAiCompatibleChatProvider::class))->newInstanceWithoutConstructor();
+$endpoint = "http://localhost:{$port}/";
+$resolve = "localhost:{$port}:127.0.0.1";
+$chunks = [];
+$acceptChunk = static function (StreamChunk $chunk) use (&$chunks): void {
+    if ($chunk instanceof TextChunk) $chunks[] = $chunk->content;
+};
+$streamOutcome = $ready ? $sendStream->invoke($adapter, $endpoint, $resolve, $streamOptions,
+    262144, $streamBody, 'test-key', 'glm-4.6', $emptyStreamRequest, $textWire,
+    $acceptChunk, new ProviderSendBoundary()) : null;
+ok(is_array($streamOutcome) && ($streamOutcome['response_kind'] ?? null) === 'text'
+    && ($streamOutcome['content'] ?? null) === '你好，世界',
+    'transport: empty tools stream returns the text answer');
+ok(is_array($streamOutcome) && ($streamOutcome['input_tokens'] ?? null) === 3
+    && ($streamOutcome['output_tokens'] ?? null) === 5
+    && ($streamOutcome['usage_measured'] ?? null) === true,
+    'transport: empty tools stream keeps measured usage');
+ok(implode('', $chunks) === '你好，世界', 'transport: stream chunks carry the full answer');
+$wireBody = json_decode((string) @file_get_contents($captureFile), true);
+ok(is_array($wireBody) && !array_key_exists('tools', $wireBody)
+    && !array_key_exists('tool_choice', $wireBody) && ($wireBody['stream'] ?? null) === true,
+    'transport: wire body omits empty tool declarations');
+
+// A provider must not sneak tool semantics into a tool-free request: both an
+// unrequested tool_calls frame and a tool_calls finish stay measured failures.
+if ($ready) {
+    foreach (['tool_calls', 'finish_tool_calls'] as $mode) {
+        $code = problemCode(static fn () => $sendStream->invoke($adapter,
+            $endpoint . '?mode=' . $mode, $resolve, $streamOptions, 262144, $streamBody,
+            'test-key', 'glm-4.6', $emptyStreamRequest, $textWire,
+            $acceptChunk, new ProviderSendBoundary()));
+        ok($code === 'SAND_AI_PROVIDER_FAILURE', "transport: {$mode} stays a measured violation");
+    }
+}
 
 echo "sandai-050-b1-agent-no-knowledge passed={$passed} failed={$failed}\n";
 exit($failed === 0 ? 0 : 1);

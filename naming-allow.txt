@@ -9,4 +9,5 @@ SandIamWorkloadClientReference # 存量契约类型，定义于 api/iam.ts
 created_at # 存量契约字段：AgentDefinitionPanel.vue 模板对应后端既有响应字段
 canceled # 存量任务状态契约值：AgentTrialDialog.vue 对应后端单写 l 状态机
 AgentToolChatRequest # 存量协议类名：本轮最小修复不改名，改名属跨文件重构超出本包范围
+OpenAiCompatibleChatProvider # 存量适配器类名：本轮传输层最小修复不改名，改名属跨文件重构超出本包范围
 newToolCall # 第三方 SDK HandleWithTools 契约方法名：tests/stubs 替身逐字对齐真实 API

@@ -3836,7 +3836,7 @@
     },
     {
       "path": "app/Infrastructure/Provider/OpenAiCompatibleChatProvider.php",
-      "sha256": "d12b0d6ad5586a9da7b4ca64b116e4b1312148f01890c8f7130b309b94a4034c"
+      "sha256": "98ac84f7e00b44de258222075af9896a4f1036ffd886bb823afe81600fae1191"
     },
     {
       "path": "app/Infrastructure/Provider/OpenAiCompatibleEmbeddingProvider.php",
