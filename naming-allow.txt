@@ -6,6 +6,5 @@ ChannelCredentialSaveReceipt # 存量契约类型，定义于 api/channelBinding
 ChannelBindingOperationReference # 存量契约类型，定义于 api/channelBinding.ts
 SandIamEnvironmentReference # 存量契约类型，定义于 api/iam.ts
 SandIamWorkloadClientReference # 存量契约类型，定义于 api/iam.ts
-# 术语表豁免（check_terms 无 --allow 机制，仅登记备查）：
-# AgentDefinitionPanel.vue 模板 row.created_at 对应后端既有响应字段；
-# AgentTrialDialog.vue result.state === 'canceled' 对应后端任务状态契约（单写 l）。
+created_at # 存量契约字段：AgentDefinitionPanel.vue 模板对应后端既有响应字段
+canceled # 存量任务状态契约值：AgentTrialDialog.vue 对应后端单写 l 状态机
