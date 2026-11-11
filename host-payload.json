@@ -208,7 +208,7 @@
     },
     {
       "path": "app/Application/Audio/AudioBudgetGuard.php",
-      "sha256": "e488cfb3e2d0f4abb740798e04662ef20614b81a8fd6341c1bd6df16b0cbb195"
+      "sha256": "a59ad7b7d2dec6c120c9fcbe304df1285a33aea32cc913c5cf89a8539ed4264e"
     },
     {
       "path": "app/Application/Audio/AudioContentPurgeGateway.php",
@@ -704,7 +704,7 @@
     },
     {
       "path": "app/Application/Audio/Speech/SpeechBudgetGuard.php",
-      "sha256": "e6542a802f0fc8f73ea51c8c6246e2a80745edd05c7d72e52ee158dca449e205"
+      "sha256": "8342463d72cc05dfe9fa5a5c358bdabb4e809d39caca04546d301873588e9013"
     },
     {
       "path": "app/Application/Audio/Speech/SpeechCallStartPrice.php",
@@ -971,10 +971,6 @@
       "sha256": "a3ed551e77be245204f0d03aee7bebceba0719bb77278f41517da17010f245dc"
     },
     {
-      "path": "app/Application/Budget/BudgetCapacityBound.php",
-      "sha256": "f985cd4ae56c575d2232502b5bfbbd25c675b93c435845477871ccaa657e64f8"
-    },
-    {
       "path": "app/Application/Budget/BudgetChatWireProtocol.php",
       "sha256": "5ca02c7404366d8aa722df51f020059e7bf6da63f79469e6439a2b46e8fe37b7"
     },
@@ -983,12 +979,8 @@
       "sha256": "07e8e514de7f61443e2ce4edba79e808a67bb322731b97a53a30c80400961776"
     },
     {
-      "path": "app/Application/Budget/BudgetInputTokenProof.php",
-      "sha256": "4bc9a6efa28e7e383c00df19f616f99b4fdd93ec7b340e264ceecee4927eb8ff"
-    },
-    {
       "path": "app/Application/Budget/BudgetPolicyService.php",
-      "sha256": "9aed06ce83630eff5ba5ac28eb3ab1598347c7e232f24adc4d7f6717c52e2bde"
+      "sha256": "c006ffe8c2c98decbec8b5a095c5303e1f95078debf2b7835bbad0aed59a182c"
     },
     {
       "path": "app/Application/Budget/BudgetPolicyValidator.php",
@@ -1000,19 +992,19 @@
     },
     {
       "path": "app/Application/Budget/BudgetReservationStateMachine.php",
-      "sha256": "44f569a6ef4aaad39518bb84fc7382cbeb8ecee89daee8e37e18a26bac53ff5d"
+      "sha256": "d05ffd240313b92eefba7dcb35f21af1bc747eb6de4ea42ca77ee29fdb658f65"
     },
     {
       "path": "app/Application/Budget/BudgetScopeContext.php",
       "sha256": "58c1ce344aa2bcbe73da7f763701a4ad55afb63b502a04858ebf2c2e74fe27ed"
     },
     {
-      "path": "app/Application/Budget/BudgetTokenProfile.php",
-      "sha256": "f78dbe4520d2ec45dddeebc2142686ac46cffbb747d2d2e8afc1be73eba09c23"
+      "path": "app/Application/Budget/BudgetSpendGate.php",
+      "sha256": "11700ab001cf86972fbf7bb55f4666b0f950a6696e1a62500fbd6faa937efaa2"
     },
     {
       "path": "app/Application/Budget/ChatBudgetGuard.php",
-      "sha256": "16fe4d0a6b4894ddc2a93c35e70d02a8a067e43254c5b151751012f043c0b55b"
+      "sha256": "2b305f549d8d7b489078a827cf2c906d75ca38b7d54123a1394beb26932381a5"
     },
     {
       "path": "app/Application/Budget/OfficialModelCapacity.php",
@@ -1020,11 +1012,7 @@
     },
     {
       "path": "app/Application/Budget/PreparedBudgetPolicySelection.php",
-      "sha256": "689fd4bf60ab7f125ad4c133c063e0628f8d412cffd4d554beb24fb5779383f8"
-    },
-    {
-      "path": "app/Application/Budget/TokenBudgetEstimator.php",
-      "sha256": "570f06b0cc400780c702394a595dc477e03769e87c2faa1551a46ef6ec7beb57"
+      "sha256": "04a84d496a7798d6bb59d300e5ea5567ea7552ca93ac755370f3aae400b5de44"
     },
     {
       "path": "app/Application/Capability/CapabilityProfileGateway.php",
@@ -1268,7 +1256,7 @@
     },
     {
       "path": "app/Application/File/OcrBudgetGuard.php",
-      "sha256": "606c4f5219cf1e68856e2190b97574dd46b529ef16328dbe28d4bec1e0c037e8"
+      "sha256": "f3cb7cc1739adfbe395c846a5e1d1bc65f65649cc8066fa7b4585c21651c792e"
     },
     {
       "path": "app/Application/File/OcrCallStartPrice.php",
@@ -1376,7 +1364,7 @@
     },
     {
       "path": "app/Application/Gateway/LowCostChatRouteResolver.php",
-      "sha256": "d79c7149a76338b81b826d64d61acaad41f66f5a60f7717a98444d35a439f7fe"
+      "sha256": "3590b57204d61f540e657e17bb8c4991f4c653f4e85f0195acb8dda0ed42714f"
     },
     {
       "path": "app/Application/Gateway/LowCostRoutePolicy.php",
@@ -1608,7 +1596,7 @@
     },
     {
       "path": "app/Application/Knowledge/KnowledgeProfessionalRerankBudget.php",
-      "sha256": "5765df214f038305dd5aeb8505c6fa7e07ef72dad37a273b0e72b8337c28a3ce"
+      "sha256": "153314b9ee50fd588811e1fb7fba0634ddb854af38d6ee4418f40871a93564de"
     },
     {
       "path": "app/Application/Knowledge/KnowledgeProfessionalRerankGateway.php",
@@ -1620,7 +1608,7 @@
     },
     {
       "path": "app/Application/Knowledge/KnowledgeProfessionalRerankSoftBudget.php",
-      "sha256": "eb8df0945ffe6e0a168681f6fcd4271b99a77e609dbd4aa5da6a17a3e0bb20eb"
+      "sha256": "d309a4b5cfdacdbc7473769a6b1335ce9451dc8c127168292fe14d93cad27df4"
     },
     {
       "path": "app/Application/Knowledge/KnowledgeProfessionalRerankUsage.php",
@@ -2420,7 +2408,7 @@
     },
     {
       "path": "app/Application/Trial/AdminTrialService.php",
-      "sha256": "356e2a454fbd534b05a09b69a5efb772b1d97f4e6e5b307fd28b0b497f7d9534"
+      "sha256": "11606f4e307a4913d724f8a5156498a8573624efd6291ceb04275c1a534beb1a"
     },
     {
       "path": "app/Application/Trial/SandIamAdminTrialEntityStore.php",
