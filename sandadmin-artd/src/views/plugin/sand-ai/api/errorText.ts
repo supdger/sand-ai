@@ -14,6 +14,32 @@ import { displayableRuntimeMessage, hintForRuntimeErrorCode } from './runtimeErr
 
 const STABLE_CODE = /\b(SAND_AI_[A-Z0-9_]+|SAND_IAM_[A-Z0-9_]+)\b/
 
+/** 提取异常里的稳定错误码（运行面 errorCode 或消息内嵌的 CODE: 前缀）。 */
+export function stableErrorCode(error: unknown): string | null {
+  if (error instanceof SandAiRuntimeError) return error.errorCode
+  if (error instanceof Error) return STABLE_CODE.exec(error.message)?.[0] ?? null
+  return null
+}
+
+/**
+ * 服务商「测连接」失败口径：密钥不对、地址打不开、其余一律检查地址和密钥。
+ * 网络/超时这类本机链路问题单独说明，不归到地址和密钥。
+ */
+export function connectionTestFailureText(error: unknown): string {
+  const code = stableErrorCode(error) ?? ''
+  if (isHttpError(error)) {
+    if (error.transport === 'timeout') return '连不上：请求超时，请检查网络后再试'
+    if (error.transport === 'network') return '连不上：地址打不开'
+  }
+  if (/AUTHENTICATION_FAILED|CREDENTIAL_REVOKED|PROVIDER_REJECTED/.test(code)) {
+    return '连不上：密钥不对'
+  }
+  if (/CONNECTION_FORBIDDEN|CONNECTION_INVALID|DNS_UNAVAILABLE/.test(code)) {
+    return '连不上：地址打不开'
+  }
+  return '连不上，请检查地址和密钥'
+}
+
 /** 原始错误只进 console，不上面界面文案。 */
 function reportRaw(error: unknown): void {
   console.error('[sand-ai] request failed', error)

@@ -78,6 +78,7 @@
           <ElAlert v-if="pending" type="warning" :closable="false"
             :title="`原${pending.action === 'save' ? '保存' : '启用'}结果待确认：应用 ${pending.application_id}／环境 ${pending.environment_id}。仅重新读取原目标，不会重发；当前配置匹配也不代表取得原请求回执。`" />
           <ElButton :disabled="Boolean(busy) || writeInFlight" @click="restoreIntent(); loadEntryContext()">读取原操作状态</ElButton>
+          <ElButton :disabled="Boolean(busy) || writeInFlight" @click="abandonPendingWrite">放弃此次变更</ElButton>
         </details>
         <MaterialProfileEditor v-if="materialConfigurationPage" :environment-id="environmentId" />
         <template v-if="environmentId">
@@ -307,6 +308,7 @@
           <ElAlert v-if="pending" type="warning" :closable="false"
             title="原保存/启用结果待确认。仅重新读取原目标，不会重发；当前配置匹配也不代表取得原请求回执。" />
           <ElButton :disabled="Boolean(busy) || writeInFlight" @click="restoreIntent(); loadEntryContext()">读取原操作状态</ElButton>
+          <ElButton :disabled="Boolean(busy) || writeInFlight" @click="abandonPendingWrite">放弃此次变更</ElButton>
         </details>
         <ElAlert v-if="revisionConflict" type="warning" :closable="false"
           title="配置已被其他管理员修改。本地选择仍保留在下方。重新加载以查看最新配置；核对后可选择采用最新配置，再重新选择自己的改动。" />
@@ -539,8 +541,10 @@
   import { computed, onActivated, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
   import { useUserStore } from '@/store/modules/user'
   import { useAuth } from '@/hooks/core/useAuth'
-  import { readCapabilityProfileIntent, retainCapabilityProfileIntent, resolveCapabilityProfileIntent, type CapabilityProfileIntent } from '../api/capabilityProfileIntent'
+  import { readCapabilityProfileIntent, retainCapabilityProfileIntent, resolveCapabilityProfileIntent, dropCapabilityProfileIntent, type CapabilityProfileIntent } from '../api/capabilityProfileIntent'
   import { errorDisplayText } from '../api/errorText'
+  import { isWriteRejected, writeRejectionText } from '../api/writeRejection'
+  import { confirmAbandonPendingWrite } from '../composables/pendingWrite'
   import { HttpError } from '@/utils/http/error'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { useRoute, useRouter } from 'vue-router'
@@ -767,8 +771,8 @@
     errorMessage.value = ''
   }
   function definitelyRejected(error: unknown): boolean {
-    // Only the frozen transactional resource-conflict protocol proves this write did not commit.
-    return isRevisionConflict(error)
+    // 明确拒绝统一判定：全部 4xx 与校验类业务码都算，不再只认 RESOURCE_CONFLICT。
+    return isWriteRejected(error)
   }
   function isRevisionConflict(error: unknown): boolean {
     return error instanceof HttpError && /^SAND_AI_RESOURCE_CONFLICT(?=:)/.test(error.message)
@@ -776,9 +780,24 @@
   function writeFailure(error: unknown, phase: 'preflight' | 'write' | 'confirm'): string {
     if (phase === 'preflight') return '无法确认当前完整配置，写操作已锁定。请成功重新读取状态后再继续。'
     if (phase === 'write' && isRevisionConflict(error))
-      return '配置已被其他管理员修改。本地表单仍保留；请重新加载并比较最新版本。'
-    if (phase === 'write' && definitelyRejected(error)) return '操作被拒绝，请核对权限、模型能力和发送策略，再重新读取状态。'
+      return '这条刚被别人改过，本地表单仍保留；请重新加载对比最新版本后再改。'
+    if (phase === 'write' && definitelyRejected(error))
+      return writeRejectionText(error, '这次操作被拒绝了，请核对内容后重试。')
     return '结果尚未确认。请重新读取状态核对同一配置；不会自动重发，请不要重复保存或启用。'
+  }
+  /** 「放弃此次变更」：无条件清本地记录解锁；先经用户确认，提示请求可能已送达。 */
+  function abandonPendingWrite(): void {
+    confirmAbandonPendingWrite(() => {
+      try {
+        if (adminId.value) dropCapabilityProfileIntent(adminId.value)
+        pending.value = null
+        journalError.value = false
+        errorMessage.value = ''
+        ElMessage.success('已放弃未确认的本地记录，页面已解锁')
+      } catch {
+        errorMessage.value = '本地记录清除失败，请检查浏览器存储后重试'
+      }
+    })
   }
   const routeKindLabels: Readonly<Record<string, string>> = {
     model_deployment: '模型服务',

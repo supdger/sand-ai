@@ -2,12 +2,11 @@
   <ElDialog :model-value="modelValue" title="设预算" width="480px"
     :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving"
     @update:model-value="emit('update:modelValue', $event)">
-    <p class="mb-3 text-xs text-gray-400">调整范围：{{ scopeLabel }}</p>
     <ElForm label-width="110px" @submit.prevent>
       <ElFormItem label="每月预算">
+        <span class="mr-2 text-sm text-gray-500">{{ currencySymbol }}</span>
         <ElInputNumber v-model="limit" :min="0" :precision="2" :controls="false" placeholder="不填表示不设上限"
           :disabled="saving" style="width: 180px" />
-        <span class="ml-2 text-sm text-gray-500">{{ currency }}</span>
       </ElFormItem>
       <p v-if="limit === undefined || limit === null" class="-mt-2 mb-3 ml-[110px] text-xs text-gray-400">不设上限，花多少算多少</p>
       <ElFormItem label="用到多少时提醒">
@@ -36,7 +35,7 @@
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { errorDisplayText } from '../../api/errorText'
   import budgetApi, { type BudgetPolicyExpectation, type BudgetScope, type BudgetSummary } from '../../api/budget'
-  import { monthBoundsUtc, formatMoney } from './usagePeriod'
+  import { utcMonthBounds, formatMoney } from './usagePeriod'
 
   /**
    * 「设预算」弹窗：把当前展示预算范围（缺省 service/sand_ai）的按月预算翻译成草稿+启用两步调用。
@@ -72,11 +71,11 @@
 
   const targetScope = computed<BudgetScope>(() =>
     props.budgetScope ?? { scope_kind: 'service', scope_ref: 'sand_ai' })
-  const scopeLabel = computed(() => props.budgetScopeLabel || '服务·SandAI')
   const scopeNeedsWitness = computed(() =>
     targetScope.value.scope_kind === 'organization' || targetScope.value.scope_kind === 'application')
 
   const currency = computed(() => activeSummary.value?.window.currency ?? pickSpendCurrency() ?? 'CNY')
+  const currencySymbol = computed(() => ({ CNY: '¥', USD: '$', EUR: '€', JPY: '¥' })[currency.value] ?? '¥')
 
   function pickSpendCurrency(): string | null {
     // 优先人民币，其次按金额从大到小取最大的一笔币种
@@ -147,20 +146,13 @@
       formError.value = '组织或应用范围的预算需要验证环境，请到「费用核对」调整'
       return
     }
-    const bounds = monthBoundsUtc(props.month, props.timezone)
+    // 周期按 UTC 整月算，与后端 period 口径一致；本月预算只有一份，保存即覆盖。
+    const bounds = utcMonthBounds(props.month)
     if (!bounds) {
-      formError.value = '月份或时区无法识别，请重新打开页面再试'
+      formError.value = '月份无法识别，请重新打开页面再试'
       return
     }
     const activePolicy = activeSummary.value?.policy ?? null
-    if (activePolicy) {
-      const samePeriod = Date.parse(activePolicy.period_start.replace(' ', 'T') + 'Z') === Date.parse(bounds.from.replace(' ', 'T') + 'Z')
-        && Date.parse(activePolicy.period_end.replace(' ', 'T') + 'Z') === Date.parse(bounds.to.replace(' ', 'T') + 'Z')
-      if (!samePeriod) {
-        formError.value = '当前已有一份覆盖本月的预算（版本 ' + activePolicy.revision + '），周期与按月重设不同；请到「费用核对」里调整。'
-        return
-      }
-    }
     const limitValue = limit.value
     if (limitValue !== undefined && enforcement.value === 'hard') {
       const spend = props.spendByCurrency.find(item => item.currency === currency.value)
@@ -222,8 +214,8 @@
         await budgetApi.publish(saved.id, undefined, expectedPolicy)
       }
       ElMessage.success(limitValue === undefined
-        ? '已保存，本月预算不设上限'
-        : `已保存，本月预算 ${formatMoney(String(limitValue), currency.value)}`)
+        ? '已把本月预算改成不设上限'
+        : `已把本月预算改成 ${formatMoney(String(limitValue), currency.value)}`)
       emit('saved')
       emit('update:modelValue', false)
     } catch (cause) {
