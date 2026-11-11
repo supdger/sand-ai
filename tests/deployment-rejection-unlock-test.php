@@ -59,5 +59,11 @@ foreach ($pages as $page) {
 $billing = $read('api/billing-recovery.ts');
 ok(str_contains($billing, 'function dropStuck'), 'billing journal can drop a stuck log');
 
+$capability = $read('capability/index.vue');
+ok(substr_count($capability, '拒绝已结清后恢复可编辑') === 3, 'capability restores editing after a rejected write');
+
+$budget = $read('usage/modules/budget-policy-panel.vue');
+ok(str_contains($budget, 'persistPendingSaves(pendingSaves.value.filter(item => item.requestKey !== operation.requestKey), actorId)'), 'budget draft drops its log after rejection');
+
 echo "passed={$passed} failed={$failed}\n";
 exit($failed === 0 ? 0 : 1);

@@ -1612,6 +1612,10 @@
       if (!ownsOperation()) return
       if (phase === 'write' && definitelyRejected(error)) {
         try { clearIntent() } catch { errorMessage.value = '原记录未解除，结果保持待确认；请重新读取原目标'; return }
+        // 拒绝已结清后恢复可编辑
+        profileLoaded.value = true
+        errorMessage.value = writeFailure(error, phase)
+        return
       }
       if (phase === 'write' && isRevisionConflict(error)) revisionConflict.value = true
       profileLoaded.value = false
@@ -1860,6 +1864,10 @@
       if (!ownsOperation()) return
       if (phase === 'write' && definitelyRejected(error)) {
         try { clearIntent() } catch { errorMessage.value = '原记录未解除，结果保持待确认；请重新读取原目标'; return }
+        // 拒绝已结清后恢复可编辑
+        profileLoaded.value = true
+        errorMessage.value = writeFailure(error, phase)
+        return
       }
       if (phase === 'write' && isRevisionConflict(error)) revisionConflict.value = true
       profileLoaded.value = false
@@ -1943,6 +1951,10 @@
       if (!ownsOperation()) return
       if (phase === 'write' && definitelyRejected(error)) {
         try { clearIntent() } catch { errorMessage.value = '原记录未解除，结果保持待确认；请重新读取原目标'; return }
+        // 拒绝已结清后恢复可编辑
+        profileLoaded.value = true
+        errorMessage.value = writeFailure(error, phase)
+        return
       }
       profileLoaded.value = false
       errorMessage.value = writeFailure(error, phase)

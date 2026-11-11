@@ -804,8 +804,14 @@
       closeSavedDraft(); ElMessage.success('原请求已确认保存预算草稿')
       await refreshSavedPolicy(receipt, actorId)
     } catch (cause) {
-      if (live && adminId.value === actorId && generation === actorEpoch)
-        formError.value = `${errorDisplayText(cause, '保存结果未确认')}；保留原请求号，只读找回，不重复保存。`
+      if (live && adminId.value === actorId && generation === actorEpoch) {
+        if (isWriteRejected(cause)) {
+          persistPendingSaves(pendingSaves.value.filter(item => item.requestKey !== operation.requestKey), actorId)
+          formError.value = writeRejectionText(cause, '这次保存被拒绝了。')
+        } else {
+          formError.value = `${errorDisplayText(cause, '保存结果未确认')}；保留原请求号，只读找回，不重复保存。`
+        }
+      }
     }
     finally {
       writeFlight.value = false
