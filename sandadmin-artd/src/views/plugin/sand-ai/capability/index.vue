@@ -357,7 +357,7 @@
               @submit.prevent
             >
               <template v-if="card.kind === 'model'">
-                <ElFormItem label="默认模型" :error="card.fieldError">
+                <ElFormItem label="默认模型" :error="card.fieldError || offlineModelText(card, card.defaultDeploymentId)">
                   <ElSelect
                     v-model="card.defaultDeploymentId"
                     clearable
@@ -377,7 +377,7 @@
                     />
                   </ElSelect>
                 </ElFormItem>
-                <ElFormItem label="备用模型">
+                <ElFormItem label="备用模型" :error="offlineModelText(card, card.backupDeploymentId)">
                   <ElSelect
                     v-model="card.backupDeploymentId"
                     clearable
@@ -409,7 +409,7 @@
                     />
                   </ElSelect>
                 </ElFormItem>
-                <ElFormItem label="默认模型">
+                <ElFormItem label="默认模型" :error="offlineModelText(card, card.defaultDeploymentId)">
                   <ElSelect
                     v-model="card.defaultDeploymentId"
                     clearable
@@ -439,7 +439,7 @@
                     />
                   </ElSelect>
                 </ElFormItem>
-                <ElFormItem label="备用模型">
+                <ElFormItem label="备用模型" :error="offlineModelText(card, card.backupDeploymentId)">
                   <ElSelect
                     v-model="card.backupDeploymentId"
                     clearable
@@ -504,14 +504,6 @@
               >
                 停用这项能力
               </ElButton>
-              <ElButton
-                type="primary"
-                :disabled="!cardDirty(card) || cardWriteBlocked()"
-                :loading="card.saving"
-                @click="saveCapabilityCard(card)"
-              >
-                保存
-              </ElButton>
             </div>
           </section>
           <ElEmpty
@@ -519,6 +511,17 @@
             description="还没有可配置的能力"
             :image-size="72"
           />
+        </div>
+        <div v-if="capabilityCards.length > 0" class="cap-cards-foot">
+          <span class="cap-muted">{{ unsavedCardsHint }}</span>
+          <ElButton
+            type="primary"
+            :loading="busy === 'save'"
+            :disabled="!hasUnsavedCards || cardWriteBlocked()"
+            @click="saveCapabilityCards"
+          >
+            保存
+          </ElButton>
         </div>
       </ElCard>
     </div>
@@ -936,7 +939,6 @@
     extraRoutes: SandAiCapabilityRoute[]
     snapshot: string
     fieldError: string
-    saving: boolean
   }
 
   type CapabilityCardDraft = {
@@ -957,8 +959,11 @@
   const cardDeploymentCache = ref<Record<string, PublishedDeployment[]>>({})
   const cardDeploymentLoading = ref<Record<string, boolean>>({})
   const cardDeploymentRequested = ref<Record<string, boolean>>({})
+  /** 未过滤的已发布部署目录：既给已选值补真实名称，也作为「模型是否已下线」的判定依据。 */
+  const cardDeploymentCatalog = ref<Record<string, { items: PublishedDeployment[]; total: number }>>({})
   const cardDrafts = new Map<string, CapabilityCardDraft>()
-  let cardDeploymentGeneration = 0
+  /** 同一模型类型的目录请求按序号作废旧结果；不同类型互不取消，可并行预取。 */
+  const cardDeploymentSeq: Record<string, number> = {}
 
   /** 卡片展示顺序：先对话等高频能力，再文件/多模态，最后检索与音频。 */
   const CAPABILITY_ORDER = [
@@ -1065,6 +1070,12 @@
     return semanticRoutes(cardRoutes(card)) !== card.snapshot
   }
 
+  /** 页面级保存按钮只在确有未保存改动时可点；停用卡片同样计入改动。 */
+  const dirtyCardCount = computed(() => capabilityCards.value.filter(card => cardDirty(card)).length)
+  const hasUnsavedCards = computed(() => dirtyCardCount.value > 0)
+  const unsavedCardsHint = computed(() =>
+    dirtyCardCount.value === 0 ? '所有改动都已保存' : `${dirtyCardCount.value} 项能力有未保存的改动`)
+
   function cardValidationError(card: CapabilityCard): string {
     if (card.disabled) return ''
     if (card.kind === 'model') {
@@ -1147,13 +1158,27 @@
     })
   }
 
-  /** 当前已选值不在目录时补一条占位选项，避免下拉显示空白。 */
+  /** 已选部署是否已从已发布目录消失；目录未完整加载时不下结论，避免分页截断误报。 */
+  function deploymentOffline(card: CapabilityCard, id: number | undefined): boolean {
+    if (!id || !card.modelType) return false
+    const catalog = cardDeploymentCatalog.value[card.modelType]
+    if (!catalog || catalog.items.some(item => item.id === id)) return false
+    return catalog.total <= catalog.items.length
+  }
+
+  function offlineModelText(card: CapabilityCard, id: number | undefined): string {
+    return deploymentOffline(card, id) ? '这个模型已下线，请换一个' : ''
+  }
+
+  /** 当前已选值不在过滤后目录时补一条占位选项：目录里能找到就显示真实名称，确认下线才标注。 */
   function withCurrentOption(card: CapabilityCard, options: PublishedDeployment[], currentId: number | undefined): PublishedDeployment[] {
     if (!currentId || options.some(item => item.id === currentId)) return options
+    const catalog = card.modelType ? cardDeploymentCatalog.value[card.modelType] : undefined
+    const known = catalog?.items.find(item => item.id === currentId)
     const placeholder: PublishedDeployment = {
       id: currentId,
       deployment_revision: 0,
-      display_name: '原设置的模型（可能已下线）',
+      display_name: known?.display_name ?? (deploymentOffline(card, currentId) ? '原设置的模型（已下线）' : '原设置的模型'),
       model_type: card.modelType ?? '',
       publication_status: 'published',
       compatible_data_egress_policies: []
@@ -1201,22 +1226,27 @@
   }
 
   async function loadCardDeployments(modelType: string, query: string): Promise<void> {
-    const current = ++cardDeploymentGeneration
+    const current = (cardDeploymentSeq[modelType] = (cardDeploymentSeq[modelType] ?? 0) + 1)
     const epoch = identityEpoch
     cardDeploymentLoading.value = { ...cardDeploymentLoading.value, [modelType]: true }
     try {
       const page = await onboardingApi.publishedDeployments(modelType, query || undefined)
-      if (current !== cardDeploymentGeneration || epoch !== identityEpoch) return
+      if (epoch !== identityEpoch) return
+      // 只有未过滤的整页结果才更新下线判定目录；搜索结果只进下拉缓存。
+      if (query === '') {
+        cardDeploymentCatalog.value = { ...cardDeploymentCatalog.value, [modelType]: { items: page.data, total: page.total } }
+      }
+      if (current !== cardDeploymentSeq[modelType]) return
       cardDeploymentCache.value = { ...cardDeploymentCache.value, [modelType]: page.data }
       if (page.total > page.per_page && !query) {
         ElMessage.info('可选模型较多，请输入模型或服务商名称搜索')
       }
     } catch (error) {
-      if (current === cardDeploymentGeneration && epoch === identityEpoch) {
+      if (current === cardDeploymentSeq[modelType] && epoch === identityEpoch) {
         errorMessage.value = errorDisplayText(error, '读取可选模型失败，请检查后台权限')
       }
     } finally {
-      if (current === cardDeploymentGeneration && epoch === identityEpoch) {
+      if (current === cardDeploymentSeq[modelType] && epoch === identityEpoch) {
         cardDeploymentLoading.value = { ...cardDeploymentLoading.value, [modelType]: false }
       }
     }
@@ -1300,8 +1330,7 @@
         parseDeploymentId: undefined,
         extraRoutes: extras,
         snapshot: '',
-        fieldError: '',
-        saving: false
+        fieldError: ''
       }
       if (kind === 'model') {
         card.defaultDeploymentId = primary?.deployment_id ?? undefined
@@ -1319,6 +1348,10 @@
       applyCardDraft(card, cardDrafts.get(code))
       return card
     })
+    // 预取各能力模型类型的已发布部署目录，让卡片直接显示真实模型名；请求按类型去重。
+    for (const card of capabilityCards.value) {
+      if (card.modelType) void ensureCardDeployments(card)
+    }
   }
 
   function clearCapabilityCards(): void {
@@ -1327,6 +1360,8 @@
     cardDeploymentCache.value = {}
     cardDeploymentLoading.value = {}
     cardDeploymentRequested.value = {}
+    cardDeploymentCatalog.value = {}
+    for (const key of Object.keys(cardDeploymentSeq)) delete cardDeploymentSeq[key]
     capabilityLoading.value = true
     capabilityLoadFailed.value = false
     capabilityLoadError.value = null
@@ -1389,20 +1424,18 @@
     card.fieldError = ''
   }
 
-  /** 合并保存载荷：保留其他能力的现有路线，本卡片按草稿重建。 */
-  function mergedSavePayload(card: CapabilityCard): CapabilitySavePayload | string {
-    const invalid = cardValidationError(card)
-    if (invalid) return invalid
+  /** 页面级保存载荷：全部卡片草稿合并为一次配置；卡片未覆盖的能力码原样保留。 */
+  function cardsSavePayload(): CapabilitySavePayload | string {
     const targetEnvironment = resolvedTarget.value?.environment_id ?? environmentId.value
     const targetApplication = resolvedTarget.value?.application_id ?? applicationId.value
     if (!targetEnvironment) return '请先选择应用和环境'
     // 写操作记录要求明确的应用编号；解析不到时不允许保存，避免产生不可确认的写入。
     if (!targetApplication) return '无法确认当前应用，请重新加载后重试'
-    const own = cardRoutes(card)
-    const others = (profile.value?.routes ?? [])
-      .filter(route => route.capability_code !== card.code && route.status !== 2)
+    const cardCodes = new Set(capabilityCards.value.map(card => card.code))
+    const preserved = (profile.value?.routes ?? [])
+      .filter(route => route.status !== 2 && !cardCodes.has(route.capability_code))
       .map(routePayload)
-    const routes = [...others, ...own]
+    const routes = [...preserved, ...capabilityCards.value.flatMap(card => cardRoutes(card))]
     if (routes.length === 0) return '至少要保留一项能力的配置'
     return {
       application_id: targetApplication,
@@ -1416,21 +1449,35 @@
     }
   }
 
-  /** 单卡保存 = 保存草稿 + 立即启用，事务化预检/回读与既有写路径一致。 */
-  async function saveCapabilityCard(card: CapabilityCard): Promise<void> {
-    if (cardWriteBlocked() || card.saving || !cardDirty(card)) return
-    const payload = mergedSavePayload(card)
+  /** 页面级保存：逐项校验能力卡，合并全部卡片草稿为一次保存+启用事务。 */
+  async function saveCapabilityCards(): Promise<void> {
+    if (cardWriteBlocked() || busy.value) { ElMessage.warning('请先读取可安全编辑的完整配置。'); return }
+    for (const card of capabilityCards.value) card.fieldError = ''
+    const problems = capabilityCards.value
+      .map(card => ({ card, error: cardValidationError(card) }))
+      .filter(item => item.error !== '')
+    if (problems.length > 0) {
+      for (const item of problems) item.card.fieldError = item.error
+      ElMessage.warning(problems.length === 1
+        ? `${problems[0].card.name}：${problems[0].error}`
+        : `${problems.length} 项能力还没选完整，请逐项检查后再保存`)
+      return
+    }
+    const payload = cardsSavePayload()
     if (typeof payload === 'string') {
-      card.fieldError = payload
       ElMessage.warning(payload)
       return
     }
-    card.fieldError = ''
+    await commitCapabilityWrite(payload, '已保存并启用，能力配置已更新')
+  }
+
+  /** 单次写事务：预检 → 保存草稿 → 立即启用 → 回读确认，与既有写路径一致。 */
+  async function commitCapabilityWrite(payload: CapabilitySavePayload, successText: string): Promise<void> {
     const targetEnvironment = payload.environment_id
     const targetApplication = payload.application_id
     if (!targetApplication) {
-      card.fieldError = '无法确认当前应用，请重新加载后重试'
-      ElMessage.warning(card.fieldError)
+      errorMessage.value = '无法确认当前应用，请重新加载后重试'
+      ElMessage.warning(errorMessage.value)
       return
     }
     const baseline = JSON.stringify(profile.value)
@@ -1444,7 +1491,6 @@
       && (resolvedTarget.value?.application_id ?? applicationId.value ?? null) === targetApplication
     const flight = ++writeFlightSerial
     writeInFlight.value = true
-    card.saving = true
     busy.value = 'save'
     profileLoaded.value = false
     errorMessage.value = ''
@@ -1493,7 +1539,7 @@
       if (rereadTarget) resolvedTarget.value = rereadTarget
       applyProfileRead(readProfileResponse(reread, targetEnvironment), true)
       if (pending.value) errorMessage.value = '保存结果尚未确认，请重新读取状态；不会重发。'
-      else ElMessage.success(`已保存，${card.name}以后用新选择`)
+      else ElMessage.success(successText)
     } catch (error) {
       if (!ownsOperation()) return
       if (phase === 'write' && definitelyRejected(error)) {
@@ -1501,14 +1547,10 @@
       }
       if (phase === 'write' && isRevisionConflict(error)) revisionConflict.value = true
       profileLoaded.value = false
-      card.fieldError = ''
       errorMessage.value = writeFailure(error, phase)
     } finally {
       if (flight === writeFlightSerial) writeInFlight.value = false
-      if (ownsOperation()) {
-        busy.value = ''
-        card.saving = false
-      }
+      if (ownsOperation()) busy.value = ''
     }
   }
 
@@ -1931,6 +1973,8 @@
     cardDeploymentCache.value = {}
     cardDeploymentLoading.value = {}
     cardDeploymentRequested.value = {}
+    cardDeploymentCatalog.value = {}
+    for (const key of Object.keys(cardDeploymentSeq)) delete cardDeploymentSeq[key]
     capabilityLoadFailed.value = false
     capabilityLoadError.value = null
   }, { flush: 'sync' })
@@ -1962,14 +2006,14 @@
   })
 
   onBeforeUnmount(() => {
-    identityEpoch++; profileGeneration++; applicationGeneration++; environmentGeneration++; deploymentGeneration++; cardDeploymentGeneration++
+    identityEpoch++; profileGeneration++; applicationGeneration++; environmentGeneration++; deploymentGeneration++
     form.name = 'default-capability'; form.template_code = ''; form.data_egress_policy = 'local_only'; form.routes = []
     profile.value = null; deploymentOptions.value = []
     capabilityCards.value = []
   })
 
   watch([adminId, () => userStore.accessToken], () => {
-    identityEpoch++; profileGeneration++; applicationGeneration++; environmentGeneration++; deploymentGeneration++; cardDeploymentGeneration++
+    identityEpoch++; profileGeneration++; applicationGeneration++; environmentGeneration++; deploymentGeneration++
     busy.value = ''; applicationId.value = undefined; environmentId.value = undefined
     applications.value = []; environments.value = []; profile.value = null; profileLoaded.value = false
     metadata.value = null; deploymentOptions.value = []; deploymentsLoading.value = false
@@ -2167,6 +2211,16 @@
 
   .cap-card__foot-gap {
     flex: 1;
+  }
+
+  .cap-cards-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--el-border-color-lighter);
   }
 
   .cap-card-skeleton {

@@ -87,15 +87,21 @@
             <ElInput v-model="form.name" maxlength="20" placeholder="例如客服知识助手" />
             <div v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</div>
           </ElFormItem>
-          <ElFormItem label="它该怎么回答" required>
-            <ElInput v-model="form.instructions" type="textarea" :rows="4" maxlength="2000" show-word-limit
-              placeholder="用大白话说明它该怎么回答，比如依据什么资料、怎么称呼对方" />
-            <div class="example-row">
-              <span class="example-label">点一个试试：</span>
-              <ElButton link type="primary" size="small" @click="usePreset('service')">客服问答</ElButton>
-              <ElButton link type="primary" size="small" @click="usePreset('notice')">写通知</ElButton>
+          <ElFormItem label="用哪个模型" required>
+            <ElSelect v-model="form.model" filterable clearable allow-create default-first-option :loading="modelsLoading"
+              placeholder="选择当前环境已启用的聊天模型" style="width: 100%" aria-label="用哪个模型"
+              @change="modelTouched = true">
+              <ElOption v-for="model in models" :key="model.code" :label="`${model.name} · ${model.code}`" :value="model.code" />
+            </ElSelect>
+            <div class="knowledge-actions">
+              <ElButton link type="primary" :loading="modelsLoading" @click="loadModels">刷新模型</ElButton>
             </div>
-            <div v-if="fieldErrors.instructions" class="field-error">{{ fieldErrors.instructions }}</div>
+            <div v-if="modelsNotPublished" class="knowledge-note knowledge-note--action">
+              这个环境还没有启用的能力配置，请先去『能力配置』保存并启用。
+              <ElButton link type="primary" @click="router.push('/sand-ai/capability')">去能力配置</ElButton>
+            </div>
+            <p v-else-if="modelsError" class="knowledge-note">{{ modelsError }}。草稿仍可手动填写模型代码；启用前需要当前环境有可用的模型。</p>
+            <div v-if="fieldErrors.model" class="field-error">{{ fieldErrors.model }}</div>
           </ElFormItem>
           <ElFormItem label="参考哪个知识库">
             <ElSelect v-model="form.knowledge_base_code" filterable clearable allow-create default-first-option :loading="knowledgeLoading"
@@ -107,25 +113,20 @@
               <ElButton v-if="knowledgeMore" link type="primary" :loading="knowledgeLoading" @click="loadKnowledge(false)">更多</ElButton>
             </div>
             <p v-if="knowledgeError" class="knowledge-note">{{ knowledgeError }}。有权确认别名时可手动输入。</p>
-            <p v-else class="knowledge-note">启用前须绑定当前环境已开放的知识库；启用时服务端会再次核验。</p>
+            <p v-else class="knowledge-note">不选也能用，只靠模型自己回答。</p>
+          </ElFormItem>
+          <ElFormItem label="它该怎么回答" required>
+            <ElInput v-model="form.instructions" type="textarea" :rows="4" maxlength="2000" show-word-limit
+              placeholder="用大白话说明它该怎么回答，比如依据什么资料、怎么称呼对方" />
+            <div class="example-row">
+              <span class="example-label">点一个试试：</span>
+              <ElButton link type="primary" size="small" @click="usePreset('service')">客服问答</ElButton>
+              <ElButton link type="primary" size="small" @click="usePreset('notice')">写通知</ElButton>
+            </div>
+            <div v-if="fieldErrors.instructions" class="field-error">{{ fieldErrors.instructions }}</div>
           </ElFormItem>
           <ElCollapse class="more-settings">
             <ElCollapseItem title="更多设置" name="more">
-              <ElFormItem label="用哪个模型" required>
-                <ElSelect v-model="form.model" filterable clearable allow-create default-first-option :loading="modelsLoading"
-                  placeholder="选择当前环境已启用的聊天模型" style="width: 100%" aria-label="用哪个模型">
-                  <ElOption v-for="model in models" :key="model.code" :label="`${model.name} · ${model.code}`" :value="model.code" />
-                </ElSelect>
-                <div class="knowledge-actions">
-                  <ElButton link type="primary" :loading="modelsLoading" @click="loadModels">刷新模型</ElButton>
-                </div>
-                <div v-if="modelsNotPublished" class="knowledge-note knowledge-note--action">
-                  这个环境还没有启用的能力配置，请先去『能力配置』保存并启用。
-                  <ElButton link type="primary" @click="router.push('/sand-ai/capability')">去能力配置</ElButton>
-                </div>
-                <p v-else-if="modelsError" class="knowledge-note">{{ modelsError }}。草稿仍可手动填写模型代码，启用需当前环境存在可用路由。</p>
-                <div v-if="fieldErrors.model" class="field-error">{{ fieldErrors.model }}</div>
-              </ElFormItem>
               <ElAlert v-if="unsupportedTools.length" type="warning" :closable="false" class="panel-alert"
                 title="此草稿包含当前页面不支持的工具" :description="`已保留 ${unsupportedTools.join('、')}，请核对运行版本后再编辑。`" />
               <ElFormItem label="只读外部工具">
@@ -154,8 +155,8 @@
           <p class="combo-preview">{{ comboPreview }}</p>
           <div class="drawer-actions">
             <ElButton :disabled="writing" @click="drawerVisible = false">取消</ElButton>
-            <ElButton :loading="writing" :disabled="!canSave" @click="saveAndTry">保存并试一试</ElButton>
-            <ElButton type="primary" :loading="writing" :disabled="!canSave" @click="save">保存</ElButton>
+            <ElButton :loading="writing" :disabled="!canSave" @click="save">保存</ElButton>
+            <ElButton type="primary" :loading="writing" :disabled="!canSave" @click="saveAndEnable">保存并启用</ElButton>
           </div>
         </ElForm>
       </ElDrawer>
@@ -271,6 +272,10 @@
     && form.readonly_tools.length <= 2 && form.readonly_tools.every(tool => /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(tool.business_scope))
     && (!form.readonly_tools.length || form.max_output_tokens === null || form.max_output_tokens <= 512))
   const submitAttempted = ref(false)
+  /** 用户亲手改过模型下拉后不再自动预选，避免覆盖明确选择。 */
+  const modelTouched = ref(false)
+  /** 可用模型目录来自已发布聊天能力档，第一项即环境默认对话模型。 */
+  const defaultModelCode = computed(() => models.value[0]?.code ?? '')
   const fieldErrors = computed(() => ({
     name: submitAttempted.value && !form.name.trim() ? '请填写名称' : '',
     instructions: submitAttempted.value && !form.instructions.trim() ? '请写几句话告诉它该怎么回答' : '',
@@ -407,7 +412,14 @@
     editingLoading.value = false
     editingId.value = null
     submitAttempted.value = false
+    modelTouched.value = false
     Object.assign(form, { code: generateAgentCode(), name: '', model: '', knowledge_base_code: '', instructions: '', readonly_tools: [], tools: ['retrieval.search'], review_required: true, max_output_tokens: null, context_turn_limit: 2 })
+    applyDefaultModel()
+  }
+  /** 新建草稿时预选环境默认模型；编辑中、已手选或目录未就绪时不覆盖。 */
+  function applyDefaultModel(): void {
+    if (modelTouched.value || editingId.value !== null || form.model.trim() || !defaultModelCode.value) return
+    form.model = defaultModelCode.value
   }
   async function loadModels(): Promise<void> {
     const environmentId = props.environmentId
@@ -420,6 +432,7 @@
       const result = await agentDefinitionApi.models(environmentId)
       if (current !== modelEpoch || props.environmentId !== environmentId) return
       models.value = result.data.filter(item => item.type === 'chat' && item.capabilities.includes('chat'))
+      applyDefaultModel()
     } catch (failure) {
       if (current === modelEpoch) {
         models.value = []
@@ -504,6 +517,7 @@
       if (current !== formEpoch || props.environmentId !== environmentId) return
       editingId.value = detail.agent_definition_id
       submitAttempted.value = false
+      modelTouched.value = false
       Object.assign(form, {
         code: detail.code, name: detail.name,
         model: detail.latest_version?.model ?? '',
@@ -660,7 +674,7 @@
     ElMessage.success(`${operationLabel(reference.operation)}已确认，当前配置正在重新读取`)
     await readBackOperation(reference, stillCurrent)
   }
-  /** 保存草稿；返回是否已确认完成，供「保存并试一试」继续启用与试用。 */
+  /** 保存草稿；返回是否已确认完成，供「保存并启用」继续启用。 */
   async function save(): Promise<boolean> {
     const environmentId = props.environmentId
     submitAttempted.value = true
@@ -686,24 +700,22 @@
     finally { if (managementFlight.value === flight) managementFlight.value = null }
     return confirmed
   }
-  /** 保存草稿 → 启用最新草稿 → 打开试用；任一取消或失败都停在当前步并说明。 */
-  async function saveAndTry(): Promise<void> {
+  /** 保存草稿 → 启用最新草稿；未绑定知识库时停在草稿并说明，避免必然被服务端拒绝。 */
+  async function saveAndEnable(): Promise<void> {
     if (writing.value) return
     const code = form.code.trim()
     const saved = await save()
     if (!saved) return
+    if (!form.knowledge_base_code.trim()) {
+      ElMessage.info('草稿已保存；启用前需要先选一个知识库')
+      return
+    }
     const row = rows.value.find(item => item.code === code)
     if (!row) {
       error.value = '已保存，但暂时读不到这个智能体，请刷新后再试。'
       return
     }
-    const published = await publish(row)
-    if (!published) {
-      ElMessage.info('草稿已保存；启用新版本后才能试用最新配置')
-      return
-    }
-    const fresh = rows.value.find(item => item.code === code) ?? row
-    void openTrial(fresh)
+    await publish(row)
   }
   /** 启用；返回是否已确认完成。 */
   async function publish(row: AgentDefinitionRow): Promise<boolean> {
