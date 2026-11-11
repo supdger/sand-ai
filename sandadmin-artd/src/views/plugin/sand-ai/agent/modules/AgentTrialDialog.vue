@@ -96,7 +96,7 @@
     return `会先查「${props.knowledgeName}」，再用配置的模型回答。试用调用会记账并算进预算。`
   })
 
-  function newTurn(query: string): TrialTurn {
+  function createTurn(query: string): TrialTurn {
     return { query, status: 'sending', answer: '', sources: [], reviewRequired: false, errorText: '' }
   }
 
@@ -181,7 +181,7 @@
   async function send(): Promise<void> {
     const query = draft.value.trim()
     if (!canSend.value || !props.applicationId || !props.agentId) return
-    const turn = newTurn(query)
+    const turn = createTurn(query)
     turns.value = [...turns.value, turn]
     draft.value = ''
     sending.value = true

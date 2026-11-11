@@ -97,7 +97,6 @@
   const canBudgetRead = computed(() => hasAuth('sand_ai:budget:index'))
   const canBudgetWrite = computed(() => hasAuth('sand_ai:budget:save') && hasAuth('sand_ai:budget:publish'))
 
-  // ---- 周期与筛选状态 ----
   const timezone = ref('UTC')
   const currentMonth = ref('')
   const monthPicker = ref('')
@@ -110,7 +109,6 @@
   const environments = ref<SandIamEnvironmentReference[]>([])
   const applications = ref<SandIamApplicationReference[]>([])
 
-  // ---- 数据 ----
   const monthlyApp = ref<UsageMonthlyResult | null>(null)
   const monthlyModel = ref<UsageMonthlyResult | null>(null)
   const dailyResult = ref<UsageDailyResult | null>(null)
@@ -172,7 +170,6 @@
     spendByCurrency.value.flatMap(item =>
       item.currency !== null && item.amount !== null ? [{ currency: item.currency, amount: item.amount }] : []))
 
-  // ---- 数字卡 ----
   const spendLines = computed(() => {
     const totals = spendByCurrency.value
     const calls = totals.reduce((sum, item) => sum + item.call_count, 0)
@@ -269,7 +266,6 @@
 
   const topHint = computed(() => topSpend.value ? '花得最多的一笔用途' : '')
 
-  // ---- 图表 ----
   const chartLabels = computed(() => {
     const dates = [...new Set((dailyResult.value?.rows ?? []).map(row => row.date))].sort()
     return dates.map(date => {
@@ -294,7 +290,6 @@
   const chartEmpty = computed(() =>
     (dailyResult.value?.rows ?? []).every(row => row.call_count === 0))
 
-  // ---- 加载 ----
   async function loadOverview(owner: ReturnType<typeof identity.capture>): Promise<void> {
     if (owner === null || !canView.value || !selectedMonth.value) return
     loading.value = true
@@ -390,7 +385,6 @@
     }
   }
 
-  // ---- 操作 ----
   function monthBoundsQuery(): { from_time: string; to_time: string } | null {
     const bounds = monthBounds.value
     return bounds ? { from_time: bounds.from, to_time: bounds.to } : null

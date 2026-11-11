@@ -1,0 +1,11 @@
+# 命名豁免登记（规范 v2 §一）：确有理由不照做的名字，一行一个，# 后写原因。
+# 仅存量契约类型：定义于 api/channelBinding.ts、api/iam.ts（不在本 PR 改动列表），
+# .vue 文件只做 import/使用，契约名不私自更换。
+ChannelCredentialSaveReference # 存量契约类型，定义于 api/channelBinding.ts
+ChannelCredentialSaveReceipt # 存量契约类型，定义于 api/channelBinding.ts
+ChannelBindingOperationReference # 存量契约类型，定义于 api/channelBinding.ts
+SandIamEnvironmentReference # 存量契约类型，定义于 api/iam.ts
+SandIamWorkloadClientReference # 存量契约类型，定义于 api/iam.ts
+# 术语表豁免（check_terms 无 --allow 机制，仅登记备查）：
+# AgentDefinitionPanel.vue 模板 row.created_at 对应后端既有响应字段；
+# AgentTrialDialog.vue result.state === 'canceled' 对应后端任务状态契约（单写 l）。

@@ -623,8 +623,6 @@
   // 后端解析出的实际目标；自动定向（唯一应用/环境）时由读取响应回填。
   const resolvedTarget = ref<CapabilityTarget | null>(null)
 
-  /* ---------- 能力页卡片：应用/环境选择器只在存在多个候选时出现 ---------- */
-
   const showApplicationPicker = computed(() => !materialConfigurationPage.value && applications.value.length > 1)
   const showEnvironmentPicker = computed(() => !materialConfigurationPage.value && environments.value.length > 1)
   const capabilityPickRequired = computed(() => showApplicationPicker.value || showEnvironmentPicker.value)
@@ -920,8 +918,6 @@
     }
   }
 
-  /* ---------- 能力页：固定能力卡片（默认模型 + 备用模型） ---------- */
-
   type CapabilityCardKind = 'model' | 'audio' | 'parse'
   type CapabilityCard = {
     code: string
@@ -1101,12 +1097,12 @@
     return profile.value?.state === 'published' ? { text: '已启用', type: 'success' } : { text: '待启用', type: 'warning' }
   }
 
-  const canSaveAndPublish = computed(() =>
+  const canWriteCards = computed(() =>
     hasAuth('sand_ai:setup:capability:save') && hasAuth('sand_ai:setup:capability:publish'))
 
   function cardWriteBlocked(): boolean {
     return Boolean(busy.value) || writeInFlight.value || journalError.value || Boolean(pending.value)
-      || revisionConflict.value || unsafeExistingConfig.value || !profileLoaded.value || !canSaveAndPublish.value
+      || revisionConflict.value || unsafeExistingConfig.value || !profileLoaded.value || !canWriteCards.value
   }
 
   function cardFormDisabled(card: CapabilityCard): boolean {
@@ -2095,8 +2091,6 @@
     font-size: 13px;
     color: var(--el-text-color-secondary);
   }
-
-  /* ---------- 能力页卡片 ---------- */
 
   .cap-hint {
     margin: 4px 0 0;

@@ -109,7 +109,7 @@
         :current-page="currentPage" :page-size="pageSize" :total="filteredTotal" @current-change="currentPage = $event" />
 
       <ElDialog v-model="editorVisible" :title="editingId ? '编辑渠道' : '新建渠道'" width="min(560px, 94vw)" destroy-on-close>
-        <!-- 第一步：选类型（仅新建） -->
+        <!-- 新建渠道的类型选择 -->
         <template v-if="!editingId && editorStep === 'type'">
           <div class="type-cards">
             <button type="button" class="type-card" :class="{ 'type-card--active': formKind === 'api' }" @click="formKind = 'api'">
@@ -609,7 +609,6 @@
     client: submitAttempted.value && !selectedClient.value ? '请选择调用身份' : ''
   }))
 
-  /* ---------- 列表筛选与分页（客户端） ---------- */
   const keyword = ref('')
   const statusFilter = ref<string>('')
   const currentPage = ref(1)
@@ -1115,24 +1114,24 @@
         key
       )
       if (current !== testEpoch || epoch !== epochSnapshot || props.environment?.id !== environment.id) return
-      let final = result
+      let latest = result
       // 服务端最长原地等待约 25 秒；仍非终态时短轮询到终态或超时。
       const deadline = Date.now() + 45000
-      while (!isAgentTrialTerminal(final.state) && Date.now() < deadline) {
+      while (!isAgentTrialTerminal(latest.state) && Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 2000))
         if (current !== testEpoch || epoch !== epochSnapshot) return
-        final = await requestAgentTrialTask(final.task_id)
+        latest = await requestAgentTrialTask(latest.task_id)
       }
       if (current !== testEpoch || epoch !== epochSnapshot) return
-      if (final.state === 'succeeded') {
+      if (latest.state === 'succeeded') {
         testState.value = 'ok'
         ElMessage.success('连接正常')
-      } else if (!isAgentTrialTerminal(final.state)) {
+      } else if (!isAgentTrialTerminal(latest.state)) {
         testState.value = 'fail'
         testError.value = '智能体还在处理，稍后再点一次「测试连接」确认。'
       } else {
         testState.value = 'fail'
-        const code = typeof final.error_code === 'string' ? final.error_code : ''
+        const code = typeof latest.error_code === 'string' ? latest.error_code : ''
         testError.value = (code ? hintForRuntimeErrorCode(code) : undefined)
           ?? '这次试用没有成功，请检查智能体和模型服务商后重试。'
       }

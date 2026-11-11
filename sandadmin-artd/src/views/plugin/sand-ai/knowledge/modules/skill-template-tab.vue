@@ -179,8 +179,8 @@
   const loadError = ref('')
 
   // 「用在哪里」：技能绑定的知识库版本 → 知识库名。按当前页逐个读详情，失败显示 —。
-  const boundVersionBySkill = ref<Map<number, number>>(new Map())
-  const kbNameByVersionId = ref<Map<number, string>>(new Map())
+  const boundVersions = ref<Map<number, number>>(new Map())
+  const versionKnowledgeNames = ref<Map<number, string>>(new Map())
 
   const drawerOpen = ref(false)
   const editingSkill = ref<SkillRow | null>(null)
@@ -197,8 +197,6 @@
   let alive = true
   let generation = 0
 
-  /* ---------- 状态 ---------- */
-
   function skillStatusLabel(row: SkillRow): string {
     if (row.status !== 1 || row.state === 'revoked') return '已停用'
     if (row.state === 'draft') return '未发布'
@@ -212,12 +210,10 @@
   }
 
   function usedByLabel(row: SkillRow): string {
-    const versionId = boundVersionBySkill.value.get(row.id)
+    const versionId = boundVersions.value.get(row.id)
     if (versionId === undefined) return '—'
-    return kbNameByVersionId.value.get(versionId) ?? '—'
+    return versionKnowledgeNames.value.get(versionId) ?? '—'
   }
-
-  /* ---------- 列表 ---------- */
 
   async function load(): Promise<void> {
     const envId = props.environmentId
@@ -260,12 +256,12 @@
     try {
       // 知识库版本号 → 名称
       const nameMap = new Map<number, string>()
-      for (let kbPage = 1; kbPage <= 10; kbPage++) {
-        const result = await knowledgeApi.list(envId, kbPage, 100)
-        for (const kb of result.data) {
-          if (kb.active_version_id !== null) nameMap.set(kb.active_version_id, kb.name)
+      for (let knowledgePage = 1; knowledgePage <= 10; knowledgePage++) {
+        const result = await knowledgeApi.list(envId, knowledgePage, 100)
+        for (const knowledgeBase of result.data) {
+          if (knowledgeBase.active_version_id !== null) nameMap.set(knowledgeBase.active_version_id, knowledgeBase.name)
         }
-        if (result.data.length === 0 || kbPage * 100 >= result.total) break
+        if (result.data.length === 0 || knowledgePage * 100 >= result.total) break
       }
       const versionMap = new Map<number, number>()
       await Promise.allSettled(
@@ -276,8 +272,8 @@
         })
       )
       if (!alive || current !== generation || !identity.current(mark)) return
-      kbNameByVersionId.value = nameMap
-      boundVersionBySkill.value = versionMap
+      versionKnowledgeNames.value = nameMap
+      boundVersions.value = versionMap
     } catch {
       // 解析失败保持 —，不打扰列表
     }
@@ -291,8 +287,6 @@
     if (detail.versions.length === 0) return null
     return detail.versions.reduce((a, b) => (a.version >= b.version ? a : b))
   }
-
-  /* ---------- 新建 / 编辑 ---------- */
 
   function openCreate(): void {
     editingSkill.value = null
@@ -455,8 +449,6 @@
     }
   }
 
-  /* ---------- 停用 ---------- */
-
   async function confirmDisable(row: SkillRow): Promise<void> {
     const envId = props.environmentId
     if (envId === null || revokingId.value !== null) return
@@ -489,8 +481,6 @@
     if (command === 'disable') void confirmDisable(row)
   }
 
-  /* ---------- 生命周期 ---------- */
-
   watch(
     () => props.environmentId,
     () => {
@@ -498,8 +488,8 @@
       rows.value = []
       total.value = 0
       page.value = 1
-      boundVersionBySkill.value = new Map()
-      kbNameByVersionId.value = new Map()
+      boundVersions.value = new Map()
+      versionKnowledgeNames.value = new Map()
       void load()
     },
     { immediate: true }

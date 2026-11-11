@@ -296,7 +296,7 @@
     return knowledge.value.find(item => item.code === code)?.owner_name
   }
 
-  /* ---------- 列表筛选与分页（客户端，后端只按环境返回全量） ---------- */
+  // 列表由后端按环境返回全量，筛选与分页在客户端完成
   const keyword = ref('')
   const statusFilter = ref<string>('')
   const currentPage = ref(1)
@@ -336,7 +336,6 @@
     return channelRows.value.filter(item => item.agent_definition_id === agentDefinitionId).map(item => item.name).join('、')
   }
 
-  /* ---------- 试用 ---------- */
   const trialVisible = ref(false)
   const trialTarget = ref<{ agentId: number; name: string; knowledgeName?: string } | null>(null)
   const trialOpening = ref(false)
@@ -361,7 +360,6 @@
     }
   }
 
-  /* ---------- 抽屉与新建 ---------- */
   const drawerVisible = ref(false)
   function openCreate(): void {
     if (!props.environmentId || writing.value) return

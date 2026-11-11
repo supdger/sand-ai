@@ -2,11 +2,11 @@
   <div class="knowledge-tab">
     <!-- 刚建好还没加资料的知识库：刷新不丢，方便回头继续 -->
     <ElAlert
-      v-if="pendingKb"
+      v-if="pendingKnowledgeBase"
       type="info"
       :closable="false"
       class="pending-alert"
-      :title="`「${pendingKb.name}」还没有资料`"
+      :title="`「${pendingKnowledgeBase.name}」还没有资料`"
     >
       <template #default>
         <ElSpace wrap>
@@ -339,7 +339,7 @@
     <!-- 试一下：只有「可用」才进得来；走托管试用身份，不用填密钥 -->
     <ElDialog
       v-model="trialOpen"
-      :title="trialKb ? `试一下「${trialKb.name}」` : '试一下'"
+      :title="trialKnowledgeBase ? `试一下「${trialKnowledgeBase.name}」` : '试一下'"
       width="min(640px, 94vw)"
       :close-on-click-modal="false"
     >
@@ -423,7 +423,7 @@
   const page = ref(1)
   const pageSize = ref(PAGE_SIZE)
 
-  const pendingKb = ref<PendingKnowledgeBase | null>(null)
+  const pendingKnowledgeBase = ref<PendingKnowledgeBase | null>(null)
   const pendingEnvironmentId = ref<number | null>(null)
 
   const createOpen = ref(false)
@@ -444,7 +444,7 @@
   const materializing = ref(false)
 
   const trialOpen = ref(false)
-  const trialKb = ref<KnowledgeBaseRow | null>(null)
+  const trialKnowledgeBase = ref<KnowledgeBaseRow | null>(null)
   const trialQuery = ref('')
   const trialBusy = ref(false)
   const trialError = ref('')
@@ -457,8 +457,6 @@
   let alive = true
   let generation = 0
   let pollTimer: ReturnType<typeof setTimeout> | null = null
-
-  /* ---------- 状态投影 ---------- */
 
   function rowStatus(row: KnowledgeBaseRow): RowStatus {
     if (row.state === 'disabled') return 'disabled'
@@ -509,8 +507,6 @@
     }
     return '—'
   }
-
-  /* ---------- 列表加载与过滤 ---------- */
 
   const filteredRows = computed<KnowledgeBaseRow[]>(() => {
     const word = keyword.value.trim().toLowerCase()
@@ -602,16 +598,14 @@
     }
   }
 
-  /* ---------- 待建库（建好还没加资料） ---------- */
-
   function pendingStorageKey(envId: number): string {
     return `${PENDING_STORAGE_PREFIX}${envId}`
   }
 
   function savePending(): void {
-    if (props.environmentId === null || pendingKb.value === null) return
+    if (props.environmentId === null || pendingKnowledgeBase.value === null) return
     try {
-      sessionStorage.setItem(pendingStorageKey(props.environmentId), JSON.stringify(pendingKb.value))
+      sessionStorage.setItem(pendingStorageKey(props.environmentId), JSON.stringify(pendingKnowledgeBase.value))
       pendingEnvironmentId.value = props.environmentId
     } catch {
       // 存不下就只留在内存里，不影响主流程
@@ -620,7 +614,7 @@
 
   function restorePending(): void {
     const envId = props.environmentId
-    pendingKb.value = null
+    pendingKnowledgeBase.value = null
     pendingEnvironmentId.value = null
     if (envId === null) return
     try {
@@ -630,7 +624,7 @@
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return
       const record = parsed as Record<string, unknown>
       if (typeof record.name !== 'string' || record.name === '') return
-      pendingKb.value = {
+      pendingKnowledgeBase.value = {
         name: record.name,
         description: typeof record.description === 'string' ? record.description : '',
         audiences: Array.isArray(record.audiences)
@@ -651,15 +645,13 @@
     } catch {
       // 忽略
     }
-    pendingKb.value = null
+    pendingKnowledgeBase.value = null
     pendingEnvironmentId.value = null
   }
 
   function discardPending(): void {
     clearPendingStorage()
   }
-
-  /* ---------- 新建 ---------- */
 
   function openCreate(): void {
     if (props.environmentId === null) {
@@ -691,7 +683,7 @@
   function nameTaken(name: string): boolean {
     const target = name.trim()
     if (target === '') return false
-    if (pendingKb.value !== null && pendingKb.value.name.trim() === target) return true
+    if (pendingKnowledgeBase.value !== null && pendingKnowledgeBase.value.name.trim() === target) return true
     return rows.value.some((row) => row.name.trim() === target)
   }
 
@@ -723,7 +715,7 @@
       return
     }
     // 后端建库必须同时带资料，这里先记下名称进详情，点「加资料」时再一次性建库+发布。
-    pendingKb.value = {
+    pendingKnowledgeBase.value = {
       name,
       description: createForm.description.trim(),
       audiences: [...createForm.audiences]
@@ -731,7 +723,7 @@
     savePending()
     createOpen.value = false
     detailRow.value = null
-    pendingDetail.value = pendingKb.value
+    pendingDetail.value = pendingKnowledgeBase.value
     detailOpen.value = true
     ElMessage.success('建好了，现在加几份资料吧')
   }
@@ -739,8 +731,6 @@
   function resetCreateForm(): void {
     nameError.value = ''
   }
-
-  /* ---------- 详情 ---------- */
 
   const detailTitle = computed(() => {
     if (pendingDetail.value !== null) return pendingDetail.value.name
@@ -754,9 +744,9 @@
   }
 
   function openPendingDetail(): void {
-    if (pendingKb.value === null) return
+    if (pendingKnowledgeBase.value === null) return
     detailRow.value = null
-    pendingDetail.value = pendingKb.value
+    pendingDetail.value = pendingKnowledgeBase.value
     detailOpen.value = true
   }
 
@@ -765,8 +755,6 @@
     detailRow.value = null
     pendingDetail.value = null
   }
-
-  /* ---------- 加资料（仅对刚建好的待建库） ---------- */
 
   async function openFilePicker(): Promise<void> {
     if (props.environmentId === null) return
@@ -807,7 +795,7 @@
   /** 待建库一次性建库+发布；后端随即自动开始索引。 */
   async function confirmAddMaterials(): Promise<void> {
     const envId = props.environmentId
-    const pending = pendingKb.value
+    const pending = pendingKnowledgeBase.value
     if (envId === null || pending === null || selectedFiles.value.length === 0 || materializing.value) return
     materializing.value = true
     const mark = identity.capture()
@@ -850,8 +838,6 @@
       if (alive && current === generation) materializing.value = false
     }
   }
-
-  /* ---------- 行操作 ---------- */
 
   async function retryIndex(row: KnowledgeBaseRow): Promise<void> {
     const envId = props.environmentId
@@ -935,10 +921,8 @@
     else if (command === 'disable') void confirmDisable(row)
   }
 
-  /* ---------- 试一下 ---------- */
-
   function openTrial(row: KnowledgeBaseRow): void {
-    trialKb.value = row
+    trialKnowledgeBase.value = row
     trialQuery.value = ''
     trialError.value = ''
     trialResult.value = null
@@ -946,16 +930,16 @@
   }
 
   async function submitTrial(): Promise<void> {
-    const kb = trialKb.value
+    const knowledgeBase = trialKnowledgeBase.value
     const query = trialQuery.value.trim()
-    if (kb === null || query === '' || trialBusy.value) return
+    if (knowledgeBase === null || query === '' || trialBusy.value) return
     trialBusy.value = true
     trialError.value = ''
     trialResult.value = null
     const mark = identity.capture()
     const current = generation
     try {
-      const result = await requestKnowledgeTrial({ knowledgeBaseId: kb.id, query, limit: 5 })
+      const result = await requestKnowledgeTrial({ knowledgeBaseId: knowledgeBase.id, query, limit: 5 })
       if (!alive || current !== generation || !identity.current(mark)) return
       trialResult.value = result
     } catch (error) {
@@ -965,8 +949,6 @@
       if (alive && current === generation) trialBusy.value = false
     }
   }
-
-  /* ---------- 生命周期 ---------- */
 
   watch(
     () => props.environmentId,
