@@ -22,14 +22,14 @@
             >重新读取设置</ElButton
           >
           <ElButton v-if="loaded && !routes.length" @click="emit('configure')"
-            >配置并启用模型与能力路由</ElButton
+            >去能力配置启用模型</ElButton
           >
         </ElSpace>
         <p v-if="loaded && !routes.length">
-          此环境还没有已启用的聊天能力路由。先启用模型连接，并在能力配置中启用目标环境的聊天路由，再回来读取。
+          此环境还没有已启用的聊天模型。先启用模型连接，并在能力配置中启用目标环境的聊天模型，再回来读取。
         </p>
         <ElForm v-if="loaded && routes.length" label-width="180px" @submit.prevent>
-          <ElFormItem label="已启用模型路线">
+          <ElFormItem label="已启用模型">
             <ElSelect
               v-model="model"
               :disabled="Boolean(busy)"
@@ -59,7 +59,7 @@
             />
             <ElAlert
               v-if="selection.state === 'stale'"
-              title="模型或能力路由已变化。旧容量仅供核对，请重新核定、保存，再明确启用新版本。"
+              title="模型或能力配置已变化。旧容量仅供核对，请重新核定、保存，再明确启用新版本。"
               type="warning"
               :closable="false"
             />
@@ -82,7 +82,7 @@
               </ElCollapseItem>
             </ElCollapse>
             <p v-if="!hasExecutionDriver">
-              该路线没有可执行的分词或本地规划驱动，无法设置或启用。请选择受支持的已启用路线，或联系管理员核查模型能力。
+              该模型没有可执行的分词或本地规划驱动，无法设置或启用。请选择受支持的已启用模型，或联系管理员核查模型能力。
             </p>
             <ElSpace
               v-if="!hasExecutionDriver && selection.registration"
@@ -118,7 +118,7 @@
                 <ElSelect
                   v-model="draft.tokenizer_driver"
                   :disabled="formLocked"
-                  placeholder="选择此路线实际支持的驱动"
+                  placeholder="选择此模型实际支持的驱动"
                 >
                   <ElOption
                     v-for="driver in selection.route.tokenizer_drivers"
@@ -272,7 +272,7 @@
     enabled: '已启用',
     revoked: '已撤销',
     stale: '需要重新核定',
-    unsupported: '路线暂不支持',
+    unsupported: '模型暂不支持',
     worker_unavailable: '会议执行环境未就绪'
   }
   const routes = ref<MeetingPublishedRoute[]>([])
@@ -321,7 +321,7 @@
   const validation = computed(() => {
     const selectedDriver = driver.value
     if (!draft.planning_mode) return '请明确选择本地规划或远程分词计数。'
-    if (isLocal.value ? !planningDriver.value : !selectedDriver) return '请选择当前路线支持的规划或计数驱动。'
+    if (isLocal.value ? !planningDriver.value : !selectedDriver) return '请选择当前模型支持的规划或计数驱动。'
     const context = draft.context_window_tokens
     if (
       context === null ||
@@ -338,7 +338,7 @@
       inputCeiling.value === null ||
       input > inputCeiling.value
     )
-      return '输入上限须预留完整输出容量，并遵守路线输入上限。'
+      return '输入上限须预留完整输出容量，并遵守模型输入上限。'
     const requests = draft.max_tokenizer_requests
     if (
       requests === null ||
@@ -407,11 +407,11 @@
     const code =
       error instanceof HttpError ? error.message.match(/^SAND_AI_[A-Z_]+/)?.[0] : undefined
     const messages: Record<string, string> = {
-      SAND_AI_MEETING_EXECUTION_CONFLICT: '设置或模型路由已变化，请重新读取并核对最新版本。',
+      SAND_AI_MEETING_EXECUTION_CONFLICT: '设置或模型配置已变化，请重新读取并核对最新版本。',
       SAND_AI_CONFIGURATION_NOT_PUBLISHED:
-        '当前环境没有可用的已启用路线，请先完成模型与能力路由启用。',
+        '当前环境没有可用的已启用模型，请先在能力配置中启用模型。',
       SAND_AI_MEETING_TOKENIZER_UNSUPPORTED:
-        '此路线没有可执行的分词计数驱动，请重新读取后选择受支持的路线。',
+        '此模型没有可执行的分词计数驱动，请重新读取后选择受支持的模型。',
       SAND_AI_MEETING_WORKER_UNAVAILABLE:
         '会议执行环境尚未就绪，请联系管理员完成正常安装或升级，再读取设置。',
       SAND_AI_SCHEMA_UNSUPPORTED:
@@ -524,7 +524,7 @@
       await ElMessageBox.confirm(
         enabled
           ? (isLocal.value ? '确认启用已保存的本地规划设置？本地不实测词元，模型生成仍需 SandIAM 授权并可能产生费用。' : '确认启用当前模型版本及已保存容量的会议执行？实际调用仍需 SandIAM 授权，可能产生模型与分词费用。')
-          : '确认撤销此路线的会议执行？新会议任务将被拒绝，已冻结任务保留原恢复规则。',
+          : '确认撤销此模型的会议执行？新会议任务将被拒绝，已冻结任务保留原恢复规则。',
         enabled ? '启用会议执行' : '撤销会议执行',
         {
           confirmButtonText: enabled ? '确认启用' : '确认撤销',

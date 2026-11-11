@@ -7,6 +7,7 @@
           <p class="page-desc">看本月花了多少，花在哪里</p>
         </div>
         <div class="page-head-actions">
+          <ElButton v-if="canBudgetWrite" type="primary" @click="openBudget">设预算</ElButton>
           <ElButton v-if="canReview" text @click="goReview()">费用核对</ElButton>
           <ElButton v-if="canView" :loading="exporting" @click="handleExport">导出</ElButton>
         </div>
@@ -36,7 +37,7 @@
           <div class="stat-grid">
             <UsageStatCard label="本月花费" :lines="spendLines" :hint="spendHint" :loading="loading" @open="goReview()" />
             <UsageStatCard label="预算余量" :lines="budgetLines" :hint="budgetHint" :tone="budgetTone"
-              :loading="budgetLoading" :clickable="canBudgetWrite" action-text="设预算" @open="openBudget" />
+              :loading="budgetLoading" />
             <UsageStatCard label="调用次数" :lines="callLines" :hint="callHint" :loading="loading" @open="goReview()" />
             <UsageStatCard label="花得最多的" :lines="topLines" :hint="topHint" :loading="loading" @open="goTopReview" />
           </div>
@@ -47,7 +48,7 @@
             </template>
             <div v-if="chartEmpty && !loading" class="chart-empty">本月还没有花费</div>
             <ArtLineChart v-else :data="chartSeries" :x-axis-data="chartLabels" height="260px"
-              :show-legend="chartSeries.length > 1" :loading="loading" />
+              :show-legend="chartSeries.length > 1" :loading="loading" :smooth="false" symbol="circle" />
           </ElCard>
 
           <SpendRanking :rows="rankingRows" :group-by="groupBy" :loading="loading"
@@ -184,7 +185,7 @@
     const totals = spendByCurrency.value
     const calls = totals.reduce((sum, item) => sum + item.call_count, 0)
     if (calls === 0) return ['¥0']
-    if (totals.every(item => item.amount === null)) return ['未定价']
+    if (totals.every(item => item.amount === null)) return ['未计价']
     return totals.filter(item => item.amount !== null).map(item => formatMoney(item.amount, item.currency))
   })
 
@@ -241,11 +242,17 @@
     return policy ? { scope_kind: policy.scope_kind, scope_ref: policy.scope_ref } : null
   })
 
+  /** 当期存在别的有上限预算时，所选预算无上限不能写成「没有设上限」。 */
+  const hasLimitedCandidate = computed(() =>
+    budgetCandidates.value.some(policy => policy.limit_amount !== null && policy.id !== budgetSummary.value?.policy.id))
+
   const budgetLines = computed(() => {
     if (!canBudgetRead.value) return ['没有预算查看权限']
     const summary = budgetSummary.value
     if (!summary) return ['没有设上限']
-    if (summary.window.limit_amount === null) return ['没有设上限']
+    if (summary.window.limit_amount === null) {
+      return [hasLimitedCandidate.value ? '只给部分范围设了预算上限' : '没有设上限']
+    }
     return [`还剩 ${formatMoney(summary.window.available_amount, summary.window.currency)}`]
   })
 
@@ -260,13 +267,14 @@
     if (budgetError.value) return '预算暂时读不到，请稍后重试'
     if (!canBudgetRead.value) return '需要预算查看权限'
     const summary = budgetSummary.value
-    if (!summary) return '还没有设预算，点这里设置'
+    if (!summary) return '还没有设预算，点右上角「设预算」'
     const money = (value: string | null) => formatMoney(value, summary.window.currency)
     const scopeText = budgetCandidates.value.length > 1
       ? `${budgetScopeText.value}（另有 ${budgetCandidates.value.length - 1} 份生效）`
       : budgetScopeText.value
     if (summary.window.limit_amount === null) {
-      return `已花 ${money(summary.window.settled_amount)}，不设上限 · ${scopeText}`
+      const limitText = hasLimitedCandidate.value ? '这份不设上限，其他范围有上限' : '不设上限'
+      return `已花 ${money(summary.window.settled_amount)}，${limitText} · ${scopeText}`
     }
     const limitText = `本月预算 ${money(summary.window.limit_amount)}`
     const level = summary.alert.level
@@ -303,7 +311,7 @@
 
   const topLines = computed(() => {
     const top = topSpend.value
-    if (!top) return callTotals.value.calls === 0 ? ['还没有花费'] : ['未定价']
+    if (!top) return callTotals.value.calls === 0 ? ['还没有花费'] : ['未计价']
     const name = top.name ?? '未知'
     return [top.deleted ? `${name}（已删除）` : name, formatMoney(top.amount, top.currency)]
   })
@@ -323,7 +331,7 @@
     const dates = [...new Set(rows.map(row => row.date))].sort()
     const currencies = [...new Set(rows.map(row => row.currency ?? ''))].sort()
     return currencies.map(currency => ({
-      name: currency === '' ? '未定价' : currency,
+      name: currency === '' ? '未计价' : currency,
       data: dates.map(date => {
         const row = rows.find(item => item.date === date && (item.currency ?? '') === currency)
         return row?.amount === null || row?.amount === undefined ? 0 : Number(row.amount)
@@ -465,8 +473,13 @@
         && policy.period_start <= now && policy.period_end > now
         && budgetScopeApplies(policy))
       budgetCandidates.value = candidates
-      // 全服务预算最能代表整体约束；没有时取接口序第一份，范围标签如实标明
-      const picked = candidates.find(policy => policy.scope_kind === 'service' && policy.scope_ref === 'sand_ai')
+      // 优先展示有上限的生效预算（全服务范围最能代表整体约束）；
+      // 都没有上限时回到全服务预算，再没有取接口序第一份，范围标签如实标明
+      const isServiceScope = (policy: BudgetPolicy): boolean =>
+        policy.scope_kind === 'service' && policy.scope_ref === 'sand_ai'
+      const picked = candidates.find(policy => isServiceScope(policy) && policy.limit_amount !== null)
+        ?? candidates.find(policy => policy.limit_amount !== null)
+        ?? candidates.find(isServiceScope)
         ?? candidates[0] ?? null
       if (picked === null) {
         budgetSummary.value = null

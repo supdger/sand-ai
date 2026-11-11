@@ -202,6 +202,8 @@ export type SandAiUsage = {
   metered_amount: string | null
   currency: string | null
   pricing_state: 'priced' | 'unpriced'
+  /** 试用调用产生的事件标 true；旧载荷可能缺省，按非试用处理。 */
+  trial?: boolean
   create_time: string
 }
 

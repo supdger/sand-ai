@@ -1,21 +1,5 @@
 <template>
   <div class="knowledge-tab">
-    <!-- 刚建好还没加资料的知识库：刷新不丢，方便回头继续 -->
-    <ElAlert
-      v-if="pendingKnowledgeBase"
-      type="info"
-      :closable="false"
-      class="pending-alert"
-      :title="`「${pendingKnowledgeBase.name}」还没有资料`"
-    >
-      <template #default>
-        <ElSpace wrap>
-          <ElButton size="small" type="primary" @click="openPendingDetail">继续添加资料</ElButton>
-          <ElButton size="small" text @click="discardPending">不用了</ElButton>
-        </ElSpace>
-      </template>
-    </ElAlert>
-
     <!-- 筛选区：只露搜索和状态，全部可清空 -->
     <div class="filter-bar">
       <ElInput
@@ -211,6 +195,7 @@
       size="min(560px, 94vw)"
       :title="detailTitle"
       destroy-on-close
+      @close="onDetailClosed"
     >
       <template v-if="pendingDetail">
         <ElAlert
@@ -224,7 +209,7 @@
           <dd>{{ pendingDetail.description || '—' }}</dd>
         </dl>
         <ElButton type="primary" class="detail-add" @click="openFilePicker">加资料</ElButton>
-        <p class="detail-hint">从已上传并解析完成的文件里选择，一次最多 20 份。还没有合适的文件？先去「文件管理」上传。</p>
+        <p class="detail-hint">从已上传并解析完成的文件里选择，一次最多 20 份。还没有合适的文件？先去「文件」上传。</p>
       </template>
 
       <template v-else-if="detailRow">
@@ -313,7 +298,7 @@
       >
         <ElTableColumn type="selection" width="46" :selectable="() => selectedFiles.length < MAX_FILES_PER_BATCH" />
         <ElTableColumn prop="name" label="文件名" min-width="220" show-overflow-tooltip />
-        <ElTableColumn label="可用" width="80" align="center">
+        <ElTableColumn label="状态" width="80" align="center">
           <template #default>
             <ElTag type="success" size="small" effect="plain">已解析</ElTag>
           </template>
@@ -402,7 +387,6 @@
   const PAGE_SIZE = 20
   const POLL_MS = 4000
   const MAX_FILES_PER_BATCH = 20
-  const PENDING_STORAGE_PREFIX = 'sand_ai_pending_knowledge_base_'
 
   interface PendingKnowledgeBase {
     name: string
@@ -424,7 +408,6 @@
   const pageSize = ref(PAGE_SIZE)
 
   const pendingKnowledgeBase = ref<PendingKnowledgeBase | null>(null)
-  const pendingEnvironmentId = ref<number | null>(null)
 
   const createOpen = ref(false)
   const creating = ref(false)
@@ -595,61 +578,6 @@
     }
   }
 
-  function pendingStorageKey(envId: number): string {
-    return `${PENDING_STORAGE_PREFIX}${envId}`
-  }
-
-  function savePending(): void {
-    if (props.environmentId === null || pendingKnowledgeBase.value === null) return
-    try {
-      sessionStorage.setItem(pendingStorageKey(props.environmentId), JSON.stringify(pendingKnowledgeBase.value))
-      pendingEnvironmentId.value = props.environmentId
-    } catch {
-      // 存不下就只留在内存里，不影响主流程
-    }
-  }
-
-  function restorePending(): void {
-    const envId = props.environmentId
-    pendingKnowledgeBase.value = null
-    pendingEnvironmentId.value = null
-    if (envId === null) return
-    try {
-      const raw = sessionStorage.getItem(pendingStorageKey(envId))
-      if (raw === null) return
-      const parsed: unknown = JSON.parse(raw)
-      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return
-      const record = parsed as Record<string, unknown>
-      if (typeof record.name !== 'string' || record.name === '') return
-      pendingKnowledgeBase.value = {
-        name: record.name,
-        description: typeof record.description === 'string' ? record.description : '',
-        audiences: Array.isArray(record.audiences)
-          ? record.audiences.filter((item): item is string => typeof item === 'string')
-          : []
-      }
-      pendingEnvironmentId.value = envId
-    } catch {
-      // 损坏的暂存直接忽略
-    }
-  }
-
-  function clearPendingStorage(): void {
-    const envId = pendingEnvironmentId.value ?? props.environmentId
-    if (envId === null) return
-    try {
-      sessionStorage.removeItem(pendingStorageKey(envId))
-    } catch {
-      // 忽略
-    }
-    pendingKnowledgeBase.value = null
-    pendingEnvironmentId.value = null
-  }
-
-  function discardPending(): void {
-    clearPendingStorage()
-  }
-
   function openCreate(): void {
     if (props.environmentId === null) {
       ElMessage.warning('请先在上方选择环境')
@@ -717,7 +645,6 @@
       description: createForm.description.trim(),
       audiences: [...createForm.audiences]
     }
-    savePending()
     createOpen.value = false
     detailRow.value = null
     pendingDetail.value = pendingKnowledgeBase.value
@@ -740,17 +667,17 @@
     detailOpen.value = true
   }
 
-  function openPendingDetail(): void {
-    if (pendingKnowledgeBase.value === null) return
-    detailRow.value = null
-    pendingDetail.value = pendingKnowledgeBase.value
-    detailOpen.value = true
-  }
-
   function closeDetail(): void {
     detailOpen.value = false
     detailRow.value = null
     pendingDetail.value = null
+  }
+
+  /** 待建库抽屉关掉即放弃暂存名称；它只在「加资料」流程里有用，不留不可见的重名占用。 */
+  function onDetailClosed(): void {
+    if (pendingDetail.value === null) return
+    pendingDetail.value = null
+    pendingKnowledgeBase.value = null
   }
 
   async function openFilePicker(): Promise<void> {
@@ -821,7 +748,7 @@
         ElMessage.warning('资料在整理期间有变化，请重新选择后再试')
         return
       }
-      clearPendingStorage()
+      pendingKnowledgeBase.value = null
       filePickerOpen.value = false
       closeDetail()
       ElMessage.success('知识库已建好，正在整理资料')
@@ -959,7 +886,7 @@
       detailRow.value = null
       pendingDetail.value = null
       detailOpen.value = false
-      restorePending()
+      pendingKnowledgeBase.value = null
       void load()
     },
     { immediate: true }
@@ -985,10 +912,6 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-  }
-
-  .pending-alert {
-    margin-bottom: 0;
   }
 
   .filter-bar {

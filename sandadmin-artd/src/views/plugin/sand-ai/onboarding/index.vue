@@ -332,7 +332,7 @@
                   ? '当前修订已确认回到待验证。可重新配置连接；此处不会重复验证已经发送过的修订。'
                   : '当前修订的失败反馈无法确认。请保留部署与修订号并联系管理员核查；此处不会重复验证或重新配置。'" />
             <ElAlert v-if="verification?.validation_evidence?.usage_measured === false" type="warning" :closable="false"
-              title="模型已通过调用验证，但服务商未返回用量。运行费用会保持未知，依赖精确用量的限额和低成本路由可能不可用。" />
+              title="模型已通过调用验证，但服务商未返回用量。运行费用会保持未知，依赖精确用量的限额和低成本模型可能不可用。" />
             <ElAlert v-if="verification?.state === 'verifying'" type="info" :closable="false" title="服务商验证仍在进行。请稍后读取当前修订状态，不要重复发送验证请求。" />
             <ElAlert v-if="verificationUncertain" type="warning" :closable="false" title="验证结果无法确定，可能已产生服务商费用。请保留上方部署与修订号，请到服务商控制台核查调用记录并联系管理员；此处不会重新发送验证请求。" />
             <ElAlert v-if="bindingStorageError" type="warning" :closable="false"
@@ -357,7 +357,7 @@
             <p v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" class="muted">聊天能力已绑定；所选工作目标仍需按对应配置入口继续准备、试用并启用。</p>
             <ElSpace v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" wrap>
               <ElButton type="primary" :disabled="Boolean(busy)" @click="openChatTrial">试用已启用聊天能力</ElButton>
-              <span class="muted">后台管理员负责配置；应用调用使用 SandIAM 工作负载调用密钥，调用环境由凭证决定。进入“聊天路线试用”后填写该凭证，无需填写服务商 API Key。</span>
+              <span class="muted">后台管理员负责配置；应用调用使用 SandIAM 工作负载调用密钥，调用环境由凭证决定。进入“聊天模型试用”后填写该凭证，无需填写服务商 API Key。</span>
             </ElSpace>
           </section>
 
@@ -368,7 +368,7 @@
           <section v-if="selectedScene === 'meeting_recording_organization'" class="section">
             <h3>4. {{ guide.display_name }}服务</h3>
             <p>{{ guide.module_explanation }}</p>
-            <p class="muted">先配置并启用转写能力与聊天路线，再核定会议执行设置。模型验证不证明转写准确率或会议摘要完整性。</p>
+            <p class="muted">先配置并启用转写能力与聊天模型，再核定会议执行设置。模型验证不证明转写准确率或会议摘要完整性。</p>
             <ElButton @click="openCapabilityConfiguration">配置会议所需能力</ElButton>
             <MeetingExecutionSetup
               :environment-id="environmentId"

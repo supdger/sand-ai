@@ -54,8 +54,6 @@
           </div>
           <ElSpace wrap>
             <ElButton type="primary" @click="go('/sand-ai/trial')">去试用</ElButton>
-            <ElButton @click="go('/sand-ai/file')">读取文档</ElButton>
-            <ElButton @click="go('/sand-ai/task')">录音转文字</ElButton>
           </ElSpace>
         </div>
 
@@ -221,6 +219,7 @@
     type OnboardingStatus,
     type ProviderGuide,
     type ProviderModelDeployment,
+    type PublishedDeployment,
     type SuccessorDeployment,
     type Verification,
     type VerificationFailure,
@@ -233,6 +232,7 @@
   import capabilityApi from '../api/capability'
   import usageApi from '../api/usage'
   import type { SandAiModel, SandAiProvider, SandAiUsageSummary } from '../api/types'
+  import { formatMoney } from '../usage/modules/usagePeriod'
   import {
     readHomeActivationIntent,
     retainHomeActivationIntent,
@@ -1166,16 +1166,20 @@
     await refreshStatus()
   }
 
+  /** 首页花费：按币种分别合计后用费用页同一格式（¥/$）展示，跨币种不相加。 */
   function summarizeAmount(summary: SandAiUsageSummary): string {
     const rows = summary.overall?.rows ?? []
-    let total = 0
-    let currency = ''
-    for (const row of rows) {
-      if (row.metered_amount !== null) total += Number(row.metered_amount) || 0
-      if (!currency && row.currency) currency = row.currency
-    }
     if (!rows.length) return '暂无计量'
-    return currency ? `${currency} ${total.toFixed(2)}` : total.toFixed(2)
+    const totals = new Map<string, number>()
+    for (const row of rows) {
+      if (row.metered_amount === null) continue
+      const currency = row.currency ?? ''
+      totals.set(currency, (totals.get(currency) ?? 0) + (Number(row.metered_amount) || 0))
+    }
+    if (totals.size === 0) return '未计价'
+    return [...totals.entries()]
+      .map(([currency, total]) => formatMoney(String(total), currency === '' ? null : currency))
+      .join('；')
   }
 
   function summarizeEvents(summary: SandAiUsageSummary): { events: number; failed: number } {
@@ -1188,10 +1192,32 @@
     return { events, failed }
   }
 
+  /** 已启用部署的展示名：模型名 · 服务商名，不落模型代码；模型名缺失才回退 display_name。 */
+  function deploymentLabel(item: PublishedDeployment): string {
+    if (!item.model_name) return item.display_name
+    return item.provider_name ? `${item.model_name} · ${item.provider_name}` : item.model_name
+  }
+
+  /** 能力档里 chat 默认模型绑定的部署；与能力配置页「默认模型」取同一语义（非停用、优先顺序最小）。 */
+  async function boundChatDeploymentId(env: number | undefined): Promise<number | null> {
+    const result = await capabilityApi.readProfile({ environment_id: env })
+    const routes = (result.profile?.routes ?? [])
+      .filter(route => route.capability_code === 'chat' && route.status !== 2)
+      .sort((left, right) => left.priority - right.priority)
+    const primary = routes.find(route => route.route_kind === 'model_deployment')
+    return primary?.deployment_id ?? null
+  }
+
   /** 四张状态卡各自的取值函数；任一失败只把该卡标为 error。 */
   function panelFetchers(env: number | undefined, monthStart: string, todayStart: string): Record<PanelKey, () => Promise<string>> {
     return {
-      model: async () => (await onboardingApi.publishedDeployments('chat', undefined, 'chat', env)).data[0]?.display_name ?? '',
+      model: async () => {
+        const deploymentId = await boundChatDeploymentId(env)
+        if (deploymentId === null) return ''
+        const page = await onboardingApi.publishedDeployments('chat', undefined, 'chat', env)
+        const target = page.data.find(item => item.id === deploymentId)
+        return target ? deploymentLabel(target) : ''
+      },
       cost: async () => summarizeAmount(await usageApi.summary({ from_time: monthStart })),
       calls: async () => {
         const { events, failed } = summarizeEvents(await usageApi.summary({ from_time: todayStart }))

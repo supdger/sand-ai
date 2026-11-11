@@ -486,6 +486,7 @@
               <ElButton link type="primary" @click="router.push('/sand-ai/provider')">去 AI 服务商添加</ElButton>
             </p>
             </template>
+            <p v-else-if="card.snapshot === '[]' && !card.wasBound" class="cap-card__note">还没有配置，选好模型保存后即可使用。</p>
             <p v-else class="cap-card__note">已停用，{{ card.usage }}暂不可用；点「重新启用」可恢复。</p>
 
             <div class="cap-card__foot">
@@ -497,7 +498,7 @@
                 :disabled="cardWriteBlocked()"
                 @click="enableCapabilityCard(card)"
               >
-                重新启用
+                {{ card.snapshot === '[]' && !card.wasBound ? '启用' : '重新启用' }}
               </ElButton>
               <ElButton
                 v-else
@@ -516,12 +517,12 @@
             :image-size="72"
           />
         </div>
-        <div v-if="capabilityCards.length > 0" class="cap-cards-foot">
+        <div v-if="hasUnsavedCards" class="cap-cards-foot">
           <span class="cap-muted">{{ unsavedCardsHint }}</span>
           <ElButton
             type="primary"
             :loading="busy === 'save'"
-            :disabled="!hasUnsavedCards || cardWriteBlocked()"
+            :disabled="cardWriteBlocked()"
             @click="saveCapabilityCards"
           >
             保存
@@ -934,6 +935,7 @@
     modelType: string | null
     drivers: string[]
     disabled: boolean
+    wasBound: boolean
     defaultDeploymentId: number | undefined
     backupDeploymentId: number | undefined
     defaultDriverCode: string
@@ -1080,8 +1082,7 @@
   /** 页面级保存按钮只在确有未保存改动时可点；停用卡片同样计入改动。 */
   const dirtyCardCount = computed(() => capabilityCards.value.filter(card => cardDirty(card)).length)
   const hasUnsavedCards = computed(() => dirtyCardCount.value > 0)
-  const unsavedCardsHint = computed(() =>
-    dirtyCardCount.value === 0 ? '所有改动都已保存' : `${dirtyCardCount.value} 项能力有未保存的改动`)
+  const unsavedCardsHint = computed(() => `${dirtyCardCount.value} 项能力有未保存的改动`)
 
   function cardValidationError(card: CapabilityCard): string {
     if (card.disabled) return ''
@@ -1109,7 +1110,8 @@
 
   function cardTag(card: CapabilityCard): { text: string; type: 'success' | 'warning' | 'info' | 'danger' } {
     if (card.disabled) {
-      return card.snapshot === '[]' ? { text: '未配置', type: 'info' } : { text: '待停用', type: 'warning' }
+      if (card.snapshot !== '[]') return { text: '待停用', type: 'warning' }
+      return card.wasBound ? { text: '已停用', type: 'info' } : { text: '未配置', type: 'info' }
     }
     if (cardRoutes(card).length === 0) return { text: '未配置', type: 'info' }
     return profile.value?.state === 'published' ? { text: '已启用', type: 'success' } : { text: '待启用', type: 'warning' }
@@ -1351,6 +1353,8 @@
       const own = routes
         .filter(route => route.capability_code === code && route.status !== 2)
         .sort((a, b) => a.priority - b.priority)
+      // 曾绑定后被停用的路线（status=2）不参与编辑，但要把卡片与从未配置区分开。
+      const wasBound = routes.some(route => route.capability_code === code && route.status === 2)
       const consumed = kind === 'parse' ? 1 : 2
       const extras = own.slice(consumed).map(routePayload)
       const primary = own[0]
@@ -1365,6 +1369,7 @@
         modelType,
         drivers: cardDrivers(code),
         disabled: own.length === 0,
+        wasBound,
         defaultDeploymentId: undefined,
         backupDeploymentId: undefined,
         defaultDriverCode: '',

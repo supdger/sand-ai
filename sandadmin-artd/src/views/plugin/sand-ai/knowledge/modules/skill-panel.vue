@@ -110,7 +110,7 @@
         <ElFormItem>
           <ElButton type="primary" :loading="busy === 'create'" :disabled="Boolean(busy) || !canCreate"
             @click="createDraft">保存草稿版本</ElButton>
-          <span class="skill-hint">草稿固定资料、参数结构和模型路由；修改请创建新版本。</span>
+          <span class="skill-hint">草稿固定资料、参数结构和模型；修改请创建新版本。</span>
         </ElFormItem>
       </ElForm>
 

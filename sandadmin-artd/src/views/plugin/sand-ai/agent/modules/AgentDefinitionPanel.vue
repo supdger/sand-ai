@@ -163,7 +163,7 @@
 
       <ElDialog v-model="versionsVisible" title="配置版本与回退" width="min(760px, 94vw)">
         <ElAlert type="info" :closable="false" title="回退配置版本"
-          description="回退恢复此智能体当时的定义配置。模型代码与知识库别名仍按执行时当前可用路由及启用内容解析，不还原历史知识库正文。旧任务保留原实际快照；版本改变后，旧版本任务可能因当前版本限制无法读取。" />
+          description="回退恢复此智能体当时的定义配置。模型代码与知识库别名仍按执行时当前可用模型及启用内容解析，不还原历史知识库正文。旧任务保留原实际快照；版本改变后，旧版本任务可能因当前版本限制无法读取。" />
         <ElAlert v-if="versionError" type="error" :title="versionError" show-icon />
         <ElTable v-loading="versionsLoading" :data="versions" row-key="version_no">
           <ElTableColumn label="版本" width="90"><template #default="{ row }">第 {{ row.version_no }} 版</template></ElTableColumn>

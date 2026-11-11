@@ -779,7 +779,8 @@
           prop: 'source_kind',
           label: '来源',
           minWidth: 160,
-          formatter: (row: SandAiUsage) => sourceLabel(row.source_kind)
+          formatter: (row: SandAiUsage) =>
+            row.trial ? `${sourceLabel(row.source_kind)} · 试用` : sourceLabel(row.source_kind)
         },
         { prop: 'service_action', label: '能力权限', minWidth: 190 },
         { prop: 'capability_code', label: '能力', width: 130 },

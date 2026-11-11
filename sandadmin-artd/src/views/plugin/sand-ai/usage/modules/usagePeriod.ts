@@ -88,11 +88,11 @@ export function monthBoundsUtc(month: string, timeZone: string): { from: string;
 
 const CURRENCY_SYMBOLS: Record<string, string> = { CNY: '¥', USD: '$', EUR: '€', JPY: '¥' }
 
-/** 金额展示：null 表示未定价，返回「未定价」；否则保留两位小数。 */
+/** 金额展示：null 表示未计价，返回「未计价」；否则保留两位小数。 */
 export function formatMoney(amount: string | null, currency: string | null): string {
-  if (amount === null || amount === '') return '未定价'
+  if (amount === null || amount === '') return '未计价'
   const value = Number(amount)
-  if (!Number.isFinite(value)) return '未定价'
+  if (!Number.isFinite(value)) return '未计价'
   const code = currency ?? ''
   const symbol = CURRENCY_SYMBOLS[code] ?? (code ? `${code} ` : '')
   return `${symbol}${value.toFixed(2)}`
