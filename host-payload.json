@@ -144,7 +144,7 @@
     },
     {
       "path": "app/Application/Agent/AgentDefinitionGateway.php",
-      "sha256": "e3a40b27b283e6d72a1f87b1a284b1a9d2b28da1a593be4448c64e686230c89d"
+      "sha256": "9a32925537befdf12dd863786bd9a160375c8cf0be092613cd81c2bfd76b2e97"
     },
     {
       "path": "app/Application/Agent/AgentDefinitionPolicy.php",
@@ -164,7 +164,7 @@
     },
     {
       "path": "app/Application/Agent/AgentGateway.php",
-      "sha256": "60bb14a5153357f5bdde2d30a120e6b9337ec50f13a744790e986731fdaefdc3"
+      "sha256": "2d553cb08b73d2e5aea8f311528668b4d082025a4ef7f2dc91b755bfa369b4e8"
     },
     {
       "path": "app/Application/Agent/AgentPolicy.php",
@@ -1052,7 +1052,7 @@
     },
     {
       "path": "app/Application/Channel/ChannelConversationGateway.php",
-      "sha256": "5a8c809f78d89298f5eeb4a4cb6beb26e085c86a5a310bd458a6ee7e5b927577"
+      "sha256": "ba7453d91c4c864993d8b445efcf16182de4ca39c4fc8c32d94cc2ce100238c1"
     },
     {
       "path": "app/Application/Channel/ChannelConversationPolicy.php",
@@ -2408,7 +2408,7 @@
     },
     {
       "path": "app/Application/Trial/AdminTrialService.php",
-      "sha256": "11606f4e307a4913d724f8a5156498a8573624efd6291ceb04275c1a534beb1a"
+      "sha256": "3ab3eba59b20541ca25bccf53a810f18d8300e59ab53fa54ee89c9198cce58d6"
     },
     {
       "path": "app/Application/Trial/SandIamAdminTrialEntityStore.php",
@@ -3004,7 +3004,7 @@
     },
     {
       "path": "app/Identity/Infrastructure/AgentKnowledgeAccessGuard.php",
-      "sha256": "357ef0288a028abbbdf6daad3c046e310fd87e59771e9f2e7ed225491465a7e5"
+      "sha256": "fe14b804a220fb3fcd9e3b5a57af1db56bb559d512f48f68652928349169a86a"
     },
     {
       "path": "app/Identity/Infrastructure/AgentRetrievedSourceGuard.php",
@@ -3012,7 +3012,7 @@
     },
     {
       "path": "app/Identity/Infrastructure/AgentSourceFacts.php",
-      "sha256": "7dd9a7546be4b528dfe531bdad15e9f1c024e09d99d8c39d03745e6735f3c7f1"
+      "sha256": "839baddb3802ecb3cd79378ef39f05b82523f3bc530e97f29ec421acba587762"
     },
     {
       "path": "app/Identity/Infrastructure/AiTaskSourceFacts.php",
@@ -3248,7 +3248,7 @@
     },
     {
       "path": "app/Infrastructure/Agent/NeuronAgentCaller.php",
-      "sha256": "9b291ae04908da894e9c3a2e901cfa07fb5739dc846a85acdccac24e37f492c5"
+      "sha256": "fe81a0603fc88b0e4cc98397bc31cf7da6b27607907071b603c3863980885e11"
     },
     {
       "path": "app/Infrastructure/Agent/NeuronAgentCheckpoint.php",
