@@ -14,6 +14,7 @@
     <ElAlert v-if="pendingNotSubmitted" type="warning" :closable="false" title="本页确认原操作尚未发送。原配置仅留在内存中，恢复存储后可明确继续原操作；刷新或切换身份后只能按原号只读找回。" />
     <ElButton v-if="pendingNotSubmitted" v-permission="unsubmittedPermission" :disabled="Boolean(busy) || postFlight" @click="retryUnsubmitted">保留原号并继续原操作</ElButton>
     <ElButton v-if="recoveryRequired || (journal && !draft)" v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy) || postFlight || pendingNotSubmitted" @click="readState">只读找回原配置与状态</ElButton>
+    <ElButton v-if="recoveryRequired || pendingNotSubmitted" :disabled="Boolean(busy) || postFlight" @click="abandonLocalJournal">放弃此次变更</ElButton>
     <ElForm label-width="110px" @submit.prevent>
       <template v-if="!draft">
         <ElFormItem label="部署名称"><ElInput v-model.trim="name" maxlength="160" :disabled="locked" placeholder="例如：材料图片本地识别" /></ElFormItem>
@@ -55,7 +56,7 @@ const priceContext = ref<'current' | 'existing'>('current')
 const selectedPublishedPrice = ref<OcrDraft | null>(null)
 const { journal, draft, verification, busy, postFlight, locked, published, recoveryRequired, canVerify, canPublish,
   canStartNew, message, messageType, usageNotice, phaseLabel, save: saveDeployment, pendingNotSubmitted,
-  retryUnsubmitted, verify, publish, readState, saveSuccessor } = useOcrDeploymentRecovery(() => {
+  retryUnsubmitted, abandonLocalJournal, verify, publish, readState, saveSuccessor } = useOcrDeploymentRecovery(() => {
     name.value = ''; timeoutMs.value = 120000
   })
 const priceTarget = computed(() => priceContext.value === 'existing' ? selectedPublishedPrice.value : published.value ? draft.value : null)

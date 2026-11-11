@@ -28,6 +28,7 @@
     :closable="false"
     class="mb-3"
   />
+  <ElButton v-if="unknownResult || recoveryMeta" :disabled="busy || writeFlight" @click="abandonBillingChange">放弃此次变更</ElButton>
   <ElForm label-position="top" :disabled="formLocked">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
       <ElFormItem label="服务商编号"><ElInput v-model="draft.provider" /></ElFormItem>
@@ -124,10 +125,11 @@
 </template>
 <script setup lang="ts">
   import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
-  import { ElMessageBox } from 'element-plus'
+  import { ElMessage, ElMessageBox } from 'element-plus'
   import { HttpError } from '@/utils/http/error'
   import { billingInputSha, recoverBillingRequest, useBillingJournal } from '../../api/billing-recovery'
   import type { BillingRequestMeta } from '../../api/billing-recovery'
+  import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
   import { useAuth } from '@/hooks/core/useAuth'
   import { billingApi, billingError, positiveId } from '../../api/billing'
   import { evidenceLabel } from '../../api/billing-types'
@@ -156,6 +158,17 @@
     rejectionCode.value = ''
     recoveryMeta.value = journal.entries.value.find(row => row.operation === 'import' && (!props.recoveryKey || row.request_key === props.recoveryKey)) ?? null
     if (journal.storageError.value) error.value = journal.storageError.value
+  }
+  function abandonBillingChange(): void {
+    if (busy.value || writeFlight.value) return
+    confirmAbandonPendingWrite(() => {
+      journal.dropStuck(journal.owner.value)
+      recoveryMeta.value = null
+      rejectionCode.value = ''
+      unknownResult.value = false
+      attempt.value = null
+      ElMessage.success('已放弃未确认的本地记录，页面已解锁')
+    })
   }
   async function queryOriginal() {
     const entry = recoveryMeta.value

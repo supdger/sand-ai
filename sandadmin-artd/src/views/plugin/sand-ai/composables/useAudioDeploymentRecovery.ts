@@ -2,6 +2,7 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vu
 import { useUserStore } from '@/store/modules/user'
 import { HttpError } from '@/utils/http/error'
 import api, { type DraftSave, type SpeechDeployment, type TranscriptionDeployment, type Verification } from '../api/onboarding'
+import { isWriteRejected, writeRejectionText } from '../api/writeRejection'
 
 type Kind = 'audio_speech' | 'audio_transcription'
 type Mode = 'local' | 'external'
@@ -165,15 +166,40 @@ export function useAudioDeploymentRecovery(kind: Kind, clearSensitive: () => voi
         ? result.failure.recovery_action === 'configure_local_runtime_and_save_draft'
         : result.failure.error_code === 'SAND_AI_PROVIDER_REJECTED' && result.failure.recovery_action === 'reconfigure_connection')
   }
-  function unsubmitted(error: unknown): boolean {
-    if (!(error instanceof HttpError) || error.code !== 400 || !object(error.data)) return false
-    return error.data.submission_state === 'not_submitted' && error.data.retryable === false
-      && ['SAND_AI_VALIDATION_ERROR', 'SAND_AI_ONBOARDING_CONNECTION_INVALID', 'SAND_AI_ONBOARDING_HEADER_INVALID', 'SAND_AI_ONBOARDING_MODEL_INVALID'].includes(String(error.data.error_code))
-  }
   function denied(error: unknown): void {
     if (error instanceof HttpError && [401, 403].includes(error.code)) {
       clearSensitive(); draft.value = null; verification.value = null; processingLocation.value = ''
     }
+  }
+  /** 拒绝已有响应时清掉本次记录。存储坏了也清内存，避免页面一直锁着。 */
+  function unlockRejected(error: unknown, pending: Journal, previous: Journal | null): void {
+    try {
+      if (previous) persist(previous, pending)
+      else remove(pending)
+    } catch {
+      try { sessionStorage.removeItem(namespace(pending.admin_id)) } catch { /* 键删不掉时仍清内存 */ }
+      journal.value = null
+      storageError.value = false
+      draft.value = null
+      verification.value = null
+    }
+    notice(writeRejectionText(error, '这次操作被拒绝了，请核对内容后重试。'), 'error')
+  }
+  function abandonLocalJournal(): void {
+    if (busy.value || postFlight.value) return
+    epoch += 1
+    try {
+      const id = Number(user.info.id)
+      if (positive(id)) sessionStorage.removeItem(namespace(id))
+    } catch { /* 存储不可用时仍清内存锁 */ }
+    journal.value = null
+    draft.value = null
+    verification.value = null
+    storageError.value = false
+    pendingNotSubmitted.value = false
+    retryOriginal = null
+    clearSensitive()
+    notice('已放弃未确认的本地记录，页面已解锁', 'success')
   }
   function load(): void {
     try {
@@ -260,10 +286,8 @@ export function useAudioDeploymentRecovery(kind: Kind, clearSensitive: () => voi
     } catch (error) {
       if (current(original, generation)) {
         denied(error)
-        if (unsubmitted(error)) {
-          try { remove(original); notice('输入明确未提交。请修正并重新输入连接信息后保存。', 'error') }
-          catch { storageError.value = true; notice('未提交证明已返回，但原会话记录未能解除；本次不会再次发送。') }
-        } else notice('保存结果未确认，连接秘密已清除。请按原请求号只读找回；不会重发保存。')
+        if (isWriteRejected(error)) unlockRejected(error, original, null)
+        else notice('保存结果未确认，连接秘密已清除。请按原请求号只读找回；不会重发保存。')
       }
     } finally { postFlight.value = false; if (generation === epoch) { clearSensitive(); busy.value = '' } }
   }
@@ -288,7 +312,11 @@ export function useAudioDeploymentRecovery(kind: Kind, clearSensitive: () => voi
         : journal.value?.phase === 'verification_resolved' ? '固定样本结构验证通过，可明确发布此修订。' : '原验证仍未确认，请保留原号只读找回。',
       journal.value?.phase === 'verification_resolved' ? 'success' : 'warning')
     } catch (error) {
-      if (generation === epoch) { denied(error); notice('验证结果未确认。请只读找回同一管理员、部署修订和原验证号，不直接重发。') }
+      if (generation === epoch) {
+        denied(error)
+        if (isWriteRejected(error)) unlockRejected(error, next, original)
+        else notice('验证结果未确认。请只读找回同一管理员、部署修订和原验证号，不直接重发。')
+      }
     } finally { postFlight.value = false; if (generation === epoch) busy.value = '' }
   }
   async function publish(): Promise<void> {
@@ -310,7 +338,11 @@ export function useAudioDeploymentRecovery(kind: Kind, clearSensitive: () => voi
       if (generation === epoch) notice(published.value ? '原部署修订已发布，请继续配置目标环境的能力路由。'
         : '发布结果未确认，请只读找回固定修订；不会再次发布。', published.value ? 'success' : 'warning')
     } catch (error) {
-      if (generation === epoch) { denied(error); notice('发布结果未确认。保留原部署与修订，仅用读取状态找回；不会切换目标或重发。') }
+      if (generation === epoch) {
+        denied(error)
+        if (isWriteRejected(error)) unlockRejected(error, next, original)
+        else notice('发布结果未确认。保留原部署与修订，仅用读取状态找回；不会切换目标或重发。')
+      }
     } finally { postFlight.value = false; if (generation === epoch) busy.value = '' }
   }
   function startNewDraft(): void {
@@ -335,6 +367,6 @@ export function useAudioDeploymentRecovery(kind: Kind, clearSensitive: () => voi
   onMounted(load)
   onBeforeUnmount(() => { epoch += 1; pendingNotSubmitted.value = false; retryOriginal = null; clearSensitive() })
   return { mode, journal, draft, verification, processingLocation, busy, postFlight, locked, published,
-    recoveryRequired, canVerify, canPublish, canStartNew, pendingNotSubmitted, retryUnsubmitted,
+    recoveryRequired, canVerify, canPublish, canStartNew, pendingNotSubmitted, retryUnsubmitted, abandonLocalJournal,
     message, messageType, usageNotice, phaseLabel, save, verify, publish, readState, startNewDraft }
 }
