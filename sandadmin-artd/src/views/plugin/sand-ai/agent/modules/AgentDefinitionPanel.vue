@@ -22,6 +22,7 @@
         <p v-for="item in currentRecoveries" :key="item.key">
           {{ item.code }} · {{ operationLabel(item.operation) }}{{ item.rollback_version ? ` · 第 ${item.rollback_version} 版` : '' }}
           <ElButton link type="primary" :loading="operationRecoveringKey === item.key" :disabled="writing || Boolean(operationRecoveringKey)" @click="recoverOperation(item)">查看结果</ElButton>
+          <ElButton link type="warning" :disabled="writing || Boolean(operationRecoveringKey)" @click="abandonOperation(item)">放弃此次变更</ElButton>
         </p>
         <ElAlert v-if="operationRecoveryError" type="error" :closable="false" :title="operationRecoveryError" />
       </section>
@@ -71,6 +72,8 @@
                   <ElDropdownItem v-if="row.draft_version_id" :disabled="operationBlocked(row.code)" @click="publish(row)">启用</ElDropdownItem>
                   <ElDropdownItem @click="openVersions(row)">版本与回退</ElDropdownItem>
                   <ElDropdownItem v-if="row.status === 1 && row.active_version_id" :disabled="operationBlocked(row.code)" divided @click="disable(row)">停用</ElDropdownItem>
+                  <ElDropdownItem v-if="row.status !== 1" :disabled="channelCount(row) > 0" divided @click="retireAgent(row)">{{ channelCount(row) > 0 ? `删除（还有 ${channelCount(row)} 个渠道在用）` : '删除' }}</ElDropdownItem>
+                  <ElDropdownItem v-else disabled divided>删除（先停用才能删）</ElDropdownItem>
                 </ElDropdownMenu>
               </template>
             </ElDropdown>
@@ -155,8 +158,11 @@
           <p class="combo-preview">{{ comboPreview }}</p>
           <div class="drawer-actions">
             <ElButton :disabled="writing" @click="drawerVisible = false">取消</ElButton>
-            <ElButton :loading="writing" :disabled="!canSave" @click="save">保存</ElButton>
-            <ElButton type="primary" :loading="writing" :disabled="!canSave" @click="saveAndEnable">保存并启用</ElButton>
+            <ElButton v-if="editingEnabled" type="primary" :loading="writing" :disabled="!canSave" @click="saveAndEnable">保存</ElButton>
+            <template v-else>
+              <ElButton :loading="writing" :disabled="!canSave" @click="saveDraft">保存</ElButton>
+              <ElButton type="primary" :loading="writing" :disabled="!canSave" @click="saveAndEnable">保存并启用</ElButton>
+            </template>
           </div>
         </ElForm>
       </ElDrawer>
@@ -189,6 +195,7 @@
   import { useRouter } from 'vue-router'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import agentDefinitionApi, { type AgentDefinitionOperation, type AgentDefinitionOperationReceipt, type AgentDefinitionRejectedPublishReceipt, type AgentDraft, type AgentAvailableModel, type AgentContextTurnLimit, type AgentDefinitionRow, type AgentReadonlyToolSelection, type AgentVersionHistory } from '../../api/agentDefinition'
+  import type { AgentVersionDetail } from '../../api/agentDefinition'
   import knowledgePublicationApi, { type ConsumerKnowledgePublication } from '../../api/knowledgePublication'
   import channelBindingApi from '../../api/channelBinding'
   import type { SandIamEnvironmentReference } from '../../api/iam'
@@ -196,6 +203,8 @@
   import AgentTrialDialog from './AgentTrialDialog.vue'
   import { newRuntimeRequestId } from '../../api/runtime'
   import { errorDisplayText } from '../../api/errorText'
+  import { isWriteRejected, writeRejectionText } from '../../api/writeRejection'
+  import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
 
   const versionsVisible = ref(false)
   const versions = ref<AgentVersionHistory[]>([])
@@ -265,15 +274,22 @@
   function generateAgentCode(): string {
     return `agent-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
   }
+  // ElSelect clearable 清空时把 v-model 写成 undefined；取值处一律先判 string 再 trim。
   const canSave = computed(() => !operationBlocked(form.code.trim()) && !operationRecoveringKey.value && !!props.environmentId
-    && !!form.name.trim() && form.name.trim().length <= 20 && !!form.model.trim() && !!form.instructions.trim() && form.instructions.trim().length <= 2000
+    && !!form.name.trim() && form.name.trim().length <= 20 && typeof form.model === 'string' && !!form.model.trim()
+    && !!form.instructions.trim() && form.instructions.trim().length <= 2000
     && !writing.value && !editingLoading.value
     && unsupportedTools.value.length === 0 && form.tools.includes('retrieval.search')
     && form.readonly_tools.length <= 2 && form.readonly_tools.every(tool => /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(tool.business_scope))
     && (!form.readonly_tools.length || form.max_output_tokens === null || form.max_output_tokens <= 512))
   const submitAttempted = ref(false)
+  /** 编辑中条目打开时是否已启用：已启用智能体抽屉只放「取消」「保存」，保存即直接生效。 */
+  const editingEnabled = ref(false)
   /** 用户亲手改过模型下拉后不再自动预选，避免覆盖明确选择。 */
   const modelTouched = ref(false)
+  // ElSelect clearable 清空时把 v-model 写成 undefined，拉回 '' 防止后续 .trim() 崩溃。
+  watch(() => form.model as unknown, value => { if (value === undefined || value === null) form.model = '' })
+  watch(() => form.knowledge_base_code as unknown, value => { if (value === undefined || value === null) form.knowledge_base_code = '' })
   /** 可用模型目录来自已发布聊天能力档，第一项即环境默认对话模型。 */
   const defaultModelCode = computed(() => models.value[0]?.code ?? '')
   const fieldErrors = computed(() => ({
@@ -289,7 +305,7 @@
   /** 一行灰字说明组合顺序；未选模型/知识库时给出当前状态。 */
   const comboPreview = computed(() => {
     const modelName = selectedModel.value || '所选模型'
-    if (!form.model.trim()) return '先选「用哪个模型」，这里会说明回答怎么组合'
+    if (!(typeof form.model === 'string' && form.model.trim())) return '先选「用哪个模型」，这里会说明回答怎么组合'
     if (!form.knowledge_base_code) return `会直接用「${modelName}」回答，不查知识库`
     return `会先查「${selectedKnowledge.value || '所选知识库'}」，再用「${modelName}」回答`
   })
@@ -411,6 +427,7 @@
     ++formEpoch
     editingLoading.value = false
     editingId.value = null
+    editingEnabled.value = false
     submitAttempted.value = false
     modelTouched.value = false
     Object.assign(form, { code: generateAgentCode(), name: '', model: '', knowledge_base_code: '', instructions: '', readonly_tools: [], tools: ['retrieval.search'], review_required: true, max_output_tokens: null, context_turn_limit: 2 })
@@ -418,7 +435,8 @@
   }
   /** 新建草稿时预选环境默认模型；编辑中、已手选或目录未就绪时不覆盖。 */
   function applyDefaultModel(): void {
-    if (modelTouched.value || editingId.value !== null || form.model.trim() || !defaultModelCode.value) return
+    const currentModel = typeof form.model === 'string' ? form.model : ''
+    if (modelTouched.value || editingId.value !== null || currentModel.trim() || !defaultModelCode.value) return
     form.model = defaultModelCode.value
   }
   async function loadModels(): Promise<void> {
@@ -506,6 +524,16 @@
     }
     void loadChannels()
   }
+  /** 在版本历史里找当前启用版本；逐页向后找，找不到返回 null。 */
+  async function findActiveVersion(environmentId: number, code: string): Promise<AgentVersionHistory | null> {
+    for (let page = 1; page <= 20; page++) {
+      const result = await agentDefinitionApi.versions(environmentId, code, page)
+      const active = result.data.find(version => version.is_active)
+      if (active) return active
+      if (page * 20 >= result.total || result.data.length === 0) return null
+    }
+    return null
+  }
   async function edit(row: AgentDefinitionRow): Promise<void> {
     const environmentId = props.environmentId
     if (!environmentId) return
@@ -515,19 +543,27 @@
     try {
       const detail = await agentDefinitionApi.read(environmentId, row.code)
       if (current !== formEpoch || props.environmentId !== environmentId) return
+      // 表单按当前启用版本装配，与生效配置一致；没有启用版本时才用最新版本（含未启用草稿）。
+      let source: Omit<AgentVersionDetail, 'id' | 'version' | 'state'> | null = detail.latest_version
+      if (detail.active_version_id !== null) {
+        const active = await findActiveVersion(environmentId, row.code)
+        if (current !== formEpoch || props.environmentId !== environmentId) return
+        if (active) source = active.config
+      }
       editingId.value = detail.agent_definition_id
+      editingEnabled.value = agentEnabled(row)
       submitAttempted.value = false
       modelTouched.value = false
       Object.assign(form, {
         code: detail.code, name: detail.name,
-        model: detail.latest_version?.model ?? '',
-        knowledge_base_code: detail.latest_version?.knowledge_base_code ?? '',
-        instructions: detail.latest_version?.instructions ?? '',
-        readonly_tools: (detail.latest_version?.readonly_tools ?? []).map(tool => ({ ...tool })),
-        tools: [...(detail.latest_version?.tools ?? ['retrieval.search'])],
-        review_required: detail.latest_version?.review_required ?? true,
-        max_output_tokens: detail.latest_version?.max_output_tokens ?? null,
-        context_turn_limit: detail.latest_version?.context_turn_limit ?? 2
+        model: source?.model ?? '',
+        knowledge_base_code: source?.knowledge_base_code ?? '',
+        instructions: source?.instructions ?? '',
+        readonly_tools: (source?.readonly_tools ?? []).map(tool => ({ ...tool })),
+        tools: [...(source?.tools ?? ['retrieval.search'])],
+        review_required: source?.review_required ?? true,
+        max_output_tokens: source?.max_output_tokens ?? null,
+        context_turn_limit: source?.context_turn_limit ?? 2
       })
       drawerVisible.value = true
     } catch (failure) {
@@ -667,15 +703,44 @@
       }
     } finally { if (stillCurrent()) operationRecoveringKey.value = '' }
   }
-  async function completeOperation(reference: OperationReference, result: AgentDefinitionOperationReceipt, stillCurrent: () => boolean): Promise<void> {
+  /** 「放弃此次变更」：用户确认后清掉本地变更记录解锁；记录损坏读不出时按 key 强制移除。 */
+  function abandonOperation(reference: OperationReference): void {
+    confirmAbandonPendingWrite(async () => {
+      const cleared = await acknowledgeOperation(reference, () => originalScope(reference))
+      if (cleared) {
+        operationRecoveryError.value = ''
+        return
+      }
+      try {
+        const raw: unknown = JSON.parse(localStorage.getItem(operationJournalKey) || '[]')
+        const entries = Array.isArray(raw)
+          ? raw.filter(item => !(item !== null && typeof item === 'object' && !Array.isArray(item)
+              && (item as { key?: unknown }).key === reference.key))
+          : []
+        localStorage.setItem(operationJournalKey, JSON.stringify(entries))
+      } catch {
+        localStorage.removeItem(operationJournalKey)
+      }
+      readOperationJournal()
+    })
+  }
+  /** 写操作被明确拒绝：结清本地变更记录并给白话原因；记录解除失败时引导「放弃此次变更」。 */
+  async function settleRejectedOperation(reference: OperationReference, failure: unknown, stillCurrent: () => boolean,
+    rejectedFallback: string): Promise<void> {
+    const cleared = await acknowledgeOperation(reference, stillCurrent)
+    error.value = cleared
+      ? `${writeRejectionText(failure, rejectedFallback)}`
+      : `${writeRejectionText(failure, rejectedFallback)}原操作记录没能解除，请点「放弃此次变更」解锁后再继续。`
+  }
+  async function completeOperation(reference: OperationReference, result: AgentDefinitionOperationReceipt, stillCurrent: () => boolean, quiet = false): Promise<void> {
     if (!stillCurrent()) return
     if (!receiptMatches(result, reference)) throw new Error('操作回执与原智能体、版本或启用快照不一致，请查看原请求结果')
     if (!await acknowledgeOperation(reference, stillCurrent) || !stillCurrent()) return
-    ElMessage.success(`${operationLabel(reference.operation)}已确认，当前配置正在重新读取`)
+    if (!quiet) ElMessage.success(`${operationLabel(reference.operation)}已确认，当前配置正在重新读取`)
     await readBackOperation(reference, stillCurrent)
   }
   /** 保存草稿；返回是否已确认完成，供「保存并启用」继续启用。 */
-  async function save(): Promise<boolean> {
+  async function saveDraft(): Promise<boolean> {
     const environmentId = props.environmentId
     submitAttempted.value = true
     if (!environmentId || !canSave.value || writing.value) return false
@@ -683,38 +748,58 @@
     const identity = identityEpoch
     const stillCurrent = () => current === scopeEpoch && identity === identityEpoch && props.environmentId === environmentId
     const draft: AgentDraft = { environment_id: environmentId, code: form.code.trim(), name: form.name.trim(),
-      model: form.model.trim(), instructions: form.instructions.trim(), tools: [...form.tools], review_required: form.review_required,
-      max_output_tokens: form.max_output_tokens, knowledge_base_code: form.knowledge_base_code.trim() || null,
+      model: typeof form.model === 'string' ? form.model.trim() : '',
+      instructions: form.instructions.trim(), tools: [...form.tools], review_required: form.review_required,
+      max_output_tokens: form.max_output_tokens,
+      knowledge_base_code: (typeof form.knowledge_base_code === 'string' ? form.knowledge_base_code.trim() : '') || null,
       context_turn_limit: form.context_turn_limit, readonly_tools: form.readonly_tools.map(tool => ({ ...tool })) }
     const flight = Symbol('agent-management')
     managementFlight.value = flight
     error.value = ''
+    let reference: OperationReference | null = null
+    let dispatched = false
     let confirmed = false
     try {
-      const reference = await startOperation('draft', draft.code, editingId.value, null, null, stillCurrent)
+      reference = await startOperation('draft', draft.code, editingId.value, null, null, stillCurrent)
       if (!reference || !stillCurrent()) return false
+      dispatched = true
       const result = await agentDefinitionApi.draft(draft, reference.key)
-      await completeOperation(reference, result, stillCurrent)
+      await completeOperation(reference, result, stillCurrent, true)
       confirmed = stillCurrent()
-    } catch (failure) { if (stillCurrent()) error.value = `${errorDisplayText(failure, '保存结果未确认')}；请查看原请求结果，不要重新提交。` }
-    finally { if (managementFlight.value === flight) managementFlight.value = null }
+    } catch (failure) {
+      if (stillCurrent()) {
+        if (dispatched && reference && isWriteRejected(failure)) await settleRejectedOperation(reference, failure, stillCurrent, '这次保存被拒绝了。')
+        else error.value = `${errorDisplayText(failure, '保存结果未确认')}；请查看原请求结果，不要重新提交。`
+      }
+    } finally { if (managementFlight.value === flight) managementFlight.value = null }
     return confirmed
   }
-  /** 保存草稿 → 启用最新草稿；不选知识库也可以启用，运行时只靠模型回答。 */
+  /** 「保存」按钮（未启用智能体）：只存草稿，成功后提示并关闭抽屉。 */
+  async function saveDraftOnly(): Promise<void> {
+    if (await saveDraft()) {
+      ElMessage.success(`已保存「${form.name.trim()}」`)
+      drawerVisible.value = false
+    }
+  }
+  /** 保存草稿 → 启用最新草稿一步完成；不选知识库也可以启用，运行时只靠模型回答。 */
   async function saveAndEnable(): Promise<void> {
     if (writing.value) return
+    const name = form.name.trim()
     const code = form.code.trim()
-    const saved = await save()
+    const saved = await saveDraft()
     if (!saved) return
     const row = rows.value.find(item => item.code === code)
     if (!row) {
       error.value = '已保存，但暂时读不到这个智能体，请刷新后再试。'
       return
     }
-    await publish(row)
+    if (await publish(row, true)) {
+      ElMessage.success(editingEnabled.value ? `已保存「${name}」` : `已保存并启用「${name}」`)
+      drawerVisible.value = false
+    }
   }
-  /** 启用；返回是否已确认完成。 */
-  async function publish(row: AgentDefinitionRow): Promise<boolean> {
+  /** 启用；返回是否已确认完成。skipConfirm 用于「保存并启用」一步流程，不再弹确认框。 */
+  async function publish(row: AgentDefinitionRow, skipConfirm = false): Promise<boolean> {
     const environmentId = props.environmentId
     if (!environmentId || writing.value || operationRecoveringKey.value || operationBlocked(row.code)) return false
     const current = scopeEpoch
@@ -723,6 +808,7 @@
     const flight = Symbol('agent-management')
     managementFlight.value = flight
     error.value = ''
+    let reference: OperationReference | null = null
     let dispatched = false
     let confirmed = false
     try {
@@ -737,19 +823,25 @@
       const expectedSha = draft.snapshot_sha256
       const modelName = draft.config.model
       const knowledgeName = draft.config.knowledge_base_code ? knowledgeNameOf(draft.config.knowledge_base_code) ?? draft.config.knowledge_base_code : '未绑定知识库'
-      try { await ElMessageBox.confirm(`启用「${row.name}」第 ${draft.version_no} 版草稿（模型 ${modelName}，知识库 ${knowledgeName}）。应用和渠道将使用此配置，旧版本结果将不可用。确认期间草稿变化会拒绝启用，请刷新并重新确认。`, '启用已确认的智能体草稿', { type: 'warning', confirmButtonText: '启用此版草稿' }) }
-      catch { return false }
+      if (!skipConfirm) {
+        try { await ElMessageBox.confirm(`启用「${row.name}」第 ${draft.version_no} 版草稿（模型 ${modelName}，知识库 ${knowledgeName}）。应用和渠道将使用此配置，旧版本结果将不可用。确认期间草稿变化会拒绝启用，请刷新并重新确认。`, '启用已确认的智能体草稿', { type: 'warning', confirmButtonText: '启用此版草稿' }) }
+        catch { return false }
+      }
       if (!stillCurrent()) return false
-      const reference = await startOperation('publish', row.code, row.agent_definition_id, null, expectedSha, stillCurrent)
+      reference = await startOperation('publish', row.code, row.agent_definition_id, null, expectedSha, stillCurrent)
       if (!reference || !stillCurrent()) return false
       dispatched = true
       const result = await agentDefinitionApi.publish(environmentId, row.agent_definition_id, reference.key, expectedSha)
-      await completeOperation(reference, result, stillCurrent)
+      await completeOperation(reference, result, stillCurrent, skipConfirm)
       confirmed = stillCurrent()
-    } catch (failure) { if (stillCurrent()) error.value = dispatched
-      ? `${errorDisplayText(failure, '启用结果未确认')}；请查看原请求结果。若草稿冲突，请重新读取当前配置并确认，不能自动改版启用。`
-      : `${errorDisplayText(failure, '草稿读取失败')}；本次未提交启用，请刷新列表、重新读取配置后确认。` }
-    finally { if (managementFlight.value === flight) managementFlight.value = null }
+    } catch (failure) {
+      if (stillCurrent()) {
+        if (dispatched && reference && isWriteRejected(failure)) await settleRejectedOperation(reference, failure, stillCurrent, '这次启用被拒绝了。')
+        else error.value = dispatched
+          ? `${errorDisplayText(failure, '启用结果未确认')}；请查看原请求结果。若草稿冲突，请重新读取当前配置并确认，不能自动改版启用。`
+          : `${errorDisplayText(failure, '草稿读取失败')}；本次未提交启用，请刷新列表、重新读取配置后确认。`
+      }
+    } finally { if (managementFlight.value === flight) managementFlight.value = null }
     return confirmed
   }
   async function disable(row: AgentDefinitionRow): Promise<void> {
@@ -761,17 +853,48 @@
     const flight = Symbol('agent-management')
     managementFlight.value = flight
     error.value = ''
+    let reference: OperationReference | null = null
+    let dispatched = false
     try {
       const boundCount = channelRows.value.filter(item => item.agent_definition_id === row.agent_definition_id).length
       try { await ElMessageBox.confirm(`停用「${row.name}」后${boundCount > 0 ? `接到的 ${boundCount} 个渠道里的人问了不会再回答` : '新任务和旧版本结果都将不可用'}，随时可以再启用。`, '停用智能体', { type: 'warning', confirmButtonText: '停用' }) }
       catch { return }
       if (!stillCurrent()) return
-      const reference = await startOperation('disable', row.code, row.agent_definition_id, null, null, stillCurrent)
+      reference = await startOperation('disable', row.code, row.agent_definition_id, null, null, stillCurrent)
       if (!reference || !stillCurrent()) return
+      dispatched = true
       const result = await agentDefinitionApi.disable(environmentId, row.agent_definition_id, reference.key)
       await completeOperation(reference, result, stillCurrent)
-    } catch (failure) { if (stillCurrent()) error.value = `${errorDisplayText(failure, '停用结果未确认')}；请查看原请求结果，不要重新提交。` }
-    finally { if (managementFlight.value === flight) managementFlight.value = null }
+    } catch (failure) {
+      if (stillCurrent()) {
+        if (dispatched && reference && isWriteRejected(failure)) await settleRejectedOperation(reference, failure, stillCurrent, '这次停用被拒绝了。')
+        else error.value = `${errorDisplayText(failure, '停用结果未确认')}；请查看原请求结果，不要重新提交。`
+      }
+    } finally { if (managementFlight.value === flight) managementFlight.value = null }
+  }
+  function channelCount(row: AgentDefinitionRow): number {
+    return channelRows.value.filter(item => item.agent_definition_id === row.agent_definition_id).length
+  }
+  async function retireAgent(row: AgentDefinitionRow): Promise<void> {
+    const environmentId = props.environmentId
+    if (!environmentId || writing.value || row.status === 1 || channelCount(row) > 0) return
+    try {
+      await ElMessageBox.confirm(`删除后「${row.name}」不能恢复。`, `删除「${row.name}」？`, { type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想' })
+    } catch { return }
+    const flight = Symbol('agent-management')
+    managementFlight.value = flight
+    error.value = ''
+    try {
+      const result = await agentDefinitionApi.retire(environmentId, row.agent_definition_id)
+      if (result.state !== 'deleted' || result.agent_definition_id !== row.agent_definition_id) {
+        error.value = '删除响应与这条智能体不一致，请刷新后再看'
+        return
+      }
+      ElMessage.success(`已删除「${row.name}」`)
+      await load()
+    } catch (failure) {
+      error.value = errorDisplayText(failure, '删除没有成功，请稍后再试。')
+    } finally { if (managementFlight.value === flight) managementFlight.value = null }
   }
   function toolVersionsLabel(tools: readonly AgentReadonlyToolSelection[] | undefined): string { return tools?.map(tool => `${tool.code} v${tool.version} · ${tool.business_scope}`).join('；') || '仅私有检索' }
   async function openVersions(row: AgentDefinitionRow): Promise<void> {
@@ -808,16 +931,29 @@
     const flight = Symbol('agent-management')
     managementFlight.value = flight
     versionError.value = ''
+    let reference: OperationReference | null = null
+    let dispatched = false
     try {
       try { await ElMessageBox.confirm(`将「${owner.name}」恢复为第 ${version.version_no} 版定义配置；知识库别名仍使用当前启用内容。`, '回退配置版本', { type: 'warning' }) }
       catch { return }
       if (!stillCurrent()) return
-      const reference = await startOperation('rollback', owner.code, owner.agent_definition_id, version.version_no, null, stillCurrent)
+      reference = await startOperation('rollback', owner.code, owner.agent_definition_id, version.version_no, null, stillCurrent)
       if (!reference || !stillCurrent()) return
+      dispatched = true
       const result = await agentDefinitionApi.rollback(environment, owner.agent_definition_id, version.version_no, reference.key)
       await completeOperation(reference, result, stillCurrent)
-    } catch (failure) { if (stillCurrent()) versionError.value = `${errorDisplayText(failure, '回退结果未确认')}；请查看原请求结果，不再发送回退。` }
-    finally { if (managementFlight.value === flight) managementFlight.value = null }
+    } catch (failure) {
+      if (stillCurrent()) {
+        if (dispatched && reference && isWriteRejected(failure)) {
+          const cleared = await acknowledgeOperation(reference, stillCurrent)
+          versionError.value = cleared
+            ? writeRejectionText(failure, '这次回退被拒绝了。')
+            : `${writeRejectionText(failure, '这次回退被拒绝了。')}原操作记录没能解除，请点「放弃此次变更」解锁后再继续。`
+        } else {
+          versionError.value = `${errorDisplayText(failure, '回退结果未确认')}；请查看原请求结果，不再发送回退。`
+        }
+      }
+    } finally { if (managementFlight.value === flight) managementFlight.value = null }
   }
   defineExpose({ openCreate, requestEnable })
 

@@ -47,6 +47,19 @@ final class AgentDefinitionController extends SandAiAdminController
         });
     }
 
+    #[Permission('SandAI 删除智能体', 'sand_ai:agent:definition:manage')]
+    public function retire(Request $request): Response
+    {
+        return $this->guard(function () use ($request): array {
+            $body = $this->body($request, ['environment_id', 'agent_definition_id']);
+            return (new AgentDefinitionGateway())->retire(
+                $this->positiveInt($body['environment_id'] ?? null),
+                $this->positiveInt($body['agent_definition_id'] ?? null),
+                (string) $this->authenticatedAdminId()
+            );
+        });
+    }
+
     #[Permission('SandAI 找回智能体管理操作', 'sand_ai:agent:definition:manage')]
     public function readOperationByRequestKey(Request $request): Response
     {
