@@ -144,7 +144,7 @@
     },
     {
       "path": "app/Application/Agent/AgentDefinitionGateway.php",
-      "sha256": "9a32925537befdf12dd863786bd9a160375c8cf0be092613cd81c2bfd76b2e97"
+      "sha256": "764d3e3cc8852d2dc1057d1e8c4437ee42e5a554796f49eb246659b1f614f383"
     },
     {
       "path": "app/Application/Agent/AgentDefinitionPolicy.php",
@@ -1044,11 +1044,11 @@
     },
     {
       "path": "app/Application/Channel/ChannelBindingGateway.php",
-      "sha256": "cb2d62c7a6a323800bfbe3328bb3cf034505a4bd7b41261bb2c4497d9d228948"
+      "sha256": "c929fd1870901277ece1cc369de5196a49b59bd197e66dac9804c840b1acd8e1"
     },
     {
       "path": "app/Application/Channel/ChannelBindingPolicy.php",
-      "sha256": "438db7783a197c35747dfa0634ee27938546cfda4afa5835f19172d9ff815cab"
+      "sha256": "60194b08840d304670e139ffd31b8cc8b5a0ae2f2b4f8fa1d39bb73bba66c01d"
     },
     {
       "path": "app/Application/Channel/ChannelConversationGateway.php",
@@ -1168,7 +1168,7 @@
     },
     {
       "path": "app/Application/Composition/CompositionDefinitionGateway.php",
-      "sha256": "ce8d5e008975f931819eae69650e2fb541c62d02a67b2bbfd33e4837c06f8cbf"
+      "sha256": "6fba59e2000607eb0392aca300d39a6fdc16d84e0a3f3422e1a2e48c5d600561"
     },
     {
       "path": "app/Application/Composition/CompositionExecuteNode.php",
@@ -1544,7 +1544,7 @@
     },
     {
       "path": "app/Application/Knowledge/KnowledgeBaseGateway.php",
-      "sha256": "f35beccfa0c75b838a1f39480087a03a68fd1c9d8c51b7842e6eb51ae642f9ce"
+      "sha256": "81e3362aff099d87bb618c9257b32886884ba4097ad81667285c1795aea825b1"
     },
     {
       "path": "app/Application/Knowledge/KnowledgeBasePolicy.php",

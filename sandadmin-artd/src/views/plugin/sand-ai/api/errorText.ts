@@ -74,8 +74,6 @@ export function errorDisplayText(error: unknown, fallback = '操作未完成，�
         return '服务暂时异常，请稍后重试；持续失败请联系系统维护人员。'
       }
     }
-    const text = displayableRuntimeMessage(error.message)
-    if (text) return text
     reportRaw(error)
     return fallback
   }
