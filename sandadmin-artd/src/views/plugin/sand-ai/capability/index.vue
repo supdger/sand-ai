@@ -964,6 +964,9 @@
   const cardDrafts = new Map<string, CapabilityCardDraft>()
   /** 同一模型类型的目录请求按序号作废旧结果；不同类型互不取消，可并行预取。 */
   const cardDeploymentSeq: Record<string, number> = {}
+  /** 未过滤目录失败后的有限自动重试；成功或身份/目标重置时清零。 */
+  const cardDeploymentRetries: Record<string, number> = {}
+  const cardRetryTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   /** 卡片展示顺序：先对话等高频能力，再文件/多模态，最后检索与音频。 */
   const CAPABILITY_ORDER = [
@@ -1174,7 +1177,8 @@
   function withCurrentOption(card: CapabilityCard, options: PublishedDeployment[], currentId: number | undefined): PublishedDeployment[] {
     if (!currentId || options.some(item => item.id === currentId)) return options
     const catalog = card.modelType ? cardDeploymentCatalog.value[card.modelType] : undefined
-    const known = catalog?.items.find(item => item.id === currentId)
+    const cached = card.modelType ? cardDeploymentCache.value[card.modelType] : undefined
+    const known = catalog?.items.find(item => item.id === currentId) ?? cached?.find(item => item.id === currentId)
     const placeholder: PublishedDeployment = {
       id: currentId,
       deployment_revision: 0,
@@ -1214,7 +1218,9 @@
   }
 
   async function ensureCardDeployments(card: CapabilityCard): Promise<void> {
-    if (!card.modelType || cardDeploymentRequested.value[card.modelType]) return
+    if (!card.modelType || cardDeploymentLoading.value[card.modelType]) return
+    // requested 只证明拿过一次目录；目录缺失（失败或被作废）时允许重试，避免占位文案卡死。
+    if (cardDeploymentRequested.value[card.modelType] && cardDeploymentCatalog.value[card.modelType]) return
     cardDeploymentRequested.value = { ...cardDeploymentRequested.value, [card.modelType]: true }
     await loadCardDeployments(card.modelType, '')
   }
@@ -1235,6 +1241,12 @@
       // 只有未过滤的整页结果才更新下线判定目录；搜索结果只进下拉缓存。
       if (query === '') {
         cardDeploymentCatalog.value = { ...cardDeploymentCatalog.value, [modelType]: { items: page.data, total: page.total } }
+        cardDeploymentRetries[modelType] = 0
+        const pendingTimer = cardRetryTimers.get(modelType)
+        if (pendingTimer !== undefined) {
+          clearTimeout(pendingTimer)
+          cardRetryTimers.delete(modelType)
+        }
       }
       if (current !== cardDeploymentSeq[modelType]) return
       cardDeploymentCache.value = { ...cardDeploymentCache.value, [modelType]: page.data }
@@ -1244,12 +1256,32 @@
     } catch (error) {
       if (current === cardDeploymentSeq[modelType] && epoch === identityEpoch) {
         errorMessage.value = errorDisplayText(error, '读取可选模型失败，请检查后台权限')
+        // 目录缺失时安排有限自动重试，避免已选模型一直停在中性占位；搜索请求不重试。
+        if (query === '') scheduleCardDeploymentRetry(modelType, epoch)
       }
     } finally {
       if (current === cardDeploymentSeq[modelType] && epoch === identityEpoch) {
         cardDeploymentLoading.value = { ...cardDeploymentLoading.value, [modelType]: false }
       }
     }
+  }
+
+  /** 未过滤目录失败后有限自动重试（每类型最多 2 次）；身份或目标变化后旧定时器作废。 */
+  function scheduleCardDeploymentRetry(modelType: string, epoch: number): void {
+    const attempts = cardDeploymentRetries[modelType] ?? 0
+    if (attempts >= 2 || cardRetryTimers.has(modelType)) return
+    cardDeploymentRetries[modelType] = attempts + 1
+    const timer = setTimeout(() => {
+      cardRetryTimers.delete(modelType)
+      if (epoch === identityEpoch) void loadCardDeployments(modelType, '')
+    }, 1200)
+    cardRetryTimers.set(modelType, timer)
+  }
+
+  function clearCardDeploymentRetries(): void {
+    for (const timer of cardRetryTimers.values()) clearTimeout(timer)
+    cardRetryTimers.clear()
+    for (const key of Object.keys(cardDeploymentRetries)) delete cardDeploymentRetries[key]
   }
 
   function driverOptionLabel(code: string): string {
@@ -1362,6 +1394,7 @@
     cardDeploymentRequested.value = {}
     cardDeploymentCatalog.value = {}
     for (const key of Object.keys(cardDeploymentSeq)) delete cardDeploymentSeq[key]
+    clearCardDeploymentRetries()
     capabilityLoading.value = true
     capabilityLoadFailed.value = false
     capabilityLoadError.value = null
@@ -1975,6 +2008,7 @@
     cardDeploymentRequested.value = {}
     cardDeploymentCatalog.value = {}
     for (const key of Object.keys(cardDeploymentSeq)) delete cardDeploymentSeq[key]
+    clearCardDeploymentRetries()
     capabilityLoadFailed.value = false
     capabilityLoadError.value = null
   }, { flush: 'sync' })
@@ -2007,6 +2041,7 @@
 
   onBeforeUnmount(() => {
     identityEpoch++; profileGeneration++; applicationGeneration++; environmentGeneration++; deploymentGeneration++
+    clearCardDeploymentRetries()
     form.name = 'default-capability'; form.template_code = ''; form.data_egress_policy = 'local_only'; form.routes = []
     profile.value = null; deploymentOptions.value = []
     capabilityCards.value = []
