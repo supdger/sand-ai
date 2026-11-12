@@ -105,12 +105,10 @@
           providerIdentitySourceLabels[identity.source]
         }}</ElDescriptionsItem>
         <ElDescriptionsItem label="标识值" :span="2">{{ identity.value }}</ElDescriptionsItem>
-        <ElDescriptionsItem label="接收时间（世界标准时间）" :span="2">{{
-          identity.received_time
-        }}</ElDescriptionsItem>
+        <ElDescriptionsItem label="接收时间" :span="2">{{ formatServerDateTime(identity.received_time) }}</ElDescriptionsItem>
       </ElDescriptions>
       <p class="mb-3 text-sm text-gray-500">
-        标识供核查原调用；响应编号不作为服务商账单请求号。接收时间为服务器收到标识的时间，
+        标识供核查原调用；响应编号不作为服务商账单请求号。接收时间为服务器收到标识的时间（已换算成本地时区），
         不代表服务商完成时间。已收到标识不证明结果完整、用量已测得或已付款，也不能据此释放预算或重发调用。
       </p>
     </section>
@@ -233,6 +231,7 @@
     SandAiRefundCostTotals
   } from '../../api/types'
   import { reviewLabel } from '../../api/billing-types'
+  import { formatServerDateTime } from '../../api/localTime'
 
   const props = defineProps<{ cost: SandAiInvocationCost; columns?: 1 | 2 }>()
   const { width } = useWindowSize()

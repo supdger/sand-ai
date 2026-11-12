@@ -71,7 +71,8 @@
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import { ref } from 'vue'
-  import { ElMessage, ElMessageBox } from 'element-plus'
+  import { ElMessage } from 'element-plus'
+  import { confirmDeletion } from '../composables/confirmDeletion'
   import { useTable } from '@/hooks/core/useTable'
   import providerApi from '../api/provider'
   import { providerAdapterLabel } from '../api/displayLabels'
@@ -150,9 +151,7 @@
 
   async function handleDelete(row: SandAiProvider): Promise<void> {
     try {
-      await ElMessageBox.confirm(`确认删除服务商「${row.name}」？`, '删除确认', {
-        type: 'warning'
-      })
+      await confirmDeletion('删除后不能恢复，用过的费用记录会保留。', `删除「${row.name}」？`)
       await providerApi.delete({ ids: [row.id] })
       ElMessage.success('删除成功')
       refreshData()

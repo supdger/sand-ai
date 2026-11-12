@@ -1,32 +1,42 @@
 <template>
   <div>
-    <ElUpload :auto-upload="false" :show-file-list="false" :accept="accept" :disabled="disabled || busy || !scope || storageFailed || (!!pending && !retryAllowed)" @change="select">
-      <ElButton type="primary" plain :loading="busy" :disabled="disabled || busy || !scope || storageFailed || (!!pending && !retryAllowed)">{{ pending ? '选择同一文件继续原上传' : '选择并上传材料' }}</ElButton>
-    </ElUpload>
+    <div ref="uploadBox" :class="{ 'file-upload-hidden': hideTrigger }">
+      <ElUpload :auto-upload="false" :show-file-list="false" :accept="accept" :disabled="disabled || busy || !scope || storageFailed || (!!pending && !retryAllowed)" @change="select">
+        <ElButton type="primary" plain :loading="busy" :disabled="disabled || busy || !scope || storageFailed || (!!pending && !retryAllowed)">{{ pending ? '选择同一文件继续原上传' : '选择并上传材料' }}</ElButton>
+      </ElUpload>
+    </div>
     <ElAlert v-if="pending && pending.scope === scope" type="warning" :closable="false" title="有一份上传还没确认。请点下面的按钮查看结果，不要重新选文件。">
       <p>{{ pending.name }} · {{ pending.size }} 字节</p>
       <ElButton :disabled="busy || !scope" @click="recover">查看上传结果</ElButton>
       <p v-if="retryAllowed">原上传尚未完成。可重新选择相同文件继续，不会创建另一份材料。</p>
     </ElAlert>
     <ElAlert v-if="message" :type="problem ? 'warning' : 'info'" :closable="false" :title="message" />
-    <ElButton v-if="!scope || storageFailed" :disabled="busy || !bearer.trim()" @click="initialize">重新确认上传身份与原记录</ElButton>
+    <ElButton v-if="!scope || storageFailed" :disabled="busy || !bearer.trim()" @click="initialize">{{ plain ? '重试上传' : '重新确认上传身份与原记录' }}</ElButton>
   </div>
 </template>
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import type { UploadFile } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
 import fileApi, { type UploadReceipt } from '../api/file'
 import { newRuntimeRequestId, SandAiRuntimeError } from '../api/runtime'
 import type { SandAiFile } from '../api/types'
-const props = withDefaults(defineProps<{ bearer: string; environmentId?: number; disabled: boolean; accept?: string }>(), { accept: '.pdf,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp' })
+const props = withDefaults(defineProps<{ bearer: string; environmentId?: number; disabled: boolean; accept?: string; hideTrigger?: boolean; plain?: boolean }>(), { accept: '.pdf,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp', hideTrigger: false, plain: false })
 const emit = defineEmits<{ file: [file: SandAiFile]; busy: [busy: boolean]; 'identity-denied': [failure: SandAiRuntimeError] }>()
 const user = useUserStore()
 type Pending = { key: string; name: string; size: number; sha256: string; scope: string; environmentId: number; fileId: number | null }
 const pending = ref<Pending | null>(null)
 const scope = ref(''); const busy = ref(false); const message = ref(''); const problem = ref(false)
 const storageFailed = ref(false); const retryAllowed = ref(false)
+const uploadBox = ref<HTMLElement | null>(null)
 let generation = 0; let environment = 0; let storageKey = ''
+let autoRetries = 0; let retryTimer: ReturnType<typeof setTimeout> | null = null
+const uploadReady = computed(() => scope.value !== '' && !storageFailed.value && !busy.value)
+function pick(): void {
+  const input = uploadBox.value?.querySelector('input[type="file"]')
+  if (input instanceof HTMLInputElement) input.click()
+}
+defineExpose({ pick, uploadReady })
 function setBusy(value: boolean): void { busy.value = value; emit('busy', value) }
 function valid(value: unknown): value is Pending {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
@@ -57,9 +67,17 @@ function failure(error: unknown, text: string): void {
   problem.value = true; message.value = text
   if (error instanceof SandAiRuntimeError && ([401, 403].includes(error.httpStatus) || error.errorCode === 'SAND_AI_ENVIRONMENT_MISMATCH')) emit('identity-denied', error)
 }
+/** 一次暂时性失败就把上传永久置灰（N-2）；自动重试两次后再请用户手动重试。 */
+function scheduleRetry(): void {
+  if (retryTimer !== null) clearTimeout(retryTimer)
+  if (autoRetries >= 2) return
+  autoRetries += 1
+  retryTimer = setTimeout(() => { retryTimer = null; void initialize() }, 4000)
+}
 async function initialize(): Promise<void> {
   const current = ++generation
   scope.value = ''; retryAllowed.value = false; setBusy(false); message.value = ''; problem.value = false
+  if (retryTimer !== null) { clearTimeout(retryTimer); retryTimer = null }
   if (!props.bearer.trim()) return
   const credential = props.bearer; const admin = user.info.id
   if (typeof admin !== 'number' || !Number.isSafeInteger(admin) || admin < 1) return
@@ -73,9 +91,13 @@ async function initialize(): Promise<void> {
     storageKey = nextStorageKey
     const stored = load()
     if (pending.value?.scope === scope.value && (!stored || stored.key !== pending.value.key)) throw new Error('原记录发生变化')
-    pending.value = stored; storageFailed.value = false
+    pending.value = stored; storageFailed.value = false; autoRetries = 0
   } catch (error) {
-    if (current === generation) { storageFailed.value = true; failure(error, '上传身份或原记录暂不可确认，请先恢复读取，不创建新上传。') }
+    if (current === generation) {
+      storageFailed.value = true
+      failure(error, props.plain ? '暂时不能上传，请稍后再试。' : '上传身份或原记录暂不可确认，请先恢复读取，不创建新上传。')
+      scheduleRetry()
+    }
   } finally { if (current === generation) setBusy(false) }
 }
 async function acceptReceipt(receipt: UploadReceipt, original: Pending, credential: string, current: number): Promise<void> {
@@ -145,7 +167,7 @@ async function select(upload: UploadFile): Promise<void> {
     if (current !== generation) return
     await acceptReceipt(receipt, original, credential, current)
   } catch (error) {
-    if (current === generation) failure(error, '上传或读取结果尚待确认。请读取原上传结果，不要换请求重新上传；继续原上传时须选择同一文件。')
+    if (current === generation) failure(error, props.plain ? '这次上传没有成功，请重试。' : '上传或读取结果尚待确认。请读取原上传结果，不要换请求重新上传；继续原上传时须选择同一文件。')
   } finally { if (current === generation) setBusy(false) }
 }
 async function recover(): Promise<void> {
@@ -163,5 +185,10 @@ async function recover(): Promise<void> {
   } finally { if (current === generation) setBusy(false) }
 }
 watch(() => [props.bearer, props.environmentId, user.info.id, user.accessToken], () => { void initialize() }, { immediate: true, flush: 'sync' })
-onUnmounted(() => { generation++; emit('busy', false) })
+onUnmounted(() => { generation++; if (retryTimer !== null) clearTimeout(retryTimer); emit('busy', false) })
 </script>
+<style scoped>
+  .file-upload-hidden {
+    display: none;
+  }
+</style>

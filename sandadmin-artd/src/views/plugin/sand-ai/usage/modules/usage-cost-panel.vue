@@ -482,6 +482,7 @@
   import { useAuth } from '@/hooks/core/useAuth'
   import { useAdminReadIdentity } from '../../composables/useAdminReadIdentity'
   import { errorDisplayText } from '../../api/errorText'
+  import { formatUtcDateTime } from '../../api/localTime'
   import usageApi from '../../api/usage'
   import type {
     SandAiUsageAllowedScope,
@@ -749,7 +750,7 @@
       apiParams: {},
       columnsFactory: () => [
         { prop: 'id', label: '事件编号', width: 105 },
-        { prop: 'create_time', label: '发生时间', width: 180 },
+        { prop: 'create_time', label: '发生时间', width: 180, formatter: (row: SandAiUsage) => formatUtcDateTime(row.create_time) },
         {
           prop: 'application_id',
           label: '应用编号',

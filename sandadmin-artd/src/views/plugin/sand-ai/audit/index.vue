@@ -42,6 +42,7 @@
   import '../components/sandAiPage.css'
   import { ref } from 'vue'
   import { useTable } from '@/hooks/core/useTable'
+  import { formatServerMinute } from '../api/localTime'
   import auditApi from '../api/audit'
   import { serviceActionLabel } from '../api/displayLabels'
   import type { SandAiAuditLog, SandAiPageQuery } from '../api/types'
@@ -81,7 +82,7 @@
         { prop: 'resource_type', label: '对象类型', width: 110 },
         { prop: 'resource_id', label: '对象编号', width: 90 },
         { prop: 'summary', label: '摘要', minWidth: 160, showOverflowTooltip: true },
-        { prop: 'create_time', label: '时间', width: 170 }
+        { prop: 'create_time', label: '时间', width: 170, formatter: (row: SandAiAuditLog) => formatServerMinute(row.create_time) }
       ]
     }
   })

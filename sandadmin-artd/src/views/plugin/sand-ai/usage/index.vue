@@ -8,7 +8,7 @@
         </div>
         <div class="page-head-actions">
           <ElButton v-if="canBudgetWrite" type="primary" @click="openBudget">设预算</ElButton>
-          <ElButton v-if="canReview && devSurfaceOpen" text @click="goReview()">费用核对</ElButton>
+          <ElButton v-if="canReview" text @click="goReview()">费用核对</ElButton>
           <ElButton v-if="canView" :loading="exporting" @click="handleExport">导出</ElButton>
         </div>
       </div>
@@ -35,11 +35,11 @@
 
         <template v-else>
           <div class="stat-grid">
-            <UsageStatCard label="本月花费" :lines="spendLines" :hint="spendHint" :loading="loading" :clickable="devSurfaceOpen" @open="goReview()" />
+            <UsageStatCard label="本月花费" :lines="spendLines" :hint="spendHint" :loading="loading" :clickable="canReview" @open="goReview()" />
             <UsageStatCard label="预算余量" :lines="budgetLines" :hint="budgetHint" :tone="budgetTone"
               :loading="budgetLoading" />
-            <UsageStatCard label="调用次数" :lines="callLines" :hint="callHint" :loading="loading" :clickable="devSurfaceOpen" @open="goReview()" />
-            <UsageStatCard label="花得最多的" :lines="topLines" :hint="topHint" :loading="loading" :clickable="devSurfaceOpen" @open="goTopReview" />
+            <UsageStatCard label="调用次数" :lines="callLines" :hint="callHint" :loading="loading" :clickable="canReview" @open="goReview()" />
+            <UsageStatCard label="花得最多的" :lines="topLines" :hint="topHint" :loading="loading" :clickable="canReview" @open="goTopReview" />
           </div>
 
           <ElCard shadow="never" class="chart-card sand-ai-page-card">
@@ -72,7 +72,7 @@
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import { computed, onMounted, ref, watch } from 'vue'
-  import { useRoute, useRouter } from 'vue-router'
+  import { useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
   import { useAuth } from '@/hooks/core/useAuth'
   import { useAdminReadIdentity } from '../composables/useAdminReadIdentity'
@@ -91,9 +91,7 @@
   import { formatMoney, isMonth, monthBoundsUtc, shiftMonth, sumPricedAmounts } from './modules/usagePeriod'
 
   const { hasAuth } = useAuth()
-  const route = useRoute()
   const router = useRouter()
-  const devSurfaceOpen = computed(() => route.query.dev === '1')
   const identity = useAdminReadIdentity()
 
   const canView = computed(() => hasAuth('sand_ai:usage:summary'))

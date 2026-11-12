@@ -1,16 +1,28 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { requestAdminTrialContext } from '../api/adminTrial'
 import { errorDisplayText } from '../api/errorText'
+import { serverTimePoint } from '../api/localTime'
 
 export type AdminTrialBearerState = 'idle' | 'loading' | 'ready' | 'unavailable'
 
 /** 到期前自动重取的提前量；签发失败时立即回落手填。 */
 const REFRESH_MARGIN_MS = 60_000
 const MIN_REFRESH_DELAY_MS = 5_000
+/**
+ * 服务端返回的 expire_time 是服务器墙钟；按浏览器本地时区解析会在
+ * 非东八区把续期排到上下文寿命之外（试用上下文约 5 分钟即失效）。
+ * 续期延迟一律钳制在安全上限内：宁可提前重取，不能让身份悄悄过期。
+ */
+const MAX_REFRESH_DELAY_MS = 4 * 60_000
 
+/**
+ * 服务端按部署时区（Asia/Shanghai）返回墙钟到期时间，不能交给 Date.parse
+ * 当本地时间解析——非 +08 环境会把到期点看偏，导致续期排程错乱、Bearer
+ * 提前过期，上传初始化反复 401。统一经 serverTimePoint 解释成时间点。
+ */
 function parseExpireTime(value: string): number {
-  const parsed = Date.parse(value.replace(' ', 'T'))
-  return Number.isNaN(parsed) ? 0 : parsed
+  const point = serverTimePoint(value)
+  return point === null ? 0 : point.getTime()
 }
 
 /** 服务端报错按 "CODE: 中文" 约定返回；界面只展示中文引导，英文原文不进界面。 */
@@ -44,9 +56,10 @@ export function useAdminTrialBearer(actions: () => string[]) {
   function schedule(expire: string): void {
     clearTimer()
     const at = parseExpireTime(expire) - REFRESH_MARGIN_MS
+    const delay = Math.min(Math.max(MIN_REFRESH_DELAY_MS, at - Date.now()), MAX_REFRESH_DELAY_MS)
     timer = setTimeout(() => {
       void refresh()
-    }, Math.max(MIN_REFRESH_DELAY_MS, at - Date.now()))
+    }, delay)
   }
 
   async function refresh(): Promise<boolean> {

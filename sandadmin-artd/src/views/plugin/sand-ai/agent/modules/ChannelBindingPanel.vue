@@ -1250,7 +1250,7 @@
     if (!environment || writing.value || pendingBindingMutation.value || row.status === 1) return
     try {
       await ElMessageBox.confirm(`删除后「${row.name}」不能恢复。`, `删除「${row.name}」？`, {
-        type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想'
+        type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想', confirmButtonClass: 'el-button--danger'
       })
     } catch {
       return

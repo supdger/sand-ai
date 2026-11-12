@@ -75,61 +75,65 @@
         <ElTableColumn label="资料数" width="90" align="center">
           <template #default="{ row }">{{ materialCount(row) }}</template>
         </ElTableColumn>
-        <ElTableColumn label="状态" width="170">
+        <ElTableColumn label="状态" width="140">
           <template #default="{ row }">
-            <ElTag :type="statusTagType(row)" effect="plain" size="small">
+            <ElTooltip
+              v-if="rowStatus(row) === 'failed' && row.index_error"
+              :content="row.index_error"
+              placement="top"
+            >
+              <ElTag :type="statusTagType(row)" effect="plain" size="small">
+                {{ statusLabel(row) }}
+              </ElTag>
+            </ElTooltip>
+            <ElTooltip
+              v-else-if="rowStatus(row) === 'indexing'"
+              content="正在整理，一般几分钟"
+              placement="top"
+            >
+              <ElTag :type="statusTagType(row)" effect="plain" size="small">
+                {{ statusLabel(row) }}
+              </ElTag>
+            </ElTooltip>
+            <ElTag v-else :type="statusTagType(row)" effect="plain" size="small">
               {{ statusLabel(row) }}
             </ElTag>
-            <div v-if="rowStatus(row) === 'indexing'" class="cell-sub">正在整理，一般几分钟</div>
-            <div v-else-if="rowStatus(row) === 'failed' && row.index_error" class="cell-sub cell-error">
-              {{ row.index_error }}
-            </div>
           </template>
         </ElTableColumn>
-        <ElTableColumn label="最近更新" width="120" align="center">
+        <ElTableColumn label="最近更新" width="110" align="center">
           <template #default="{ row }">
             <span class="cell-muted">{{ formatUpdateTime(row.update_time) }}</span>
           </template>
         </ElTableColumn>
-        <ElTableColumn label="操作" width="280" fixed="right">
+        <ElTableColumn label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <ElSpace :size="4" wrap>
               <ElButton link type="primary" @click="openDetail(row)">打开</ElButton>
               <ElButton
-                v-if="rowStatus(row) === 'usable'"
                 link
                 type="primary"
+                :disabled="rowStatus(row) !== 'usable'"
+                :title="trialHint(row)"
                 @click="openTrial(row)"
-              >试一下</ElButton>
-              <ElButton
-                v-if="rowStatus(row) === 'failed'"
-                link
-                type="warning"
-                :loading="retryingId === row.id"
-                @click="retryIndex(row)"
-              >重试</ElButton>
-              <ElButton
-                v-if="row.state === 'disabled'"
-                link
-                type="primary"
-                :disabled="!row.active_version_id || disablingId === row.id"
-                :title="row.active_version_id ? '' : '没有已发布的版本，不能启用'"
-                @click="confirmEnable(row)"
-              >启用</ElButton>
-              <ElButton
-                v-if="row.state === 'disabled'"
-                link
-                type="danger"
-                :disabled="disablingId === row.id"
-                @click="confirmRetire(row)"
-              >删除</ElButton>
-              <ElDropdown v-if="row.state !== 'disabled'" trigger="click" @command="(cmd: string) => onRowCommand(cmd, row)">
+              >试一试</ElButton>
+              <ElDropdown trigger="click" @command="(cmd: string) => onRowCommand(cmd, row)">
                 <ElButton link type="primary">更多</ElButton>
                 <template #dropdown>
                   <ElDropdownMenu>
+                    <ElDropdownItem v-if="rowStatus(row) === 'failed'" command="retry">重试</ElDropdownItem>
                     <ElDropdownItem v-if="row.state === 'draft'" command="publish">发布</ElDropdownItem>
-                    <ElDropdownItem v-if="row.state === 'published'" command="disable" divided>停用</ElDropdownItem>
-                    <ElDropdownItem disabled divided>删除（先停用才能删）</ElDropdownItem>
+                    <ElDropdownItem v-if="row.state === 'published'" command="disable">停用</ElDropdownItem>
+                    <ElDropdownItem
+                      v-if="row.state === 'disabled'"
+                      command="enable"
+                      :disabled="!row.active_version_id"
+                    >{{ row.active_version_id ? '启用' : '启用（没有已发布的版本）' }}</ElDropdownItem>
+                    <ElDropdownItem
+                      v-if="row.state === 'disabled'"
+                      command="retire"
+                      divided
+                    >删除</ElDropdownItem>
+                    <ElDropdownItem v-else disabled divided>删除（先停用才能删）</ElDropdownItem>
                   </ElDropdownMenu>
                 </template>
               </ElDropdown>
@@ -282,7 +286,7 @@
           <ElButton
             v-if="rowStatus(detailRow) === 'usable'"
             @click="openTrial(detailRow)"
-          >试一下</ElButton>
+          >试一试</ElButton>
           <ElButton
             v-if="detailRow.state === 'draft'"
             :loading="publishingId === detailRow.id"
@@ -358,10 +362,10 @@
       </template>
     </ElDialog>
 
-    <!-- 试一下：只有「可用」才进得来；走托管试用身份，不用填密钥 -->
+    <!-- 试一试：只有「可用」才进得来；走托管试用身份，不用填密钥 -->
     <ElDialog
       v-model="trialOpen"
-      :title="trialKnowledgeBase ? `试一下「${trialKnowledgeBase.name}」` : '试一下'"
+      :title="trialKnowledgeBase ? `试一试「${trialKnowledgeBase.name}」` : '试一试'"
       width="min(640px, 94vw)"
       :close-on-click-modal="false"
     >
@@ -410,6 +414,8 @@
   import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { errorDisplayText } from '../../api/errorText'
+  import { confirmDeletion } from '../../composables/confirmDeletion'
+  import { formatServerMinute } from '../../api/localTime'
   import knowledgeApi, {
     type KnowledgeBaseRow,
     type IndexRetryResult,
@@ -516,10 +522,20 @@
     }
   }
 
-  /** 「最近更新」展示到分钟；后端返回 YYYY-MM-DD HH:MM:SS，空值回退 —。 */
+  /** 「最近更新」一行显示到分钟；今年省略年份，统一换算到浏览器本地时间。 */
   function formatUpdateTime(value: string | null | undefined): string {
-    if (!value) return '—'
-    return value.slice(0, 16)
+    return formatServerMinute(value)
+  }
+
+  /** 不可用行也保留「试一试」位置，悬停说明为什么不能点，保证每行操作列对齐。 */
+  function trialHint(row: KnowledgeBaseRow): string {
+    switch (rowStatus(row)) {
+      case 'usable': return ''
+      case 'indexing': return '整理好才能试'
+      case 'failed': return '整理失败的不能试，先在「更多」里重试'
+      case 'draft': return '还没发布的不能试'
+      default: return '已停用的不能试'
+    }
   }
 
   /** 资料数：后端已按草稿优先、已发布兜底投影 material_count；无资料显示 —。 */
@@ -943,11 +959,7 @@
     const envId = props.environmentId
     if (envId === null || row.state !== 'disabled' || disablingId.value !== null) return
     try {
-      await ElMessageBox.confirm(
-        '删除后不能恢复。用过的费用记录会保留。',
-        `删除「${row.name}」？`,
-        { confirmButtonText: '删除', cancelButtonText: '再想想', type: 'warning' }
-      )
+      await confirmDeletion('删除后不能恢复。用过的费用记录会保留。', `删除「${row.name}」？`)
     } catch {
       return
     }
@@ -975,6 +987,7 @@
     else if (command === 'disable') void confirmDisable(row)
     else if (command === 'enable') void confirmEnable(row)
     else if (command === 'retire') void confirmRetire(row)
+    else if (command === 'retry') void retryIndex(row)
   }
 
   function openTrial(row: KnowledgeBaseRow): void {
@@ -1077,16 +1090,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 320px;
-  }
-
-  .cell-sub {
-    margin-top: 2px;
-    font-size: 12px;
-    color: var(--el-text-color-secondary);
-  }
-
-  .cell-error {
-    color: var(--el-color-danger);
   }
 
   .cell-muted {

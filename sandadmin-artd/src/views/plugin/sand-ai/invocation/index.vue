@@ -58,6 +58,7 @@
   import { ElButton } from 'element-plus'
   import { useRoute } from 'vue-router'
   import { useTable } from '@/hooks/core/useTable'
+  import { formatServerMinute } from '../api/localTime'
   import invocationApi from '../api/invocation'
   import { errorDisplayText } from '../api/errorText'
   import { runStateLabel } from '../api/displayLabels'
@@ -108,7 +109,7 @@
         { prop: 'latency_ms', label: '耗时（毫秒）', width: 100 },
         { prop: 'error_code', label: '错误', minWidth: 110, showOverflowTooltip: true,
           formatter: (row: SandAiInvocation) => row.error_code ? (hintForRuntimeErrorCode(row.error_code) ?? row.error_code) : '—' },
-        { prop: 'request_at', label: '请求时间', width: 170 },
+        { prop: 'request_at', label: '请求时间', width: 170, formatter: (row: SandAiInvocation) => formatServerMinute(row.request_at) },
         {
           prop: 'cost_action',
           label: '费用',
