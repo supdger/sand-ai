@@ -1094,7 +1094,7 @@ BEGIN
         ('202611130174_rename_capability_menu','9fbd406b483665531e0c0eda25cf7440faecf7e21ea91fc1b9b6e72fa73f7b6c'),
         ('202611140175_composition_retire_operation','4cf79f9a1a6701caee351e4cb48477f2d73714af39e17c49d280d1f49c45aaec'),
         ('202611140176_knowledge_enable_retire_operation','676925144f1cd8f56008099ff9ce2bc25b357c0bd2629f37d7ed9b94094e639b'),
-        ('202611150177_phase2b_menu_layout','d0a5a65eda9a5af2782020e860ba393d2867ea108e303d8ebd7f8dbb29b8d365'),    ) AS expected(version,checksum) ON expected.version=applied.version
+        ('202611150177_phase2b_menu_layout','f0921bb4232f594eb4d23aea41c1a0a0b1e20bf132ff14df2acff07a64606e1d'),    ) AS expected(version,checksum) ON expected.version=applied.version
     WHERE expected.version IS NULL OR applied.checksum IS DISTINCT FROM expected.checksum
     ORDER BY applied.version LIMIT 1;
     IF mismatch IS NOT NULL THEN
@@ -14932,7 +14932,7 @@ END $sand_ai_upgrade_0176$;
 
 DO $sand_ai_upgrade_0177$
 BEGIN
- IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611150177_phase2b_menu_layout' AND checksum IS DISTINCT FROM 'd0a5a65eda9a5af2782020e860ba393d2867ea108e303d8ebd7f8dbb29b8d365') THEN
+ IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611150177_phase2b_menu_layout' AND checksum IS DISTINCT FROM 'f0921bb4232f594eb4d23aea41c1a0a0b1e20bf132ff14df2acff07a64606e1d') THEN
   RAISE EXCEPTION 'SandAI migration 177 checksum mismatch';
  END IF;
  IF NOT EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611150177_phase2b_menu_layout') THEN
@@ -14948,7 +14948,7 @@ WHERE code = 'SandIAM' AND type = 1 AND delete_time IS NULL
 
 UPDATE sand_system_menu
 SET parent_id = parent.id,
-    sort = 40,
+    sort = 50,
     update_time = CURRENT_TIMESTAMP
 FROM sand_system_menu AS parent
 WHERE sand_system_menu.code = 'SandAIProvider'
@@ -14956,7 +14956,7 @@ WHERE sand_system_menu.code = 'SandAIProvider'
   AND sand_system_menu.delete_time IS NULL
   AND parent.delete_time IS NULL
   AND (sand_system_menu.parent_id IS DISTINCT FROM parent.id
-       OR sand_system_menu.sort IS DISTINCT FROM 40);
+       OR sand_system_menu.sort IS DISTINCT FROM 50);
 
 UPDATE sand_system_menu
 SET is_hidden = 1,
@@ -14968,23 +14968,23 @@ UPDATE sand_system_menu AS menu
 SET sort = target.sort,
     update_time = CURRENT_TIMESTAMP
 FROM (VALUES
-    ('SandAIOverview', 10),
-    ('SandAITrial', 20),
+    ('SandAIOverview', 50),
+    ('SandAITrial', 40),
     ('SandAIFileCenter', 30),
-    ('SandAIUsage', 40),
-    ('SandAIKnowledgeConfiguration', 10),
-    ('SandAICapability', 20),
-    ('SandAIAgentConfiguration', 30),
-    ('SandAIInvocation', 50),
-    ('SandAIMaterialConfig', 60),
-    ('SandAITaskTrial', 70),
-    ('SandAIAudit', 80)
+    ('SandAIUsage', 20),
+    ('SandAIKnowledgeConfiguration', 80),
+    ('SandAICapability', 70),
+    ('SandAIAgentConfiguration', 60),
+    ('SandAIInvocation', 40),
+    ('SandAIMaterialConfig', 30),
+    ('SandAITaskTrial', 20),
+    ('SandAIAudit', 10)
 ) AS target(code, sort)
 WHERE menu.code = target.code
   AND menu.delete_time IS NULL
   AND menu.sort IS DISTINCT FROM target.sort;
 $sand_ai_migration_0177$;
-  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611150177_phase2b_menu_layout','d0a5a65eda9a5af2782020e860ba393d2867ea108e303d8ebd7f8dbb29b8d365',CURRENT_TIMESTAMP(0));
+  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611150177_phase2b_menu_layout','f0921bb4232f594eb4d23aea41c1a0a0b1e20bf132ff14df2acff07a64606e1d',CURRENT_TIMESTAMP(0));
  END IF;
 END $sand_ai_upgrade_0177$;
 

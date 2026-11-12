@@ -9,7 +9,7 @@ WHERE code = 'SandIAM' AND type = 1 AND delete_time IS NULL
 
 UPDATE sand_system_menu
 SET parent_id = parent.id,
-    sort = 40,
+    sort = 50,
     update_time = CURRENT_TIMESTAMP
 FROM sand_system_menu AS parent
 WHERE sand_system_menu.code = 'SandAIProvider'
@@ -17,7 +17,7 @@ WHERE sand_system_menu.code = 'SandAIProvider'
   AND sand_system_menu.delete_time IS NULL
   AND parent.delete_time IS NULL
   AND (sand_system_menu.parent_id IS DISTINCT FROM parent.id
-       OR sand_system_menu.sort IS DISTINCT FROM 40);
+       OR sand_system_menu.sort IS DISTINCT FROM 50);
 
 UPDATE sand_system_menu
 SET is_hidden = 1,
@@ -29,17 +29,17 @@ UPDATE sand_system_menu AS menu
 SET sort = target.sort,
     update_time = CURRENT_TIMESTAMP
 FROM (VALUES
-    ('SandAIOverview', 10),
-    ('SandAITrial', 20),
+    ('SandAIOverview', 50),
+    ('SandAITrial', 40),
     ('SandAIFileCenter', 30),
-    ('SandAIUsage', 40),
-    ('SandAIKnowledgeConfiguration', 10),
-    ('SandAICapability', 20),
-    ('SandAIAgentConfiguration', 30),
-    ('SandAIInvocation', 50),
-    ('SandAIMaterialConfig', 60),
-    ('SandAITaskTrial', 70),
-    ('SandAIAudit', 80)
+    ('SandAIUsage', 20),
+    ('SandAIKnowledgeConfiguration', 80),
+    ('SandAICapability', 70),
+    ('SandAIAgentConfiguration', 60),
+    ('SandAIInvocation', 40),
+    ('SandAIMaterialConfig', 30),
+    ('SandAITaskTrial', 20),
+    ('SandAIAudit', 10)
 ) AS target(code, sort)
 WHERE menu.code = target.code
   AND menu.delete_time IS NULL
