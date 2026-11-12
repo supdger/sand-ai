@@ -1,50 +1,57 @@
 <template>
   <SandAiErrorBoundary>
-    <div class="sand-ai-page">
-      <sa-search-bar
-        v-model="searchForm"
-        label-width="90px"
-        :show-expand="false"
-        @reset="handleReset"
-        @search="handleSearch"
-      >
-        <el-col :xs="24" :sm="12" :md="8" :lg="6">
-          <el-form-item label="请求编号" prop="request_id">
-            <el-input v-model="searchForm.request_id" clearable placeholder="按请求编号" />
-          </el-form-item>
-        </el-col>
-        <el-col :xs="24" :sm="12" :md="8" :lg="6">
-          <el-form-item label="状态" prop="state">
-            <el-select v-model="searchForm.state" clearable placeholder="全部">
-              <el-option label="排队中" value="queued" />
-              <el-option label="进行中" value="running" />
-              <el-option label="成功" value="succeeded" />
-              <el-option label="失败" value="failed" />
-              <el-option label="已取消" value="canceled" />
-            </el-select>
-          </el-form-item>
-        </el-col>
-      </sa-search-bar>
+    <div class="sand-ai-page record-page">
+      <header class="page-head">
+        <div>
+          <h1 class="page-title">调用记录</h1>
+          <p class="page-desc">每次调用的时间、模型和花费</p>
+        </div>
+      </header>
+
+      <div class="filter-row">
+        <ElDatePicker
+          v-model="dateRange"
+          type="daterange"
+          value-format="YYYY-MM-DD"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          range-separator="至"
+          @change="applyFilter"
+        />
+        <ElSelect v-model="searchForm.state" clearable placeholder="状态" class="filter-select" @change="applyFilter">
+          <ElOption label="排队中" value="queued" />
+          <ElOption label="进行中" value="running" />
+          <ElOption label="成功" value="succeeded" />
+          <ElOption label="失败" value="failed" />
+        </ElSelect>
+        <ElSelect v-model="searchForm.purpose" clearable placeholder="用途" class="filter-select" @change="applyFilter">
+          <ElOption label="查资料" value="knowledge" />
+          <ElOption label="整理资料" value="embed" />
+          <ElOption label="对话" value="chat" />
+        </ElSelect>
+        <ElButton text @click="clearFilter">清空筛选</ElButton>
+      </div>
 
       <ElCard class="art-table-card sand-ai-page-card" shadow="never">
-        <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData" />
-
         <ArtTable
           row-key="id"
           :loading="loading"
           :data="data"
           :columns="columns"
-          empty-text="这里显示每次 AI 调用及其费用；产生调用后可在此追踪"
+          :empty-text="emptyText"
           :pagination="pagination"
           @pagination:size-change="handleSizeChange"
           @pagination:current-change="handleCurrentChange"
         />
       </ElCard>
-      <ElDialog v-model="costOpen" title="单次费用" width="680px" @close="closeCost">
-        <div v-if="costLoading" v-loading="costLoading" class="min-h-24" />
-        <ElAlert v-else-if="costError" :title="costError" type="warning" :closable="false" />
-        <InvocationCostDetails v-else-if="cost" :cost="cost" />
-      </ElDialog>
+
+      <InvocationDetailDrawer
+        v-model="detailOpen"
+        :detail="detail"
+        :cost="cost"
+        :dev-error="devError"
+        @closed="closeDetail"
+      />
     </div>
   </SandAiErrorBoundary>
 </template>
@@ -52,8 +59,8 @@
 <script setup lang="ts">
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
-  import InvocationCostDetails from '../usage/modules/invocation-cost-details.vue'
-  import { useAuth } from '@/hooks/core/useAuth'
+  import InvocationDetailDrawer from './InvocationDetailDrawer.vue'
+  import type { InvocationDetail } from './InvocationDetailDrawer.vue'
   import { h, onBeforeUnmount, onMounted, ref } from 'vue'
   import { ElButton } from 'element-plus'
   import { useRoute } from 'vue-router'
@@ -61,116 +68,225 @@
   import invocationApi from '../api/invocation'
   import { errorDisplayText } from '../api/errorText'
   import { runStateLabel } from '../api/displayLabels'
-  import { hintForRuntimeErrorCode } from '../api/runtimeErrors'
-  import type { SandAiInvocation, SandAiInvocationCost, SandAiPageQuery } from '../api/types'
+  import {
+    browserOffsetMinutes,
+    formatLatency,
+    formatLocalTime,
+    formatSpend,
+    isDevLogin
+  } from '../api/localTime'
+  import type { SandAiInvocationCost, SandAiPageQuery } from '../api/types'
+
+  type InvocationRow = {
+    id: number
+    request_id: string
+    environment_id: number
+    state: string
+    latency_ms: number | null
+    request_at: string
+    model_name: string
+    caller_name: string
+    purpose: string
+    spend_amount: string | null
+    input_tokens: number | null
+    output_tokens: number | null
+  }
+
+  type InvocationFilter = SandAiPageQuery & {
+    purpose: string
+    request_from?: string
+    request_to?: string
+    offset_minutes: number
+  }
 
   const route = useRoute()
-  const { hasAuth } = useAuth()
-
-  const emptySearch = (): SandAiPageQuery => ({
-    request_id: undefined,
-    state: ''
-  })
-  const searchForm = ref<SandAiPageQuery>(emptySearch())
-  const costOpen = ref(false)
-  const costLoading = ref(false)
-  const costError = ref('')
+  const dateRange = ref<[string, string] | null>(null)
+  const detailOpen = ref(false)
+  const detail = ref<InvocationDetail | null>(null)
   const cost = ref<SandAiInvocationCost | null>(null)
-  let costRequest = 0
+  const devError = ref('')
+  let detailRequest = 0
+
+  function emptyFilter(): InvocationFilter {
+    return {
+      state: '',
+      purpose: '',
+      request_id: undefined,
+      request_from: undefined,
+      request_to: undefined,
+      offset_minutes: browserOffsetMinutes()
+    }
+  }
+
+  const searchForm = ref<InvocationFilter>(emptyFilter())
 
   const {
     columns,
-    columnChecks,
     data,
     loading,
     pagination,
     searchParams,
-    getData,
-    resetSearchParams,
+    getDataByPage,
     handleSizeChange,
-    handleCurrentChange,
-    refreshData
+    handleCurrentChange
   } = useTable({
     core: {
-      apiFn: invocationApi.list,
-      apiParams: {},
+      apiFn: (params: InvocationFilter) => invocationApi.list(params),
+      apiParams: {
+        offset_minutes: browserOffsetMinutes()
+      },
       columnsFactory: () => [
-        { prop: 'id', label: '编号', width: 70, align: 'center' },
-        { prop: 'request_id', label: '请求编号', minWidth: 140, showOverflowTooltip: true },
-        { prop: 'environment_id', label: '环境', width: 110 },
-        { prop: 'model_id', label: '模型', width: 90 },
+        {
+          prop: 'request_at',
+          label: '时间',
+          width: 130,
+          formatter: (row: InvocationRow) => formatLocalTime(row.request_at)
+        },
+        { prop: 'caller_name', label: '谁调用的', minWidth: 120, showOverflowTooltip: true },
+        { prop: 'purpose', label: '用途', width: 100 },
+        { prop: 'model_name', label: '模型名', minWidth: 140, showOverflowTooltip: true },
         {
           prop: 'state',
           label: '状态',
-          width: 100,
-          formatter: (row: SandAiInvocation) => runStateLabel(row.state)
+          width: 90,
+          formatter: (row: InvocationRow) => runStateLabel(row.state)
         },
-        { prop: 'latency_ms', label: '耗时（毫秒）', width: 100 },
-        { prop: 'error_code', label: '错误', minWidth: 110, showOverflowTooltip: true,
-          formatter: (row: SandAiInvocation) => row.error_code ? (hintForRuntimeErrorCode(row.error_code) ?? row.error_code) : '—' },
-        { prop: 'request_at', label: '请求时间', width: 170 },
         {
-          prop: 'cost_action',
-          label: '费用',
-          width: 100,
-          fixed: 'right',
-          formatter: (row: SandAiInvocation) =>
-            hasAuth('sand_ai:usage:cost')
-              ? h(ElButton, { size: 'small', onClick: () => void showCost(row) }, () => '查看费用')
-              : '无费用查看权限'
+          prop: 'latency_ms',
+          label: '用时',
+          width: 90,
+          formatter: (row: InvocationRow) => formatLatency(row.latency_ms)
+        },
+        {
+          prop: 'spend_amount',
+          label: '花费',
+          width: 110,
+          formatter: (row: InvocationRow) => formatSpend(row.spend_amount)
+        },
+        {
+          prop: 'detail',
+          label: '详情',
+          width: 80,
+          formatter: (row: InvocationRow) =>
+            h(ElButton, { text: true, type: 'primary', onClick: () => void openDetail(row) }, () => '详情')
         }
       ]
     }
   })
 
-  function handleSearch(): void {
+  const emptyText = ref('还没有调用')
+
+  function applyFilter(): void {
+    const range = dateRange.value
+    searchForm.value.request_from = range?.[0]
+    searchForm.value.request_to = range?.[1]
+    searchForm.value.offset_minutes = browserOffsetMinutes()
     Object.assign(searchParams, searchForm.value)
-    getData()
+    const params = searchParams as Record<string, unknown>
+    if (!searchForm.value.request_from) delete params.request_from
+    if (!searchForm.value.request_to) delete params.request_to
+    if (!searchForm.value.state) delete params.state
+    if (!searchForm.value.purpose) delete params.purpose
+    if (!searchForm.value.request_id) delete params.request_id
+    const filtered = Boolean(
+      searchForm.value.request_from ||
+        searchForm.value.state ||
+        searchForm.value.purpose ||
+        searchForm.value.request_id
+    )
+    emptyText.value = filtered ? '没有找到符合条件的调用' : '还没有调用'
+    void getDataByPage()
   }
 
-  function handleReset(): void {
-    searchForm.value = emptySearch()
-    resetSearchParams()
+  function clearFilter(): void {
+    const keptRequestId = searchForm.value.request_id
+    dateRange.value = null
+    searchForm.value = emptyFilter()
+    searchForm.value.request_id = keptRequestId
+    applyFilter()
   }
 
-  function applyRequestIdFromQuery(): void {
+  function keepRouteRequest(): void {
     const raw = route.query.request_id
     const value = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined
     if (typeof value !== 'string' || !value.trim()) return
     searchForm.value.request_id = value.trim()
-    handleSearch()
+    applyFilter()
   }
 
-  async function showCost(row: SandAiInvocation): Promise<void> {
-    if (!hasAuth('sand_ai:usage:cost')) return
-    const requestId = ++costRequest
-    costOpen.value = true
-    costLoading.value = true
-    costError.value = ''
+  async function openDetail(row: InvocationRow): Promise<void> {
+    const requestId = ++detailRequest
+    detail.value = {
+      request_at: row.request_at,
+      caller_name: row.caller_name,
+      purpose: row.purpose,
+      model_name: row.model_name,
+      latency_ms: row.latency_ms,
+      spend_amount: row.spend_amount,
+      request_id: row.request_id,
+      input_tokens: row.input_tokens,
+      output_tokens: row.output_tokens
+    }
     cost.value = null
+    devError.value = ''
+    detailOpen.value = true
+    if (!isDevLogin()) return
     try {
       const result = await invocationApi.cost(row.environment_id, row.request_id)
-      if (requestId === costRequest) cost.value = result
+      if (requestId === detailRequest) cost.value = result
     } catch (error) {
-      if (requestId === costRequest) {
-        const reason = errorDisplayText(error, '后台未返回费用')
-        costError.value = `费用查询失败：${reason}。请核对调用归属及费用查看权限，关闭后按原调用重试；不会重新发起调用。`
+      if (requestId === detailRequest) {
+        devError.value = errorDisplayText(error, '开发者字段暂时读不到')
       }
-    } finally {
-      if (requestId === costRequest) costLoading.value = false
     }
   }
 
-  function closeCost(): void {
-    ++costRequest
+  function closeDetail(): void {
+    ++detailRequest
+    detail.value = null
     cost.value = null
-    costError.value = ''
-    costLoading.value = false
+    devError.value = ''
   }
 
-  onBeforeUnmount(closeCost)
-
-  onMounted(() => {
-    applyRequestIdFromQuery()
-  })
+  onBeforeUnmount(closeDetail)
+  onMounted(keepRouteRequest)
 </script>
+
+<style scoped lang="scss">
+  .record-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .page-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .page-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+  }
+
+  .page-desc {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .filter-select {
+    width: 140px;
+  }
+</style>
