@@ -39,7 +39,7 @@ function read(string $path): string
     return $text;
 }
 
-/* ---------- N-4 / N-2：时区归一 ---------- */
+// N-4 / N-2：时区归一
 
 $localTime = read($view . '/api/localTime.ts');
 ok(str_contains($localTime, 'export function serverTimePoint'), 'localTime exports serverTimePoint');
@@ -56,7 +56,7 @@ ok(str_contains($upload, 'scheduleRetry'), 'upload init schedules bounded retry'
 ok(str_contains($upload, 'autoRetries >= 2'), 'auto retry is bounded at 2 attempts');
 ok(str_contains($upload, '暂时不能上传，请稍后再试'), 'plain upload failure copy for normal admins');
 
-/* ---------- 文件页整改 ---------- */
+// 文件页整改
 
 $file = read($view . '/file/index.vue');
 ok(!str_contains($file, '文件中心'), 'file page no longer titled 文件中心');
@@ -69,7 +69,7 @@ ok(str_contains($file, '已删除「'), 'delete success toast uses file name');
 ok(str_contains($file, '删除后不能恢复，用过的费用记录会保留。'), 'delete confirm plain consequence');
 ok(str_contains($file, "route.query.dev === '1'"), 'dev-only blocks gated by dev=1 query');
 
-/* ---------- 知识库列表整改 ---------- */
+// 知识库列表整改
 
 $knowledge = read($view . '/knowledge/modules/knowledge-tab.vue');
 ok(str_contains($knowledge, '整理失败'), 'failed status shows only 整理失败');
@@ -77,7 +77,7 @@ ok(str_contains($knowledge, 'index_error'), 'failure reason kept for hover text'
 ok(str_contains($knowledge, 'formatServerMinute'), 'update time uses shared local formatter');
 ok(str_contains($knowledge, 'confirmDeletion'), 'knowledge delete uses shared confirm');
 
-/* ---------- 删除确认统一 ---------- */
+// 删除确认统一
 
 $confirm = read($view . '/composables/confirmDeletion.ts');
 ok(str_contains($confirm, '再想想'), 'shared confirm uses 再想想 cancel');
@@ -89,7 +89,7 @@ ok(str_contains($provider, 'confirmDeletion'), 'provider delete uses shared conf
 $model = read($view . '/model/index.vue');
 ok(str_contains($model, 'confirmDeletion'), 'model delete uses shared confirm');
 
-/* ---------- 费用核对按权限开放 ---------- */
+// 费用核对按权限开放
 
 $usage = read($view . '/usage/index.vue');
 ok(!str_contains($usage, 'devSurfaceOpen'), 'usage review entry no longer gated by dev flag');
@@ -99,7 +99,7 @@ $devSurface = read($adminSrc . '/utils/devSurface.ts');
 ok(!str_contains($devSurface, 'usage-review'), 'usage-review removed from dev-only path list');
 ok(!str_contains($devSurface, '费用核对'), '费用核对 removed from dev-only titles');
 
-/* ---------- 时间列应用面 ---------- */
+// 时间列应用面
 
 ok(str_contains(read($view . '/dashboard/index.vue'), 'formatServerMinute'), 'dashboard times localized');
 ok(str_contains(read($view . '/invocation/index.vue'), 'formatServerMinute'), 'invocation request time localized');
