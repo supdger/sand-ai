@@ -74,7 +74,7 @@
     loading,
     pagination,
     searchParams,
-    getDataByPage,
+    getData,
     handleSizeChange,
     handleCurrentChange
   } = useTable({
@@ -121,7 +121,7 @@
       params.name = text
     }
     emptyText.value = text === '' ? '还没有审计记录' : '没有找到符合条件的记录'
-    void getDataByPage()
+    void getData()
   }
 
   function clearFilter(): void {

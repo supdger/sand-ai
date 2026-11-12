@@ -126,7 +126,7 @@
     loading,
     pagination,
     searchParams,
-    getDataByPage,
+    getData,
     handleSizeChange,
     handleCurrentChange
   } = useTable({
@@ -195,7 +195,7 @@
         searchForm.value.request_id
     )
     emptyText.value = filtered ? '没有找到符合条件的调用' : '还没有调用'
-    void getDataByPage()
+    void getData()
   }
 
   function clearFilter(): void {
