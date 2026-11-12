@@ -1224,7 +1224,7 @@
     },
     {
       "path": "app/Application/File/FileGateway.php",
-      "sha256": "6ed4fa0fde0f79988623f7f35aa50d84881ace3ea1a18b55e57d5b9e4333db93"
+      "sha256": "48f9985178953ae561d29f6f985a6cee7f60cdbbfedff5da3c9f83d457d66caf"
     },
     {
       "path": "app/Application/File/FileOwnershipGuard.php",
@@ -1544,7 +1544,7 @@
     },
     {
       "path": "app/Application/Knowledge/KnowledgeBaseGateway.php",
-      "sha256": "c107226e15a44a788abe6f6c7a2824f052ba0f3c54dec20327802fe4723c2fdb"
+      "sha256": "72c4bb3fa747595eb18014a03571a6eb92ded4e1984a725266b177814c8be82a"
     },
     {
       "path": "app/Application/Knowledge/KnowledgeBasePolicy.php",
@@ -1588,7 +1588,7 @@
     },
     {
       "path": "app/Application/Knowledge/KnowledgeEmbeddingIndexGateway.php",
-      "sha256": "7532a96ccca43d0188e0e8e73e68a18e24e049c372dce358fc96b5b9da5cd20f"
+      "sha256": "484922d02840f64323a12166385f4f115da53f7d39550385eab21ad8cfcfc5c8"
     },
     {
       "path": "app/Application/Knowledge/KnowledgeEmbeddingOutcome.php",
@@ -1656,11 +1656,11 @@
     },
     {
       "path": "app/Application/Knowledge/KnowledgeSourcePurgeGateway.php",
-      "sha256": "77a8a919906290a74df93b36be4ea44f55802a4a1246930bda05a1cccd98df88"
+      "sha256": "c14a2c5f2deab12eccc6f46b85241aed2834fe5299acc8805cd60452a8cc5320"
     },
     {
       "path": "app/Application/Knowledge/KnowledgeSourceReferenceGuard.php",
-      "sha256": "d27c766f8f6217cb16af74d14066b980a688cfdd162806788766c5d45e3a14fb"
+      "sha256": "3ec18508cda98830504926398dfeb646dfea8524beabbf7bc7af3acdf326ba88"
     },
     {
       "path": "app/Application/Knowledge/KnowledgeVersionSourceScope.php",
