@@ -164,7 +164,7 @@ final class FileGateway
                 ], true)) {
                 throw new ApiProblem('SAND_AI_RESOURCE_NOT_FOUND', 'File not found');
             }
-            try { $guard->rejectPublishedReference($fileId); } catch (ApiProblem $problem) { throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'File is referenced by a published knowledge base'); }
+            $guard->rejectPublishedReference($fileId);
             $activeParse = Db::connect('pgsql')->query(
                 "SELECT 1 FROM sand_ai_task_run
                  WHERE environment_id=? AND resource_type='file' AND resource_id=?
@@ -173,7 +173,7 @@ final class FileGateway
                 [$environmentId, $fileId],
             );
             if ($activeParse !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Finish or cancel file parsing before deleting the file');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '这份资料还在解析中，先完成或取消解析再删除');
             }
             $activeWorkflow = Db::connect('pgsql')->query(
                 "SELECT 1 FROM sand_ai_workflow_run_file rf
@@ -186,7 +186,7 @@ final class FileGateway
                 [$fileId, $environmentId],
             );
             if ($activeWorkflow !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Finish or cancel the workflow using this file before deleting it');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '还有工作流正在用这份资料，先完成或取消再删除');
             }
             $activeAudio = Db::connect('pgsql')->query(
                 "SELECT 1 FROM sand_ai_task_run
@@ -198,7 +198,7 @@ final class FileGateway
                 [$environmentId, (string) $fileId, (string) $fileId],
             );
             if ($activeAudio !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Finish or cancel audio transcription and meeting summary tasks before deleting the file');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '还有转写或纪要任务在用这份资料，先完成或取消再删除');
             }
             $activeAiTask = Db::connect('pgsql')->query(
                 "SELECT 1 FROM sand_ai_task_run task
@@ -213,7 +213,7 @@ final class FileGateway
                 [$environmentId, $fileId],
             );
             if ($activeAiTask !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Finish or cancel AI tasks using this file before deleting it');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '还有 AI 任务在用这份资料，先完成或取消再删除');
             }
             // Source registration holds this file row lock and rejects deleting files.
             // Existing uncertain runs still protect their own recorded source files.
@@ -229,7 +229,7 @@ final class FileGateway
                 [$environmentId, $fileId, json_encode([['file_id' => $fileId]], JSON_THROW_ON_ERROR)],
             );
             if ($activeAgent !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Finish active agent tasks before deleting the file');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '还有智能体任务在用这份资料，先完成再删除');
             }
             if ((string) $file->state !== 'deleting') {
                 $file->save(['state' => 'deleting']);
@@ -327,10 +327,10 @@ final class FileGateway
                 );
             } catch (\think\db\exception\PDOException $failure) {
                 if (($failure->getData()['PDO Error Info']['SQLSTATE'] ?? null) !== '55P03') throw $failure;
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'AI task is changing during file deletion');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'AI 任务状态正在变化，请稍后重试删除');
             }
             if (count($locked) !== 1 || !TaskState::terminal((string) $locked[0]['state'])) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Finish or cancel AI tasks before deleting their file');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '还有 AI 任务没结束，先完成或取消再删除资料');
             }
             // Cancellation can make the task terminal while its provider
             // outcome remains unknown. Keep retained output for reconciliation.
@@ -344,7 +344,7 @@ final class FileGateway
                 [$environmentId, $taskId],
             );
             if ($unsettled !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Reconcile AI invocations before deleting their source file');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '这份资料的 AI 调用还没有处理完，请处理完后再删除');
             }
             $counts['tasks'] += $db->execute(
                 'UPDATE sand_ai_task_run SET result=NULL,content_purged_time=CURRENT_TIMESTAMP(0),

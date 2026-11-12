@@ -10,7 +10,7 @@
 
 import { isHttpError } from '@/utils/http/error'
 import { SandAiRuntimeError } from './runtime'
-import { displayableRuntimeMessage, hintForRuntimeErrorCode } from './runtimeErrors'
+import { displayableRuntimeMessage, hintForRuntimeErrorCode, untranslatedErrorText } from './runtimeErrors'
 
 const STABLE_CODE = /\b(SAND_AI_[A-Z0-9_]+|SAND_IAM_[A-Z0-9_]+)\b/
 /** 传输层遇到数据库原文时换成这句，真正的错误码留在响应 data.error_code。 */
@@ -73,12 +73,22 @@ export function errorDisplayText(error: unknown, fallback = '操作未完成，�
     const shown = textOrCodeHint(error, displayableRuntimeMessage(error.message))
       ?? hintForRuntimeErrorCode(error.errorCode)
     if (shown) return shown
+    // 未翻译的错误码按系统故障显示并带编号，不用笼统兜底顶替真实分类。
+    if (error.errorCode) {
+      reportRaw(error)
+      return untranslatedErrorText(error.errorCode)
+    }
     reportRaw(error)
     return fallback
   }
   if (error instanceof Error) {
     const shown = textOrCodeHint(error, displayableRuntimeMessage(error.message))
     if (shown) return shown
+    const code = payloadErrorCode(error) ?? STABLE_CODE.exec(error.message)?.[0] ?? null
+    if (code) {
+      reportRaw(error)
+      return untranslatedErrorText(code)
+    }
     if (isHttpError(error)) {
       if (error.code === 401) return '登录已失效，请重新登录。'
       if (error.code === 403) return '当前账号没有执行此操作的权限，请联系管理员授权。'

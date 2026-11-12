@@ -915,10 +915,8 @@
     }
   }
 
+  // 后端中文原因原样展示；未翻译的错误码由 errorDisplayText 按系统故障带编号兜底。
   function knowledgeDeleteReason(error: unknown): string {
-    const raw = error instanceof Error ? error.message : ''
-    if (raw.includes('publication')) return '还有应用在用这个知识库，先解除后再删'
-    if (raw.includes('vector') || raw.includes('sources')) return '资料引用还在，请稍后再试'
     return errorDisplayText(error, '删除没有成功，请稍后再试。')
   }
 

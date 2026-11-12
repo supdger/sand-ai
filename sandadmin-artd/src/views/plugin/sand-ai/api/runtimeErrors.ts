@@ -53,6 +53,14 @@ export const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
   SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE: '这条预算配置当前不能生效，请检查内容后再试。',
   SAND_AI_BUDGET_POLICY_NOT_FOUND: '找不到这条预算配置，可能已被删除，请刷新列表。',
   SAND_AI_KNOWLEDGE_CONFIGURATION_INVALID: '知识库配置不正确，请修正后再试。',
+  SAND_AI_KNOWLEDGE_SOURCE_REFERENCED: '这份资料正被已发布的知识库使用，先从知识库里移除再删除。',
+  SAND_AI_KNOWLEDGE_SOURCE_INVALID: '这份资料不满足知识库来源要求，请重新解析或换一份资料。',
+  SAND_AI_KNOWLEDGE_SOURCE_DRIFTED: '资料内容有变化，请刷新知识库后重试。',
+  SAND_AI_KNOWLEDGE_VALIDATION_ERROR: '知识库请求没有通过校验，请核对后重试。',
+  SAND_AI_KNOWLEDGE_INDEX_FAILED: '索引没有成功，请重试。',
+  SAND_AI_KNOWLEDGE_INDEX_UNAVAILABLE: '索引暂时不可用，请稍后重试。',
+  SAND_AI_FACTS_UNVERIFIED: '原操作记录核对不上，请刷新后重试。',
+  SAND_AI_INVOCATION_FACTS_UNVERIFIED: '原操作记录核对不上，请刷新后重试。',
   SAND_AI_RUNTIME_BEARER_FORBIDDEN: '服务访问凭证不对，请检查后再试。',
   SAND_AI_FILE_UPLOAD_KEY_CONFLICT: '文件上传标识冲突，请重新上传。',
   SAND_AI_TASK_UNSUPPORTED: 'Worker 不支持该任务类型。',
@@ -75,7 +83,7 @@ export function displayableRuntimeMessage(message: string | null | undefined): s
 }
 
 /**
- * 按冻结码返回展示文案；未知码返回 undefined，由调用方只展示原码。
+ * 按冻结码返回展示文案；未知码返回 undefined，由调用方按系统故障加错误编号显示。
  */
 export function hintForRuntimeErrorCode(errorCode: string | null | undefined): string | undefined {
   if (!errorCode) {
@@ -93,13 +101,21 @@ export function hintForRuntimeErrorCode(errorCode: string | null | undefined): s
 }
 
 /**
+ * 未翻译的稳定错误码按系统故障显示并带错误编号，便于报障时对照。
+ */
+export function untranslatedErrorText(errorCode: string): string {
+  return `系统故障（错误编号 ${errorCode}），请记录编号并联系系统维护人员。`
+}
+
+/**
  * 把运行面异常收成 Alert 标题/描述：界面只给中文说明，error_code/request_id 只进 console。
  */
 export function toRuntimeUiError(error: unknown): RuntimeUiError {
   if (error instanceof SandAiRuntimeError) {
     const hint = hintForRuntimeErrorCode(error.errorCode)
     // 冻结码优先给中文说明；无映射时仅回显中文原文，英文原文一律兜底、不进界面。
-    const displayText = hint ?? displayableRuntimeMessage(error.message) ?? '请求未完成，请稍后重试。'
+    const displayText = hint ?? displayableRuntimeMessage(error.message)
+      ?? (error.errorCode ? untranslatedErrorText(error.errorCode) : '请求未完成，请稍后重试。')
     // error_code / request_id 仅供排查，进 console，不上屏（§6.1）。
     if (error.errorCode || error.requestId) {
       console.error('[sand-ai] runtime error', { error_code: error.errorCode, request_id: error.requestId })

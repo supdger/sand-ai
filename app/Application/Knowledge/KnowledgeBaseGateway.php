@@ -467,7 +467,7 @@ final class KnowledgeBaseGateway
                  WHERE p.knowledge_base_id=? AND t.state='pending' LIMIT 1",
                 [$knowledgeBaseId],
             );
-            if ($pending !== []) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Finish or reconcile pending knowledge answers before disabling');
+            if ($pending !== []) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '还有待处理的知识问答，请完成后再停用');
             (new KnowledgeEmbeddingIndexGateway())->assertNoUnsettledForBase($knowledgeBaseId);
             $base->save(['state' => 'disabled', 'status' => 2]);
             Db::connect('pgsql')->execute('INSERT INTO sand_ai_knowledge_operation (environment_id, operation_code, idempotency_key, request_fingerprint, knowledge_base_id, version_id) VALUES (?, ?, ?, ?, ?, ?)', [$environmentId, 'disable', $idempotencyKey, hash('sha256', (string) $knowledgeBaseId), $knowledgeBaseId, $versionId]);
@@ -515,6 +515,25 @@ final class KnowledgeBaseGateway
         if ($knowledgeBaseId <= 0 || trim($idempotencyKey) === '' || trim($actorRef) === '') {
             throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Knowledge base, administrator and Idempotency-Key are required');
         }
+        try {
+            return $this->retireTransaction($environmentId, $knowledgeBaseId, $idempotencyKey, $actorRef);
+        } catch (ApiProblem $problem) {
+            throw $problem;
+        } catch (\think\db\exception\PDOException|\PDOException $failure) {
+            \support\Log::warning('SandAI knowledge base retire failed', [
+                'knowledge_base_id' => $knowledgeBaseId,
+                'exception_type' => $failure::class,
+                'sqlstate' => $failure instanceof \think\db\exception\PDOException
+                    ? ($failure->getData()['PDO Error Info']['SQLSTATE'] ?? null)
+                    : $failure->getCode(),
+            ]);
+            throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '删除知识库没有完成，请刷新后重试；仍失败请联系系统维护人员');
+        }
+    }
+
+    /** @return array{knowledge_base_id:int,state:string,idempotent_replay:bool} */
+    private function retireTransaction(int $environmentId, int $knowledgeBaseId, string $idempotencyKey, string $actorRef): array
+    {
         return Db::connect('pgsql')->transaction(function () use ($environmentId, $knowledgeBaseId, $idempotencyKey, $actorRef): array {
             $db = Db::connect('pgsql');
             $db->execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", [$environmentId . ':knowledge-operation:retire:' . $idempotencyKey]);
@@ -528,27 +547,27 @@ final class KnowledgeBaseGateway
             $rows = $db->query('SELECT id,state,status,active_version_id FROM sand_ai_knowledge_base WHERE id=? AND environment_id=? AND delete_time IS NULL FOR UPDATE', [$knowledgeBaseId, $environmentId]);
             if (count($rows) !== 1) throw new ApiProblem('SAND_AI_RESOURCE_NOT_FOUND', 'Knowledge base not found');
             if ((string) $rows[0]['state'] !== 'disabled' || (int) $rows[0]['status'] !== 2) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Disable the knowledge base before deleting it');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '先停用知识库，再删除');
             }
             $published = $db->query("SELECT count(*) AS total FROM sand_ai_knowledge_publication WHERE knowledge_base_id=? AND state='published'", [$knowledgeBaseId]);
             $publicationCount = (int) ($published[0]['total'] ?? 0);
             if ($publicationCount > 0) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Revoke ' . $publicationCount . ' application publications before deleting');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '还有 ' . $publicationCount . ' 个应用在开放这个知识库，先撤销开放再删除');
             }
             $indexes = $db->query('SELECT 1 FROM sand_ai_knowledge_embedding_index i JOIN sand_ai_knowledge_base_version v ON v.id=i.knowledge_base_version_id WHERE v.knowledge_base_id=? LIMIT 1', [$knowledgeBaseId]);
             if ($indexes !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Purge knowledge vectors before deleting');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '先清理向量，再删除知识库');
             }
             $sources = $db->query('SELECT 1 FROM sand_ai_knowledge_base_source s JOIN sand_ai_knowledge_base_version v ON v.id=s.knowledge_base_version_id WHERE v.knowledge_base_id=? LIMIT 1', [$knowledgeBaseId]);
             if ($sources !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Purge knowledge sources before deleting');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '先解除来源引用，再删除知识库');
             }
             $versionId = (int) ($rows[0]['active_version_id'] ?? 0);
             if ($versionId <= 0) {
                 $latest = $db->query('SELECT id FROM sand_ai_knowledge_base_version WHERE knowledge_base_id=? ORDER BY version_no DESC LIMIT 1', [$knowledgeBaseId]);
                 $versionId = $latest === [] ? 0 : (int) $latest[0]['id'];
             }
-            if ($versionId <= 0) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Knowledge base has no version to delete');
+            if ($versionId <= 0) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '这个知识库没有可删除的版本');
             $db->execute('UPDATE sand_ai_knowledge_base SET delete_time=CURRENT_TIMESTAMP(0), update_time=CURRENT_TIMESTAMP(0) WHERE id=? AND delete_time IS NULL', [$knowledgeBaseId]);
             $db->execute('INSERT INTO sand_ai_knowledge_operation (environment_id, operation_code, idempotency_key, request_fingerprint, knowledge_base_id, version_id) VALUES (?, ?, ?, ?, ?, ?)', [$environmentId, 'retire', $idempotencyKey, hash('sha256', (string) $knowledgeBaseId), $knowledgeBaseId, $versionId]);
             $this->audit(trim($actorRef), 'knowledge_base.retire', $knowledgeBaseId, ['environment_id' => $environmentId, 'request_id' => $idempotencyKey]);
