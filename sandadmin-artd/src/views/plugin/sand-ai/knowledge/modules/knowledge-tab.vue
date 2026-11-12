@@ -18,8 +18,8 @@
         @change="page = 1"
       >
         <ElOption label="可用" value="usable" />
-        <ElOption label="索引中" value="indexing" />
-        <ElOption label="索引失败（可重试）" value="failed" />
+        <ElOption label="整理中" value="indexing" />
+        <ElOption label="整理失败" value="failed" />
         <ElOption label="未发布" value="draft" />
         <ElOption label="已停用" value="disabled" />
       </ElSelect>
@@ -178,14 +178,14 @@
             placeholder="一句话说明这是什么资料（选填）"
           />
         </ElFormItem>
-        <ElFormItem label="给谁用">
+        <ElFormItem label="哪些应用能用">
           <ElSelect
             v-model="createForm.audiences"
             multiple
             clearable
             collapse-tags
             collapse-tags-tooltip
-            placeholder="暂时谁都不用"
+            placeholder="先不开放，建好后再选"
             class="audience-select"
           >
             <ElOption label="试用" value="__trial__" />
@@ -196,7 +196,7 @@
               :value="agent"
             />
           </ElSelect>
-          <div class="field-hint">不选表示暂时谁都不用；建好后也可以随时调整。</div>
+          <div class="field-hint">先不开放，建好后再选。</div>
         </ElFormItem>
       </ElForm>
       <template #footer>
@@ -496,8 +496,8 @@
   function statusLabel(row: KnowledgeBaseRow): string {
     switch (rowStatus(row)) {
       case 'usable': return '可用'
-      case 'indexing': return '索引中'
-      case 'failed': return '索引失败（可重试）'
+      case 'indexing': return '整理中'
+      case 'failed': return '整理失败'
       case 'draft': return '未发布'
       case 'disabled': return '已停用'
     }

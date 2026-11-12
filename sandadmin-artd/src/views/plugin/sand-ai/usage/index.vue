@@ -8,7 +8,7 @@
         </div>
         <div class="page-head-actions">
           <ElButton v-if="canBudgetWrite" type="primary" @click="openBudget">设预算</ElButton>
-          <ElButton v-if="canReview" text @click="goReview()">费用核对</ElButton>
+          <ElButton v-if="canReview" text @click="goInvocation()">查看明细</ElButton>
           <ElButton v-if="canView" :loading="exporting" @click="handleExport">导出</ElButton>
         </div>
       </div>
@@ -533,6 +533,10 @@
   function monthBoundsQuery(): { from_time: string; to_time: string } | null {
     const bounds = monthBounds.value
     return bounds ? { from_time: bounds.from, to_time: bounds.to } : null
+  }
+
+  function goInvocation(): void {
+    void router.push('/sand-ai/invocation')
   }
 
   function goReview(extra: Record<string, string> = {}): void {

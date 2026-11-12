@@ -4,10 +4,8 @@
       <ElCard v-if="materialConfigurationPage" class="art-table-card sand-ai-page-card" shadow="never">
         <div class="cap-header">
           <div>
-            <h2 class="cap-title">材料配置</h2>
-            <p class="cap-desc">
-              为指定应用环境选择解析工具、模型和材料处理位置。仅配置本地文本解析时无需密钥；AI 抽取仍需已启用模型。
-            </p>
+            <h2 class="cap-title">材料整理</h2>
+            <p class="cap-desc">选择整理材料用的模型</p>
           </div>
         
         </div>
@@ -505,11 +503,10 @@
               <ElButton
                 v-else
                 link
-                type="danger"
                 :disabled="cardWriteBlocked()"
                 @click="askDisableCapability(card)"
               >
-                停用这项能力
+                停用
               </ElButton>
             </div>
           </section>

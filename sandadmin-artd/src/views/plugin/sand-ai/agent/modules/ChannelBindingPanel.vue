@@ -118,13 +118,14 @@
             <button type="button" class="type-card" :class="{ 'type-card--active': formKind === 'api' }" @click="formKind = 'api'">
               <strong>接口调用</strong>
               <span>你的系统或脚本通过接口把消息发给智能体</span>
+              <em v-if="formKind === 'api'" class="type-card__mark">✓</em>
             </button>
             <button type="button" class="type-card" :class="{ 'type-card--active': formKind === 'web' }" @click="formKind = 'web'">
               <strong>网页对话</strong>
               <span>在网页上直接和智能体对话</span>
+              <em v-if="formKind === 'web'" class="type-card__mark">✓</em>
             </button>
           </div>
-          <p class="type-note">企业微信、钉钉、飞书即将支持</p>
           <div class="drawer-actions">
             <ElButton @click="editorVisible = false">取消</ElButton>
             <ElButton type="primary" :disabled="!formKind" @click="editorStep = 'form'">下一步</ElButton>
@@ -1402,7 +1403,9 @@
   .type-card { display: flex; flex-direction: column; gap: 6px; padding: 16px; border: 1px solid var(--el-border-color); border-radius: 8px; background: var(--el-fill-color-blank); cursor: pointer; text-align: left; }
   .type-card strong { font-size: 15px; }
   .type-card span { color: var(--el-text-color-secondary); font-size: 12px; }
-  .type-card--active { border-color: var(--el-color-primary); background: var(--el-color-primary-light-9); }
+  .type-card { position: relative; }
+  .type-card--active { border-color: var(--el-color-primary); background: var(--el-color-primary-light-9); box-shadow: inset 0 0 0 1px var(--el-color-primary); }
+  .type-card__mark { position: absolute; top: 8px; right: 10px; color: var(--el-color-primary); font-style: normal; font-weight: 700; }
   .type-note { margin: 12px 0 0; color: var(--el-text-color-secondary); font-size: 12px; }
   .drawer-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
   .agent-warn { display: block; color: var(--el-color-warning); font-size: 12px; }

@@ -70,7 +70,7 @@
               <template #dropdown>
                 <ElDropdownMenu>
                   <ElDropdownItem v-if="row.draft_version_id" :disabled="operationBlocked(row.code)" @click="publish(row)">启用</ElDropdownItem>
-                  <ElDropdownItem @click="openVersions(row)">版本与回退</ElDropdownItem>
+                  <ElDropdownItem v-if="devTools" @click="openVersions(row)">版本与回退</ElDropdownItem>
                   <ElDropdownItem v-if="row.status === 1 && row.active_version_id" :disabled="operationBlocked(row.code)" divided @click="disable(row)">停用</ElDropdownItem>
                   <ElDropdownItem v-if="row.status !== 1" :disabled="channelCount(row) > 0" divided @click="retireAgent(row)">{{ channelCount(row) > 0 ? `删除（还有 ${channelCount(row)} 个渠道在用）` : '删除' }}</ElDropdownItem>
                   <ElDropdownItem v-else disabled divided>删除（先停用才能删）</ElDropdownItem>
@@ -203,8 +203,11 @@
   import AgentTrialDialog from './AgentTrialDialog.vue'
   import { newRuntimeRequestId } from '../../api/runtime'
   import { errorDisplayText } from '../../api/errorText'
+  import { isDevLogin } from '../../api/localTime'
   import { isWriteRejected, writeRejectionText } from '../../api/writeRejection'
   import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
+
+  const devTools = isDevLogin()
 
   const versionsVisible = ref(false)
   const versions = ref<AgentVersionHistory[]>([])
@@ -858,7 +861,7 @@
     let dispatched = false
     try {
       const boundCount = channelRows.value.filter(item => item.agent_definition_id === row.agent_definition_id).length
-      try { await ElMessageBox.confirm(`停用「${row.name}」后${boundCount > 0 ? `接到的 ${boundCount} 个渠道里的人问了不会再回答` : '新任务和旧版本结果都将不可用'}，随时可以再启用。`, '停用智能体', { type: 'warning', confirmButtonText: '停用' }) }
+      try { await ElMessageBox.confirm(`停用后，「${row.name}」不再回答新问题，接着它的渠道也会暂停。随时可以再启用。`, '停用智能体', { type: 'warning', confirmButtonText: '停用', cancelButtonText: '再想想' }) }
       catch { return }
       if (!stillCurrent()) return
       reference = await startOperation('disable', row.code, row.agent_definition_id, null, null, stillCurrent)

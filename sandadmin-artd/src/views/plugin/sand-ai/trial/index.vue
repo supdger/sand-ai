@@ -205,12 +205,6 @@
           </template>
             </ElTabPane>
             <!-- 后端尚未就绪：页签禁用，内容只留占位说明 -->
-            <ElTabPane label="文档整理（即将提供）" name="document" disabled>
-              <p class="trial-muted">即将提供</p>
-            </ElTabPane>
-            <ElTabPane label="录音转写（即将提供）" name="speech" disabled>
-              <p class="trial-muted">即将提供</p>
-            </ElTabPane>
           </ElTabs>
         </template>
       </div>
@@ -726,8 +720,9 @@
 
 <style scoped>
   .trial-wrap {
-    max-width: 760px;
-    margin: 0 auto;
+    max-width: none;
+    margin: 0;
+    min-height: calc(100vh - 140px);
   }
 
   .trial-title {

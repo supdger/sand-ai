@@ -4,25 +4,20 @@
       <ElCard class="art-table-card sand-ai-page-card" shadow="never">
         <div class="file-header">
           <div>
-            <h2 class="file-title">文件中心</h2>
-            <p class="file-desc">
-              上传文档或录音后，可提交解析或转写任务。录音结果和费用在任务中心查看。
-              清理进行中请刷新状态；清理失败可在原文件上重试，无需重新上传。
-            </p>
+            <h2 class="file-title">文件</h2>
+            <p class="file-desc">上传文档或录音，AI 帮你整理成文字</p>
           </div>
+          <PrivateFileUpload :bearer="apiKey" :disabled="busy !== ''"
+            accept=".pdf,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp,.mp3,.m4a,.ogg,.wav,.webm,.flac"
+            @file="upsertFile" @busy="uploadBusy" @identity-denied="clearOnAccessDenied" />
         </div>
 
-        <ElForm label-width="110px" class="file-cred" @submit.prevent>
+        <ElForm v-if="devTools" label-width="110px" class="file-cred" @submit.prevent>
           <RuntimeApiKeyField
             v-model="apiKey"
             :trial-actions="['sand_ai.file.read', 'sand_ai.file.write', 'sand_ai.document_parse', 'sand_ai.task.read', 'sand_ai.task.retry', 'sand_ai.audio.transcription']"
             placeholder="当前应用的调用密钥（需允许使用文件读写）"
           />
-          <ElFormItem label="上传文件">
-            <PrivateFileUpload :bearer="apiKey" :disabled="busy !== ''"
-              accept=".pdf,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp,.mp3,.m4a,.ogg,.wav,.webm,.flac"
-              @file="upsertFile" @busy="uploadBusy" @identity-denied="clearOnAccessDenied" />
-          </ElFormItem>
         </ElForm>
 
         <p v-if="pendingCleanupIds.length" class="file-desc">
@@ -35,7 +30,7 @@
           有一份转写提交的结果尚未确认；请在「高级：按编号查询与找回恢复」中按原请求编号只读找回。
         </p>
 
-        <details class="file-alert file-advanced">
+        <details v-if="devTools" class="file-alert file-advanced">
           <summary>高级：按编号查询与找回恢复（一般不用）</summary>
           <ElDivider content-position="left">按编号查询已有文件</ElDivider>
           <ElForm label-width="110px" class="file-cred" @submit.prevent>
@@ -308,6 +303,7 @@
 
 <script setup lang="ts">
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
+  import { isDevLogin } from '../api/localTime'
   import '../components/sandAiPage.css'
   import { computed, h, onMounted, onUnmounted, reactive, ref, watch, type VNode } from 'vue'
   import { useRouter } from 'vue-router'
@@ -333,6 +329,7 @@
   const router = useRouter()
   const userStore = useUserStore()
   const apiKey = ref('')
+  const devTools = isDevLogin()
   let viewGeneration = 0
   const lookupId = ref<number | undefined>(undefined)
   const recentFiles = ref<SandAiFile[]>([])

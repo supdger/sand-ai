@@ -4,20 +4,19 @@
       <ElCard class="art-table-card sand-ai-page-card" shadow="never">
         <div class="task-header">
           <div>
-            <h2 class="task-title">任务与会议试用</h2>
-            <p class="task-desc">
-              查询、取消和重试任务；查看材料的逐文件进度、最终成果、来源与计量。
-            </p>
+            <h2 class="task-title">任务排障</h2>
+            <p class="task-desc">按任务编号查看处理进度</p>
           </div>
         </div>
 
         <ElForm label-width="110px" class="task-cred" @submit.prevent>
           <RuntimeApiKeyField
+            v-if="devTools"
             v-model="apiKey"
             :trial-actions="['sand_ai.task.read', 'sand_ai.task.cancel', 'sand_ai.task.retry', 'sand_ai.audio.transcription', 'sand_ai.audio.review', 'sand_ai.chat.complete', 'sand_ai.workflow.read', 'sand_ai.model.read', 'sand_ai.invocation.read', 'sand_ai.usage.read']"
             placeholder="当前应用的调用密钥"
           />
-          <p class="task-footnote">查询、取消、重试分别需要允许使用“任务结果读取”“任务取消”“任务重试”；读取或重试还会核验原任务对应的服务权限。</p>
+          <p v-if="devTools" class="task-footnote">查询、取消、重试分别需要允许使用“任务结果读取”“任务取消”“任务重试”；读取或重试还会核验原任务对应的服务权限。</p>
           <ElFormItem label="按编号查询">
             <ElSpace wrap>
               <ElInputNumber v-model="lookupId" :min="1" :controls="false" placeholder="任务编号" />
@@ -26,6 +25,7 @@
           </ElFormItem>
         </ElForm>
 
+        <template v-if="devTools">
         <ElDivider content-position="left">找回会议摘要</ElDivider>
         <details v-if="pendingSummary" class="task-alert task-recover">
           <summary>{{ pendingSummary.summaryTaskId ? '原摘要任务尚待核对' : '上次摘要提交结果尚未确认' }}（查看详情）</summary>
@@ -91,6 +91,7 @@
             </ElSpace>
           </ElFormItem>
         </ElForm>
+        </template>
 
         <ElAlert
           v-if="lastError"
@@ -664,6 +665,7 @@
 <script setup lang="ts">
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
+  import { isDevLogin } from '../api/localTime'
   import { computed, h, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { ElButton, ElMessage, ElMessageBox, ElSpace, ElSelectV2, ElPagination, ElCheckbox } from 'element-plus'
@@ -725,6 +727,7 @@
 
   const userStore = useUserStore()
   const apiKey = ref('')
+  const devTools = isDevLogin()
   const lookupId = ref<number | undefined>(undefined)
   const recentTasks = ref<SandAiTask[]>([])
   const activeTask = ref<TaskSummaryWithReceiptRecovery | null>(null)

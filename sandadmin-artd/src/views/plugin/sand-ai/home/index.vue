@@ -4,10 +4,10 @@
       <ElCard class="art-table-card sand-ai-page-card" shadow="never">
         <div class="home-head">
           <div>
-            <h2 class="home-title">AI 首页</h2>
-            <p class="home-desc">看开通进度，并马上试用 AI</p>
+            <h2 class="home-title">首页</h2>
+            <p class="home-desc">{{ completed ? 'AI 已经能用了' : '还差一步：先接一个模型' }}</p>
           </div>
-          <ElButton :loading="loading" @click="loadAll">刷新</ElButton>
+          <ElButton type="primary" @click="go('/sand-ai/trial')">去试用</ElButton>
         </div>
 
         <p v-if="bootstrapNotice" class="home-bootstrap">
@@ -19,15 +19,10 @@
           <ElSkeleton :rows="6" animated />
         </div>
 
-        <ElResult v-else-if="loadError" icon="error" title="AI 首页没能加载出来"
-          :sub-title="loadError || '系统出了点问题，请稍后再试'">
-          <template #extra>
-            <ElSpace wrap>
-              <ElButton type="primary" @click="loadAll">重新加载</ElButton>
-              <ElButton :loading="copyingProblem" @click="copyProblemDetails">复制问题信息</ElButton>
-            </ElSpace>
-          </template>
-        </ElResult>
+        <div v-else-if="loadError" class="home-offline">
+          <p>网络好像断了，请检查网络后再试</p>
+          <ElButton type="primary" @click="loadAll">重试</ElButton>
+        </div>
 
         <template v-else>
         <!-- 已完成：状态面板 -->
@@ -52,9 +47,11 @@
               </template>
             </div>
           </div>
-          <ElSpace wrap>
-            <ElButton type="primary" @click="go('/sand-ai/trial')">去试用</ElButton>
-          </ElSpace>
+          <div class="home-entries">
+            <button type="button" class="home-entry" @click="go('/sand-ai/trial')">试一试对话</button>
+            <button type="button" class="home-entry" @click="go('/sand-ai/file')">上传文件让 AI 读</button>
+            <button type="button" class="home-entry" @click="go('/sand-ai/usage')">看这个月花了多少</button>
+          </div>
         </div>
 
         <!-- 未完成：开通向导 -->
@@ -1220,7 +1217,7 @@
   /** 已启用部署的展示名：模型名 · 服务商名，不落模型代码；模型名缺失才回退 display_name。 */
   function deploymentLabel(item: PublishedDeployment): string {
     if (!item.model_name) return item.display_name
-    return item.provider_name ? `${item.model_name} · ${item.provider_name}` : item.model_name
+    return item.model_name || item.display_name
   }
 
   /** 能力档里 chat 默认模型绑定的部署；与能力配置页「默认模型」取同一语义（非停用、优先顺序最小）。 */
@@ -1340,6 +1337,32 @@
 </script>
 
 <style scoped>
+  .home-entries {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .home-entry {
+    min-height: 88px;
+    padding: 16px;
+    border: 1px solid var(--el-border-color);
+    border-radius: 12px;
+    background: var(--el-fill-color-blank);
+    color: var(--el-text-color-primary);
+    font-size: 16px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .home-offline {
+    margin: 12px 0;
+    padding: 16px;
+    border-radius: 8px;
+    background: var(--el-color-warning-light-9);
+  }
+
   .home-head {
     display: flex;
     flex-wrap: wrap;

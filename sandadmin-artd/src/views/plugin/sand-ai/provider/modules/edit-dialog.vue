@@ -46,14 +46,18 @@
           <el-option v-if="formData.adapter === 'fake'" label="开发用模拟接口" value="fake" />
         </el-select>
       </el-form-item>
-      <el-form-item label="超时（毫秒）" prop="timeout_ms">
-        <el-input-number v-model="formData.timeout_ms" :min="formData.adapter === 'local_ocr_runtime' ? 1000 : 1" :max="formData.adapter === 'local_ocr_runtime' ? 120000 : undefined" :step="1000" />
-      </el-form-item>
+      <el-collapse class="more-settings">
+        <el-collapse-item title="更多设置" name="more">
+          <el-form-item label="超时（秒）">
+            <el-input-number v-model="timeoutSeconds" :min="1" :max="120" :step="1" />
+          </el-form-item>
+        </el-collapse-item>
+      </el-collapse>
       <template v-if="needsSecretFields">
-        <el-form-item label="接口地址">
+        <el-form-item v-show="false" label="接口地址">
           <el-input v-model="formData.configBaseUrl" placeholder="服务商提供的 HTTPS API 基础地址" />
         </el-form-item>
-        <el-form-item label="API Key">
+        <el-form-item label="密钥">
           <div class="api-key-field">
             <el-input
               v-model="formData.configApiKey"
@@ -98,25 +102,7 @@
           </div>
         </el-form-item>
       </template>
-      <el-form-item v-if="formData.adapter !== 'local_ocr_runtime'" label="连接说明">
-        <div>
-          <div class="config-hint">{{ configHint }}</div>
-          <div v-if="selectedGuide?.data_egress_notice" class="config-hint">{{ selectedGuide.data_egress_notice }}</div>
-          <div class="config-hint">
-            {{
-              hasEncryptedConfig
-                ? '当前已保存密钥，不会回显；填写上方任意一项将整体替换原连接配置，全部留空则不修改。'
-                : '当前尚无连接配置。'
-            }}
-          </div>
-        </div>
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-radio-group v-model="formData.status" aria-label="服务商状态" class="status-radio-group">
-          <el-radio :value="1" @click="formData.status = 1">启用</el-radio>
-          <el-radio :value="2" @click="formData.status = 2">停用</el-radio>
-        </el-radio-group>
-      </el-form-item>
+      <p v-if="formData.adapter !== 'local_ocr_runtime'" class="config-hint">密钥保存后不再显示。填错了，点「测试连接」就能看出来。</p>
     </el-form>
     <template #footer>
       <ElButton @click="handleClose">取消</ElButton>
@@ -208,6 +194,14 @@
     configBaseUrl: '',
     configApiKey: '',
     status: 1
+  })
+
+  const timeoutSeconds = computed({
+    get: () => Math.max(1, Math.round(formData.timeout_ms / 1000)),
+    set: (seconds: number) => {
+      const next = Number.isFinite(seconds) ? Math.round(seconds) : 30
+      formData.timeout_ms = Math.min(120000, Math.max(1000, next * 1000))
+    }
   })
 
   const presetGuides = ref<ProviderGuide[]>([])
