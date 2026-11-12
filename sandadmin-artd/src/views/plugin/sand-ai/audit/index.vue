@@ -1,38 +1,39 @@
 <template>
   <SandAiErrorBoundary>
-    <div class="sand-ai-page">
-      <sa-search-bar
-        v-model="searchForm"
-        label-width="80px"
-        :show-expand="false"
-        @reset="handleReset"
-        @search="handleSearch"
-      >
-        <el-col :xs="24" :sm="12" :md="8" :lg="6">
-          <el-form-item label="操作" prop="action">
-            <el-input v-model="searchForm.action" clearable placeholder="按操作筛选" />
-          </el-form-item>
-        </el-col>
-        <el-col :xs="24" :sm="12" :md="8" :lg="6">
-          <el-form-item label="摘要" prop="name">
-            <el-input v-model="searchForm.name" clearable placeholder="按摘要或操作者筛选" />
-          </el-form-item>
-        </el-col>
-      </sa-search-bar>
+    <div class="sand-ai-page record-page">
+      <header class="page-head">
+        <div>
+          <h1 class="page-title">审计</h1>
+          <p class="page-desc">谁在什么时候做了什么</p>
+        </div>
+      </header>
+
+      <div class="filter-row">
+        <ElInput
+          v-model="keyword"
+          clearable
+          placeholder="搜索谁，或做了什么"
+          class="filter-input"
+          @change="applyFilter"
+          @clear="applyFilter"
+        />
+        <ElButton text @click="clearFilter">清空筛选</ElButton>
+      </div>
 
       <ElCard class="art-table-card sand-ai-page-card" shadow="never">
-        <ArtTableHeader v-model:columns="columnChecks" :loading="loading" @refresh="refreshData" />
-
         <ArtTable
           row-key="id"
           :loading="loading"
           :data="data"
           :columns="columns"
+          :empty-text="emptyText"
           :pagination="pagination"
           @pagination:size-change="handleSizeChange"
           @pagination:current-change="handleCurrentChange"
         />
       </ElCard>
+
+      <AuditIssueDrawer v-model="issueOpen" :sentence="issueSentence" :entries="issueEntries" />
     </div>
   </SandAiErrorBoundary>
 </template>
@@ -40,59 +41,136 @@
 <script setup lang="ts">
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
-  import { ref } from 'vue'
+  import AuditIssueDrawer from './AuditIssueDrawer.vue'
+  import { h, ref } from 'vue'
+  import { ElButton } from 'element-plus'
   import { useTable } from '@/hooks/core/useTable'
   import auditApi from '../api/audit'
-  import { serviceActionLabel } from '../api/displayLabels'
-  import type { SandAiAuditLog, SandAiPageQuery } from '../api/types'
+  import { browserOffsetMinutes, formatLocalTime } from '../api/localTime'
+  import type { SandAiPageQuery } from '../api/types'
 
-  const emptySearch = (): SandAiPageQuery => ({
-    action: undefined,
-    name: undefined
-  })
-  const searchForm = ref<SandAiPageQuery>(emptySearch())
+  type AuditEntry = { create_time: string }
+
+  type AuditRow = {
+    id: number
+    create_time: string
+    actor_name: string
+    sentence: string
+    object_name: string
+    result: string
+    issue_count: number
+    entries: AuditEntry[]
+  }
+
+  const keyword = ref('')
+  const emptyText = ref('还没有审计记录')
+  const issueOpen = ref(false)
+  const issueSentence = ref('')
+  const issueEntries = ref<AuditEntry[]>([])
 
   const {
     columns,
-    columnChecks,
     data,
     loading,
     pagination,
     searchParams,
-    getData,
-    resetSearchParams,
+    getDataByPage,
     handleSizeChange,
-    handleCurrentChange,
-    refreshData
+    handleCurrentChange
   } = useTable({
     core: {
-      apiFn: auditApi.list,
-      apiParams: {},
+      apiFn: (params: SandAiPageQuery) => auditApi.list(params),
+      apiParams: {
+        offset_minutes: browserOffsetMinutes()
+      },
       columnsFactory: () => [
-        { prop: 'id', label: '编号', width: 70, align: 'center' },
-        { prop: 'actor_type', label: '操作者类型', width: 100 },
-        { prop: 'actor_ref', label: '操作者编号', minWidth: 100, showOverflowTooltip: true },
         {
-          prop: 'action',
-          label: '操作',
-          minWidth: 140,
-          formatter: (row: SandAiAuditLog) => serviceActionLabel(row.action)
+          prop: 'create_time',
+          label: '时间',
+          width: 130,
+          formatter: (row: AuditRow) => formatLocalTime(row.create_time)
         },
-        { prop: 'resource_type', label: '对象类型', width: 110 },
-        { prop: 'resource_id', label: '对象编号', width: 90 },
-        { prop: 'summary', label: '摘要', minWidth: 160, showOverflowTooltip: true },
-        { prop: 'create_time', label: '时间', width: 170 }
+        { prop: 'actor_name', label: '谁', minWidth: 100, showOverflowTooltip: true },
+        { prop: 'sentence', label: '做了什么', minWidth: 220, showOverflowTooltip: true },
+        { prop: 'object_name', label: '对象', minWidth: 120, showOverflowTooltip: true },
+        { prop: 'result', label: '结果', width: 80 },
+        {
+          prop: 'detail',
+          label: '详情',
+          width: 90,
+          formatter: (row: AuditRow) =>
+            row.issue_count > 1
+              ? h(
+                  ElButton,
+                  { text: true, type: 'primary', onClick: () => openIssues(row) },
+                  () => '每一次'
+                )
+              : ''
+        }
       ]
     }
   })
 
-  function handleSearch(): void {
-    Object.assign(searchParams, searchForm.value)
-    getData()
+  function applyFilter(): void {
+    const text = keyword.value.trim()
+    const params = searchParams as Record<string, unknown>
+    params.offset_minutes = browserOffsetMinutes()
+    if (text === '') {
+      delete params.name
+    } else {
+      params.name = text
+    }
+    emptyText.value = text === '' ? '还没有审计记录' : '没有找到符合条件的记录'
+    void getDataByPage()
   }
 
-  function handleReset(): void {
-    searchForm.value = emptySearch()
-    resetSearchParams()
+  function clearFilter(): void {
+    keyword.value = ''
+    applyFilter()
+  }
+
+  function openIssues(row: AuditRow): void {
+    issueSentence.value = row.sentence
+    issueEntries.value = row.entries
+    issueOpen.value = true
   }
 </script>
+
+<style scoped lang="scss">
+  .record-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .page-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .page-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+  }
+
+  .page-desc {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .filter-input {
+    width: 280px;
+  }
+</style>
