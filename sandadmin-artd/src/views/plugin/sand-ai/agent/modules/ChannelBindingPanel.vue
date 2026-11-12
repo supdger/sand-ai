@@ -88,7 +88,7 @@
           </template>
         </ElTableColumn>
         <ElTableColumn label="状态" width="100">
-          <template #default="{ row }"><ElTag :type="row.status === 1 ? 'success' : 'info'" size="small">{{ row.status === 1 ? '可用' : '已停用' }}</ElTag></template>
+          <template #default="{ row }"><ElTag :type="row.status === 1 ? 'success' : 'info'" size="small">{{ row.status === 1 ? '已启用' : '已停用' }}</ElTag></template>
         </ElTableColumn>
         <ElTableColumn label="操作" min-width="200">
           <template #default="{ row }">
@@ -99,7 +99,7 @@
                 <ElDropdownMenu>
                   <ElDropdownItem v-if="row.feishu_configured || row.wecom_configured" @click="openToolsMenu(row)">聊天工具配置</ElDropdownItem>
                   <ElDropdownItem v-if="row.feishu_configured || row.wecom_configured" @click="showDeliveries(row)">回信记录</ElDropdownItem>
-                  <ElDropdownItem v-if="row.status === 1" divided :disabled="writing || !!pendingBindingMutation" @click="disable(row)">停用</ElDropdownItem>
+                  <ElDropdownItem v-if="row.status === 1" :divided="Boolean(row.feishu_configured || row.wecom_configured)" :disabled="writing || !!pendingBindingMutation" @click="disable(row)">停用</ElDropdownItem>
                   <ElDropdownItem v-if="row.status !== 1" :disabled="writing || !!pendingBindingMutation" @click="retireChannel(row)">删除</ElDropdownItem>
                   <ElDropdownItem v-else disabled>删除（先停用才能删）</ElDropdownItem>
                 </ElDropdownMenu>
@@ -124,7 +124,6 @@
               <span>在网页上直接和智能体对话</span>
             </button>
           </div>
-          <p class="type-note">企业微信、钉钉、飞书即将支持</p>
           <div class="drawer-actions">
             <ElButton @click="editorVisible = false">取消</ElButton>
             <ElButton type="primary" :disabled="!formKind" @click="editorStep = 'form'">下一步</ElButton>
@@ -144,7 +143,7 @@
               <ElSelect v-model="form.agent_definition_id" filterable clearable :disabled="writing || !!pendingBindingMutation"
                 placeholder="选择已启用的智能体" style="width: 100%" aria-label="接的智能体">
                 <ElOption v-for="agent in publishedAgents" :key="agent.agent_definition_id" :value="agent.agent_definition_id"
-                  :label="`${agent.name}（第 ${agent.active_version_no} 版）`" />
+                  :label="agent.name" />
               </ElSelect>
               <ElButton v-if="agentMore" link :disabled="directoryLoading || writing || !!pendingBindingMutation" @click="loadAgents">加载更多智能体</ElButton>
               <div v-if="fieldErrors.agent" class="field-error">{{ fieldErrors.agent }}</div>

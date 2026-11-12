@@ -11,7 +11,7 @@
     </template>
     <ElEmpty v-if="!environmentId" description="先在上方选择应用环境" />
     <template v-else>
-      <ElAlert v-if="error" type="error" :title="error" show-icon class="panel-alert" @close="error = ''" />
+      <ElAlert v-if="error && !drawerVisible" type="error" :title="error" show-icon class="panel-alert" @close="error = ''" />
       <ElAlert v-if="!operationLockAvailable || operationJournalInvalid" type="warning" :closable="false" class="notice"
         title="暂不能安全保存智能体变更" description="浏览器缺少跨标签互斥能力，或原变更记录无法保存、读取。暂不能发起新变更；已有原请求仍可只读找回。记录异常不会按未提交处理。" />
       <ElAlert v-if="otherRecoveryCount" type="warning" :closable="false" class="notice"
@@ -70,9 +70,9 @@
               <template #dropdown>
                 <ElDropdownMenu>
                   <ElDropdownItem v-if="row.draft_version_id" :disabled="operationBlocked(row.code)" @click="publish(row)">启用</ElDropdownItem>
-                  <ElDropdownItem @click="openVersions(row)">版本与回退</ElDropdownItem>
-                  <ElDropdownItem v-if="row.status === 1 && row.active_version_id" :disabled="operationBlocked(row.code)" divided @click="disable(row)">停用</ElDropdownItem>
-                  <ElDropdownItem v-if="row.status !== 1" :disabled="channelCount(row) > 0" divided @click="retireAgent(row)">{{ channelCount(row) > 0 ? `删除（还有 ${channelCount(row)} 个渠道在用）` : '删除' }}</ElDropdownItem>
+                  <ElDropdownItem v-if="devSurfaceOpen" @click="openVersions(row)">版本与回退</ElDropdownItem>
+                  <ElDropdownItem v-if="row.status === 1 && row.active_version_id" :disabled="operationBlocked(row.code)" :divided="Boolean(row.draft_version_id) || devSurfaceOpen" @click="disable(row)">停用</ElDropdownItem>
+                  <ElDropdownItem v-if="row.status !== 1" :disabled="channelCount(row) > 0" :divided="Boolean(row.draft_version_id) || devSurfaceOpen" @click="retireAgent(row)">{{ channelCount(row) > 0 ? `删除（还有 ${channelCount(row)} 个渠道在用）` : '删除' }}</ElDropdownItem>
                   <ElDropdownItem v-else disabled divided>删除（先停用才能删）</ElDropdownItem>
                 </ElDropdownMenu>
               </template>
@@ -96,7 +96,7 @@
               @change="modelTouched = true">
               <ElOption v-for="model in models" :key="model.code" :label="model.name" :value="model.code" />
             </ElSelect>
-            <div class="knowledge-actions">
+            <div v-if="models.length === 0" class="knowledge-actions">
               <ElButton link type="primary" :loading="modelsLoading" @click="loadModels">刷新模型</ElButton>
             </div>
             <div v-if="modelsNotPublished" class="knowledge-note knowledge-note--action">
@@ -111,7 +111,7 @@
               placeholder="不选就只靠模型自己回答" style="width: 100%" aria-label="参考哪个知识库">
               <ElOption v-for="item in knowledge" :key="item.id" :value="item.code" :label="knowledgeLabel(item)" />
             </ElSelect>
-            <div class="knowledge-actions">
+            <div v-if="knowledge.length === 0" class="knowledge-actions">
               <ElButton link type="primary" :loading="knowledgeLoading" @click="loadKnowledge(true)">刷新知识库</ElButton>
               <ElButton v-if="knowledgeMore" link type="primary" :loading="knowledgeLoading" @click="loadKnowledge(false)">更多</ElButton>
             </div>
@@ -156,6 +156,7 @@
             </ElCollapseItem>
           </ElCollapse>
           <p class="combo-preview">{{ comboPreview }}</p>
+          <ElAlert v-if="drawerAlert" type="error" :title="drawerAlert" show-icon :closable="false" class="panel-alert" />
           <div class="drawer-actions">
             <ElButton :disabled="writing" @click="drawerVisible = false">取消</ElButton>
             <ElButton v-if="editingEnabled" type="primary" :loading="writing" :disabled="!canSave" @click="saveAndEnable">保存</ElButton>
@@ -192,7 +193,7 @@
   import { useUserStore } from '@/store/modules/user'
   import { useAuth } from '@/hooks/core/useAuth'
   import { computed, onUnmounted, reactive, ref, watch } from 'vue'
-  import { useRouter } from 'vue-router'
+  import { useRoute, useRouter } from 'vue-router'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import agentDefinitionApi, { type AgentDefinitionOperation, type AgentDefinitionOperationReceipt, type AgentDefinitionRejectedPublishReceipt, type AgentDraft, type AgentAvailableModel, type AgentContextTurnLimit, type AgentDefinitionRow, type AgentReadonlyToolSelection, type AgentVersionHistory } from '../../api/agentDefinition'
   import type { AgentVersionDetail } from '../../api/agentDefinition'
@@ -215,7 +216,9 @@
   const versionOwner = ref<AgentDefinitionRow | null>(null)
   let versionsEpoch = 0
   const props = defineProps<{ environmentId: number | null; environment: SandIamEnvironmentReference | null }>()
+  const route = useRoute()
   const router = useRouter()
+  const devSurfaceOpen = computed(() => route.query.dev === '1')
   const userStore = useUserStore()
   const { hasAuth } = useAuth()
   const operationJournalKey = 'sand-ai-agent-definition-operation-journal:v1'
@@ -297,6 +300,14 @@
     instructions: submitAttempted.value && !form.instructions.trim() ? '请写几句话告诉它该怎么回答' : '',
     model: submitAttempted.value && !form.model.trim() ? '请选择用哪个模型' : ''
   }))
+  const drawerAlert = computed(() => {
+    if (!drawerVisible.value) return ''
+    const text = error.value
+    if (!text) return fieldErrors.value.name || fieldErrors.value.model || fieldErrors.value.instructions
+    if (/名称/.test(text) && /(50|超过|太长|个字)/.test(text)) return '名称不能超过 50 个字'
+    if (/模型|回答|名称|指令/.test(text)) return text
+    return '有一项没填对，请看标红的地方'
+  })
   const selectedModel = computed(() => models.value.find(item => item.code === form.model)?.name ?? (form.model || ''))
   const selectedKnowledge = computed(() => {
     const item = knowledge.value.find(entry => entry.code === form.knowledge_base_code)
@@ -777,14 +788,17 @@
   }
   /** 「保存」按钮（未启用智能体）：只存草稿，成功后提示并关闭抽屉。 */
   async function saveDraftOnly(): Promise<void> {
+    const creating = editingId.value === null
+    const name = form.name.trim()
     if (await saveDraft()) {
-      ElMessage.success(`已保存「${form.name.trim()}」`)
+      ElMessage.success(creating ? `已新建「${name}」` : `已保存「${name}」`)
       drawerVisible.value = false
     }
   }
   /** 保存草稿 → 启用最新草稿一步完成；不选知识库也可以启用，运行时只靠模型回答。 */
   async function saveAndEnable(): Promise<void> {
     if (writing.value) return
+    const creating = editingId.value === null
     const name = form.name.trim()
     const code = form.code.trim()
     const saved = await saveDraft()
@@ -795,7 +809,7 @@
       return
     }
     if (await publish(row, true)) {
-      ElMessage.success(editingEnabled.value ? `已保存「${name}」` : `已保存并启用「${name}」`)
+      ElMessage.success(creating ? `已新建「${name}」` : `已保存「${name}」`)
       drawerVisible.value = false
     }
   }
@@ -865,7 +879,8 @@
       if (!reference || !stillCurrent()) return
       dispatched = true
       const result = await agentDefinitionApi.disable(environmentId, row.agent_definition_id, reference.key)
-      await completeOperation(reference, result, stillCurrent)
+      await completeOperation(reference, result, stillCurrent, true)
+      if (stillCurrent()) ElMessage.success(`已停用「${row.name}」`)
     } catch (failure) {
       if (stillCurrent()) {
         if (dispatched && reference && isWriteRejected(failure)) await settleRejectedOperation(reference, failure, stillCurrent, '这次停用被拒绝了。')

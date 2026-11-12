@@ -488,8 +488,9 @@
               <ElButton link type="primary" @click="router.push('/sand-ai/provider')">去 AI 服务商添加</ElButton>
             </p>
             </template>
-            <p v-else-if="card.snapshot === '[]' && !card.wasBound" class="cap-card__note">还没有配置，选好模型保存后即可使用。</p>
-            <p v-else class="cap-card__note">已停用，{{ card.usage }}暂不可用；点「重新启用」可恢复。</p>
+            <p v-else-if="card.snapshot === '[]' && !card.wasBound" class="cap-card__note">还没有配置。选一个模型就会保存。</p>
+            <p v-else class="cap-card__note">已停用。点「重新启用」可以恢复。</p>
+            <p v-if="card.saveNotice" class="cap-card__note" style="color: var(--el-color-danger)">{{ card.saveNotice }}</p>
 
             <div class="cap-card__foot">
               <span class="cap-card__foot-gap" />
@@ -505,7 +506,6 @@
               <ElButton
                 v-else
                 link
-                type="danger"
                 :disabled="cardWriteBlocked()"
                 @click="askDisableCapability(card)"
               >
@@ -518,17 +518,6 @@
             description="还没有可配置的能力"
             :image-size="72"
           />
-        </div>
-        <div v-if="hasUnsavedCards" class="cap-cards-foot">
-          <span class="cap-muted">{{ unsavedCardsHint }}</span>
-          <ElButton
-            type="primary"
-            :loading="busy === 'save'"
-            :disabled="cardWriteBlocked()"
-            @click="saveCapabilityCards"
-          >
-            保存
-          </ElButton>
         </div>
       </ElCard>
     </div>
@@ -964,6 +953,7 @@
     extraRoutes: SandAiCapabilityRoute[]
     snapshot: string
     fieldError: string
+    saveNotice: string
   }
 
   type CapabilityCardDraft = {
@@ -977,6 +967,9 @@
   }
 
   const capabilityCards = ref<CapabilityCard[]>([])
+  const committedCardDrafts = new Map<string, CapabilityCardDraft>()
+  let applyingCardDraft = false
+  let cardAutoSave = false
   // 首次进入即处于加载态，直到首次配置档读取结束。
   const capabilityLoading = ref(true)
   const capabilityLoadFailed = ref(false)
@@ -1098,11 +1091,6 @@
     return semanticRoutes(cardRoutes(card)) !== card.snapshot
   }
 
-  /** 页面级保存按钮只在确有未保存改动时可点；停用卡片同样计入改动。 */
-  const dirtyCardCount = computed(() => capabilityCards.value.filter(card => cardDirty(card)).length)
-  const hasUnsavedCards = computed(() => dirtyCardCount.value > 0)
-  const unsavedCardsHint = computed(() => `${dirtyCardCount.value} 项能力有未保存的改动`)
-
   function cardValidationError(card: CapabilityCard): string {
     if (card.disabled) return ''
     if (card.kind === 'model') {
@@ -1127,13 +1115,14 @@
     return ''
   }
 
-  function cardTag(card: CapabilityCard): { text: string; type: 'success' | 'warning' | 'info' | 'danger' } {
+  function cardTag(card: CapabilityCard): { text: string; type: 'success' | 'info' } {
     if (card.disabled) {
-      if (card.snapshot !== '[]') return { text: '待停用', type: 'warning' }
-      return card.wasBound ? { text: '已停用', type: 'info' } : { text: '未配置', type: 'info' }
+      return card.wasBound || card.snapshot !== '[]'
+        ? { text: '已停用', type: 'info' }
+        : { text: '未配置', type: 'info' }
     }
     if (cardRoutes(card).length === 0) return { text: '未配置', type: 'info' }
-    return profile.value?.state === 'published' ? { text: '已启用', type: 'success' } : { text: '待启用', type: 'warning' }
+    return { text: '已启用', type: 'success' }
   }
 
   const canWriteCards = computed(() =>
@@ -1397,7 +1386,8 @@
         parseDeploymentId: undefined,
         extraRoutes: extras,
         snapshot: '',
-        fieldError: ''
+        fieldError: '',
+        saveNotice: ''
       }
       if (kind === 'model') {
         card.defaultDeploymentId = primary?.deployment_id ?? undefined
@@ -1412,6 +1402,7 @@
         card.parseDeploymentId = primary.deployment_id ?? undefined
       }
       card.snapshot = semanticRoutes(own.slice(0, consumed).map(routePayload).concat(extras))
+      committedCardDrafts.set(card.code, cardDraftOf(card))
       applyCardDraft(card, cardDrafts.get(code))
       return card
     })
@@ -1517,27 +1508,69 @@
     }
   }
 
-  /** 页面级保存：逐项校验能力卡，合并全部卡片草稿为一次保存+启用事务。 */
-  async function saveCapabilityCards(): Promise<void> {
-    if (cardWriteBlocked() || busy.value) { ElMessage.warning('请先读取可安全编辑的完整配置。'); return }
+  /** 选完马上保存并启用；失败由调用方把下拉退回原样。 */
+  async function saveCapabilityCards(successText: string): Promise<boolean> {
+    if (cardWriteBlocked() || busy.value) {
+      errorMessage.value = '请先读取可安全编辑的完整配置。'
+      return false
+    }
     for (const card of capabilityCards.value) card.fieldError = ''
     const problems = capabilityCards.value
       .map(card => ({ card, error: cardValidationError(card) }))
       .filter(item => item.error !== '')
     if (problems.length > 0) {
       for (const item of problems) item.card.fieldError = item.error
-      ElMessage.warning(problems.length === 1
+      errorMessage.value = problems.length === 1
         ? `${problems[0].card.name}：${problems[0].error}`
-        : `${problems.length} 项能力还没选完整，请逐项检查后再保存`)
-      return
+        : `${problems.length} 项能力还没选完整`
+      return false
     }
     const payload = cardsSavePayload()
     if (typeof payload === 'string') {
-      ElMessage.warning(payload)
-      return
+      errorMessage.value = payload
+      return false
     }
-    await commitCapabilityWrite(payload, '已保存并启用，能力配置已更新')
+    errorMessage.value = ''
+    await commitCapabilityWrite(payload, successText)
+    return errorMessage.value === '' && !revisionConflict.value
   }
+
+  function rollbackCard(card: CapabilityCard): void {
+    applyingCardDraft = true
+    applyCardDraft(card, committedCardDrafts.get(card.code))
+    applyingCardDraft = false
+  }
+
+  async function onCardEdited(card: CapabilityCard): Promise<void> {
+    if (cardAutoSave || applyingCardDraft || !cardDirty(card)) return
+    cardAutoSave = true
+    const successText = card.disabled ? `已停用「${card.name}」` : `已保存「${card.name}」的默认模型`
+    try {
+      const problem = cardValidationError(card)
+      if (problem) {
+        rollbackCard(card)
+        card.saveNotice = `${card.name}：${problem}`
+        ElMessage.warning(card.saveNotice)
+        return
+      }
+      card.saveNotice = ''
+      const saved = await saveCapabilityCards(successText)
+      if (!saved) {
+        const reason = errorMessage.value || '请稍后再试'
+        rollbackCard(card)
+        card.saveNotice = `没保存上：${reason}`
+        ElMessage.error(card.saveNotice)
+      }
+    } finally {
+      cardAutoSave = false
+    }
+  }
+
+  watch(capabilityCards, () => {
+    if (cardAutoSave || applyingCardDraft || materialConfigurationPage.value) return
+    const dirty = capabilityCards.value.find(item => cardDirty(item))
+    if (dirty) void onCardEdited(dirty)
+  }, { deep: true })
 
   /** 单次写事务：预检 → 保存草稿 → 立即启用 → 回读确认，与既有写路径一致。 */
   async function commitCapabilityWrite(payload: CapabilitySavePayload, successText: string): Promise<void> {
