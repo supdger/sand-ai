@@ -15,9 +15,9 @@ final class KnowledgeBasePolicy
         if (!is_string($input['code'] ?? null) || !is_string($input['name'] ?? null) || (array_key_exists('description', $input) && !is_string($input['description']))) self::invalid();
         if (array_key_exists('replace_draft', $input) && !is_bool($input['replace_draft'])) self::invalid();
         $code = strtolower(trim($input['code']));
-        $name = trim($input['name']);
+        $name = self::normalizeName($input['name']);
         $description = trim((string) ($input['description'] ?? ''));
-        if (!preg_match('/^[a-z][a-z0-9_-]{0,63}$/', $code) || $name === '' || mb_strlen($name, 'UTF-8') > 128 || mb_strlen($description, 'UTF-8') > 500) {
+        if (!preg_match('/^[a-z][a-z0-9_-]{0,63}$/', $code) || mb_strlen($description, 'UTF-8') > 500) {
             throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Knowledge base input is invalid');
         }
         $files = $input['files'] ?? null;
@@ -36,6 +36,15 @@ final class KnowledgeBasePolicy
         }
         ksort($normalized, SORT_NUMERIC);
         return ['code' => $code, 'name' => $name, 'description' => $description === '' ? null : $description, 'files' => array_values($normalized), 'replace_draft' => $input['replace_draft'] ?? false];
+    }
+
+    public static function normalizeName(string $name): string
+    {
+        $name = trim($name);
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 128) {
+            throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', '名称不能为空，最多 128 个字');
+        }
+        return $name;
     }
 
     /** @param array<string,mixed> $input @return array{query:string,limit:int} */

@@ -1201,7 +1201,7 @@
       const currency = row.currency ?? ''
       totals.set(currency, (totals.get(currency) ?? 0) + (Number(row.metered_amount) || 0))
     }
-    if (totals.size === 0) return '未计价'
+    if (totals.size === 0) return '暂未计费'
     return [...totals.entries()]
       .map(([currency, total]) => formatMoney(String(total), currency === '' ? null : currency))
       .join('；')

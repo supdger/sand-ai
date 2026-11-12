@@ -1544,11 +1544,11 @@
     },
     {
       "path": "app/Application/Knowledge/KnowledgeBaseGateway.php",
-      "sha256": "81e3362aff099d87bb618c9257b32886884ba4097ad81667285c1795aea825b1"
+      "sha256": "c107226e15a44a788abe6f6c7a2824f052ba0f3c54dec20327802fe4723c2fdb"
     },
     {
       "path": "app/Application/Knowledge/KnowledgeBasePolicy.php",
-      "sha256": "4966ada4979c538072c8a43016634542e4b4792a784a9ca57f40056b2796d4a7"
+      "sha256": "f7ba3a48d33432935cb6f4c907526b4d00d012581b6c4f99b702a0ecd70412d1"
     },
     {
       "path": "app/Application/Knowledge/KnowledgeBaseQueryGateway.php",

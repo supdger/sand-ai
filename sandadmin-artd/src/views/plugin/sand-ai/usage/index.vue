@@ -185,7 +185,7 @@
     const totals = spendByCurrency.value
     const calls = totals.reduce((sum, item) => sum + item.call_count, 0)
     if (calls === 0) return ['¥0']
-    if (totals.every(item => item.amount === null)) return ['未计价']
+    if (totals.every(item => item.amount === null)) return ['暂未计费']
     return totals.filter(item => item.amount !== null).map(item => formatMoney(item.amount, item.currency))
   })
 
@@ -311,12 +311,21 @@
 
   const topLines = computed(() => {
     const top = topSpend.value
-    if (!top) return callTotals.value.calls === 0 ? ['还没有花费'] : ['未计价']
+    if (!top) return callTotals.value.calls === 0 ? ['还没有花费'] : ['暂未计费']
     const name = top.name ?? '未知'
     return [top.deleted ? `${name}（已删除）` : name, formatMoney(top.amount, top.currency)]
   })
 
   const topHint = computed(() => topSpend.value ? '花得最多的一笔用途' : '')
+
+  function currencyLabel(currency: string): string {
+    if (currency === '') return '暂未计费'
+    if (currency === 'CNY') return '元'
+    if (currency === 'USD') return '美元'
+    if (currency === 'EUR') return '欧元'
+    if (currency === 'JPY') return '日元'
+    return currency
+  }
 
   const chartLabels = computed(() => {
     const dates = [...new Set((dailyResult.value?.rows ?? []).map(row => row.date))].sort()
@@ -331,7 +340,7 @@
     const dates = [...new Set(rows.map(row => row.date))].sort()
     const currencies = [...new Set(rows.map(row => row.currency ?? ''))].sort()
     return currencies.map(currency => ({
-      name: currency === '' ? '未计价' : currency,
+      name: currencyLabel(currency),
       data: dates.map(date => {
         const row = rows.find(item => item.date === date && (item.currency ?? '') === currency)
         return row?.amount === null || row?.amount === undefined ? 0 : Number(row.amount)

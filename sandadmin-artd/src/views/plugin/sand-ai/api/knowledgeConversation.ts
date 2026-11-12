@@ -1,5 +1,5 @@
 import { runtimeRequest, SandAiRuntimeError } from './runtime'
-import { RUNTIME_API_PREFIX } from './config'
+import { runtimeAbsolutePath } from './config'
 import type { SandAiInvocationCost } from './types'
 
 export interface KnowledgeConversationSummary {
@@ -177,7 +177,7 @@ async function streamTurn(
 ): Promise<void> {
   if (!Number.isSafeInteger(lastSegmentNo) || lastSegmentNo < 0) throw new Error('段落续传游标无效')
   const response = await fetch(
-    `${RUNTIME_API_PREFIX}${conversationPath(code, id)}/turns/${sequenceNo}/events`,
+    runtimeAbsolutePath(`${conversationPath(code, id)}/turns/${sequenceNo}/events`),
     {
       headers: {
         Authorization: `Bearer ${apiKey.trim()}`, Accept: 'text/event-stream',

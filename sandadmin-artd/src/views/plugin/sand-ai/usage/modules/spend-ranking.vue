@@ -139,7 +139,7 @@
   /** 金额列：每个已计价币种一行，最后补一行未计价调用次数。 */
   function spendLines(row: RankingRow): string[] {
     const lines = row.amounts.map(item => formatMoney(String(item.amount), item.currency))
-    if (row.unpricedCount > 0) lines.push(`另 ${row.unpricedCount.toLocaleString()} 次未计价`)
+    if (row.unpricedCount > 0) lines.push(`另 ${row.unpricedCount.toLocaleString()} 次暂未计费`)
     return lines.length ? lines : ['—']
   }
 

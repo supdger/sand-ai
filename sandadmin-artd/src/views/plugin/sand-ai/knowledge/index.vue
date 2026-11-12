@@ -34,7 +34,7 @@
           <ElOption
             v-for="item in environments"
             :key="item.id"
-            :label="`${item.name}（${item.code}）`"
+            :label="item.name"
             :value="item.id"
           />
         </ElSelect>

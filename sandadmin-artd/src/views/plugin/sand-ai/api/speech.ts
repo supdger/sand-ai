@@ -1,4 +1,4 @@
-import { RUNTIME_API_PREFIX } from './config'
+import { runtimeAbsolutePath } from './config'
 import { runtimeRequest } from './runtime'
 
 export type SpeechState = 'prepared' | 'dispatching' | 'awaiting_usage' | 'succeeded' | 'failed' | 'ambiguous'
@@ -45,7 +45,7 @@ export default {
     })
   },
   async audio(apiKey: string, publicId: string, environmentId?: number): Promise<SpeechAudio> {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || ''}${RUNTIME_API_PREFIX}/speech-syntheses/${encodeURIComponent(publicId)}/audio`, {
+    const response = await fetch(runtimeAbsolutePath(`/speech-syntheses/${encodeURIComponent(publicId)}/audio`), {
       headers: { Authorization: `Bearer ${apiKey.trim()}`, Accept: 'audio/mpeg, audio/wav', ...environmentHeaders(environmentId) },
       cache: 'no-store', credentials: 'omit'
     })

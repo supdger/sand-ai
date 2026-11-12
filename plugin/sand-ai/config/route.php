@@ -342,6 +342,7 @@ Route::group('/app/sand-ai/admin/knowledge-bases', function (): void {
     Route::get('/publications/publish/by-request-key', [AdminKnowledgeBaseController::class, 'publishPublicationByRequestKey']);
     Route::get('/publications/revoke/by-request-key', [AdminKnowledgeBaseController::class, 'revokePublicationByRequestKey']);
     Route::post('/create-draft', [AdminKnowledgeBaseController::class, 'createDraft']);
+    Route::post('/rename', [AdminKnowledgeBaseController::class, 'rename']);
     Route::get('/create-draft/by-request-key', [AdminKnowledgeBaseController::class, 'draftByRequestKey']);
     Route::get('/publish/by-request-key', [AdminKnowledgeBaseController::class, 'publishByRequestKey']);
     Route::post('/publish', [AdminKnowledgeBaseController::class, 'publish']);

@@ -207,6 +207,11 @@
           class="detail-alert"
           title="还没建好，先选几份资料"
         />
+        <ElForm label-width="72px" @submit.prevent>
+          <ElFormItem label="名称">
+            <ElInput v-model="pendingDetail.name" maxlength="128" placeholder="知识库名称" />
+          </ElFormItem>
+        </ElForm>
         <dl class="detail-meta">
           <dt>说明</dt>
           <dd>{{ pendingDetail.description || '—' }}</dd>
@@ -222,6 +227,11 @@
           </ElTag>
           <span v-if="detailRow.active_version_no" class="detail-version">第 {{ detailRow.active_version_no }} 版</span>
         </div>
+        <ElForm label-width="72px" @submit.prevent>
+          <ElFormItem label="名称">
+            <ElInput v-model="detailName" maxlength="128" :disabled="isSavingName" placeholder="知识库名称" />
+          </ElFormItem>
+        </ElForm>
         <p v-if="detailRow.description" class="detail-desc">{{ detailRow.description }}</p>
 
         <ElAlert
@@ -256,9 +266,9 @@
         </dl>
 
         <div class="detail-actions">
+          <ElButton type="primary" :loading="isSavingName" :disabled="isSavingName" @click="saveDetailName">保存</ElButton>
           <ElButton
             v-if="rowStatus(detailRow) === 'usable'"
-            type="primary"
             @click="openTrial(detailRow)"
           >试一下</ElButton>
           <ElButton
@@ -420,6 +430,8 @@
 
   const detailOpen = ref(false)
   const detailRow = ref<KnowledgeBaseRow | null>(null)
+  const detailName = ref('')
+  const isSavingName = ref(false)
   const pendingDetail = ref<PendingKnowledgeBase | null>(null)
 
   const filePickerOpen = ref(false)
@@ -665,8 +677,43 @@
 
   function openDetail(row: KnowledgeBaseRow): void {
     detailRow.value = row
+    detailName.value = row.name
     pendingDetail.value = null
     detailOpen.value = true
+  }
+
+  async function saveDetailName(): Promise<void> {
+    const row = detailRow.value
+    const envId = props.environmentId
+    const name = detailName.value.trim()
+    if (!row || envId === null || isSavingName.value) return
+    if (name === '') {
+      ElMessage.warning('请填写名称')
+      return
+    }
+    if ([...name].length > 128) {
+      ElMessage.warning('名称最多 128 个字')
+      return
+    }
+    if (name === row.name) {
+      ElMessage.success(`已保存「${name}」`)
+      return
+    }
+    isSavingName.value = true
+    try {
+      await knowledgeApi.rename(envId, row.id, name)
+      ElMessage.success(`已保存「${name}」`)
+      await load()
+      const fresh = rows.value.find((item) => item.id === row.id)
+      if (fresh) {
+        detailRow.value = fresh
+        detailName.value = fresh.name
+      }
+    } catch (error) {
+      ElMessage.error(errorDisplayText(error, '改名没有成功，请稍后再试。'))
+    } finally {
+      isSavingName.value = false
+    }
   }
 
   function closeDetail(): void {

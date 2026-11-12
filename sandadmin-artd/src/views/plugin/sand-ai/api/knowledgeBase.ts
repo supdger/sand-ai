@@ -470,6 +470,21 @@ export default {
     return indexStatusResult(result, indexId)
   },
   /** 0.5.0：索引失败后一键重试；只传知识库号，后端自己定位生效版本。 */
+  async rename(environmentId: number, knowledgeBaseId: number, name: string): Promise<{ id: number; name: string }> {
+    const result: unknown = await request.post<unknown>({
+      url: `${base}/rename`,
+      data: { environment_id: environmentId, knowledge_base_id: knowledgeBaseId, name },
+      showErrorMessage: false
+    })
+    if (typeof result !== 'object' || result === null || Array.isArray(result)) {
+      throw new Error('改名结果无法确认，请刷新后核对名称')
+    }
+    const row = result as Record<string, unknown>
+    if (row.id !== knowledgeBaseId || typeof row.name !== 'string' || row.name !== name) {
+      throw new Error('改名结果与提交的名称不一致，请刷新后核对')
+    }
+    return { id: knowledgeBaseId, name: row.name }
+  },
   async retryIndex(environmentId: number, knowledgeBaseId: number): Promise<IndexRetryResult> {
     const result: unknown = await request.post<unknown>({
       url: `${base}/embedding-index/retry`,
