@@ -24,6 +24,20 @@ final class ChannelBindingPolicy
         return ['code' => $code, 'name' => trim($name), 'agent_definition_id' => $agent, 'application_id' => trim($application), 'workload_client_id' => trim($client)];
     }
 
+    /**
+     * 已启用的渠道不能直接删。返回 null 表示可以删。
+     */
+    public static function retireRefusal(int $status): ?string
+    {
+        if ($status === 1) {
+            return '先停用才能删';
+        }
+        if ($status !== 2) {
+            return '这条渠道现在不能删';
+        }
+        return null;
+    }
+
     public static function code(mixed $value): string
     {
         if (!is_string($value) || preg_match('/^[a-z][a-z0-9_-]{0,63}$/D', $value) !== 1) self::invalid();

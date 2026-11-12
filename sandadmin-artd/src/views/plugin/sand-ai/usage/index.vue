@@ -8,7 +8,7 @@
         </div>
         <div class="page-head-actions">
           <ElButton v-if="canBudgetWrite" type="primary" @click="openBudget">设预算</ElButton>
-          <ElButton v-if="canReview" text @click="goReview()">费用核对</ElButton>
+          <ElButton v-if="canReview && devSurfaceOpen" text @click="goReview()">费用核对</ElButton>
           <ElButton v-if="canView" :loading="exporting" @click="handleExport">导出</ElButton>
         </div>
       </div>
@@ -35,20 +35,21 @@
 
         <template v-else>
           <div class="stat-grid">
-            <UsageStatCard label="本月花费" :lines="spendLines" :hint="spendHint" :loading="loading" @open="goReview()" />
+            <UsageStatCard label="本月花费" :lines="spendLines" :hint="spendHint" :loading="loading" :clickable="devSurfaceOpen" @open="goReview()" />
             <UsageStatCard label="预算余量" :lines="budgetLines" :hint="budgetHint" :tone="budgetTone"
               :loading="budgetLoading" />
-            <UsageStatCard label="调用次数" :lines="callLines" :hint="callHint" :loading="loading" @open="goReview()" />
-            <UsageStatCard label="花得最多的" :lines="topLines" :hint="topHint" :loading="loading" @open="goTopReview" />
+            <UsageStatCard label="调用次数" :lines="callLines" :hint="callHint" :loading="loading" :clickable="devSurfaceOpen" @open="goReview()" />
+            <UsageStatCard label="花得最多的" :lines="topLines" :hint="topHint" :loading="loading" :clickable="devSurfaceOpen" @open="goTopReview" />
           </div>
 
           <ElCard shadow="never" class="chart-card sand-ai-page-card">
             <template #header>
               <h2 class="chart-title">每天花费</h2>
             </template>
-            <div v-if="chartEmpty && !loading" class="chart-empty">本月还没有花费</div>
+            <div v-if="(chartEmpty || chartSeries.length === 0) && !loading" class="chart-empty">本月还没有花费</div>
             <ArtLineChart v-else :data="chartSeries" :x-axis-data="chartLabels" height="260px"
-              :show-legend="chartSeries.length > 1" :loading="loading" :smooth="false" symbol="circle" />
+              :show-legend="chartSeries.length > 1" :loading="loading" :smooth="false" symbol="circle"
+              :animated="false" />
           </ElCard>
 
           <SpendRanking :rows="rankingRows" :group-by="groupBy" :loading="loading"
@@ -71,7 +72,7 @@
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import { computed, onMounted, ref, watch } from 'vue'
-  import { useRouter } from 'vue-router'
+  import { useRoute, useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
   import { useAuth } from '@/hooks/core/useAuth'
   import { useAdminReadIdentity } from '../composables/useAdminReadIdentity'
@@ -90,7 +91,9 @@
   import { formatMoney, isMonth, monthBoundsUtc, shiftMonth, sumPricedAmounts } from './modules/usagePeriod'
 
   const { hasAuth } = useAuth()
+  const route = useRoute()
   const router = useRouter()
+  const devSurfaceOpen = computed(() => route.query.dev === '1')
   const identity = useAdminReadIdentity()
 
   const canView = computed(() => hasAuth('sand_ai:usage:summary'))
@@ -185,7 +188,7 @@
     const totals = spendByCurrency.value
     const calls = totals.reduce((sum, item) => sum + item.call_count, 0)
     if (calls === 0) return ['¥0']
-    if (totals.every(item => item.amount === null)) return ['未计价']
+    if (totals.every(item => item.amount === null)) return ['暂未计费']
     return totals.filter(item => item.amount !== null).map(item => formatMoney(item.amount, item.currency))
   })
 
@@ -246,6 +249,20 @@
   const hasLimitedCandidate = computed(() =>
     budgetCandidates.value.some(policy => policy.limit_amount !== null && policy.id !== budgetSummary.value?.policy.id))
 
+  function subtractMoney(limit: string, spent: string): string {
+    const scale = 1000000
+    const units = (value: string): number => {
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? Math.round(parsed * scale) : 0
+    }
+    const remain = units(limit) - units(spent)
+    const sign = remain < 0 ? '-' : ''
+    const abs = Math.abs(remain)
+    const whole = Math.trunc(abs / scale)
+    const frac = String(abs % scale).padStart(6, '0').replace(/0+$/, '')
+    return frac === '' ? `${sign}${whole}` : `${sign}${whole}.${frac}`
+  }
+
   const budgetLines = computed(() => {
     if (!canBudgetRead.value) return ['没有预算查看权限']
     const summary = budgetSummary.value
@@ -253,7 +270,11 @@
     if (summary.window.limit_amount === null) {
       return [hasLimitedCandidate.value ? '只给部分范围设了预算上限' : '没有设上限']
     }
-    return [`还剩 ${formatMoney(summary.window.available_amount, summary.window.currency)}`]
+    const spent = pricedSpendTotals.value.find(item => item.currency === summary.window.currency)?.amount
+    const remain = spent === undefined
+      ? summary.window.available_amount
+      : subtractMoney(summary.window.limit_amount, spent)
+    return [`还剩 ${formatMoney(remain, summary.window.currency)}`]
   })
 
   const budgetTone = computed<'default' | 'warning' | 'danger'>(() => {
@@ -269,22 +290,19 @@
     const summary = budgetSummary.value
     if (!summary) return '还没有设预算，点右上角「设预算」'
     const money = (value: string | null) => formatMoney(value, summary.window.currency)
-    const scopeText = budgetCandidates.value.length > 1
-      ? `${budgetScopeText.value}（另有 ${budgetCandidates.value.length - 1} 份生效）`
-      : budgetScopeText.value
     if (summary.window.limit_amount === null) {
       const limitText = hasLimitedCandidate.value ? '这份不设上限，其他范围有上限' : '不设上限'
-      return `已花 ${money(summary.window.settled_amount)}，${limitText} · ${scopeText}`
+      return `已花 ${money(summary.window.settled_amount)}，${limitText}`
     }
     const limitText = `本月预算 ${money(summary.window.limit_amount)}`
     const level = summary.alert.level
     if (level === 'exhausted') {
       return summary.policy.enforcement === 'hard'
-        ? `${limitText} · ${scopeText} · 已用完，AI 暂停使用`
-        : `${limitText} · ${scopeText} · 已用完`
+        ? `${limitText} · 已用完，AI 暂停使用`
+        : `${limitText} · 已用完`
     }
-    if (level === 'warning' || level === 'notice') return `${limitText} · ${scopeText} · 快用完了`
-    return `${limitText} · ${scopeText}`
+    if (level === 'warning' || level === 'notice') return `${limitText} · 快用完了`
+    return limitText
   })
 
   const callTotals = computed(() => totalsByCurrency(currentRows.value)
@@ -311,32 +329,51 @@
 
   const topLines = computed(() => {
     const top = topSpend.value
-    if (!top) return callTotals.value.calls === 0 ? ['还没有花费'] : ['未计价']
+    if (!top) return callTotals.value.calls === 0 ? ['还没有花费'] : ['暂未计费']
     const name = top.name ?? '未知'
     return [top.deleted ? `${name}（已删除）` : name, formatMoney(top.amount, top.currency)]
   })
 
   const topHint = computed(() => topSpend.value ? '花得最多的一笔用途' : '')
 
-  const chartLabels = computed(() => {
-    const dates = [...new Set((dailyResult.value?.rows ?? []).map(row => row.date))].sort()
-    return dates.map(date => {
-      const [, month, day] = date.split('-')
-      return `${Number(month)}月${Number(day)}日`
-    })
+  function currencyLabel(currency: string): string {
+    if (currency === '') return '暂未计费'
+    if (currency === 'CNY') return '元'
+    if (currency === 'USD') return '美元'
+    if (currency === 'EUR') return '欧元'
+    if (currency === 'JPY') return '日元'
+    return currency
+  }
+
+  function chartToday(): string {
+    const now = new Date()
+    const pad = (value: number): string => String(value).padStart(2, '0')
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  }
+
+  const chartDates = computed(() => {
+    const today = chartToday()
+    return [...new Set((dailyResult.value?.rows ?? []).map(row => row.date))]
+      .filter(date => date <= today)
+      .sort()
   })
+
+  const chartLabels = computed(() => chartDates.value.map(date => {
+    const [, month, day] = date.split('-')
+    return `${Number(month)}月${Number(day)}日`
+  }))
 
   const chartSeries = computed<LineDataItem[]>(() => {
     const rows = dailyResult.value?.rows ?? []
-    const dates = [...new Set(rows.map(row => row.date))].sort()
+    const dates = chartDates.value
     const currencies = [...new Set(rows.map(row => row.currency ?? ''))].sort()
     return currencies.map(currency => ({
-      name: currency === '' ? '未计价' : currency,
+      name: currencyLabel(currency),
       data: dates.map(date => {
         const row = rows.find(item => item.date === date && (item.currency ?? '') === currency)
         return row?.amount === null || row?.amount === undefined ? 0 : Number(row.amount)
       })
-    }))
+    })).filter(series => series.data.some(value => value !== 0))
   })
 
   const chartEmpty = computed(() =>

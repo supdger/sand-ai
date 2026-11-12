@@ -28,6 +28,26 @@ final class KnowledgeSourcePurgeGateway
             throw IdentityContextProblem::from($exception);
         }
         $derived = new SkillSourceSuggestionContentPurgeGateway();
+        try {
+            $result = $this->purgeTransaction($environmentId, $knowledgeBaseId, $requestId, $actorRef, $derived);
+        } catch (ApiProblem $problem) {
+            throw $problem;
+        } catch (\think\db\exception\PDOException|\PDOException $failure) {
+            \support\Log::warning('SandAI knowledge source purge failed', [
+                'knowledge_base_id' => $knowledgeBaseId,
+                'exception_type' => $failure::class,
+                'sqlstate' => $failure instanceof \think\db\exception\PDOException
+                    ? ($failure->getData()['PDO Error Info']['SQLSTATE'] ?? null)
+                    : $failure->getCode(),
+            ]);
+            throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '解除来源引用没有完成，请刷新后重试；仍失败请联系系统维护人员');
+        }
+        return $result + $derived->recoverForKnowledgeBase($knowledgeBaseId);
+    }
+
+    /** @return array{knowledge_base_id:int,state:string,remaining_sources:int,remaining_conversations:int,idempotent_replay:bool} */
+    private function purgeTransaction(int $environmentId, int $knowledgeBaseId, string $requestId, string $actorRef, SkillSourceSuggestionContentPurgeGateway $derived): array
+    {
         $result = Db::connect('pgsql')->transaction(function () use (
             $environmentId, $knowledgeBaseId, $requestId, $actorRef, $derived,
         ): array {
@@ -59,7 +79,7 @@ final class KnowledgeSourcePurgeGateway
                 );
                 if ($replayBase[0]['state'] !== 'disabled' || (int) $replayBase[0]['status'] !== 2
                     || $remainingSources !== []) {
-                    throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Knowledge base changed after source purge');
+                    throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '解除之后来源又发生了变化，请刷新后重新确认原操作');
                 }
                 $receipts = $this->purgeAnswerReceipts($knowledgeBaseId);
                 return $this->summary($knowledgeBaseId, true)
@@ -75,7 +95,7 @@ final class KnowledgeSourcePurgeGateway
                 throw new ApiProblem('SAND_AI_RESOURCE_NOT_FOUND', 'Knowledge base not found');
             }
             if ($base[0]['state'] !== 'disabled' || (int) $base[0]['status'] !== 2) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Disable the knowledge base before purging sources');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '先停用知识库，再解除来源引用');
             }
             $published = $db->query(
                 "SELECT 1 FROM sand_ai_knowledge_publication
@@ -83,7 +103,7 @@ final class KnowledgeSourcePurgeGateway
                 [$knowledgeBaseId],
             );
             if ($published !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Revoke every application publication before purging sources');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '先撤销这个知识库的所有应用开放，再解除来源引用');
             }
             $indexes = $db->query(
                 'SELECT 1 FROM sand_ai_knowledge_embedding_index i
@@ -92,7 +112,7 @@ final class KnowledgeSourcePurgeGateway
                 [$knowledgeBaseId],
             );
             if ($indexes !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Purge knowledge vectors before purging sources');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '先清理向量，再解除来源引用');
             }
             $pending = $db->query(
                 "SELECT 1 FROM sand_ai_knowledge_conversation_turn t
@@ -102,7 +122,7 @@ final class KnowledgeSourcePurgeGateway
                 [$knowledgeBaseId],
             );
             if ($pending !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Finish or reconcile pending knowledge answers before purging sources');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '还有待处理的知识问答，请完成后再解除来源引用');
             }
             // Change the locked owner's row version as well as taking its lock:
             // a receipt writer using an older repeatable-read snapshot must
@@ -157,7 +177,7 @@ final class KnowledgeSourcePurgeGateway
             return $this->summary($knowledgeBaseId, false)
                 + ['answer_receipts_purged' => $receipts] + $derivedResult;
         });
-        return $result + $derived->recoverForKnowledgeBase($knowledgeBaseId);
+        return $result;
     }
 
     /**
@@ -186,7 +206,7 @@ final class KnowledgeSourcePurgeGateway
             [$knowledgeBaseId, $knowledgeBaseId],
         );
         if ($pending !== []) {
-            throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Finish or reconcile knowledge invocations before purging their results');
+            throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '知识调用还没有处理完，请处理完后再解除来源引用');
         }
         $receipts = $db->query(
             "SELECT receipt.id,receipt.state,receipt.environment_id,receipt.model_id,

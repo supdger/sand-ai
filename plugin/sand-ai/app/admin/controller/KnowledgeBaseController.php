@@ -142,6 +142,22 @@ final class KnowledgeBaseController extends SandAiAdminController
 
     #[Permission('SandAI 创建知识库草稿', 'sand_ai:knowledge:create')]
     public function createDraft(Request $request): Response { return $this->guard(function () use ($request): array { $body = $this->body($request, ['environment_id', 'code', 'name', 'description', 'files', 'replace_draft']); $environmentId = $this->positiveInt($body['environment_id']); unset($body['environment_id']); return (new KnowledgeBaseGateway())->createDraft($environmentId, $body, $this->idempotencyKey($request), (string) $this->authenticatedAdminId()); }, '知识库草稿已创建'); }
+    #[Permission('SandAI 知识库改名', 'sand_ai:knowledge:create')]
+    public function rename(Request $request): Response
+    {
+        return $this->guard(function () use ($request): array {
+            $body = $this->body($request, ['environment_id', 'knowledge_base_id', 'name']);
+            $name = $body['name'] ?? null;
+            if (!is_string($name)) {
+                throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', '名称不能为空，最多 128 个字');
+            }
+            return (new KnowledgeBaseGateway())->rename(
+                $this->positiveInt($body['environment_id'] ?? null),
+                $this->positiveInt($body['knowledge_base_id'] ?? null),
+                $name,
+            );
+        }, '知识库名称已保存');
+    }
     #[Permission('SandAI 找回知识库草稿', 'sand_ai:knowledge:create')]
     public function draftByRequestKey(Request $request): Response
     {
@@ -221,6 +237,10 @@ final class KnowledgeBaseController extends SandAiAdminController
     }
     #[Permission('SandAI 停用知识库', 'sand_ai:knowledge:disable')]
     public function disable(Request $request): Response { return $this->guard(function () use ($request): array { $body = $this->body($request, ['environment_id', 'knowledge_base_id']); return (new KnowledgeBaseGateway())->disable($this->positiveInt($body['environment_id']), $this->positiveInt($body['knowledge_base_id']), $this->idempotencyKey($request), (string) $this->authenticatedAdminId()); }, '知识库已停用'); }
+    #[Permission('SandAI 启用知识库', 'sand_ai:knowledge:disable')]
+    public function enable(Request $request): Response { return $this->guard(function () use ($request): array { $body = $this->body($request, ['environment_id', 'knowledge_base_id']); return (new KnowledgeBaseGateway())->enable($this->positiveInt($body['environment_id'] ?? null), $this->positiveInt($body['knowledge_base_id'] ?? null), $this->idempotencyKey($request), (string) $this->authenticatedAdminId()); }, '知识库已启用'); }
+    #[Permission('SandAI 删除知识库', 'sand_ai:knowledge:disable')]
+    public function retire(Request $request): Response { return $this->guard(function () use ($request): array { $body = $this->body($request, ['environment_id', 'knowledge_base_id']); return (new KnowledgeBaseGateway())->retire($this->positiveInt($body['environment_id'] ?? null), $this->positiveInt($body['knowledge_base_id'] ?? null), $this->idempotencyKey($request), (string) $this->authenticatedAdminId()); }, '知识库已删除'); }
     #[Permission('SandAI 知识库检索试用', 'sand_ai:knowledge:query:test')]
     public function trial(Request $request): Response { return $this->guard(function () use ($request): array { $body = $this->body($request, ['owner_environment_id', 'knowledge_base_version_id', 'query', 'limit']); return (new KnowledgeBaseTrialGateway())->query($this->positiveInt($body['owner_environment_id'] ?? null), $this->positiveInt($body['knowledge_base_version_id'] ?? null), array_diff_key($body, array_flip(['owner_environment_id', 'knowledge_base_version_id']))); }, '知识库检索已完成'); }
     #[Permission('SandAI 开放知识库给应用', 'sand_ai:knowledge:publication:publish')]

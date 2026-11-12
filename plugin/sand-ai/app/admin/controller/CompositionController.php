@@ -23,12 +23,14 @@ final class CompositionController extends SandAiAdminController
     public function publish(Request $request): Response { return $this->mutate($request,'publish',['environment_id','code','expected_revision']); }
     #[Permission('SandAI 停用 AI 工作流','sand_ai:agent:composition:manage')]
     public function disable(Request $request): Response { return $this->mutate($request,'disable',['environment_id','code']); }
+    #[Permission('SandAI 删除 AI 工作流','sand_ai:agent:composition:manage')]
+    public function retire(Request $request): Response { return $this->mutate($request,'retire',['environment_id','code']); }
     #[Permission('SandAI 找回 AI 工作流操作','sand_ai:agent:composition:manage')]
     public function byRequestKey(Request $request): Response
     {
         return $this->respond(function () use ($request): array {
             $operation=$request->get('operation'); $key=$request->get('request_key');
-            if (!is_string($operation) || !in_array($operation,['draft','publish','disable'],true) || !is_string($key)) self::invalid();
+            if (!is_string($operation) || !in_array($operation,['draft','publish','disable','retire'],true) || !is_string($key)) self::invalid();
             return (new CompositionDefinitionGateway())->readOperation($this->environment($request),$operation,$key,(string)$this->authenticatedAdminId());
         });
     }

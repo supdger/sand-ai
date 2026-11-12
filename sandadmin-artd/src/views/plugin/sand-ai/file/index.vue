@@ -5,10 +5,7 @@
         <div class="file-header">
           <div>
             <h2 class="file-title">文件中心</h2>
-            <p class="file-desc">
-              上传文档或录音后，可提交解析或转写任务。录音结果和费用在任务中心查看。
-              清理进行中请刷新状态；清理失败可在原文件上重试，无需重新上传。
-            </p>
+            <p class="file-desc">上传文档或录音，整理好后可以放进知识库。</p>
           </div>
         </div>
 
@@ -26,17 +23,17 @@
         </ElForm>
 
         <p v-if="pendingCleanupIds.length" class="file-desc">
-          有文件的清理结果尚未确认或被占用阻止；请在下方「高级：按编号查询与找回恢复」中按原文件号核对。
+          有文件的清理结果尚未确认或被占用阻止；请在下方「高级」里按原文件号核对。
         </p>
         <p v-if="parseRecoveryLocked" class="file-desc">
-          有一份解析提交的结果尚未确认；请在「高级：按编号查询与找回恢复」中按原请求编号只读找回。
+          有一份解析提交的结果尚未确认；请在「高级」里按原请求编号查看。
         </p>
         <p v-if="audioRecoveryLocked" class="file-desc">
-          有一份转写提交的结果尚未确认；请在「高级：按编号查询与找回恢复」中按原请求编号只读找回。
+          有一份转写提交的结果尚未确认；请在「高级」里按原请求编号查看。
         </p>
 
         <details class="file-alert file-advanced">
-          <summary>高级：按编号查询与找回恢复（一般不用）</summary>
+          <summary>高级</summary>
           <ElDivider content-position="left">按编号查询已有文件</ElDivider>
           <ElForm label-width="110px" class="file-cred" @submit.prevent>
             <ElFormItem label="文件编号">
@@ -60,6 +57,7 @@
               :title="cleanupConflicts.has(fileId) ? `原文件 #${fileId} 的删除被资源占用阻止` : `原文件 #${fileId} 的清理结果尚未确认`" class="file-alert">
               <p>{{ cleanupConflicts.has(fileId) ? '请先处理占用并读取原文件状态。确认原文件尚未进入清理后，可重新确认删除。' : '请读取原文件状态。找不到或无权读取不表示清理完成；明确清理失败后才可在原文件上重试。' }}</p>
               <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(fileId)">读取原文件清理状态</ElButton>
+              <ElButton :disabled="Boolean(busy)" @click="abandonCleanup(fileId)">放弃此次变更</ElButton>
             </ElAlert>
           </details>
 
@@ -310,7 +308,7 @@
   import '../components/sandAiPage.css'
   import { computed, h, onMounted, onUnmounted, reactive, ref, watch, type VNode } from 'vue'
   import { useRouter } from 'vue-router'
-  import { ElButton, ElMessage, ElMessageBox, ElSpace } from 'element-plus'
+  import { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox, ElSpace } from 'element-plus'
   import type { ColumnOption } from '@/types'
   import { useUserStore } from '@/store/modules/user'
   import fileApi from '../api/file'
@@ -320,6 +318,8 @@
   import { SandAiRuntimeError, newRuntimeRequestId } from '../api/runtime'
   import { hintForRuntimeErrorCode, toRuntimeUiError } from '../api/runtimeErrors'
   import { errorDisplayText } from '../api/errorText'
+  import { isWriteRejected, writeRejectionText } from '../api/writeRejection'
+  import { confirmAbandonPendingWrite } from '../composables/pendingWrite'
   import type { RuntimeUiError } from '../api/runtimeErrors'
   import type { SandAiCleanupState, SandAiCleanupStatus, SandAiFile, SandAiTask } from '../api/types'
   import { runStateLabel } from '../api/displayLabels'
@@ -424,17 +424,14 @@
     }
   }
 
-  function retainCleanupConflict(fileId: number, sha256: string): void {
-    if (!/^[a-f0-9]{64}$/.test(sha256)) return
-    try {
-      // A definite conflict is not completion. Retain the original identity and
-      // content digest until an authorized GET confirms it never entered cleanup.
-      sessionStorage.setItem(cleanupStorageKey(fileId), `conflict:${sha256}`)
-      cleanupConflicts.set(fileId, sha256)
-    } catch {
-      // Keep the unknown-result lock if refusal evidence cannot be retained.
-      ElMessage.warning('资源冲突记录无法保存；原清理锁保留，请恢复会话存储后读取原文件状态')
-    }
+  /** 「放弃此次变更」：无条件移除该文件的本地清理记录并解锁。 */
+  function abandonCleanup(fileId: number): void {
+    confirmAbandonPendingWrite(() => {
+      try { sessionStorage.removeItem(cleanupStorageKey(fileId)) } catch { /* 内存锁照常清 */ }
+      pendingCleanup.delete(fileId)
+      cleanupConflicts.delete(fileId)
+      ElMessage.success('已放弃未确认的本地记录')
+    })
   }
 
   function nextFileEpoch(fileId: number): number {
@@ -536,8 +533,8 @@
 
   function formatFileSize(bytes: number): string {
     if (!Number.isFinite(bytes) || bytes < 0) return '—'
-    if (bytes < 1024) return `${bytes} B`
-    const units = ['KB', 'MB', 'GB', 'TB']
+    if (bytes < 1024) return `${bytes} 字节`
+    const units = ['千字节', '兆字节', '吉字节']
     let value = bytes / 1024
     let unit = 0
     while (value >= 1024 && unit < units.length - 1) {
@@ -608,12 +605,13 @@
         onClick: main.run
       }, () => main.label))
     }
-    nodes.push(h(ElButton, { size: 'small', onClick: () => { detailFileId.value = row.id } }, () => '详情'))
-    nodes.push(h(
-      ElButton,
-      { size: 'small', loading: busy.value === 'read', onClick: () => void refreshOne(row.id) },
-      () => '刷新'
-    ))
+    nodes.push(h(ElDropdown, { trigger: 'click' }, {
+      default: () => h(ElButton, { size: 'small', link: true }, () => '更多'),
+      dropdown: () => h(ElDropdownMenu, null, () => [
+        h(ElDropdownItem, { onClick: () => { detailFileId.value = row.id } }, () => '详情'),
+        h(ElDropdownItem, { onClick: () => void refreshOne(row.id) }, () => '刷新')
+      ])
+    }))
     nodes.push(h(
       ElButton,
       {
@@ -630,9 +628,9 @@
 
   const columns: ColumnOption<SandAiFile>[] = [
     { prop: 'original_name', label: '文件', minWidth: 180, showOverflowTooltip: true },
-    { prop: 'size_bytes', label: '大小', width: 90, align: 'right', formatter: (row: SandAiFile) => formatFileSize(row.size_bytes) },
+    { prop: 'size_bytes', label: '大小', width: 120, align: 'right', formatter: (row: SandAiFile) => formatFileSize(row.size_bytes) },
     { prop: 'progress', label: '处理进度', minWidth: 150, formatter: (row: SandAiFile) => fileProgressText(row) },
-    { prop: 'create_time', label: '上传时间', width: 165 },
+    { prop: 'create_time', label: '上传时间', minWidth: 180 },
     {
       prop: 'actions',
       label: '操作',
@@ -655,6 +653,38 @@
       next.unshift({ ...metadata, latest_parse: null })
     } else next.unshift(file)
     recentFiles.value = next
+    rememberRecent()
+  }
+
+  const recentStorageKey = 'sand-ai-file-recent:v1'
+
+  function rememberRecent(): void {
+    const ids = recentFiles.value.map((file) => file.id).slice(0, 50)
+    try { sessionStorage.setItem(recentStorageKey, JSON.stringify(ids)) } catch { /* 刷新前列表仍在内存里 */ }
+  }
+
+  function storedRecentIds(): number[] {
+    try {
+      const raw: unknown = JSON.parse(sessionStorage.getItem(recentStorageKey) || '[]')
+      if (!Array.isArray(raw)) return []
+      return raw.filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id) && id > 0).slice(0, 50)
+    } catch {
+      return []
+    }
+  }
+
+  async function reloadRecent(): Promise<void> {
+    const credential = apiKey.value.trim()
+    if (credential === '') return
+    const current = viewGeneration
+    for (const fileId of storedRecentIds()) {
+      if (current !== viewGeneration) return
+      try {
+        const file = await fileApi.read(credential, fileId)
+        if (current !== viewGeneration) return
+        upsertFile(file)
+      } catch { /* 读不到的跳过，不把已有行清掉 */ }
+    }
   }
 
   function isCleanupState(state: SandAiFile['state']): boolean {
@@ -1287,8 +1317,8 @@
     try {
       await ElMessageBox.confirm(
         retrying
-          ? `确认继续清理原文件 #${fileId} 及其派生文本和成果？来源内容将不可用，不可恢复。费用和最小历史保留；知识库向量由独立知识库负责，当前不保证其已清理。`
-          : `确认受控删除文件 #${fileId} 及其派生文本和成果？来源内容将不可用，不可恢复。费用和最小历史保留；知识库向量由独立知识库负责，当前不保证其已清理。`,
+          ? `确认继续清理文件 #${fileId}？删除后不能恢复，用过的费用记录会保留。`
+          : `确认删除文件 #${fileId}？删除后不能恢复，用过的费用记录会保留。`,
         retrying ? '重试清理' : '删除确认', { type: 'warning' })
     } catch { return }
     if (current !== viewGeneration || busy.value) return
@@ -1315,14 +1345,17 @@
       else ElMessage.info(`原文件 #${fileId} 已删除，整体清理${result.cleanup.state === 'pending' ? '仍待完成' : '尚未确认完成'}；请保留原文件号只读刷新分类状态`)
     } catch (error) {
       if (current !== viewGeneration || fileEpochs.get(fileId) !== epoch || clearOnAccessDenied(error)) return
-      const detail = toUiError(error)
-      const conflict = error instanceof SandAiRuntimeError && error.errorCode === 'SAND_AI_RESOURCE_CONFLICT'
-      if (conflict) retainCleanupConflict(fileId, file.sha256)
-      lastError.value = {
-        ...detail,
-        description: conflict
-          ? `${detail.description || detail.title}。请处理资源占用并读取原文件状态；确认原文件尚未进入清理后，可重新确认删除。原文件标识已保留。`
-          : `${detail.description || detail.title}。清理未确认完成，原文件标识已保留。请只读刷新；只有明确清理失败后才能在原文件上重试。`
+      if (isWriteRejected(error)) {
+        // 明确拒绝：清掉本地锁、按钮恢复，显示后端白话原因
+        retainCleanup(fileId, false)
+        cleanupConflicts.delete(fileId)
+        lastError.value = { title: '删除没有成功', description: writeRejectionText(error, '这次删除被拒绝了，请核对后再试。') }
+      } else {
+        const detail = toUiError(error)
+        lastError.value = {
+          ...detail,
+          description: `${detail.description || detail.title}；清理未确认完成，原文件标识已保留。请只读刷新；只有明确清理失败后才能在原文件上重试。`
+        }
       }
     } finally {
       cleanupFlights.delete(fileId)
@@ -1336,7 +1369,10 @@
     apiKey.value = readRuntimeBearer()
     restoreCleanupRecords()
   })
-  watch(apiKey, clearProtectedFileView, { flush: 'sync' })
+  watch(apiKey, () => {
+    clearProtectedFileView()
+    void reloadRecent()
+  }, { flush: 'sync' })
   watch(() => [userStore.info.id, userStore.accessToken], () => {
     if (apiKey.value) apiKey.value = ''
     else clearProtectedFileView()

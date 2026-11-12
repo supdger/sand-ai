@@ -30,8 +30,39 @@ export const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
   SAND_AI_PARSE_FAILED: '解析失败，请查看 error_summary。',
   SAND_AI_FILE_INVALID: '文件格式、大小或内容不合规。',
   SAND_AI_STORAGE_UNAVAILABLE: '私有存储不可用。',
-  SAND_AI_RESOURCE_NOT_FOUND: '当前环境凭证看不到该资源。',
-  SAND_AI_RESOURCE_CONFLICT: '资源冲突（重复提交或状态不允许该操作）。',
+  SAND_AI_RESOURCE_NOT_FOUND: '找不到这条记录，可能已被删除，请刷新列表。',
+  SAND_AI_RESOURCE_CONFLICT: '这条刚被别人改过，刷新后再改。',
+  SAND_AI_VALIDATION_ERROR: '填写的内容不符合要求，请检查后重试。',
+  SAND_AI_CONFIGURATION_DRIFTED: '配置在保存期间被别人改过，请重新读取后再保存。',
+  SAND_AI_REQUEST_UNMATCHED: '找不到原操作记录，请刷新后重试。',
+  SAND_AI_REQUEST_TIMEOUT: '请求超时，请稍后再试。',
+  SAND_AI_IDEMPOTENCY_KEY_REQUIRED: '系统出了点问题，请稍后再试。',
+  SAND_AI_IDEMPOTENCY_CONFLICT: '同一个请求号和之前提交的内容不一致，请刷新后重新操作。',
+  SAND_AI_ONBOARDING_CONNECTION_FORBIDDEN: '这个地址不允许访问（本机、内网或未批准端口），请换一个能打开的服务地址。',
+  SAND_AI_ONBOARDING_CONNECTION_INVALID: '服务商地址格式不对，请检查后再试。',
+  SAND_AI_ONBOARDING_MODEL_INVALID: '所选模型名不可用，请重新选择。',
+  SAND_AI_ONBOARDING_DNS_UNAVAILABLE: '域名解析失败，请检查地址拼写和网络后重试。',
+  SAND_AI_ONBOARDING_HEADER_INVALID: '服务商响应头不符合约定，请检查服务配置。',
+  SAND_AI_ONBOARDING_CONNECTION_UNVERIFIABLE: '连不上，请检查地址和密钥。',
+  SAND_AI_ONBOARDING_RESPONSE_TOO_LARGE: '服务商返回内容过大，请检查服务配置。',
+  SAND_AI_BUDGET_PERIOD_CONFLICT: '预算周期对不上，请刷新后按当前月份重新填写。',
+  SAND_AI_BUDGET_IMMUTABLE: '这条预算记录不能再改，请刷新后核对。',
+  SAND_AI_BUDGET_VALIDATION_ERROR: '预算填写不符合要求，请检查金额和周期后再试。',
+  SAND_AI_BUDGET_CONFIGURATION_CONFLICT: '预算配置刚被别人改过，请刷新后再试。',
+  SAND_AI_BUDGET_CURRENCY_MISMATCH: '币种不一致，请按当前环境币种填写。',
+  SAND_AI_BUDGET_POLICY_NOT_EXECUTABLE: '这条预算配置当前不能生效，请检查内容后再试。',
+  SAND_AI_BUDGET_POLICY_NOT_FOUND: '找不到这条预算配置，可能已被删除，请刷新列表。',
+  SAND_AI_KNOWLEDGE_CONFIGURATION_INVALID: '知识库配置不正确，请修正后再试。',
+  SAND_AI_KNOWLEDGE_SOURCE_REFERENCED: '这份资料正被已发布的知识库使用，先从知识库里移除再删除。',
+  SAND_AI_KNOWLEDGE_SOURCE_INVALID: '这份资料不满足知识库来源要求，请重新解析或换一份资料。',
+  SAND_AI_KNOWLEDGE_SOURCE_DRIFTED: '资料内容有变化，请刷新知识库后重试。',
+  SAND_AI_KNOWLEDGE_VALIDATION_ERROR: '知识库请求没有通过校验，请核对后重试。',
+  SAND_AI_KNOWLEDGE_INDEX_FAILED: '索引没有成功，请重试。',
+  SAND_AI_KNOWLEDGE_INDEX_UNAVAILABLE: '索引暂时不可用，请稍后重试。',
+  SAND_AI_FACTS_UNVERIFIED: '原操作记录核对不上，请刷新后重试。',
+  SAND_AI_INVOCATION_FACTS_UNVERIFIED: '原操作记录核对不上，请刷新后重试。',
+  SAND_AI_RUNTIME_BEARER_FORBIDDEN: '服务访问凭证不对，请检查后再试。',
+  SAND_AI_FILE_UPLOAD_KEY_CONFLICT: '文件上传标识冲突，请重新上传。',
   SAND_AI_TASK_UNSUPPORTED: 'Worker 不支持该任务类型。',
   SAND_AI_TASK_INVALID: '任务输入无效。',
   SAND_AI_CAPABILITY_UNSUPPORTED: '已启用的能力配置没有包含该能力。请到「高级 → 能力配置」为当前环境添加该能力并启用配置后重试。',
@@ -52,7 +83,7 @@ export function displayableRuntimeMessage(message: string | null | undefined): s
 }
 
 /**
- * 按冻结码返回展示文案；未知码返回 undefined，由调用方只展示原码。
+ * 按冻结码返回展示文案；未知码返回 undefined，由调用方按系统故障加错误编号显示。
  */
 export function hintForRuntimeErrorCode(errorCode: string | null | undefined): string | undefined {
   if (!errorCode) {
@@ -62,11 +93,18 @@ export function hintForRuntimeErrorCode(errorCode: string | null | undefined): s
   if (identityRefusal) return identityRefusal.description
   const hint = RUNTIME_ERROR_HINTS[errorCode]
   if (hint) return hint
-  // 未单独收录的 *_FORBIDDEN 统一给非技术兜底，不回显原码。
+  // *_FORBIDDEN 未单独收录时只给非技术兜底；语义不准，不借「无权限」误导。
   if (/_FORBIDDEN$/.test(errorCode)) {
-    return '暂无权限查看该内容：该记录可能属于其他调用身份或已过期的试用会话。'
+    return '这个操作被拒绝了，请核对身份和内容后再试。'
   }
   return undefined
+}
+
+/**
+ * 未翻译的稳定错误码按系统故障显示并带错误编号，便于报障时对照。
+ */
+export function untranslatedErrorText(errorCode: string): string {
+  return `系统故障（错误编号 ${errorCode}），请记录编号并联系系统维护人员。`
 }
 
 /**
@@ -76,7 +114,8 @@ export function toRuntimeUiError(error: unknown): RuntimeUiError {
   if (error instanceof SandAiRuntimeError) {
     const hint = hintForRuntimeErrorCode(error.errorCode)
     // 冻结码优先给中文说明；无映射时仅回显中文原文，英文原文一律兜底、不进界面。
-    const displayText = hint ?? displayableRuntimeMessage(error.message) ?? '请求未完成，请稍后重试。'
+    const displayText = hint ?? displayableRuntimeMessage(error.message)
+      ?? (error.errorCode ? untranslatedErrorText(error.errorCode) : '请求未完成，请稍后重试。')
     // error_code / request_id 仅供排查，进 console，不上屏（§6.1）。
     if (error.errorCode || error.requestId) {
       console.error('[sand-ai] runtime error', { error_code: error.errorCode, request_id: error.requestId })

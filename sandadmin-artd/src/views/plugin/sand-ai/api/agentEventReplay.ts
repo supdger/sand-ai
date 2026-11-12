@@ -1,4 +1,4 @@
-import { RUNTIME_API_PREFIX } from './config'
+import { runtimeAbsolutePath } from './config'
 
 export type AgentPreviewToken = {
   task_id: number; event_no: number; round: number; text: string
@@ -72,7 +72,7 @@ export async function readAgentEvents(apiKey: string, taskId: number, code: stri
   signal: AbortSignal, onEvent: (event: AgentReplayEvent) => void): Promise<void> {
   const path = code === null ? `/agents/tasks/${taskId}/events`
     : `/agents/${encodeURIComponent(code)}/tasks/${taskId}/events`
-  const response = await fetch(`${import.meta.env.VITE_API_URL || ''}${RUNTIME_API_PREFIX}${path}?after_event_id=${cursor}`, {
+  const response = await fetch(`${runtimeAbsolutePath(path)}?after_event_id=${cursor}`, {
     method: 'GET', headers: { Authorization: `Bearer ${apiKey.trim()}`, Accept: 'text/event-stream' },
     cache: 'no-store', credentials: 'omit', signal
   })

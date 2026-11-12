@@ -17,9 +17,6 @@
     <ElButton v-if="!pending && !journalError && !configurationLoaded" :loading="loadingExisting"
       :disabled="submitting || reading" @click="loadExisting">重新读取当前配置</ElButton>
     <el-form ref="formRef" :model="formData" :rules="rules" :disabled="formBlocked" label-width="120px">
-      <el-form-item v-if="formData.code" label="编码">
-        <span>编码：{{ formData.code }}（自动生成）</span>
-      </el-form-item>
       <el-form-item v-if="dialogType === 'add' && presetGuides.length > 0" label="选择服务商">
         <div class="preset-grid" role="radiogroup" aria-label="服务商预设">
           <button
@@ -61,9 +58,8 @@
             <el-input
               v-model="formData.configApiKey"
               type="password"
-              show-password
-              autocomplete="off"
-              placeholder="服务商提供的 API Key"
+              autocomplete="new-password"
+              placeholder=""
             />
             <div v-if="selectedGuide?.api_key_help || selectedGuide?.api_key_url" class="config-hint">
               {{ selectedGuide?.api_key_help }}
@@ -116,9 +112,9 @@
         </div>
       </el-form-item>
       <el-form-item label="状态" prop="status">
-        <el-radio-group v-model="formData.status" aria-label="服务商状态">
-          <el-radio :value="1">启用</el-radio>
-          <el-radio :value="2">停用</el-radio>
+        <el-radio-group v-model="formData.status" aria-label="服务商状态" class="status-radio-group">
+          <el-radio :value="1" @click="formData.status = 1">启用</el-radio>
+          <el-radio :value="2" @click="formData.status = 2">停用</el-radio>
         </el-radio-group>
       </el-form-item>
     </el-form>
@@ -149,7 +145,7 @@
   import providerApi from '../../api/provider'
   import { generateCatalogCode } from '../../api/catalogCode'
   import { HttpError } from '@/utils/http/error'
-  import { errorDisplayText } from '../../api/errorText'
+  import { connectionTestFailureText, errorDisplayText } from '../../api/errorText'
   import { egressBlockedDetails, type EgressBlockedDetails } from '../../api/egressBlocked'
   import EgressBlockedHint from '../../components/EgressBlockedHint.vue'
   import type { DiscoveredModel, ProviderGuide } from '../../api/onboarding'
@@ -236,7 +232,7 @@
       case 'local_runtime':
         return '本地运行不使用远程接口地址或 API Key，无需填写连接配置。'
       case 'fake':
-        return '开发用模拟接口不连接真实模型，无需填写真实 API Key。'
+        return '开发用模拟接口不连接真实模型，不用填写密钥。'
       default:
         return '请按当前服务商类型已声明的连接方式填写接口地址与 API Key。'
     }
@@ -294,19 +290,15 @@
       const result = await providerApi.testConnection(payload)
       testResult.value = {
         ok: true,
-        message: `连接成功，发现 ${result.models.length} 个可用模型`,
+        message: result.models.length > 0 ? `连上了，发现 ${result.models.length} 个可用模型` : '连上了',
         models: Array.isArray(result.models) ? result.models : []
       }
     } catch (error) {
       const blocked = egressBlockedDetails(error)
-      let message = '连接失败，请检查接口地址和 API Key 后重试'
+      let message = connectionTestFailureText(error)
       if (blocked !== null) {
         egressHint.value = blocked
         message = '连接被安全策略拦下，请按弹窗提示处理。'
-      } else if (error instanceof HttpError) {
-        if (error.transport === 'timeout') message = '连接超时，请检查网络后重试'
-        else if (error.transport === 'network') message = '网络不通，无法连接到服务器，请检查后重试'
-        else message = errorDisplayText(error, message)
       }
       testResult.value = { ok: false, message, models: [] }
     } finally {
@@ -568,6 +560,11 @@
   .api-key-field,
   .test-connection {
     width: 100%;
+  }
+
+  /* 停用单选首次点击被视觉层 span 拦截：内层圆圈穿透，点击落到原生 input。 */
+  .status-radio-group :deep(.el-radio__inner) {
+    pointer-events: none;
   }
 
   .model-tag {

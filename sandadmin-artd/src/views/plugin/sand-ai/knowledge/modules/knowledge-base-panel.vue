@@ -73,6 +73,7 @@
       <ElFormItem>
         <ElButton :loading="writing" :disabled="writing || lifecycleBusy || !!pendingPublish"
           @click="continueDraft">只读找回原草稿</ElButton>
+        <ElButton :disabled="writing || lifecycleBusy || !!pendingPublish" @click="abandonDraft">放弃此次变更</ElButton>
         <ElButton v-if="canSendOriginalDraft()" :disabled="writing || lifecycleBusy || !!pendingPublish" @click="sendOriginalDraft">保存原号后提交本页未发送草稿</ElButton>
       </ElFormItem>
     </ElForm>
@@ -84,6 +85,7 @@
       <ElFormItem label="原草稿快照"><ElInput :model-value="pendingPublish.snapshot" readonly /></ElFormItem>
       <ElFormItem><ElSpace wrap>
         <ElButton :disabled="writing || lifecycleBusy" @click="recoverPublish">只读找回原启用结果</ElButton>
+        <ElButton :disabled="writing || lifecycleBusy" @click="abandonPublish">放弃此次变更</ElButton>
         <ElButton v-if="canSendOriginalPublish()" :disabled="writing || lifecycleBusy" @click="sendOriginalPublish">保存原号后提交本页未发送启用</ElButton>
         <ElButton v-if="rejectedPublish" :disabled="writing || lifecycleBusy" @click="refreshRejectedDraft">刷新草稿并重新确认</ElButton>
       </ElSpace></ElFormItem>
@@ -100,6 +102,7 @@
       <ElFormItem>
         <ElButton :loading="lifecycleBusy" :disabled="writing || lifecycleBusy || !hasDisablePermission"
           @click="continueLifecycle(original)">只读找回原{{ lifecycleLabel(original.action) }}结果</ElButton>
+        <ElButton :disabled="writing || lifecycleBusy" @click="abandonLifecycle(original)">放弃此次变更</ElButton>
         <template v-if="isNotSubmitted(original)">
           <p>本页已确认原 POST 尚未开始。保存原号读回成功后，可明确提交同一操作；刷新后只按原号读取，不据 404 判断未发。</p>
           <ElButton :disabled="writing || lifecycleBusy || !hasDisablePermission" @click="sendNotSubmittedLifecycle(original)">保存原号后提交原操作</ElButton>
@@ -167,6 +170,8 @@ import iamApi, { type SandIamEnvironmentReference } from '../../api/iam'
 import knowledgeBaseApi, { type KnowledgeBaseRow, type KnowledgeSourceFile, type KnowledgeDraftInput, type KnowledgePublishRecoveryResult, type KnowledgePublishRejected } from '../../api/knowledgeBase'
 import { newRuntimeRequestId } from '../../api/runtime'
 import { errorDisplayText } from '../../api/errorText'
+import { isWriteRejected, writeRejectionText } from '../../api/writeRejection'
+import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
 import MaterialSampleFiles from '../../components/MaterialSampleFiles.vue'
 import RuntimeApiKeyField from '../../components/RuntimeApiKeyField.vue'
 import EmbeddingIndexPanel from './embedding-index-panel.vue'
@@ -236,6 +241,34 @@ const canSave = computed(() =>
 
 function message(cause: unknown): string {
   return errorDisplayText(cause, '知识库操作失败，请稍后重试')
+}
+function abandonDraft(): void {
+  const storage = draftStorageKey()
+  confirmAbandonPendingWrite(() => {
+    if (storage) sessionStorage.removeItem(storage)
+    pendingDraft.value = null
+    notSubmittedDraft.value = null
+    error.value = ''
+  })
+}
+function abandonPublish(): void {
+  const storage = publishStorageKey()
+  confirmAbandonPendingWrite(() => {
+    if (storage) sessionStorage.removeItem(storage)
+    pendingPublish.value = null
+    rejectedPublish.value = null
+    notSubmittedPublish.value = null
+    error.value = ''
+  })
+}
+function abandonLifecycle(original: LifecycleRecovery): void {
+  const storage = lifecycleStorageKey(original)
+  confirmAbandonPendingWrite(() => {
+    if (storage) sessionStorage.removeItem(storage)
+    pendingLifecycle.value = pendingLifecycle.value.filter(item => item.action !== original.action
+      || item.knowledgeBaseId !== original.knowledgeBaseId || item.key !== original.key)
+    error.value = ''
+  })
 }
 function resetForm(): void {
   code.value = ''; name.value = ''; description.value = ''
@@ -498,6 +531,13 @@ async function finishDraft(original: DraftRecovery, readOnly = false): Promise<v
     resetForm()
     await loadBases(1)
   } catch (cause) {
+    if (isCurrent() && !readOnly && isWriteRejected(cause)) {
+      sessionStorage.removeItem(storage)
+      pendingDraft.value = null
+      notSubmittedDraft.value = null
+      error.value = writeRejectionText(cause, '这次草稿被拒绝了。')
+      return
+    }
     if (isCurrent()) error.value = `${message(cause)}。原正文与请求号保留，请只读找回原草稿；无记录或来源已变化不证明未提交，不新建替代请求。`
   } finally {
     if (flight !== null && writeFlight.value === flight) writeFlight.value = null
@@ -609,6 +649,14 @@ async function finishPublish(original: PublishRecovery, readOnly: boolean): Prom
     } catch { error.value = '原启用已确认，但记录清除未确认，原号保留以便只读找回。'; return }
     await loadBases(1)
   } catch (cause) {
+    if (isCurrent() && !readOnly && isWriteRejected(cause)) {
+      sessionStorage.removeItem(storage)
+      pendingPublish.value = null
+      rejectedPublish.value = null
+      notSubmittedPublish.value = null
+      error.value = writeRejectionText(cause, '这次启用被拒绝了。')
+      return
+    }
     if (isCurrent()) error.value = `${message(cause)}。原启用请求号与快照已保留，请只读找回。`
   } finally {
     if (flight !== null && writeFlight.value === flight) writeFlight.value = null
@@ -747,6 +795,14 @@ async function finishLifecycle(original: LifecycleRecovery, readOnly = false, he
     if (replacingId.value === original.knowledgeBaseId) resetForm()
     await loadBases(1)
   } catch (cause) {
+    if (isCurrent() && !readOnly && isWriteRejected(cause)) {
+      const locked = lifecycleStorageKey(original)
+      if (locked) sessionStorage.removeItem(locked)
+      pendingLifecycle.value = pendingLifecycle.value.filter(item => item.action !== original.action
+        || item.knowledgeBaseId !== original.knowledgeBaseId || item.key !== original.key)
+      error.value = writeRejectionText(cause, '这次操作被拒绝了。')
+      return
+    }
     if (isCurrent()) {
       await loadBases(1)
       if (isCurrent()) error.value = `${message(cause)}。原${lifecycleLabel(original.action)}是否完成尚未确认；原知识库、操作和请求号保留，请在上方只读找回原请求；不会重新执行操作。`

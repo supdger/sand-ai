@@ -70,3 +70,10 @@ export function resolveCapabilityProfileIntent(intent: CapabilityProfileIntent):
   sessionStorage.removeItem(key(intent.admin_id))
   if (readCapabilityProfileIntent(intent.admin_id) !== null) throw new Error('原操作记录未解除')
 }
+/**
+ * 「放弃此次变更」用的无条件清除：记录损坏读不出来时也能解锁页面。
+ * 只清本地记录，不代表原请求没提交；调用方必须先经用户确认。
+ */
+export function dropCapabilityProfileIntent(adminId: number): void {
+  sessionStorage.removeItem(key(adminId))
+}

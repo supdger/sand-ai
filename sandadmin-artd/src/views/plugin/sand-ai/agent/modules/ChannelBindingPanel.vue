@@ -46,6 +46,7 @@
           {{ item.operation === 'save' ? `保存渠道 ${item.code}` : '停用渠道' }}
           <ElButton link type="primary" :loading="bindingRecoveringKey === item.request_key"
             :disabled="!!bindingRecoveringKey" @click="confirmBindingMutation(item)">查看这次操作的结果</ElButton>
+          <ElButton link type="warning" :disabled="!!bindingRecoveringKey" @click="abandonBinding(item)">放弃此次变更</ElButton>
         </p>
       </div>
 
@@ -87,7 +88,7 @@
           </template>
         </ElTableColumn>
         <ElTableColumn label="状态" width="100">
-          <template #default="{ row }"><ElTag :type="row.status === 1 ? 'success' : 'info'" size="small">{{ row.status === 1 ? '可用' : '已停用' }}</ElTag></template>
+          <template #default="{ row }"><ElTag :type="row.status === 1 ? 'success' : 'info'" size="small">{{ row.status === 1 ? '已启用' : '已停用' }}</ElTag></template>
         </ElTableColumn>
         <ElTableColumn label="操作" min-width="200">
           <template #default="{ row }">
@@ -98,7 +99,9 @@
                 <ElDropdownMenu>
                   <ElDropdownItem v-if="row.feishu_configured || row.wecom_configured" @click="openToolsMenu(row)">聊天工具配置</ElDropdownItem>
                   <ElDropdownItem v-if="row.feishu_configured || row.wecom_configured" @click="showDeliveries(row)">回信记录</ElDropdownItem>
-                  <ElDropdownItem v-if="row.status === 1" divided :disabled="writing || !!pendingBindingMutation" @click="disable(row)">停用</ElDropdownItem>
+                  <ElDropdownItem v-if="row.status === 1" :divided="Boolean(row.feishu_configured || row.wecom_configured)" :disabled="writing || !!pendingBindingMutation" @click="disable(row)">停用</ElDropdownItem>
+                  <ElDropdownItem v-if="row.status !== 1" :disabled="writing || !!pendingBindingMutation" @click="retireChannel(row)">删除</ElDropdownItem>
+                  <ElDropdownItem v-else disabled>删除（先停用才能删）</ElDropdownItem>
                 </ElDropdownMenu>
               </template>
             </ElDropdown>
@@ -121,7 +124,6 @@
               <span>在网页上直接和智能体对话</span>
             </button>
           </div>
-          <p class="type-note">企业微信、钉钉、飞书即将支持</p>
           <div class="drawer-actions">
             <ElButton @click="editorVisible = false">取消</ElButton>
             <ElButton type="primary" :disabled="!formKind" @click="editorStep = 'form'">下一步</ElButton>
@@ -141,7 +143,7 @@
               <ElSelect v-model="form.agent_definition_id" filterable clearable :disabled="writing || !!pendingBindingMutation"
                 placeholder="选择已启用的智能体" style="width: 100%" aria-label="接的智能体">
                 <ElOption v-for="agent in publishedAgents" :key="agent.agent_definition_id" :value="agent.agent_definition_id"
-                  :label="`${agent.name}（第 ${agent.active_version_no} 版）`" />
+                  :label="agent.name" />
               </ElSelect>
               <ElButton v-if="agentMore" link :disabled="directoryLoading || writing || !!pendingBindingMutation" @click="loadAgents">加载更多智能体</ElButton>
               <div v-if="fieldErrors.agent" class="field-error">{{ fieldErrors.agent }}</div>
@@ -308,6 +310,8 @@
   import { requestAgentTrial, requestAgentTrialTask, isAgentTrialTerminal } from '../../api/adminTrial'
   import { newRuntimeRequestId } from '../../api/runtime'
   import { errorDisplayText } from '../../api/errorText'
+  import { isWriteRejected, writeRejectionText } from '../../api/writeRejection'
+  import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
   import { displayableRuntimeMessage, hintForRuntimeErrorCode } from '../../api/runtimeErrors'
   import iamApi, { type SandIamEnvironmentReference, type SandIamWorkloadClientReference } from '../../api/iam'
   import { AGENT_PAGE_BRIDGE } from '../pageBridge'
@@ -405,6 +409,12 @@
   }
   function completeBindingJournal(item: BindingJournalReference): boolean {
     return persistBindingJournal(bindingJournal.value.filter(existing => existing.request_key !== item.request_key))
+  }
+  function abandonBinding(item: BindingJournalReference): void {
+    confirmAbandonPendingWrite(() => {
+      completeBindingJournal(item)
+      error.value = ''
+    })
   }
   const feishuWriting = ref(false)
   const feishuVisible = ref(false)
@@ -598,8 +608,9 @@
   const selectedAgent = computed(() => agents.value.find(agent => agent.agent_definition_id === form.agent_definition_id && isPublishedAgent(agent)))
   const selectedClient = computed(() => clients.value.find(client => String(client.id) === form.workload_client_id &&
     client.environment_id === props.environment?.id && client.status === 1))
+  // 新建渠道的编码在点保存时才生成，保存前表单里还没有。
   const canSave = computed(() => !pendingBindingMutation.value && !!currentAdminId.value && !!props.environment &&
-    !!form.code.trim() && !!form.name.trim() && !!selectedAgent.value && !!selectedClient.value && !writing.value && !directoryLoading.value)
+    (editingId.value !== null ? !!form.code.trim() : true) && !!form.name.trim() && !!selectedAgent.value && !!selectedClient.value && !writing.value && !directoryLoading.value)
   /** 新建/编辑弹窗内：名称、智能体、调用身份必填；保存还要求本次会话测试连接通过。 */
   const canSaveDialog = computed(() => canSave.value && testState.value === 'ok' && !testing.value)
   const canTest = computed(() => !!props.environment && !!form.agent_definition_id && !testing.value && !writing.value && !pendingBindingMutation.value)
@@ -1195,6 +1206,7 @@
     writingFlag.value = true
     error.value = ''
     let reference: BindingJournalReference | null = null
+    let rejected = false
     try {
       const hash = await channelBindingInputSha256(input)
       if (identity !== bindingIdentityEpoch || token !== userStore.accessToken || userId !== currentAdminId.value || environment.id !== props.environment?.id) return
@@ -1217,6 +1229,11 @@
       await load(1)
     } catch (failure) {
       if (identity === bindingIdentityEpoch && token === userStore.accessToken &&
+        reference && bindingIdentityCurrent(reference, identity, token) && isWriteRejected(failure)) {
+        completeBindingJournal(reference)
+        error.value = writeRejectionText(failure, '这次操作被拒绝了。')
+        rejected = true
+      } else if (identity === bindingIdentityEpoch && token === userStore.accessToken &&
         (!reference || bindingIdentityCurrent(reference, identity, token))) {
         error.value = `${errorDisplayText(failure, '渠道操作结果未确认')}；保留原请求，只读找回。`
       }
@@ -1224,8 +1241,30 @@
       if (bindingWriteOwner.value === owner) {
         bindingWriteOwner.value = null
         writingFlag.value = false
-        if (reference && bindingIdentityCurrent(reference, identity, token)) void confirmBindingMutation(reference)
+        if (!rejected && reference && bindingIdentityCurrent(reference, identity, token)) void confirmBindingMutation(reference)
       }
+    }
+  }
+  async function retireChannel(row: ChannelBindingRow): Promise<void> {
+    const environment = props.environment
+    if (!environment || writing.value || pendingBindingMutation.value || row.status === 1) return
+    try {
+      await ElMessageBox.confirm(`删除后「${row.name}」不能恢复。`, `删除「${row.name}」？`, {
+        type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想'
+      })
+    } catch {
+      return
+    }
+    writingFlag.value = true
+    error.value = ''
+    try {
+      await channelBindingApi.retire(environment.id, row.channel_binding_id)
+      ElMessage.success(`已删除「${row.name}」`)
+      await load(1)
+    } catch (failure) {
+      error.value = errorDisplayText(failure, '删除没有成功，请稍后再试。')
+    } finally {
+      writingFlag.value = false
     }
   }
   async function save(): Promise<void> {

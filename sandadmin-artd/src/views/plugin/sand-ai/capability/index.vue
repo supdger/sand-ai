@@ -78,6 +78,7 @@
           <ElAlert v-if="pending" type="warning" :closable="false"
             :title="`原${pending.action === 'save' ? '保存' : '启用'}结果待确认：应用 ${pending.application_id}／环境 ${pending.environment_id}。仅重新读取原目标，不会重发；当前配置匹配也不代表取得原请求回执。`" />
           <ElButton :disabled="Boolean(busy) || writeInFlight" @click="restoreIntent(); loadEntryContext()">读取原操作状态</ElButton>
+          <ElButton :disabled="Boolean(busy) || writeInFlight" @click="abandonPendingWrite">放弃此次变更</ElButton>
         </details>
         <MaterialProfileEditor v-if="materialConfigurationPage" :environment-id="environmentId" />
         <template v-if="environmentId">
@@ -307,6 +308,7 @@
           <ElAlert v-if="pending" type="warning" :closable="false"
             title="原保存/启用结果待确认。仅重新读取原目标，不会重发；当前配置匹配也不代表取得原请求回执。" />
           <ElButton :disabled="Boolean(busy) || writeInFlight" @click="restoreIntent(); loadEntryContext()">读取原操作状态</ElButton>
+          <ElButton :disabled="Boolean(busy) || writeInFlight" @click="abandonPendingWrite">放弃此次变更</ElButton>
         </details>
         <ElAlert v-if="revisionConflict" type="warning" :closable="false"
           title="配置已被其他管理员修改。本地选择仍保留在下方。重新加载以查看最新配置；核对后可选择采用最新配置，再重新选择自己的改动。" />
@@ -486,8 +488,9 @@
               <ElButton link type="primary" @click="router.push('/sand-ai/provider')">去 AI 服务商添加</ElButton>
             </p>
             </template>
-            <p v-else-if="card.snapshot === '[]' && !card.wasBound" class="cap-card__note">还没有配置，选好模型保存后即可使用。</p>
-            <p v-else class="cap-card__note">已停用，{{ card.usage }}暂不可用；点「重新启用」可恢复。</p>
+            <p v-else-if="card.snapshot === '[]' && !card.wasBound" class="cap-card__note">还没有配置。选一个模型就会保存。</p>
+            <p v-else class="cap-card__note">已停用。点「重新启用」可以恢复。</p>
+            <p v-if="card.saveNotice" class="cap-card__note" style="color: var(--el-color-danger)">{{ card.saveNotice }}</p>
 
             <div class="cap-card__foot">
               <span class="cap-card__foot-gap" />
@@ -503,7 +506,6 @@
               <ElButton
                 v-else
                 link
-                type="danger"
                 :disabled="cardWriteBlocked()"
                 @click="askDisableCapability(card)"
               >
@@ -517,17 +519,6 @@
             :image-size="72"
           />
         </div>
-        <div v-if="hasUnsavedCards" class="cap-cards-foot">
-          <span class="cap-muted">{{ unsavedCardsHint }}</span>
-          <ElButton
-            type="primary"
-            :loading="busy === 'save'"
-            :disabled="cardWriteBlocked()"
-            @click="saveCapabilityCards"
-          >
-            保存
-          </ElButton>
-        </div>
       </ElCard>
     </div>
   </SandAiErrorBoundary>
@@ -539,8 +530,10 @@
   import { computed, onActivated, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
   import { useUserStore } from '@/store/modules/user'
   import { useAuth } from '@/hooks/core/useAuth'
-  import { readCapabilityProfileIntent, retainCapabilityProfileIntent, resolveCapabilityProfileIntent, type CapabilityProfileIntent } from '../api/capabilityProfileIntent'
+  import { readCapabilityProfileIntent, retainCapabilityProfileIntent, resolveCapabilityProfileIntent, dropCapabilityProfileIntent, type CapabilityProfileIntent } from '../api/capabilityProfileIntent'
   import { errorDisplayText } from '../api/errorText'
+  import { isWriteRejected, writeRejectionText } from '../api/writeRejection'
+  import { confirmAbandonPendingWrite } from '../composables/pendingWrite'
   import { HttpError } from '@/utils/http/error'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { useRoute, useRouter } from 'vue-router'
@@ -767,8 +760,8 @@
     errorMessage.value = ''
   }
   function definitelyRejected(error: unknown): boolean {
-    // Only the frozen transactional resource-conflict protocol proves this write did not commit.
-    return isRevisionConflict(error)
+    // 明确拒绝统一判定：全部 4xx 与校验类业务码都算，不再只认 RESOURCE_CONFLICT。
+    return isWriteRejected(error)
   }
   function isRevisionConflict(error: unknown): boolean {
     return error instanceof HttpError && /^SAND_AI_RESOURCE_CONFLICT(?=:)/.test(error.message)
@@ -776,9 +769,24 @@
   function writeFailure(error: unknown, phase: 'preflight' | 'write' | 'confirm'): string {
     if (phase === 'preflight') return '无法确认当前完整配置，写操作已锁定。请成功重新读取状态后再继续。'
     if (phase === 'write' && isRevisionConflict(error))
-      return '配置已被其他管理员修改。本地表单仍保留；请重新加载并比较最新版本。'
-    if (phase === 'write' && definitelyRejected(error)) return '操作被拒绝，请核对权限、模型能力和发送策略，再重新读取状态。'
+      return '这条刚被别人改过，本地表单仍保留；请重新加载对比最新版本后再改。'
+    if (phase === 'write' && definitelyRejected(error))
+      return writeRejectionText(error, '这次操作被拒绝了，请核对内容后重试。')
     return '结果尚未确认。请重新读取状态核对同一配置；不会自动重发，请不要重复保存或启用。'
+  }
+  /** 「放弃此次变更」：无条件清本地记录解锁；先经用户确认，提示请求可能已送达。 */
+  function abandonPendingWrite(): void {
+    confirmAbandonPendingWrite(() => {
+      try {
+        if (adminId.value) dropCapabilityProfileIntent(adminId.value)
+        pending.value = null
+        journalError.value = false
+        errorMessage.value = ''
+        ElMessage.success('已放弃未确认的本地记录，页面已解锁')
+      } catch {
+        errorMessage.value = '本地记录清除失败，请检查浏览器存储后重试'
+      }
+    })
   }
   const routeKindLabels: Readonly<Record<string, string>> = {
     model_deployment: '模型服务',
@@ -945,6 +953,7 @@
     extraRoutes: SandAiCapabilityRoute[]
     snapshot: string
     fieldError: string
+    saveNotice: string
   }
 
   type CapabilityCardDraft = {
@@ -958,6 +967,9 @@
   }
 
   const capabilityCards = ref<CapabilityCard[]>([])
+  const committedCardDrafts = new Map<string, CapabilityCardDraft>()
+  let applyingCardDraft = false
+  let cardAutoSave = false
   // 首次进入即处于加载态，直到首次配置档读取结束。
   const capabilityLoading = ref(true)
   const capabilityLoadFailed = ref(false)
@@ -1079,11 +1091,6 @@
     return semanticRoutes(cardRoutes(card)) !== card.snapshot
   }
 
-  /** 页面级保存按钮只在确有未保存改动时可点；停用卡片同样计入改动。 */
-  const dirtyCardCount = computed(() => capabilityCards.value.filter(card => cardDirty(card)).length)
-  const hasUnsavedCards = computed(() => dirtyCardCount.value > 0)
-  const unsavedCardsHint = computed(() => `${dirtyCardCount.value} 项能力有未保存的改动`)
-
   function cardValidationError(card: CapabilityCard): string {
     if (card.disabled) return ''
     if (card.kind === 'model') {
@@ -1108,13 +1115,14 @@
     return ''
   }
 
-  function cardTag(card: CapabilityCard): { text: string; type: 'success' | 'warning' | 'info' | 'danger' } {
+  function cardTag(card: CapabilityCard): { text: string; type: 'success' | 'info' } {
     if (card.disabled) {
-      if (card.snapshot !== '[]') return { text: '待停用', type: 'warning' }
-      return card.wasBound ? { text: '已停用', type: 'info' } : { text: '未配置', type: 'info' }
+      return card.wasBound || card.snapshot !== '[]'
+        ? { text: '已停用', type: 'info' }
+        : { text: '未配置', type: 'info' }
     }
     if (cardRoutes(card).length === 0) return { text: '未配置', type: 'info' }
-    return profile.value?.state === 'published' ? { text: '已启用', type: 'success' } : { text: '待启用', type: 'warning' }
+    return { text: '已启用', type: 'success' }
   }
 
   const canWriteCards = computed(() =>
@@ -1378,7 +1386,8 @@
         parseDeploymentId: undefined,
         extraRoutes: extras,
         snapshot: '',
-        fieldError: ''
+        fieldError: '',
+        saveNotice: ''
       }
       if (kind === 'model') {
         card.defaultDeploymentId = primary?.deployment_id ?? undefined
@@ -1393,6 +1402,7 @@
         card.parseDeploymentId = primary.deployment_id ?? undefined
       }
       card.snapshot = semanticRoutes(own.slice(0, consumed).map(routePayload).concat(extras))
+      committedCardDrafts.set(card.code, cardDraftOf(card))
       applyCardDraft(card, cardDrafts.get(code))
       return card
     })
@@ -1498,27 +1508,69 @@
     }
   }
 
-  /** 页面级保存：逐项校验能力卡，合并全部卡片草稿为一次保存+启用事务。 */
-  async function saveCapabilityCards(): Promise<void> {
-    if (cardWriteBlocked() || busy.value) { ElMessage.warning('请先读取可安全编辑的完整配置。'); return }
+  /** 选完马上保存并启用；失败由调用方把下拉退回原样。 */
+  async function saveCapabilityCards(successText: string): Promise<boolean> {
+    if (cardWriteBlocked() || busy.value) {
+      errorMessage.value = '请先读取可安全编辑的完整配置。'
+      return false
+    }
     for (const card of capabilityCards.value) card.fieldError = ''
     const problems = capabilityCards.value
       .map(card => ({ card, error: cardValidationError(card) }))
       .filter(item => item.error !== '')
     if (problems.length > 0) {
       for (const item of problems) item.card.fieldError = item.error
-      ElMessage.warning(problems.length === 1
+      errorMessage.value = problems.length === 1
         ? `${problems[0].card.name}：${problems[0].error}`
-        : `${problems.length} 项能力还没选完整，请逐项检查后再保存`)
-      return
+        : `${problems.length} 项能力还没选完整`
+      return false
     }
     const payload = cardsSavePayload()
     if (typeof payload === 'string') {
-      ElMessage.warning(payload)
-      return
+      errorMessage.value = payload
+      return false
     }
-    await commitCapabilityWrite(payload, '已保存并启用，能力配置已更新')
+    errorMessage.value = ''
+    await commitCapabilityWrite(payload, successText)
+    return errorMessage.value === '' && !revisionConflict.value
   }
+
+  function rollbackCard(card: CapabilityCard): void {
+    applyingCardDraft = true
+    applyCardDraft(card, committedCardDrafts.get(card.code))
+    applyingCardDraft = false
+  }
+
+  async function onCardEdited(card: CapabilityCard): Promise<void> {
+    if (cardAutoSave || applyingCardDraft || !cardDirty(card)) return
+    cardAutoSave = true
+    const successText = card.disabled ? `已停用「${card.name}」` : `已保存「${card.name}」的默认模型`
+    try {
+      const problem = cardValidationError(card)
+      if (problem) {
+        rollbackCard(card)
+        card.saveNotice = `${card.name}：${problem}`
+        ElMessage.warning(card.saveNotice)
+        return
+      }
+      card.saveNotice = ''
+      const saved = await saveCapabilityCards(successText)
+      if (!saved) {
+        const reason = errorMessage.value || '请稍后再试'
+        rollbackCard(card)
+        card.saveNotice = `没保存上：${reason}`
+        ElMessage.error(card.saveNotice)
+      }
+    } finally {
+      cardAutoSave = false
+    }
+  }
+
+  watch(capabilityCards, () => {
+    if (cardAutoSave || applyingCardDraft || materialConfigurationPage.value) return
+    const dirty = capabilityCards.value.find(item => cardDirty(item))
+    if (dirty) void onCardEdited(dirty)
+  }, { deep: true })
 
   /** 单次写事务：预检 → 保存草稿 → 立即启用 → 回读确认，与既有写路径一致。 */
   async function commitCapabilityWrite(payload: CapabilitySavePayload, successText: string): Promise<void> {
@@ -1593,6 +1645,10 @@
       if (!ownsOperation()) return
       if (phase === 'write' && definitelyRejected(error)) {
         try { clearIntent() } catch { errorMessage.value = '原记录未解除，结果保持待确认；请重新读取原目标'; return }
+        // 拒绝已结清后恢复可编辑
+        profileLoaded.value = true
+        errorMessage.value = writeFailure(error, phase)
+        return
       }
       if (phase === 'write' && isRevisionConflict(error)) revisionConflict.value = true
       profileLoaded.value = false
@@ -1841,6 +1897,10 @@
       if (!ownsOperation()) return
       if (phase === 'write' && definitelyRejected(error)) {
         try { clearIntent() } catch { errorMessage.value = '原记录未解除，结果保持待确认；请重新读取原目标'; return }
+        // 拒绝已结清后恢复可编辑
+        profileLoaded.value = true
+        errorMessage.value = writeFailure(error, phase)
+        return
       }
       if (phase === 'write' && isRevisionConflict(error)) revisionConflict.value = true
       profileLoaded.value = false
@@ -1924,6 +1984,10 @@
       if (!ownsOperation()) return
       if (phase === 'write' && definitelyRejected(error)) {
         try { clearIntent() } catch { errorMessage.value = '原记录未解除，结果保持待确认；请重新读取原目标'; return }
+        // 拒绝已结清后恢复可编辑
+        profileLoaded.value = true
+        errorMessage.value = writeFailure(error, phase)
+        return
       }
       profileLoaded.value = false
       errorMessage.value = writeFailure(error, phase)

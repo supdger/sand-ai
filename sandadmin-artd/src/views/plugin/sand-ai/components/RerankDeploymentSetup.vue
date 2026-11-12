@@ -8,6 +8,7 @@
     <p v-if="intent" class="muted">原验证请求号：{{ intent.key }} · 部署 {{ intent.deployment_id }} · 修订 {{ intent.revision }}</p>
     <ElAlert v-if="recoveryBlocked" type="warning" :closable="false" :title="publicationNeedsRead ? '原启用结果尚未确认。只读找回原部署与修订；不会重新启用。' : saveRecoveryKey ? '原保存结果尚未确认。凭据已清除，只读找回原请求；不会重新保存。' : '原验证结果尚未确认。保留原号，只读找回；不会重新发送验证。'" />
     <ElButton v-permission="'sand_ai:setup:deployment:read'" v-if="recoveryBlocked" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="restore">{{ publicationNeedsRead ? '找回原启用状态' : saveRecoveryKey ? '找回原保存结果' : '找回原验证状态' }}</ElButton>
+    <ElButton v-if="recoveryBlocked" :disabled="Boolean(busy)" @click="abandonDeploymentChange">放弃此次变更</ElButton>
     <p class="muted">保存、验证与启用需对应后台权限；缺少操作按钮时，请联系管理员配置权限。此处不会自动开通服务或授权。</p>
     <ElForm label-width="110px" @submit.prevent>
       <ElFormItem label="专业重排服务"><ElSelect v-model="driver" :disabled="locked"><ElOption label="Cohere 专业重排" value="cohere_rerank" /><ElOption label="Jina 专业重排" value="jina_rerank" /></ElSelect></ElFormItem>
@@ -46,6 +47,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/modules/user'
 import { HttpError } from '@/utils/http/error'
 import api, { type RerankDraft as DraftSave, type RerankDeployment, type RerankVerification as Verification } from '../api/rerankConfiguration'
+import { confirmAbandonPendingWrite } from '../composables/pendingWrite'
 import RerankPricingPanel from './RerankPricingPanel.vue'
 const router = useRouter()
 const userStore = useUserStore()
@@ -78,6 +80,32 @@ const busy = ref<'' | 'save' | 'verify' | 'read' | 'publish'>('')
 const message = ref('')
 const messageType = ref<'success' | 'warning' | 'error'>('warning')
 let generation = 0
+function abandonDeploymentChange(): void {
+  if (busy.value || saveFlight.value !== null || publicationFlight.value || verifyFlight.value !== null) return
+  confirmAbandonPendingWrite(() => {
+    generation += 1
+    const id = Number(userStore.info.id)
+    if (Number.isSafeInteger(id) && id > 0) {
+      const base = `sand-ai:onboarding:rerank-verification:${id}`
+      try {
+        sessionStorage.removeItem(base)
+        sessionStorage.removeItem(`${base}:publication`)
+        sessionStorage.removeItem(`${base}:save`)
+      } catch { /* 存储不可用时仍清内存 */ }
+    }
+    saveRecoveryKey.value = ''
+    expectedSave.value = null
+    pending.value = false
+    storageError.value = false
+    publicationNeedsRead.value = false
+    publicationIntent.value = null
+    intent.value = null
+    saveAttempt.value = null
+    apiKey.value = ''
+    message.value = '已放弃未确认的本地记录，页面已解锁'
+    messageType.value = 'success'
+  })
+}
 let active = true
 const labels = { draft: '草稿', verifying: '验证中', tested: '已验证', verification_ambiguous: '验证结果未确认', published: '已启用' }
 const stateLabel = computed(() => state.value ? labels[state.value.state] : '草稿')

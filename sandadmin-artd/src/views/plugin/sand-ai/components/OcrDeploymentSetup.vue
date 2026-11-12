@@ -1,48 +1,54 @@
 <template>
   <ElCard shadow="never" class="ocr-setup">
-    <template #header><h4>本地图片文字识别部署</h4></template>
-    <p class="muted">图片在当前宿主处理，无需服务地址、API Key 或机器路径。宿主运维须预先配置 OCR 引擎；保存草稿后明确验证，通过后启用、配置服务费，再绑定目标环境的能力路由。</p>
+    <template #header><h4>图片里的文字</h4></template>
+    <p class="muted">图片在这台服务器上识别，不用填写网址和密钥。识别程序需要事先装好。保存后先检查能不能用，再用到能力配置里。</p>
     <PublishedOcrDeploymentPrice @selection="selectPublishedPrice" />
     <template v-if="priceTarget">
-      <p>当前价格上下文：{{ priceContext === 'existing' ? '所选已启用部署' : '本次启用部署' }} {{ priceTarget.deployment_id }} · 修订 {{ priceTarget.revision }} · 模型 {{ priceTarget.model.name }}。</p>
-      <p class="muted">价格归属服务商 {{ priceTarget.provider.name }} 与模型 {{ priceTarget.model.name }}，不表示目标环境已绑定该部署；目录读取也不替代原保存或启用收据。</p>
+      <p>正在看价格：{{ priceTarget.model.name }}（{{ priceContext === 'existing' ? '已启用的识别程序' : '这次启用的识别程序' }}，编号 {{ priceTarget.deployment_id }}）。</p>
+      <p class="muted">价格属于服务商「{{ priceTarget.provider.name }}」的这个模型。</p>
       <OcrPricingPanel :key="`${priceTarget.provider.id}:${priceTarget.model.id}`" :provider-id="priceTarget.provider.id" :model-id="priceTarget.model.id" />
     </template>
     <ElAlert v-if="message" :type="messageType" :title="message" :closable="false" />
-    <ElAlert v-if="journal" type="info" :closable="false" :title="`原保存请求 ${journal.save_key} · ${journal.deployment_id ? `部署 ${journal.deployment_id} / 修订 ${journal.revision ?? '待确认'}` : '保存结果待确认'} · ${phaseLabel}`" />
-    <p v-if="journal?.verification_key" class="muted">原验证请求号：{{ journal.verification_key }}</p>
-    <ElAlert v-if="pendingNotSubmitted" type="warning" :closable="false" title="本页确认原操作尚未发送。原配置仅留在内存中，恢复存储后可明确继续原操作；刷新或切换身份后只能按原号只读找回。" />
-    <ElButton v-if="pendingNotSubmitted" v-permission="unsubmittedPermission" :disabled="Boolean(busy) || postFlight" @click="retryUnsubmitted">保留原号并继续原操作</ElButton>
-    <ElButton v-if="recoveryRequired || (journal && !draft)" v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy) || postFlight || pendingNotSubmitted" @click="readState">只读找回原配置与状态</ElButton>
+    <ElAlert v-if="journal" :type="journal.phase === 'published' ? 'success' : 'warning'" :closable="false" :title="journalTitle" />
+    <ElButton v-if="journal" @click="copyProblem">复制问题信息</ElButton>
+    <ElAlert v-if="pendingNotSubmitted" type="warning" :closable="false" title="上次填写还没有发出去。可以点下面的按钮继续，不会重复建；刷新或换人登录后只能在「高级」里查看。" />
+    <ElButton v-if="pendingNotSubmitted" v-permission="unsubmittedPermission" :disabled="Boolean(busy) || postFlight" @click="retryUnsubmitted">继续上次保存</ElButton>
+    <ElButton v-if="recoveryRequired || (journal && !draft)" type="primary" v-permission="'sand_ai:setup:deployment:save'" :loading="busy === 'save' || busy === 'read'" :disabled="Boolean(busy) || postFlight || pendingNotSubmitted || !canSave" @click="save">重新保存</ElButton>
+    <ElButton v-if="recoveryRequired || pendingNotSubmitted || journal" :disabled="Boolean(busy) || postFlight" @click="abandonLocalJournal">放弃这次改动</ElButton>
+    <details v-if="journal">
+      <summary>高级</summary>
+      <ElButton v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy) || postFlight" @click="readState">查看上次结果</ElButton>
+    </details>
     <ElForm label-width="110px" @submit.prevent>
       <template v-if="!draft">
-        <ElFormItem label="部署名称"><ElInput v-model.trim="name" maxlength="160" :disabled="locked" placeholder="例如：材料图片本地识别" /></ElFormItem>
-        <ElFormItem label="超时(ms)"><ElInputNumber v-model="timeoutMs" :min="1000" :max="120000" :precision="0" :step="1000" :disabled="locked" /></ElFormItem>
-        <ElFormItem v-if="!journal"><ElButton v-permission="'sand_ai:setup:deployment:save'" type="primary" :loading="busy === 'save'" :disabled="locked || !canSave" @click="save">保存 OCR 部署草稿</ElButton></ElFormItem>
+        <ElFormItem label="名称"><ElInput v-model.trim="name" maxlength="160" :disabled="locked" placeholder="例如：材料图片本地识别" /></ElFormItem>
+        <ElFormItem label="等待时间（秒）"><ElInputNumber :model-value="Math.round(timeoutMs / 1000)" :min="1" :max="120" :precision="0" :step="1" :disabled="locked" @update:model-value="(value: number | undefined) => { timeoutMs = (value ?? 1) * 1000 }" /></ElFormItem>
+        <ElFormItem v-if="!journal"><ElButton v-permission="'sand_ai:setup:deployment:save'" type="primary" :loading="busy === 'save'" :disabled="locked || !canSave" @click="save">保存</ElButton></ElFormItem>
       </template>
       <template v-if="draft">
-        <p>部署 {{ draft.deployment_id }} · 修订 {{ draft.revision }} · {{ draft.model.name }} · {{ published ? '已启用' : verification?.state ?? draft.state }}</p>
-        <ElFormItem label="处理位置"><span>本地运行</span></ElFormItem>
+        <p>{{ draft.model.name }} · {{ published ? '已启用' : '还没有启用' }}</p>
+        <ElFormItem label="处理位置"><span>这台服务器</span></ElFormItem>
         <p class="muted">{{ usageNotice }}</p>
         <p v-if="verification?.failure" class="muted">{{ verification.failure.message }}</p>
         <ElSpace wrap>
-          <ElButton v-permission="'sand_ai:setup:deployment:verify'" :loading="busy === 'verify'" :disabled="!canVerify" @click="verify">验证本地 OCR</ElButton>
-          <ElButton v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy) || postFlight || pendingNotSubmitted" @click="readState">读取修订状态</ElButton>
-          <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'publish'" :disabled="!canPublish" @click="publish">启用此 OCR 修订</ElButton>
+          <ElButton v-permission="'sand_ai:setup:deployment:verify'" :loading="busy === 'verify'" :disabled="!canVerify" @click="verify">检查能不能用</ElButton>
+          <ElButton v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy) || postFlight || pendingNotSubmitted" @click="readState">查看当前状态</ElButton>
+          <ElButton v-permission="'sand_ai:onboarding:publish'" type="primary" :loading="busy === 'publish'" :disabled="!canPublish" @click="publish">启用</ElButton>
         </ElSpace>
       </template>
     </ElForm>
-    <p v-if="verification?.state === 'verification_ambiguous'" class="muted">原验证结果不确定，保留同一部署、修订和验证号，只读找回；不会重发验证或另建部署绕过未知结果。</p>
-    <p v-if="journal?.phase === 'failed'" class="muted">请宿主运维修正本地引擎配置；原失败草稿保留。确认修正后，沿同一服务商、模型和部署保存新修订，再明确验证。</p>
-    <ElButton v-if="canStartNew" v-permission="'sand_ai:setup:deployment:save'" :disabled="Boolean(busy) || postFlight" @click="saveSuccessor">{{ published ? '沿原服务商和模型保存后继部署草稿' : '沿原部署保存新修订草稿' }}</ElButton>
-    <ElButton v-if="published && draft" @click="priceContext = 'current'">查看本次启用部署的价格</ElButton>
-    <p v-if="published" class="muted">启用价格后，到能力配置选择图片文字识别、本地 OCR 驱动和此部署，再保存并启用环境能力档。未绑定或未计价时，硬预算请求会被拒绝；SandIAM 允许使用仍需单独配置。</p>
-    <ElButton v-if="published" @click="router.push('/sand-ai/capability')">配置图片识别能力路由</ElButton>
+    <p v-if="verification?.state === 'verification_ambiguous'" class="muted">上次检查的结果不确定。请点「查看当前状态」确认后再继续，不会重复执行。</p>
+    <p v-if="journal?.phase === 'failed'" class="muted">识别程序还没配好。请让技术同事改好后再保存一次。</p>
+    <ElButton v-if="canStartNew" v-permission="'sand_ai:setup:deployment:save'" :disabled="Boolean(busy) || postFlight" @click="saveSuccessor">{{ published ? '沿用原设置再保存一个' : '在原基础上再保存一个' }}</ElButton>
+    <ElButton v-if="published && draft" @click="priceContext = 'current'">查看价格</ElButton>
+    <p v-if="published" class="muted">价格启用后，到「能力配置」把「图片里的文字」指到这一项就能用了。</p>
+    <ElButton v-if="published" @click="router.push('/sand-ai/capability')">去能力配置</ElButton>
   </ElCard>
 </template>
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import type { LocalOcrDeployment } from '../api/onboarding'
 import type { OcrDraft } from '../api/ocrConfiguration'
 import { useOcrDeploymentRecovery } from '../composables/useOcrDeploymentRecovery'
@@ -55,7 +61,7 @@ const priceContext = ref<'current' | 'existing'>('current')
 const selectedPublishedPrice = ref<OcrDraft | null>(null)
 const { journal, draft, verification, busy, postFlight, locked, published, recoveryRequired, canVerify, canPublish,
   canStartNew, message, messageType, usageNotice, phaseLabel, save: saveDeployment, pendingNotSubmitted,
-  retryUnsubmitted, verify, publish, readState, saveSuccessor } = useOcrDeploymentRecovery(() => {
+  retryUnsubmitted, abandonLocalJournal, verify, publish, readState, saveSuccessor } = useOcrDeploymentRecovery(() => {
     name.value = ''; timeoutMs.value = 120000
   })
 const priceTarget = computed(() => priceContext.value === 'existing' ? selectedPublishedPrice.value : published.value ? draft.value : null)
@@ -66,6 +72,23 @@ const unsubmittedPermission = computed(() => journal.value?.phase === 'save_pend
   : journal.value?.phase === 'verification_pending' ? 'sand_ai:setup:deployment:verify' : 'sand_ai:onboarding:publish')
 const canSave = computed(() => Boolean(name.value && name.value.length <= 160 && Number.isSafeInteger(timeoutMs.value)
   && timeoutMs.value >= 1000 && timeoutMs.value <= 120000))
+const journalTitle = computed(() => {
+  if (!journal.value) return ''
+  if (journal.value.phase === 'failed') return '这次保存没有成功'
+  if (journal.value.phase === 'published') return '已经启用，可以继续用了'
+  return '这次保存的结果还没确认'
+})
+async function copyProblem(): Promise<void> {
+  const current = journal.value
+  if (!current) return
+  const lines = [`保存号 ${current.save_key}`, current.verification_key ? `验证号 ${current.verification_key}` : '', `阶段 ${phaseLabel.value}`].filter((line) => line !== '')
+  try {
+    await navigator.clipboard.writeText(lines.join('\n'))
+    ElMessage.success('已复制问题信息')
+  } catch {
+    ElMessage.error('复制失败，请稍后再试')
+  }
+}
 async function save(): Promise<void> {
   if (locked.value || !canSave.value) return
   const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 12)

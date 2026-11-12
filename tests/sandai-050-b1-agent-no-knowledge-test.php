@@ -283,6 +283,19 @@ $definitionSource = (string) file_get_contents($repositoryRoot . '/app/Applicati
 ok(!str_contains($definitionSource, 'requires a knowledge base')
     && !str_contains($definitionSource, 'has no knowledge base'),
     'gateway: publish no longer requires a knowledge base');
+// F1 contract: published agents can be renamed (draft no longer rejects the
+// rename), and every deterministic publish rejection is recorded as a durable
+// idempotency receipt readable through operations/by-request-key.
+ok(!str_contains($definitionSource, 'Published agent name cannot change in a draft'),
+    'gateway: published agent rename no longer rejected');
+ok(str_contains($definitionSource, "'no_draft_version'")
+    && str_contains($definitionSource, "'model_unavailable'")
+    && str_contains($definitionSource, "'knowledge_environment_mismatch'")
+    && str_contains($definitionSource, "'validation_failed'"),
+    'gateway: publish rejection reasons enumerable');
+ok(str_contains($definitionSource, 'publishRejectionProblem')
+    && str_contains($definitionSource, "this->record(\$environmentId, 'publish'"),
+    'gateway: rejected publish writes the operation receipt');
 $runtimeSource = (string) file_get_contents($repositoryRoot . '/app/Application/Agent/AgentGateway.php');
 ok(!str_contains($runtimeSource, 'Published agent has no knowledge base')
     && str_contains($runtimeSource, '$retrievalWired'),

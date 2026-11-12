@@ -72,6 +72,20 @@ function isKnowledgeDisableResult(value: unknown, knowledgeBaseId: number): valu
     && typeof value.idempotent_replay === 'boolean'
 }
 
+function isKnowledgeEnabled(value: unknown, knowledgeBaseId: number): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const base = 'knowledge_base' in value ? value.knowledge_base : null
+  return typeof base === 'object' && base !== null && !Array.isArray(base)
+    && 'id' in base && base.id === knowledgeBaseId
+    && 'state' in base && base.state === 'published'
+}
+
+function isKnowledgeRetired(value: unknown, knowledgeBaseId: number): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    && 'knowledge_base_id' in value && value.knowledge_base_id === knowledgeBaseId
+    && 'state' in value && value.state === 'deleted'
+}
+
 function isKnowledgeVectorsPurge(value: unknown, knowledgeBaseId: number): value is KnowledgeVectorsPurge {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     && 'knowledge_base_id' in value && value.knowledge_base_id === knowledgeBaseId
@@ -361,6 +375,28 @@ export default {
     }
     return result
   },
+  async enable(environmentId: number, knowledgeBaseId: number, key: string): Promise<void> {
+    const result: unknown = await request.post<unknown>({
+      url: `${base}/enable`,
+      data: { environment_id: environmentId, knowledge_base_id: knowledgeBaseId },
+      headers: { 'Idempotency-Key': key },
+      showErrorMessage: false
+    })
+    if (!isKnowledgeEnabled(result, knowledgeBaseId)) {
+      throw new Error('启用响应与原知识库不一致，请刷新后再看')
+    }
+  },
+  async retire(environmentId: number, knowledgeBaseId: number, key: string): Promise<void> {
+    const result: unknown = await request.post<unknown>({
+      url: `${base}/retire`,
+      data: { environment_id: environmentId, knowledge_base_id: knowledgeBaseId },
+      headers: { 'Idempotency-Key': key },
+      showErrorMessage: false
+    })
+    if (!isKnowledgeRetired(result, knowledgeBaseId)) {
+      throw new Error('删除响应与原知识库不一致，请刷新后再看')
+    }
+  },
   async purgeEmbeddingIndex(environmentId: number, knowledgeBaseId: number, key: string): Promise<KnowledgeVectorsPurge> {
     const result: unknown = await request.post<unknown>({
       url: `${base}/embedding-index/purge`,
@@ -434,6 +470,21 @@ export default {
     return indexStatusResult(result, indexId)
   },
   /** 0.5.0：索引失败后一键重试；只传知识库号，后端自己定位生效版本。 */
+  async rename(environmentId: number, knowledgeBaseId: number, name: string): Promise<{ id: number; name: string }> {
+    const result: unknown = await request.post<unknown>({
+      url: `${base}/rename`,
+      data: { environment_id: environmentId, knowledge_base_id: knowledgeBaseId, name },
+      showErrorMessage: false
+    })
+    if (typeof result !== 'object' || result === null || Array.isArray(result)) {
+      throw new Error('改名结果无法确认，请刷新后核对名称')
+    }
+    const row = result as Record<string, unknown>
+    if (row.id !== knowledgeBaseId || typeof row.name !== 'string' || row.name !== name) {
+      throw new Error('改名结果与提交的名称不一致，请刷新后核对')
+    }
+    return { id: knowledgeBaseId, name: row.name }
+  },
   async retryIndex(environmentId: number, knowledgeBaseId: number): Promise<IndexRetryResult> {
     const result: unknown = await request.post<unknown>({
       url: `${base}/embedding-index/retry`,

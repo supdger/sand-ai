@@ -3,9 +3,9 @@
     <ElUpload :auto-upload="false" :show-file-list="false" :accept="accept" :disabled="disabled || busy || !scope || storageFailed || (!!pending && !retryAllowed)" @change="select">
       <ElButton type="primary" plain :loading="busy" :disabled="disabled || busy || !scope || storageFailed || (!!pending && !retryAllowed)">{{ pending ? '选择同一文件继续原上传' : '选择并上传材料' }}</ElButton>
     </ElUpload>
-    <ElAlert v-if="pending && pending.scope === scope" type="warning" :closable="false" title="有一份上传尚待确认，请先找回原结果。">
+    <ElAlert v-if="pending && pending.scope === scope" type="warning" :closable="false" title="有一份上传还没确认。请点下面的按钮查看结果，不要重新选文件。">
       <p>{{ pending.name }} · {{ pending.size }} 字节</p>
-      <ElButton :disabled="busy || !scope" @click="recover">读取原上传结果</ElButton>
+      <ElButton :disabled="busy || !scope" @click="recover">查看上传结果</ElButton>
       <p v-if="retryAllowed">原上传尚未完成。可重新选择相同文件继续，不会创建另一份材料。</p>
     </ElAlert>
     <ElAlert v-if="message" :type="problem ? 'warning' : 'info'" :closable="false" :title="message" />
@@ -90,7 +90,10 @@ async function acceptReceipt(receipt: UploadReceipt, original: Pending, credenti
   sessionStorage.removeItem(storageKey)
   if (sessionStorage.getItem(storageKey) !== null) throw new Error('原记录仍待确认')
   pending.value = null; retryAllowed.value = false; problem.value = false
-  message.value = file.state === 'deleted' ? '原文件已删除，不会重新上传。' : `已找回文件 #${file.id}。`
+  const uploadedName = file.original_name.trim()
+  message.value = file.state === 'deleted'
+    ? '原文件已删除，不会重新上传。'
+    : (uploadedName === '' ? '已上传' : `已上传「${uploadedName}」`)
   emit('file', file)
 }
 /** Only this new POST's exact pre-intent rejection can release its local slot. */

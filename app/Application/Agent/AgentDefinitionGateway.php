@@ -58,15 +58,24 @@ final class AgentDefinitionGateway
         catch (\JsonException) { self::operationMissing(); }
         if (is_array($response) && ($response['operation_state'] ?? null) === 'rejected') {
             $keys = ['operation_state', 'reason', 'agent_definition_id', 'code', 'expected_snapshot_sha256'];
+            // 拒绝原因枚举：configuration_changed 是确认期快照漂移；其余是发布前置校验的确定性拒绝。
+            $reasons = ['configuration_changed', 'no_draft_version', 'model_unavailable',
+                'knowledge_environment_mismatch', 'validation_failed'];
+            $expectedSha = $response['expected_snapshot_sha256'] ?? null;
+            // expected_snapshot_sha256 为空表示调用方没带期望快照，回执指纹退化为请求本身的 sha(definitionId)。
+            $fingerprintOk = $expectedSha === null
+                ? hash_equals((string) $record['request_fingerprint'], hash('sha256', (string) ($response['agent_definition_id'] ?? 0)))
+                : is_string($expectedSha) && preg_match('/^[a-f0-9]{64}$/D', $expectedSha) === 1
+                    && hash_equals((string) $record['request_fingerprint'], RequestPayloadFingerprint::fingerprint([
+                        'agent_definition_id' => $response['agent_definition_id'] ?? null,
+                        'expected_snapshot_sha256' => $expectedSha]));
             if ($operation !== 'publish' || array_diff(array_keys($response), $keys) !== [] || count($response) !== count($keys)
-                || ($response['reason'] ?? null) !== 'configuration_changed' || !is_int($response['agent_definition_id'] ?? null)
+                || !in_array($response['reason'] ?? null, $reasons, true) || !is_int($response['agent_definition_id'] ?? null)
                 || $response['agent_definition_id'] < 1 || $response['agent_definition_id'] !== (int) $record['agent_definition_id']
-                || ($response['code'] ?? null) !== $code || !is_string($response['expected_snapshot_sha256'] ?? null)
-                || preg_match('/^[a-f0-9]{64}$/D', $response['expected_snapshot_sha256']) !== 1
+                || ($response['code'] ?? null) !== $code
+                || !($expectedSha === null || (is_string($expectedSha) && preg_match('/^[a-f0-9]{64}$/D', $expectedSha) === 1))
                 || (int) $record['agent_version_id'] < 1
-                || !hash_equals((string) $record['request_fingerprint'], RequestPayloadFingerprint::fingerprint([
-                    'agent_definition_id' => $response['agent_definition_id'],
-                    'expected_snapshot_sha256' => $response['expected_snapshot_sha256']]))) self::operationMissing();
+                || !$fingerprintOk) self::operationMissing();
             return $response;
         }
         $keys = ['agent_definition_id', 'agent_version_id', 'code', 'state'];
@@ -144,9 +153,8 @@ final class AgentDefinitionGateway
                 $rows = $db->query('SELECT * FROM sand_ai_agent_definition WHERE environment_id=? AND code=? FOR UPDATE', [$environmentId, $draft['code']]);
             }
             $definitionId = (int) $rows[0]['id'];
-            if ((string) $rows[0]['state'] === 'published' && (string) $rows[0]['name'] !== $draft['name']) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Published agent name cannot change in a draft');
-            }
+            // 已启用智能体允许改名：名称写在 definition 层随草稿保存更新，
+            // 随后的 publish 把同名版本启用，不出现草稿态拒绝。
             $existingDraft = $db->query("SELECT * FROM sand_ai_agent_version WHERE agent_definition_id=? AND state='draft' FOR UPDATE", [$definitionId]);
             $config = AgentDefinitionPolicy::config($draft);
             $readonly = (new AgentReadonlyToolCatalog())->freeze($environmentId, $draft['readonly_tools'] ?? []);
@@ -182,7 +190,10 @@ final class AgentDefinitionGateway
             && preg_match('/^[a-f0-9]{64}$/D', $expectedSnapshotSha256) !== 1)) self::invalid();
         $fingerprint = $expectedSnapshotSha256 === null ? hash('sha256', (string) $definitionId)
             : RequestPayloadFingerprint::fingerprint(['agent_definition_id' => $definitionId, 'expected_snapshot_sha256' => $expectedSnapshotSha256]);
-        $result = Db::connect('pgsql')->transaction(function () use ($environmentId, $definitionId, $key, $actor, $fingerprint, $expectedSnapshotSha256, $revalidateAdmin): array {
+        // 拒绝时携带原 ApiProblem 出事务，保证错误码与首次校验语义一致；
+        // 幂等重放拿不到它，由 publishRejectionProblem 按回执 reason 还原。
+        $problem = null;
+        $result = Db::connect('pgsql')->transaction(function () use ($environmentId, $definitionId, $key, $actor, $fingerprint, $expectedSnapshotSha256, $revalidateAdmin, &$problem): array {
             $this->lock($environmentId . ':agent-operation:publish:' . $key);
             if (($replay = $this->replay($environmentId, 'publish', $key, $fingerprint)) !== null) {
                 if (($replay['operation_state'] ?? null) === 'rejected' && $revalidateAdmin !== null) $revalidateAdmin();
@@ -190,8 +201,27 @@ final class AgentDefinitionGateway
             }
             $db = Db::connect('pgsql');
             $definition = $this->definitionById($environmentId, $definitionId, true);
+            // 确定性拒绝一律在同一事务里落幂等回执（拒绝也要留回执），
+            // by-request-key 才能查到并让前端结清本地操作锁。
+            $reject = function (int $versionId, string $reason) use ($environmentId, $definitionId, $definition, $key, $fingerprint, $expectedSnapshotSha256, $actor): array {
+                $rejection = ['operation_state' => 'rejected', 'reason' => $reason,
+                    'agent_definition_id' => $definitionId, 'code' => (string) $definition['code'],
+                    'expected_snapshot_sha256' => $expectedSnapshotSha256];
+                $this->record($environmentId, 'publish', $key, $fingerprint, $definitionId, $versionId, $rejection, $actor);
+                return $rejection;
+            };
             $versions = $db->query("SELECT * FROM sand_ai_agent_version WHERE agent_definition_id=? AND state='draft' FOR UPDATE", [$definitionId]);
-            if ($versions === []) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Agent has no draft version');
+            if ($versions === []) {
+                // 回执必须锚定真实存在的版本行；没有任何版本的定义无法出具可校验回执，按原样拒绝。
+                $anchor = (int) ($definition['active_version_id'] ?? 0);
+                if ($anchor < 1) {
+                    $latest = $db->query('SELECT id FROM sand_ai_agent_version WHERE agent_definition_id=? ORDER BY version_no DESC LIMIT 1', [$definitionId]);
+                    $anchor = $latest === [] ? 0 : (int) $latest[0]['id'];
+                }
+                if ($anchor < 1) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Agent has no draft version');
+                $problem = new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Agent has no draft version');
+                return $reject($anchor, 'no_draft_version');
+            }
             $version = $versions[0];
             if ($expectedSnapshotSha256 !== null && (!is_string($version['snapshot_sha256'])
                 || !hash_equals($expectedSnapshotSha256, $version['snapshot_sha256']))) {
@@ -203,24 +233,30 @@ final class AgentDefinitionGateway
                 if ($revalidateAdmin === null) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Agent draft changed; refresh its version before publishing');
                 $revalidateAdmin();
                 $this->requireEnvironment($environmentId);
-                $rejection = ['operation_state' => 'rejected', 'reason' => 'configuration_changed',
-                    'agent_definition_id' => $definitionId, 'code' => (string) $definition['code'],
-                    'expected_snapshot_sha256' => $expectedSnapshotSha256];
+                $problem = new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Agent draft changed; refresh its version before publishing');
                 $revalidateAdmin();
-                $this->record($environmentId, 'publish', $key, $fingerprint, $definitionId, (int) $version['id'], $rejection, $actor);
-                return $rejection;
+                return $reject((int) $version['id'], 'configuration_changed');
             }
-            $config = AgentDefinitionPolicy::publishedConfig((string) $definition['code'], $version);
-            (new AgentReadonlyToolCatalog())->assertCurrent($environmentId, AgentDefinitionPolicy::readonlyBindings($version));
-            $publication = $config['knowledge_base_code'] === null ? null
-                : (new \app\Application\Knowledge\KnowledgePublicationGateway())
-                    ->findForConsumer($environmentId, $config['knowledge_base_code']);
-            if ($publication !== null && (int) $publication['owner_environment_id'] !== $environmentId) {
-                throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Agent knowledge must belong to this environment');
-            }
-            $models = (new ChatGateway())->availableModels($environmentId);
-            if (!in_array($config['model'], array_column($models, 'code'), true)) {
-                throw new ApiProblem('SAND_AI_MODEL_UNAVAILABLE', 'Agent model is not available in this environment');
+            try {
+                $config = AgentDefinitionPolicy::publishedConfig((string) $definition['code'], $version);
+                (new AgentReadonlyToolCatalog())->assertCurrent($environmentId, AgentDefinitionPolicy::readonlyBindings($version));
+                $publication = $config['knowledge_base_code'] === null ? null
+                    : (new \app\Application\Knowledge\KnowledgePublicationGateway())
+                        ->findForConsumer($environmentId, $config['knowledge_base_code']);
+                if ($publication !== null && (int) $publication['owner_environment_id'] !== $environmentId) {
+                    $problem = new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Agent knowledge must belong to this environment');
+                    return $reject((int) $version['id'], 'knowledge_environment_mismatch');
+                }
+                $models = (new ChatGateway())->availableModels($environmentId);
+                if (!in_array($config['model'], array_column($models, 'code'), true)) {
+                    $problem = new ApiProblem('SAND_AI_MODEL_UNAVAILABLE', 'Agent model is not available in this environment');
+                    return $reject((int) $version['id'], 'model_unavailable');
+                }
+            } catch (ApiProblem $failure) {
+                // retryable 的失败结果未确认，不写拒绝回执，前端保留本地操作锁。
+                if ($failure->retryable) throw $failure;
+                $problem = $failure;
+                return $reject((int) $version['id'], 'validation_failed');
             }
             $db->execute("UPDATE sand_ai_agent_version SET state='published',published_time=CURRENT_TIMESTAMP(0),updated_by=?,update_time=CURRENT_TIMESTAMP(0) WHERE id=?", [$actor, (int) $version['id']]);
             $db->execute("UPDATE sand_ai_agent_definition SET active_version_id=?,state='published',status=1,updated_by=?,update_time=CURRENT_TIMESTAMP(0) WHERE id=?", [(int) $version['id'], $actor, $definitionId]);
@@ -231,9 +267,21 @@ final class AgentDefinitionGateway
         });
         // The rejection transaction has committed; both first request and replay keep the conflict envelope.
         if (($result['operation_state'] ?? null) === 'rejected') {
-            throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Agent draft changed; refresh its version before publishing');
+            throw $problem ?? self::publishRejectionProblem((string) ($result['reason'] ?? ''));
         }
         return $result;
+    }
+
+    /** Replayed rejection receipts rebuild the problem the first request threw. */
+    private static function publishRejectionProblem(string $reason): ApiProblem
+    {
+        return match ($reason) {
+            'no_draft_version' => new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Agent has no draft version'),
+            'model_unavailable' => new ApiProblem('SAND_AI_MODEL_UNAVAILABLE', 'Agent model is not available in this environment'),
+            'knowledge_environment_mismatch' => new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Agent knowledge must belong to this environment'),
+            'validation_failed' => new ApiProblem('SAND_AI_VALIDATION_ERROR', 'Agent draft validation failed'),
+            default => new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Agent draft changed; refresh its version before publishing'),
+        };
     }
 
     /** @return array<string,mixed> */
@@ -253,6 +301,37 @@ final class AgentDefinitionGateway
             $this->record($environmentId, 'disable', $key, $fingerprint, $definitionId, (int) $definition['active_version_id'], $result, $actor);
             $this->audit($actor, 'agent_definition.disable', $definitionId, 0);
             return $result;
+        });
+    }
+
+    /**
+     * 删除已停用的智能体。仍有渠道绑定时拒绝，调用方用渠道数量写明原因。
+     * @return array{agent_definition_id:int,state:string,channel_count:int}
+     */
+    public function retire(int $environmentId, int $definitionId, string $actor): array
+    {
+        $this->requireEnvironment($environmentId);
+        if ($definitionId <= 0 || trim($actor) === '') self::invalid();
+        return Db::connect('pgsql')->transaction(function () use ($environmentId, $definitionId, $actor): array {
+            $this->lock($environmentId . ':agent-definition:retire:' . $definitionId);
+            $definition = $this->definitionById($environmentId, $definitionId, true);
+            $channels = Db::connect('pgsql')->query(
+                'SELECT count(*) AS total FROM sand_ai_channel_binding WHERE environment_id=? AND agent_definition_id=? AND delete_time IS NULL',
+                [$environmentId, $definitionId]
+            );
+            $channelCount = (int) ($channels[0]['total'] ?? 0);
+            if ((int) $definition['status'] === 1) {
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Disable the agent before deleting it');
+            }
+            if ($channelCount > 0) {
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Agent is still used by ' . $channelCount . ' channels');
+            }
+            Db::connect('pgsql')->execute(
+                'UPDATE sand_ai_agent_definition SET delete_time=CURRENT_TIMESTAMP(0), updated_by=?, update_time=CURRENT_TIMESTAMP(0) WHERE id=? AND delete_time IS NULL',
+                [$actor, $definitionId]
+            );
+            $this->audit($actor, 'agent_definition.retire', $definitionId, 0);
+            return ['agent_definition_id' => $definitionId, 'state' => 'deleted', 'channel_count' => 0];
         });
     }
 

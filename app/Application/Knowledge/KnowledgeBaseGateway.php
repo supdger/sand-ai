@@ -467,12 +467,111 @@ final class KnowledgeBaseGateway
                  WHERE p.knowledge_base_id=? AND t.state='pending' LIMIT 1",
                 [$knowledgeBaseId],
             );
-            if ($pending !== []) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Finish or reconcile pending knowledge answers before disabling');
+            if ($pending !== []) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '还有待处理的知识问答，请完成后再停用');
             (new KnowledgeEmbeddingIndexGateway())->assertNoUnsettledForBase($knowledgeBaseId);
             $base->save(['state' => 'disabled', 'status' => 2]);
             Db::connect('pgsql')->execute('INSERT INTO sand_ai_knowledge_operation (environment_id, operation_code, idempotency_key, request_fingerprint, knowledge_base_id, version_id) VALUES (?, ?, ?, ?, ?, ?)', [$environmentId, 'disable', $idempotencyKey, hash('sha256', (string) $knowledgeBaseId), $knowledgeBaseId, $versionId]);
             $this->audit(trim($actorRef), 'knowledge_base.disable', $knowledgeBaseId, ['version' => $versionId, 'environment_id' => $environmentId, 'request_id' => $idempotencyKey, 'request_fingerprint' => hash('sha256', (string) $knowledgeBaseId)]);
             return $this->summary($knowledgeBaseId, $versionId, false);
+        });
+    }
+
+    /** 已停用且仍有生效版本时重新启用。没有生效版本的不能启用，只能删除。 */
+    public function enable(int $environmentId, int $knowledgeBaseId, string $idempotencyKey, string $actorRef): array
+    {
+        $this->requireEnvironment($environmentId);
+        if ($knowledgeBaseId <= 0 || trim($idempotencyKey) === '' || trim($actorRef) === '') {
+            throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Knowledge base, administrator and Idempotency-Key are required');
+        }
+        return Db::connect('pgsql')->transaction(function () use ($environmentId, $knowledgeBaseId, $idempotencyKey, $actorRef): array {
+            Db::connect('pgsql')->execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", [$environmentId . ':knowledge-operation:enable:' . $idempotencyKey]);
+            $previous = Db::connect('pgsql')->query('SELECT * FROM sand_ai_knowledge_operation WHERE environment_id=? AND operation_code=? AND idempotency_key=? FOR UPDATE', [$environmentId, 'enable', $idempotencyKey]);
+            if ($previous !== []) {
+                if ((int) $previous[0]['knowledge_base_id'] !== $knowledgeBaseId) {
+                    throw new ApiProblem('SAND_AI_IDEMPOTENCY_CONFLICT', 'The Idempotency-Key belongs to another request');
+                }
+                return $this->summary($knowledgeBaseId, (int) $previous[0]['version_id'], true);
+            }
+            $base = KnowledgeBase::where('id', $knowledgeBaseId)->where('environment_id', $environmentId)->lock(true)->find();
+            if ($base === null) throw new ApiProblem('SAND_AI_RESOURCE_NOT_FOUND', 'Knowledge base not found');
+            $versionId = (int) $base->active_version_id;
+            if ((string) $base->state === 'published' && (int) $base->status === 1 && $versionId > 0) {
+                return $this->summary($knowledgeBaseId, $versionId, true);
+            }
+            if ((string) $base->state !== 'disabled' || $versionId <= 0) {
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Knowledge base has no published version to enable');
+            }
+            $base->save(['state' => 'published', 'status' => 1]);
+            Db::connect('pgsql')->execute('INSERT INTO sand_ai_knowledge_operation (environment_id, operation_code, idempotency_key, request_fingerprint, knowledge_base_id, version_id) VALUES (?, ?, ?, ?, ?, ?)', [$environmentId, 'enable', $idempotencyKey, hash('sha256', (string) $knowledgeBaseId), $knowledgeBaseId, $versionId]);
+            $this->audit(trim($actorRef), 'knowledge_base.enable', $knowledgeBaseId, ['version' => $versionId, 'environment_id' => $environmentId, 'request_id' => $idempotencyKey]);
+            return $this->summary($knowledgeBaseId, $versionId, false);
+        });
+    }
+
+    /** 只删除已停用的知识库。仍开放给应用、或向量还在时拒绝，避免来源引用变成孤儿。 */
+    public function retire(int $environmentId, int $knowledgeBaseId, string $idempotencyKey, string $actorRef): array
+    {
+        $this->requireEnvironment($environmentId);
+        if ($knowledgeBaseId <= 0 || trim($idempotencyKey) === '' || trim($actorRef) === '') {
+            throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Knowledge base, administrator and Idempotency-Key are required');
+        }
+        try {
+            return $this->retireTransaction($environmentId, $knowledgeBaseId, $idempotencyKey, $actorRef);
+        } catch (ApiProblem $problem) {
+            throw $problem;
+        } catch (\think\db\exception\PDOException|\PDOException $failure) {
+            \support\Log::warning('SandAI knowledge base retire failed', [
+                'knowledge_base_id' => $knowledgeBaseId,
+                'exception_type' => $failure::class,
+                'sqlstate' => $failure instanceof \think\db\exception\PDOException
+                    ? ($failure->getData()['PDO Error Info']['SQLSTATE'] ?? null)
+                    : $failure->getCode(),
+            ]);
+            throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '删除知识库没有完成，请刷新后重试；仍失败请联系系统维护人员');
+        }
+    }
+
+    /** @return array{knowledge_base_id:int,state:string,idempotent_replay:bool} */
+    private function retireTransaction(int $environmentId, int $knowledgeBaseId, string $idempotencyKey, string $actorRef): array
+    {
+        return Db::connect('pgsql')->transaction(function () use ($environmentId, $knowledgeBaseId, $idempotencyKey, $actorRef): array {
+            $db = Db::connect('pgsql');
+            $db->execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", [$environmentId . ':knowledge-operation:retire:' . $idempotencyKey]);
+            $previous = $db->query('SELECT knowledge_base_id FROM sand_ai_knowledge_operation WHERE environment_id=? AND operation_code=? AND idempotency_key=? FOR UPDATE', [$environmentId, 'retire', $idempotencyKey]);
+            if ($previous !== []) {
+                if ((int) $previous[0]['knowledge_base_id'] !== $knowledgeBaseId) {
+                    throw new ApiProblem('SAND_AI_IDEMPOTENCY_CONFLICT', 'The Idempotency-Key belongs to another request');
+                }
+                return ['knowledge_base_id' => $knowledgeBaseId, 'state' => 'deleted', 'idempotent_replay' => true];
+            }
+            $rows = $db->query('SELECT id,state,status,active_version_id FROM sand_ai_knowledge_base WHERE id=? AND environment_id=? AND delete_time IS NULL FOR UPDATE', [$knowledgeBaseId, $environmentId]);
+            if (count($rows) !== 1) throw new ApiProblem('SAND_AI_RESOURCE_NOT_FOUND', 'Knowledge base not found');
+            if ((string) $rows[0]['state'] !== 'disabled' || (int) $rows[0]['status'] !== 2) {
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '先停用知识库，再删除');
+            }
+            $published = $db->query("SELECT count(*) AS total FROM sand_ai_knowledge_publication WHERE knowledge_base_id=? AND state='published'", [$knowledgeBaseId]);
+            $publicationCount = (int) ($published[0]['total'] ?? 0);
+            if ($publicationCount > 0) {
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '还有 ' . $publicationCount . ' 个应用在开放这个知识库，先撤销开放再删除');
+            }
+            $indexes = $db->query('SELECT 1 FROM sand_ai_knowledge_embedding_index i JOIN sand_ai_knowledge_base_version v ON v.id=i.knowledge_base_version_id WHERE v.knowledge_base_id=? LIMIT 1', [$knowledgeBaseId]);
+            if ($indexes !== []) {
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '先清理向量，再删除知识库');
+            }
+            $sources = $db->query('SELECT 1 FROM sand_ai_knowledge_base_source s JOIN sand_ai_knowledge_base_version v ON v.id=s.knowledge_base_version_id WHERE v.knowledge_base_id=? LIMIT 1', [$knowledgeBaseId]);
+            if ($sources !== []) {
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '先解除来源引用，再删除知识库');
+            }
+            $versionId = (int) ($rows[0]['active_version_id'] ?? 0);
+            if ($versionId <= 0) {
+                $latest = $db->query('SELECT id FROM sand_ai_knowledge_base_version WHERE knowledge_base_id=? ORDER BY version_no DESC LIMIT 1', [$knowledgeBaseId]);
+                $versionId = $latest === [] ? 0 : (int) $latest[0]['id'];
+            }
+            if ($versionId <= 0) throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '这个知识库没有可删除的版本');
+            $db->execute('UPDATE sand_ai_knowledge_base SET delete_time=CURRENT_TIMESTAMP(0), update_time=CURRENT_TIMESTAMP(0) WHERE id=? AND delete_time IS NULL', [$knowledgeBaseId]);
+            $db->execute('INSERT INTO sand_ai_knowledge_operation (environment_id, operation_code, idempotency_key, request_fingerprint, knowledge_base_id, version_id) VALUES (?, ?, ?, ?, ?, ?)', [$environmentId, 'retire', $idempotencyKey, hash('sha256', (string) $knowledgeBaseId), $knowledgeBaseId, $versionId]);
+            $this->audit(trim($actorRef), 'knowledge_base.retire', $knowledgeBaseId, ['environment_id' => $environmentId, 'request_id' => $idempotencyKey]);
+            return ['knowledge_base_id' => $knowledgeBaseId, 'state' => 'deleted', 'idempotent_replay' => false];
         });
     }
 
@@ -596,6 +695,30 @@ final class KnowledgeBaseGateway
             }
         }
         return null;
+    }
+
+    /** @return array{id:int,name:string} */
+    public function rename(int $environmentId, int $knowledgeBaseId, string $name): array
+    {
+        $this->requireEnvironment($environmentId);
+        if ($knowledgeBaseId <= 0) {
+            throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', '请选择要改名的知识库');
+        }
+        $name = KnowledgeBasePolicy::normalizeName($name);
+        return Db::connect('pgsql')->transaction(function () use ($environmentId, $knowledgeBaseId, $name): array {
+            $base = KnowledgeBase::where('environment_id', $environmentId)->where('id', $knowledgeBaseId)->lock(true)->find();
+            if ($base === null) {
+                throw new ApiProblem('SAND_AI_RESOURCE_NOT_FOUND', '找不到这个知识库');
+            }
+            $taken = KnowledgeBase::where('environment_id', $environmentId)->where('name', $name)->where('id', '<>', $knowledgeBaseId)->find();
+            if ($taken !== null) {
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '已经有叫这个名字的知识库，换一个');
+            }
+            if ((string) $base->getAttr('name') !== $name) {
+                $base->save(['name' => $name]);
+            }
+            return ['id' => $knowledgeBaseId, 'name' => $name];
+        });
     }
 
     /** 产品面「最近更新」：取知识库行、当前草稿版本、已发布版本三个时间点的最大值。 */

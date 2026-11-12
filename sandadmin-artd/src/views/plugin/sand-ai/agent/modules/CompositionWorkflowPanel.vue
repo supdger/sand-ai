@@ -17,6 +17,7 @@
       <ElAlert v-if="adminPending" type="warning" :closable="false" :title="adminSent ? '管理操作结果尚未确认，请沿请求编号找回' : '本页尚未发送：请保存请求编号后明确提交原配置'" />
       <p v-if="adminPending">原操作：{{ adminPending === 'draft' ? '保存草稿' : adminPending === 'publish' ? '启用草稿' : '停用工作流' }} · {{ adminTarget?.code ?? code }} · 请求编号 {{ adminKey }}。恢复时不更改节点、依赖或服务版本。</p>
       <ElButton v-if="adminPending && adminSent" :disabled="busy" @click="recoverAdmin">只读找回管理操作</ElButton>
+      <ElButton v-if="adminPending" :disabled="busy" @click="abandonAdmin">放弃此次变更</ElButton>
       <ElButton v-if="adminPending && !adminSent" :disabled="busy" @click="sendAdminOriginal()">保存请求编号并提交原配置</ElButton>
       <ElButton v-if="adminStorageError" :disabled="busy" @click="restoreAdmin">重新读取原操作记录</ElButton>
       <ElForm label-width="110px" :disabled="busy || Boolean(adminPending)">
@@ -53,7 +54,7 @@
         <ElButton :disabled="nodes.length >= 12" @click="addNode">增加节点</ElButton>
         <ElFormItem label="节点失败后"><ElSelect v-model="failurePolicy"><ElOption label="停止后续节点" value="stop" /><ElOption label="继续无依赖的其他节点" value="continue_independent" /></ElSelect></ElFormItem>
         <ElFormItem label="成果节点"><ElSelect v-model="outputs" multiple><ElOption v-for="node in nodes.filter(item => item.id)" :key="node.key" :value="node.id" :label="node.name || node.id" /></ElSelect></ElFormItem>
-        <ElSpace><ElButton type="primary" @click="mutate('draft')">保存草稿</ElButton><ElButton :disabled="!draftVersion || versionId !== draftVersion.id || dirty" @click="mutate('publish')">启用已保存草稿</ElButton><ElButton type="danger" :disabled="!detail?.definition.active_version_id" @click="mutate('disable')">停用工作流</ElButton></ElSpace>
+        <ElSpace><ElButton type="primary" @click="mutate('draft')">保存草稿</ElButton><ElButton :disabled="!draftVersion || versionId !== draftVersion.id || dirty" @click="mutate('publish')">启用已保存草稿</ElButton><ElButton type="danger" :disabled="!detail?.definition.active_version_id" @click="mutate('disable')">停用工作流</ElButton><ElButton :disabled="!detail || detail.definition.state === 'published' || busy || Boolean(adminPending)" @click="retireDefinition">{{ detail?.definition.state === 'published' ? '删除（先停用才能删）' : '删除' }}</ElButton></ElSpace>
       </ElForm>
       <ElDivider />
       <h3>应用版本试用</h3><p>使用应用凭证，逐节点查看原子运行。父工作流不额外计费，费用以各子运行记录为准。</p>
@@ -149,7 +150,7 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
 import CompositionSchemaValue from './CompositionSchemaValue.vue'
 import RuntimeApiKeyField from '../../components/RuntimeApiKeyField.vue'
@@ -162,6 +163,8 @@ import knowledgeSourceApi, { knowledgeSourceReference, type KnowledgeSourceRefer
 import type { SandAiInvocationCost, SandAiUsageSummaryRow } from '../../api/types'
 import { newRuntimeRequestId, SandAiRuntimeError } from '../../api/runtime'
 import { errorDisplayText } from '../../api/errorText'
+import { isWriteRejected, writeRejectionText } from '../../api/writeRejection'
+import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
 const props = defineProps<{ environmentId: number | null }>()
 const user = useUserStore()
 const adminBusy = ref(false)
@@ -508,6 +511,47 @@ async function loadCatalog(): Promise<void> { const env = props.environmentId; i
 async function readDefinition(current: number, env: number, target: string): Promise<void> { const result = await api.read(env, target); if (current !== epoch) return; detail.value = result; code.value = result.definition.code; name.value = result.definition.name; selectedCode.value = code.value; versionId.value = result.versions.find(item => item.state === 'draft')?.id ?? result.definition.active_version_id ?? result.versions[0]?.id ?? null; selectVersion() }
 async function loadDefinition(): Promise<void> { const env = props.environmentId; if (!env || !selectedCode.value || busy.value || adminPending.value) return; const current = ++epoch; adminBusy.value = true; error.value = ''; try { await readDefinition(current, env, selectedCode.value) } catch (cause) { if (current === epoch) error.value = message(cause) } finally { if (current === epoch) adminBusy.value = false } }
 function newDefinition(): void { if (busy.value || adminPending.value) return; ++epoch; detail.value = null; code.value = ''; name.value = ''; versionId.value = null; revision.value = 0; nodes.value = []; outputs.value = []; addNode(); savedEditor.value = '' }
+function abandonAdmin(): void {
+  const target = adminTarget.value
+  if (!adminPending.value || !target) return
+  confirmAbandonPendingWrite(() => {
+    clearAdmin(target)
+    readAdminRecoveryCodes()
+  })
+}
+async function retireDefinition(): Promise<void> {
+  const env = props.environmentId
+  const current = detail.value
+  if (!env || !current || current.definition.state === 'published' || busy.value || adminPending.value) return
+  try {
+    await ElMessageBox.confirm(`删除后「${current.definition.name}」不能恢复。`, `删除「${current.definition.name}」？`, {
+      type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想'
+    })
+  } catch { return }
+  const generation = ++epoch
+  adminBusy.value = true
+  error.value = ''
+  try {
+    const result = await api.retire(env, current.definition.code, newRuntimeRequestId('workflow-retire'))
+    if (generation !== epoch) return
+    if (result.state !== 'deleted' || result.code !== current.definition.code) {
+      error.value = '删除回执和这条工作流不一致，请刷新后再看。'
+      return
+    }
+    ElMessage.success(`已删除「${current.definition.name}」`)
+    detail.value = null
+    code.value = ''
+    name.value = ''
+    const list = await api.list(env)
+    if (generation === epoch) definitions.value = list.items
+  } catch (cause) {
+    if (generation === epoch) error.value = isWriteRejected(cause)
+      ? writeRejectionText(cause, '删除没有成功，请稍后再试。')
+      : message(cause)
+  } finally {
+    if (generation === epoch) adminBusy.value = false
+  }
+}
 function resetAdminMemory(): void {
   adminPending.value = null; adminKey.value = ''; adminTarget.value = null
   adminOriginal = null; adminSent.value = true
@@ -643,7 +687,12 @@ async function sendAdminOriginal(heldFlight?: symbol): Promise<void> {
     const result = await send()
     await finishAdmin(result, target, current, env)
   } catch (cause) {
-    if (current === epoch) error.value = `操作未确认，请只读找回原号：${message(cause)}`
+    if (current === epoch && target && isWriteRejected(cause)) {
+      clearAdmin(target)
+      error.value = writeRejectionText(cause, '这次操作被拒绝了。')
+    } else if (current === epoch) {
+      error.value = `操作未确认，请只读找回原号：${message(cause)}`
+    }
   } finally {
     if (!ownsHeldFlight && adminFlight.value === flight) adminFlight.value = null
     if (current === epoch) adminBusy.value = false

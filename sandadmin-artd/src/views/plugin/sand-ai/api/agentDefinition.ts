@@ -158,5 +158,11 @@ export default {
       url: `${base}/disable`, data: { environment_id: environmentId, agent_definition_id: definitionId },
       headers: { 'Idempotency-Key': key }, showErrorMessage: false
     })
+  },
+  retire(environmentId: number, definitionId: number) {
+    return request.post<{ agent_definition_id: number; state: string; channel_count: number }>({
+      url: `${base}/retire`, data: { environment_id: environmentId, agent_definition_id: definitionId },
+      showErrorMessage: false
+    })
   }
 }

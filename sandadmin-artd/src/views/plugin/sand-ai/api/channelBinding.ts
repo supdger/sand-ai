@@ -2,7 +2,7 @@ import request from '@/utils/http'
 import type { SandAiPage } from './types'
 import type { SandAiChannelSource, SandAiInvocationCost, SandAiTask, SandAiTaskSubmitResult } from './types'
 import { runtimeRequest } from './runtime'
-import { RUNTIME_API_PREFIX } from './config'
+import { runtimeAbsolutePath } from './config'
 import { AgentReplayError } from './agentEventReplay'
 
 const base = '/app/sand-ai/admin/channels/bindings'
@@ -43,6 +43,10 @@ function bindingRecord(value: unknown): value is Record<string, unknown> {
 function positiveBindingInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
+function isDeletedChannelReceipt(value: unknown, bindingId: number): boolean {
+  return bindingRecord(value) && value.channel_binding_id === bindingId && value.state === 'deleted'
+}
+
 export function isChannelBindingSnapshot(value: unknown): value is ChannelBindingSnapshot {
   if (!bindingRecord(value)) return false
   const fields = ['channel_binding_id', 'environment_id', 'code', 'name', 'agent_definition_id',
@@ -447,6 +451,14 @@ export default {
     if (!isChannelBindingSnapshot(result)) throw new Error('渠道停用回执无法确认')
     return result
   },
+  async retire(environmentId: number, bindingId: number): Promise<void> {
+    const result = await request.post<unknown>({
+      url: `${base}/retire`,
+      data: { environment_id: environmentId, channel_binding_id: bindingId },
+      showErrorMessage: false
+    })
+    if (!isDeletedChannelReceipt(result, bindingId)) throw new Error('渠道删除回执无法确认')
+  },
   async operationByRequestKey(original: ChannelBindingOperationReference): Promise<ChannelBindingOperationRecovery> {
     const result = await request.get<unknown>({
       url: `${base}/operations/by-request-key`, params: { ...original },
@@ -539,8 +551,7 @@ export async function readChannelTokenStream(options: {
   const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
   const params = new URLSearchParams({ conversation_id: options.conversationId, sender_id: options.senderId, after_event_id: String(options.afterEventId) })
   if (options.deliveryPlatform) params.set('delivery_platform', options.deliveryPlatform)
-  const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
-  const response = await fetch(`${base}${RUNTIME_API_PREFIX}/channels/${encodeURIComponent(options.code)}/messages/${options.taskId}/events?${params}`, {
+  const response = await fetch(`${runtimeAbsolutePath(`/channels/${encodeURIComponent(options.code)}/messages/${options.taskId}/events`)}?${params}`, {
     headers: { Authorization: `Bearer ${options.apiKey.trim()}`, Accept: 'text/event-stream', 'Cache-Control': 'no-store' },
     signal: options.signal,
     cache: 'no-store'

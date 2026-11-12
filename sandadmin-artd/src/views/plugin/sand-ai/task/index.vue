@@ -32,6 +32,7 @@
           <p class="task-footnote">原摘要音频 #{{ pendingSummary.audioTaskId }} · 冻结复核版本 {{ pendingSummary.reviewRevision ?? '未记录（仅按请求编号找回）' }}</p>
           <ElAlert type="warning" :closable="false" class="task-alert"
             :title="pendingSummary.summaryTaskId ? `原摘要任务 #${pendingSummary.summaryTaskId} 尚待核对。读取原任务，不会新建摘要或重复调用。` : '上次摘要提交结果尚未确认。请保留请求编号找回；未确认前不能新建摘要。'" />
+          <ElButton :disabled="Boolean(busy)" @click="abandonPendingSummary">放弃此次变更</ElButton>
         </details>
         <ElForm label-width="110px" class="task-cred" @submit.prevent>
           <ElFormItem label="原音频任务编号">
@@ -388,6 +389,7 @@
                     请按请求编号找回；无需原正文，本任务暂不能提交另一份复核。</p>
                   <ElButton :loading="busy === 'review-recovery'" :disabled="Boolean(busy) || materialTaskActionInFlight() || !apiKey.trim()"
                     @click="recoverAudioReview(activeTask.id)">找回本次复核</ElButton>
+                  <ElButton :disabled="Boolean(busy)" @click="abandonPendingReview(activeTask.id)">放弃此次变更</ElButton>
                 </ElAlert>
               <section v-if="audioReview?.taskId === activeTask.id" class="task-review">
                 <p class="task-footnote">
@@ -677,6 +679,7 @@
   import { toRuntimeUiError, hintForRuntimeErrorCode } from '../api/runtimeErrors'
   import { runStateLabel, taskTypeLabel, resourceTypeLabel } from '../api/displayLabels'
   import { errorDisplayText } from '../api/errorText'
+  import { confirmAbandonPendingWrite } from '../composables/pendingWrite'
   import type { RuntimeUiError } from '../api/runtimeErrors'
   import type {
     SandAiCleanupState,
@@ -1232,6 +1235,19 @@
     return owner
   }
   function summaryStorageKey(): string { return `${SUMMARY_RECOVERY_STORAGE}:${recoveryOwner()}` }
+  function abandonPendingSummary(): void {
+    if (busy.value) return
+    confirmAbandonPendingWrite(() => {
+      try {
+        sessionStorage.removeItem(summaryStorageKey())
+        sessionStorage.removeItem(SUMMARY_RECOVERY_STORAGE)
+      } catch { /* 存储不可用时仍清内存 */ }
+      showSummary(null)
+      summaryStorageBlocked.value = false
+      legacySummaryRaw = null
+      ElMessage.success('已放弃未确认的本地记录，页面已解锁')
+    })
+  }
   function showSummary(value: PendingMeetingSummary | null): void {
     pendingSummary.value = value
     summaryLookupAudioId.value = value?.audioTaskId ?? null
@@ -1338,6 +1354,15 @@
     ? reviewDrafts.get(audioReview.value.taskId)?.get(reviewSegmentIndex.value) : undefined)
 
   function reviewStorageKey(taskId: number): string { return `sand-ai-audio-review-recovery:${recoveryOwner()}:${taskId}` }
+  function abandonPendingReview(taskId: number): void {
+    if (busy.value) return
+    confirmAbandonPendingWrite(() => {
+      try { sessionStorage.removeItem(reviewStorageKey(taskId)) } catch { /* 存储不可用时仍清内存 */ }
+      pendingReviews.delete(taskId)
+      reviewRecoveryBlocked.delete(taskId)
+      ElMessage.success('已放弃未确认的本地记录，页面已解锁')
+    })
+  }
   function restoreReview(taskId: number): void {
     if (pendingReviews.has(taskId)) return
     try {

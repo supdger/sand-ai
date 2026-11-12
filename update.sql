@@ -1091,7 +1091,9 @@ BEGIN
         ('202611100171_budget_unlimited_reminder','51ada4ce783c4df29b14b26f28f4ef0011f9abd86ebe357fbb0103e63d2febce'),
         ('202611110172_knowledge_index_task','5a9d77874d7375e65aecf0254b4dc1d74202f6a0a3f2b2d471d5ccf0e81c5a02'),
         ('202611120173_g13_menu_regroup','c83582aecc4190c2205768d0b78b9c21e677417ed206b0ce4c7af4e7006b3585'),
-        ('202611130174_rename_capability_menu','9fbd406b483665531e0c0eda25cf7440faecf7e21ea91fc1b9b6e72fa73f7b6c')
+        ('202611130174_rename_capability_menu','9fbd406b483665531e0c0eda25cf7440faecf7e21ea91fc1b9b6e72fa73f7b6c'),
+        ('202611140175_composition_retire_operation','4cf79f9a1a6701caee351e4cb48477f2d73714af39e17c49d280d1f49c45aaec'),
+        ('202611140176_knowledge_enable_retire_operation','676925144f1cd8f56008099ff9ce2bc25b357c0bd2629f37d7ed9b94094e639b')
     ) AS expected(version,checksum) ON expected.version=applied.version
     WHERE expected.version IS NULL OR applied.checksum IS DISTINCT FROM expected.checksum
     ORDER BY applied.version LIMIT 1;
@@ -12297,7 +12299,6 @@ BEGIN
   INSERT INTO sand_ai_configuration_navigation_ownership SELECT 'menu',id,to_jsonb(menu)-ARRAY['id','create_time','update_time','created_by','updated_by'] FROM sand_system_menu menu WHERE id=node_id;
  END LOOP;
 END $composition_navigation$;
-
 $sand_ai_migration_0141$;
   INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202610070141_composition_workflow','ed3e884f59d6bcb357bc5969fe1c99f1bb5c4eccb35966553b91540fbedfda0a',CURRENT_TIMESTAMP(0));
  END IF;
@@ -14888,5 +14889,45 @@ $sand_ai_migration_0174$;
   INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611130174_rename_capability_menu','9fbd406b483665531e0c0eda25cf7440faecf7e21ea91fc1b9b6e72fa73f7b6c',CURRENT_TIMESTAMP(0));
  END IF;
 END $sand_ai_upgrade_0174$;
+
+DO $sand_ai_upgrade_0175$
+BEGIN
+ IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611140175_composition_retire_operation' AND checksum IS DISTINCT FROM '4cf79f9a1a6701caee351e4cb48477f2d73714af39e17c49d280d1f49c45aaec') THEN
+  RAISE EXCEPTION 'SandAI migration 175 checksum mismatch';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611140175_composition_retire_operation') THEN
+  EXECUTE $sand_ai_migration_0175$
+-- 删除工作流要记一条 retire 操作。原检查只允许草稿、启用和停用。
+ALTER TABLE sand_ai_composition_operation
+    DROP CONSTRAINT IF EXISTS sand_ai_composition_operation_operation_check;
+ALTER TABLE sand_ai_composition_operation
+    DROP CONSTRAINT IF EXISTS ck_sand_ai_composition_operation_operation;
+ALTER TABLE sand_ai_composition_operation
+    ADD CONSTRAINT ck_sand_ai_composition_operation_operation
+    CHECK (operation IN ('draft', 'publish', 'disable', 'retire'));
+$sand_ai_migration_0175$;
+  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611140175_composition_retire_operation','4cf79f9a1a6701caee351e4cb48477f2d73714af39e17c49d280d1f49c45aaec',CURRENT_TIMESTAMP(0));
+ END IF;
+END $sand_ai_upgrade_0175$;
+
+DO $sand_ai_upgrade_0176$
+BEGIN
+ IF EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611140176_knowledge_enable_retire_operation' AND checksum IS DISTINCT FROM '676925144f1cd8f56008099ff9ce2bc25b357c0bd2629f37d7ed9b94094e639b') THEN
+  RAISE EXCEPTION 'SandAI migration 176 checksum mismatch';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM sand_ai_schema_migration WHERE version='202611140176_knowledge_enable_retire_operation') THEN
+  EXECUTE $sand_ai_migration_0176$
+-- 启用和删除知识库都要留下操作记录。原来的检查没有这两项，写入会被数据库拒绝。
+ALTER TABLE sand_ai_knowledge_operation
+    DROP CONSTRAINT IF EXISTS sand_ai_knowledge_operation_operation_code_check;
+ALTER TABLE sand_ai_knowledge_operation
+    DROP CONSTRAINT IF EXISTS ck_sand_ai_knowledge_operation_operation_code;
+ALTER TABLE sand_ai_knowledge_operation
+    ADD CONSTRAINT ck_sand_ai_knowledge_operation_operation_code
+    CHECK (operation_code IN ('create_draft', 'publish', 'disable', 'purge_vectors', 'purge_sources', 'enable', 'retire'));
+$sand_ai_migration_0176$;
+  INSERT INTO sand_ai_schema_migration(version,checksum,applied_time) VALUES('202611140176_knowledge_enable_retire_operation','676925144f1cd8f56008099ff9ce2bc25b357c0bd2629f37d7ed9b94094e639b',CURRENT_TIMESTAMP(0));
+ END IF;
+END $sand_ai_upgrade_0176$;
 
 COMMIT;

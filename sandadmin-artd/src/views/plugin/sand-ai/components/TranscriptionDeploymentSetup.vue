@@ -9,6 +9,7 @@
     <ElAlert v-if="pendingNotSubmitted" type="warning" :closable="false" title="本页确认原操作尚未发送。原配置仅留在内存中，恢复存储后可明确继续原操作；刷新或切换身份后只能按原号只读找回。" />
     <ElButton v-if="pendingNotSubmitted" v-permission="unsubmittedPermission" :disabled="Boolean(busy) || postFlight" @click="retryUnsubmitted">保存原记录并继续原{{ journal?.phase === 'save_pending' ? '保存' : journal?.phase === 'verification_pending' ? '验证（可能收费）' : '启用' }}</ElButton>
     <ElButton v-if="recoveryRequired || (journal && !draft)" v-permission="'sand_ai:setup:deployment:read'" :loading="busy === 'read'" :disabled="Boolean(busy) || postFlight || pendingNotSubmitted" @click="readState">只读找回原配置与状态</ElButton>
+    <ElButton v-if="recoveryRequired || pendingNotSubmitted" :disabled="Boolean(busy) || postFlight" @click="abandonLocalJournal">放弃此次变更</ElButton>
     <p class="muted">{{ usageNotice }}</p>
     <ElForm label-width="110px" @submit.prevent>
       <ElFormItem label="转写方式">
@@ -99,7 +100,7 @@ const apiKey = ref('')
 const remoteModel = ref<ExternalTranscriptionDeployment['remote_model']>('whisper-1')
 const { mode: transcriptionMode, journal, draft, verification, processingLocation, busy, postFlight, locked, published,
   recoveryRequired, canVerify, canPublish, canStartNew, message, messageType, usageNotice, phaseLabel, save: saveDeployment,
-  pendingNotSubmitted, retryUnsubmitted, verify, publish, readState, startNewDraft } = useAudioDeploymentRecovery('audio_transcription', () => {
+  pendingNotSubmitted, retryUnsubmitted, abandonLocalJournal, verify, publish, readState, startNewDraft } = useAudioDeploymentRecovery('audio_transcription', () => {
     providerName.value = ''; baseUrl.value = ''; apiKey.value = ''; remoteModel.value = 'whisper-1'
   })
 const unsubmittedPermission = computed(() => journal.value?.phase === 'save_pending' ? 'sand_ai:setup:deployment:save'

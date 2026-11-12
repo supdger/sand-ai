@@ -82,6 +82,25 @@ final class KnowledgeEmbeddingIndexGateway
         } catch (IdentityContextException $exception) {
             throw IdentityContextProblem::from($exception);
         }
+        try {
+            return $this->purgeTransaction($environmentId, $knowledgeBaseId, $requestId, $actorRef);
+        } catch (ApiProblem $problem) {
+            throw $problem;
+        } catch (\think\db\exception\PDOException|\PDOException $failure) {
+            \support\Log::warning('SandAI knowledge vector purge failed', [
+                'knowledge_base_id' => $knowledgeBaseId,
+                'exception_type' => $failure::class,
+                'sqlstate' => $failure instanceof \think\db\exception\PDOException
+                    ? ($failure->getData()['PDO Error Info']['SQLSTATE'] ?? null)
+                    : $failure->getCode(),
+            ]);
+            throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '清理向量没有完成，请刷新后重试；仍失败请联系系统维护人员');
+        }
+    }
+
+    /** @return array{knowledge_base_id:int,state:string,idempotent_replay:bool} */
+    private function purgeTransaction(int $environmentId, int $knowledgeBaseId, string $requestId, string $actorRef): array
+    {
         return Db::connect('pgsql')->transaction(function () use (
             $environmentId, $knowledgeBaseId, $requestId, $actorRef,
         ): array {
@@ -108,7 +127,7 @@ final class KnowledgeEmbeddingIndexGateway
                 throw new ApiProblem('SAND_AI_RESOURCE_NOT_FOUND', 'Knowledge base not found');
             }
             if ($base[0]['state'] !== 'disabled' || (int) $base[0]['status'] !== 2) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Disable knowledge base before purging vectors');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '先停用知识库，再清理向量');
             }
             $indexes = $db->query(
                 'SELECT i.id FROM sand_ai_knowledge_embedding_index i
@@ -121,23 +140,13 @@ final class KnowledgeEmbeddingIndexGateway
                 // deletion. Any current index belongs to a later build and must
                 // receive a new explicit cleanup key.
                 if ($indexes !== []) {
-                    throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Knowledge vectors changed after purge');
+                    throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '清理之后向量又发生了变化，请刷新后重新确认原操作');
                 }
                 return ['knowledge_base_id' => $knowledgeBaseId, 'state' => 'purged', 'idempotent_replay' => true];
             }
             $this->assertNoUnsettledForBase($knowledgeBaseId);
             $receiptsPurged = $this->purgeVectorReceipts($knowledgeBaseId);
-            $db->execute(
-                'DELETE FROM sand_ai_knowledge_embedding_active a USING sand_ai_knowledge_embedding_index i,
-                    sand_ai_knowledge_base_version v
-                 WHERE a.index_id=i.id AND i.knowledge_base_version_id=v.id AND v.knowledge_base_id=?',
-                [$knowledgeBaseId],
-            );
-            $db->execute(
-                'DELETE FROM sand_ai_knowledge_embedding_index i USING sand_ai_knowledge_base_version v
-                 WHERE i.knowledge_base_version_id=v.id AND v.knowledge_base_id=?',
-                [$knowledgeBaseId],
-            );
+            $this->purgeIndexRows($knowledgeBaseId);
             $remaining = $db->query(
                 'SELECT 1 FROM sand_ai_knowledge_embedding_index i
                  JOIN sand_ai_knowledge_base_version v ON v.id=i.knowledge_base_version_id
@@ -145,7 +154,7 @@ final class KnowledgeEmbeddingIndexGateway
                 [$knowledgeBaseId],
             );
             if ($remaining !== []) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Knowledge vectors remain after purge');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '向量没有清理干净，请刷新后重试');
             }
             $db->execute(
                 "INSERT INTO sand_ai_knowledge_operation
@@ -213,7 +222,7 @@ final class KnowledgeEmbeddingIndexGateway
         foreach ($invocations as $invocation) {
             if (!in_array($invocation['invocation_state'], ['succeeded', 'failed'], true)
                 || in_array($invocation['dispatch_state'], ['prepared', 'dispatching', 'ambiguous'], true)) {
-                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Reconcile knowledge embedding calls before purging vectors');
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '索引调用还没有处理完，请处理完后再清理向量');
             }
             $rows = $db->query(
                 'SELECT id,state,environment_id,model_id,deployment_id,request_fingerprint,capability_code
@@ -255,6 +264,33 @@ final class KnowledgeEmbeddingIndexGateway
         return $count;
     }
 
+    /**
+     * Removes scheduling and private vector rows for a disabled base inside
+     * the caller's transaction. Index task rows go first: their nullable
+     * index_id still points at the index about to be deleted, and a queued
+     * task must not schedule another build after the purge.
+     */
+    private function purgeIndexRows(int $knowledgeBaseId): void
+    {
+        $db = Db::connect('pgsql');
+        $db->execute(
+            'DELETE FROM sand_ai_knowledge_index_task t USING sand_ai_knowledge_base_version v
+             WHERE t.knowledge_base_version_id=v.id AND v.knowledge_base_id=?',
+            [$knowledgeBaseId],
+        );
+        $db->execute(
+            'DELETE FROM sand_ai_knowledge_embedding_active a USING sand_ai_knowledge_embedding_index i,
+                sand_ai_knowledge_base_version v
+             WHERE a.index_id=i.id AND i.knowledge_base_version_id=v.id AND v.knowledge_base_id=?',
+            [$knowledgeBaseId],
+        );
+        $db->execute(
+            'DELETE FROM sand_ai_knowledge_embedding_index i USING sand_ai_knowledge_base_version v
+             WHERE i.knowledge_base_version_id=v.id AND v.knowledge_base_id=?',
+            [$knowledgeBaseId],
+        );
+    }
+
     /** Called after locking the base row, before disable or vector purge. */
     public function assertNoUnsettledForBase(int $knowledgeBaseId): void
     {
@@ -273,7 +309,7 @@ final class KnowledgeEmbeddingIndexGateway
             [$knowledgeBaseId],
         );
         if ($busy !== []) {
-            throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', 'Embedding invocation must be reconciled before disabling or purging');
+            throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '索引调用还没有处理完，请处理完后再停用或清理');
         }
     }
 

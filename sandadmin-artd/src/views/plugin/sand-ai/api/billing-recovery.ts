@@ -89,7 +89,14 @@ export function useBillingJournal() {
     sessionStorage.setItem(storageKey(actor), JSON.stringify(next))
     entries.value = next
   }
-  return { owner, epoch: identity.epoch, entries, storageError, reload, current, save, remove }
+  /** 整份日志读不出来时，单条删不掉。放弃时直接丢掉这把钥匙，页面才能解锁。 */
+  function dropStuck(actor: number | null): void {
+    if (actor === null || !current(actor)) return
+    try { sessionStorage.removeItem(storageKey(actor)) } catch { /* 存储不可用时仍清内存 */ }
+    entries.value = []
+    storageError.value = ''
+  }
+  return { owner, epoch: identity.epoch, entries, storageError, reload, current, save, remove, dropStuck }
 }
 export async function recoverBillingRequest(entry: BillingRequestMeta, actor: number): Promise<BillingRecovery> {
   const path = entry.operation === 'import' ? 'import-by-request-key' : entry.operation === 'sync' ? 'sync/by-request-key' : 'reviews/by-request-key'

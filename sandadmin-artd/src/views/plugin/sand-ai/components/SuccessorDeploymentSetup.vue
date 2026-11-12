@@ -10,6 +10,7 @@
   <ElButton v-if="attempt?.phase === 'not_submitted'" :disabled="Boolean(busy || postFlight) || attempt.application_id !== applicationId || attempt.environment_id !== environmentId" @click="editUnsubmitted">按本地未提交证明修改输入</ElButton>
   <ElAlert v-if="verificationPending || intentStorageError" :closable="false" type="warning" title="原后继验证结果尚未确认。新保存、验证、另存和启用已锁定；只能用原号只读找回，不会换号重发。" />
   <ElButton v-if="verificationPending || intentStorageError" :disabled="Boolean(busy || postFlight)" :loading="busy === 'read'" @click="restoreIntent">找回原后继验证状态</ElButton>
+  <ElButton v-if="savePending || saveStorageError || verificationPending || intentStorageError" :disabled="Boolean(busy || postFlight)" @click="abandonSuccessorChange">放弃此次变更</ElButton>
   <div v-if="completedSave" class="muted">
     <p>上次已结束记录：应用 {{ completedSave.application_id }} / 环境 {{ completedSave.environment_id }} · 后继部署 {{ completedSave.deployment_id }} / 修订 {{ completedSave.revision }} · 原请求号 {{ completedSave.key }}。</p>
     <ElButton :disabled="Boolean(busy || postFlight)" :loading="busy === 'read'" @click="readCompletedUpdate">只读回看上次已结束记录</ElButton>
@@ -93,6 +94,7 @@ import { HttpError } from '@/utils/http/error'
 import { useUserStore } from '@/store/modules/user'
 import { useRouter } from 'vue-router'
 import api, { type DraftSave, type PublishedDeployment, type ReasoningEffort, type SkillOutputStrategy, type SuccessorDeployment, type Verification } from '../api/onboarding'
+import { confirmAbandonPendingWrite } from '../composables/pendingWrite'
 
 const props = defineProps<{ applicationId: number | null; environmentId: number | null }>()
 const router = useRouter()
@@ -262,6 +264,24 @@ const recoveryBlocked = computed(() => verificationPending.value || intentStorag
 function intentNamespace(): string | null {
   const id = Number(userStore.info.id)
   return Number.isSafeInteger(id) && id > 0 ? `sand-ai:onboarding:successor-verification:${id}` : null
+}
+function abandonSuccessorChange(): void {
+  if (busy.value || postFlight.value) return
+  confirmAbandonPendingWrite(() => {
+    generation += 1
+    try { localStorage.removeItem(saveNamespace()) } catch { /* 存储不可用时仍清内存 */ }
+    const verifyKey = intentNamespace()
+    if (verifyKey) {
+      try { sessionStorage.removeItem(verifyKey) } catch { /* 存储不可用时仍清内存 */ }
+    }
+    attempt.value = null
+    saveStorageError.value = false
+    verificationIntent.value = null
+    verificationPending.value = false
+    intentStorageError.value = false
+    message.value = '已放弃未确认的本地记录，页面已解锁'
+    messageType.value = 'success'
+  })
 }
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

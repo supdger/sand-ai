@@ -15,12 +15,14 @@ abstract class SandAiAdminController extends BaseController
     /**
      * Environment-level failures surface to administrators as one Chinese
      * sentence instead of a raw English error code. Other problems keep the
-     * established "error_code: message" contract text. A $status of 0 keeps
-     * the ApiException default (rendered as business code 500).
+     * established "error_code: message" contract text.
+     * $status 未显式给出时按问题性质推导：retryable（结果未确认）保持 500 档
+     * 让前端保留本地操作锁；确定性拒绝落业务码 400，ApiException 渲染时附带
+     * data.rejected=true 与 data.error_code，前端据以结清 journal 并显示原因。
      */
     protected function adminProblemException(ApiProblem $problem, int $status = 0): ApiException
     {
-        return new ApiException($this->adminProblemMessage($problem), $status);
+        return new ApiException($this->adminProblemMessage($problem), $status !== 0 ? $status : ($problem->retryable ? 0 : 400));
     }
 
     /**

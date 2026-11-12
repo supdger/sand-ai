@@ -23,6 +23,8 @@
           版本 #{{ operation.id }} / {{ operation.revision }} · {{ operation.action === 'publish' ? '启用' : '停用' }}</span>
         <ElButton text :loading="recoveringChangeId === operation.id" :disabled="writing || Boolean(recoveringChangeId)"
           @click="recoverPolicyChange(operation)">只读核对原版本</ElButton>
+        <ElButton text :disabled="writing || Boolean(recoveringChangeId)"
+          @click="abandonPolicyChange(operation)">放弃此次变更</ElButton>
       </div>
     </section>
     <ElAlert v-if="changeRecoveryError" type="warning" :closable="false" :title="changeRecoveryError" class="mb-3" />
@@ -36,6 +38,8 @@
           {{ operation.payload.id ? `草稿 #${operation.payload.id}` : '新建草稿' }} · {{ operation.requestKey }}</span>
         <ElButton text :loading="recoveringSaveKey === operation.requestKey" :disabled="Boolean(recoveringSaveKey)"
           @click="recoverDraftSave(operation)">只读找回保存结果</ElButton>
+        <ElButton text :disabled="Boolean(recoveringSaveKey)"
+          @click="abandonDraftSave(operation)">放弃此次变更</ElButton>
       </div>
     </section>
     <div v-for="rejected in notSavedDrafts" :key="rejected.operation.requestKey" class="mb-3">
@@ -234,6 +238,8 @@
   import { useAuth } from '@/hooks/core/useAuth'
   import { useUserStore } from '@/store/modules/user'
   import { errorDisplayText } from '../../api/errorText'
+  import { isWriteRejected, writeRejectionText } from '../../api/writeRejection'
+  import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
   import budgetApi, { type BudgetDraft, type BudgetDraftNotSaved, type BudgetPolicy, type BudgetPolicyExpectation, type BudgetScope, type BudgetScopeKind, type BudgetSummary } from '../../api/budget'
   import iamApi, { type SandIamEnvironmentReference } from '../../api/iam'
 
@@ -547,6 +553,26 @@
       if (live && adminId.value === actorId && generation === actorEpoch) changeRecoveryError.value = `${errorDisplayText(cause, '无法读取原版本')}；保留原操作记录，不重新发送。`
     } finally { if (live && adminId.value === actorId && generation === actorEpoch && recoveringChangeId.value === operation.id) recoveringChangeId.value = null }
   }
+  /** 「放弃此次变更」：无条件移除本地启用/停用记录解锁该版本。 */
+  function abandonPolicyChange(operation: PendingPolicyChange): void {
+    const actorId = adminId.value
+    if (!actorId) return
+    confirmAbandonPendingWrite(() => {
+      persistPolicyChanges(pendingChanges.value.filter(item => item.id !== operation.id), actorId)
+      changeRecoveryError.value = ''
+      ElMessage.success('已放弃未确认的本地记录')
+    })
+  }
+  /** 「放弃此次变更」：无条件移除本地草稿保存记录解锁该草稿。 */
+  function abandonDraftSave(operation: PendingDraftSave): void {
+    const actorId = adminId.value
+    if (!actorId) return
+    confirmAbandonPendingWrite(() => {
+      persistPendingSaves(pendingSaves.value.filter(item => item.requestKey !== operation.requestKey), actorId)
+      saveRecoveryError.value = ''
+      ElMessage.success('已放弃未确认的本地记录')
+    })
+  }
   function decimalSix(value: string): string | null {
     if (!/^\d{1,14}(?:\.\d{1,6})?$/.test(value)) return null
     const [integer, fraction = ''] = value.split('.')
@@ -778,8 +804,14 @@
       closeSavedDraft(); ElMessage.success('原请求已确认保存预算草稿')
       await refreshSavedPolicy(receipt, actorId)
     } catch (cause) {
-      if (live && adminId.value === actorId && generation === actorEpoch)
-        formError.value = `${errorDisplayText(cause, '保存结果未确认')}；保留原请求号，只读找回，不重复保存。`
+      if (live && adminId.value === actorId && generation === actorEpoch) {
+        if (isWriteRejected(cause)) {
+          persistPendingSaves(pendingSaves.value.filter(item => item.requestKey !== operation.requestKey), actorId)
+          formError.value = writeRejectionText(cause, '这次保存被拒绝了。')
+        } else {
+          formError.value = `${errorDisplayText(cause, '保存结果未确认')}；保留原请求号，只读找回，不重复保存。`
+        }
+      }
     }
     finally {
       writeFlight.value = false
@@ -829,9 +861,16 @@
       if (sameScope(policy)) { await loadPolicies(page.value); await loadActive(true) }
     } catch (cause) {
       if (live && adminId.value === actorId && generation === actorEpoch) {
-        changeRecoveryError.value = recorded
-          ? `${errorDisplayText(cause, '操作结果未确认')}；保留原版本，请只读核对，不重新发送。`
-          : '无法保存原操作记录，本次未发送。请检查浏览器恢复记录是否可用。'
+        if (recorded && isWriteRejected(cause)) {
+          // 明确拒绝：结清本地记录解锁，显示后端白话原因
+          persistPolicyChanges(pendingChanges.value.filter(item => item.id !== policy.id), actorId)
+          activeError.value = ''
+          changeRecoveryError.value = writeRejectionText(cause, action === 'publish' ? '这次启用被拒绝了。' : '这次停用被拒绝了。')
+        } else {
+          changeRecoveryError.value = recorded
+            ? `${errorDisplayText(cause, '操作结果未确认')}；保留原版本，请只读核对，不重新发送。`
+            : '无法保存原操作记录，本次未发送。请检查浏览器恢复记录是否可用。'
+        }
       }
     } finally {
       writeFlight.value = false

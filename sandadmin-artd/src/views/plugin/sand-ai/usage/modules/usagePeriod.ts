@@ -73,6 +73,16 @@ export function zonedLocalToUtc(local: ZonedParts, timeZone: string): string | n
 }
 
 /**
+ * 某月的 UTC 整月边界 'YYYY-MM-DD HH:mm:ss'：月初 0 点到次月 1 日 0 点（不含端点）。
+ * 后端 period 按 UTC 整月存；预算保存和周期比较都用它，不引入宿主时区。
+ */
+export function utcMonthBounds(month: string): { from: string; to: string } | null {
+  if (!isMonth(month)) return null
+  const next = shiftMonth(month, 1)
+  return { from: `${month}-01 00:00:00`, to: `${next}-01 00:00:00` }
+}
+
+/**
  * 某月（宿主时区）的起止边界，返回 UTC 'YYYY-MM-DD HH:mm:ss'。
  * to 为下月 1 日 0 点（不含端点），与后端 month 口径一致。
  */
@@ -88,12 +98,13 @@ export function monthBoundsUtc(month: string, timeZone: string): { from: string;
 
 const CURRENCY_SYMBOLS: Record<string, string> = { CNY: '¥', USD: '$', EUR: '€', JPY: '¥' }
 
-/** 金额展示：null 表示未计价，返回「未计价」；否则保留两位小数。 */
+/** 金额展示：没有金额时写「暂未计费」；人民币用「元」。 */
 export function formatMoney(amount: string | null, currency: string | null): string {
-  if (amount === null || amount === '') return '未计价'
+  if (amount === null || amount === '') return '暂未计费'
   const value = Number(amount)
-  if (!Number.isFinite(value)) return '未计价'
+  if (!Number.isFinite(value)) return '暂未计费'
   const code = currency ?? ''
+  if (code === 'CNY') return `${value.toFixed(2)} 元`
   const symbol = CURRENCY_SYMBOLS[code] ?? (code ? `${code} ` : '')
   return `${symbol}${value.toFixed(2)}`
 }

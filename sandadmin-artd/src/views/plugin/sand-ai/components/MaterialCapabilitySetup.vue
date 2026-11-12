@@ -32,6 +32,7 @@
       />
       <ElAlert v-if="pending" type="warning" :closable="false"
         :title="`原${pending.action === 'save' ? '保存' : '启用'}结果待确认：环境 ${pending.environment_id}。只能读取原目标；完整配置匹配仅说明当前状态达到预期，不是原请求收据。`" />
+      <ElButton v-if="pending || journalError" :disabled="Boolean(busy) || writeFlight" @click="abandonCapabilityChange">放弃此次变更</ElButton>
       <ElAlert v-if="journalError" :title="journalError" type="warning" :closable="false" />
       <ElForm label-width="150px" @submit.prevent>
         <ElFormItem label="材料内容发送位置">
@@ -88,6 +89,7 @@
     type SandAiCapabilityProfile,
     type SandAiCapabilityRoute
   } from '../api/capability'
+  import { confirmAbandonPendingWrite } from '../composables/pendingWrite'
 
   const props = defineProps<{
     environmentId: number | ''
@@ -421,6 +423,20 @@
     sessionStorage.removeItem(journalKey(operation.admin_id))
     if (storedIntent(operation.admin_id) !== null) throw new Error('Original intent retained')
     pending.value = null
+  }
+  function abandonCapabilityChange(): void {
+    if (busy.value || writeFlight.value) return
+    confirmAbandonPendingWrite(() => {
+      generation += 1
+      const actor = identity.actor.value
+      if (typeof actor === 'number' && Number.isSafeInteger(actor) && actor > 0) {
+        try { sessionStorage.removeItem(journalKey(actor)) } catch { /* 存储不可用时仍清内存 */ }
+      }
+      pending.value = null
+      journalError.value = ''
+      notice.value = '已放弃未确认的本地记录，页面已解锁'
+      noticeType.value = 'success'
+    })
   }
   function applyRead(value: SandAiCapabilityProfile | null, environmentId: number): void {
     const operation = pending.value

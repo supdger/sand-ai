@@ -10,6 +10,7 @@
   <ElAlert title="按服务商已配置的账单能力同步，点击同步后会访问外部服务。账期使用世界标准时间（UTC），最长 31 天；期间汇总不能认定为单次调用金额，费用记录也不证明已退款。" type="info" :closable="false" class="mb-3" />
   <ElAlert v-if="syncError" :title="syncError" type="warning" :closable="false" class="mb-3" />
   <ElAlert v-if="syncUnknown" title="同步结果尚未确认。服务商、账期与请求号已冻结；请按原请求恢复，不要另建同步。" type="warning" :closable="false" class="mb-3" />
+  <ElButton v-if="syncUnknown || credentialUnknown || recoveryMeta" :disabled="pending" @click="abandonBillingChange">放弃此次变更</ElButton>
   <ElAlert v-if="syncMessage" :title="syncMessage" type="success" :closable="false" class="mb-3" />
   <ElForm label-position="top" :disabled="pending || credentialBlocked || syncAttempt !== null || recoveryMeta !== null">
     <ElFormItem label="服务商编号"><ElInput v-model="draft.provider" placeholder="已配置官方账单能力的服务商编号" /></ElFormItem>
@@ -50,11 +51,12 @@
   import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
   import { billingInputSha, recoverBillingRequest, useBillingJournal } from '../../api/billing-recovery'
   import type { BillingRequestMeta } from '../../api/billing-recovery'
-  import { ElMessageBox } from 'element-plus'
+  import { ElMessage, ElMessageBox } from 'element-plus'
   import { useAuth } from '@/hooks/core/useAuth'
   import { HttpError } from '@/utils/http/error'
   import { billingError, positiveId } from '../../api/billing'
   import { billingSyncApi } from '../../api/billing-sync'
+  import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
   import type { BillingCredentialInput, BillingCredentialReceipt, BillingSyncInput, BillingDriver } from '../../api/billing-sync'
   import type { BillingDetail } from '../../api/billing-types'
   const props = defineProps<{ providerId?: number; recoveryKey?: string }>()
@@ -291,6 +293,23 @@
     } finally { if (currentOwner(operationOwner, operationOwnerEpoch) && alive && generation === statusGeneration) statusBusy.value = false }
   }
   const credentialStorageKey = (actor: number) => `sand-ai:billing:credential-requests:${actor}`
+  function abandonBillingChange(): void {
+    if (pending.value) return
+    confirmAbandonPendingWrite(() => {
+      const actor = journal.owner.value
+      journal.dropStuck(actor)
+      if (actor) {
+        try { sessionStorage.removeItem(credentialStorageKey(actor)) } catch { /* 凭据记录删不掉时仍清内存 */ }
+      }
+      recoveryMeta.value = null
+      rejectionCode.value = ''
+      syncUnknown.value = false
+      credentialUnknown.value = false
+      syncAttempt.value = null
+      credentialMeta.value = null
+      ElMessage.success('已放弃未确认的本地记录，页面已解锁')
+    })
+  }
   function restoreCredentialMeta() {
     credentialMeta.value = null
     credentialStorageError.value = ''

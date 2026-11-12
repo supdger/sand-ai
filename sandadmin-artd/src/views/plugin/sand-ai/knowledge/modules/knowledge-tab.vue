@@ -17,9 +17,9 @@
         class="filter-status"
         @change="page = 1"
       >
-        <ElOption label="可用" value="usable" />
-        <ElOption label="索引中" value="indexing" />
-        <ElOption label="索引失败（可重试）" value="failed" />
+        <ElOption label="能用了" value="usable" />
+        <ElOption label="整理中" value="indexing" />
+        <ElOption label="整理失败" value="failed" />
         <ElOption label="未发布" value="draft" />
         <ElOption label="已停用" value="disabled" />
       </ElSelect>
@@ -91,7 +91,7 @@
             <span class="cell-muted">{{ formatUpdateTime(row.update_time) }}</span>
           </template>
         </ElTableColumn>
-        <ElTableColumn label="操作" width="240" fixed="right">
+        <ElTableColumn label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <ElSpace :size="4" wrap>
               <ElButton link type="primary" @click="openDetail(row)">打开</ElButton>
@@ -108,12 +108,28 @@
                 :loading="retryingId === row.id"
                 @click="retryIndex(row)"
               >重试</ElButton>
-              <ElDropdown trigger="click" @command="(cmd: string) => onRowCommand(cmd, row)">
+              <ElButton
+                v-if="row.state === 'disabled'"
+                link
+                type="primary"
+                :disabled="!row.active_version_id || disablingId === row.id"
+                :title="row.active_version_id ? '' : '没有已发布的版本，不能启用'"
+                @click="confirmEnable(row)"
+              >启用</ElButton>
+              <ElButton
+                v-if="row.state === 'disabled'"
+                link
+                type="danger"
+                :disabled="disablingId === row.id"
+                @click="confirmRetire(row)"
+              >删除</ElButton>
+              <ElDropdown v-if="row.state !== 'disabled'" trigger="click" @command="(cmd: string) => onRowCommand(cmd, row)">
                 <ElButton link type="primary">更多</ElButton>
                 <template #dropdown>
                   <ElDropdownMenu>
                     <ElDropdownItem v-if="row.state === 'draft'" command="publish">发布</ElDropdownItem>
                     <ElDropdownItem v-if="row.state === 'published'" command="disable" divided>停用</ElDropdownItem>
+                    <ElDropdownItem disabled divided>删除（先停用才能删）</ElDropdownItem>
                   </ElDropdownMenu>
                 </template>
               </ElDropdown>
@@ -202,8 +218,13 @@
           type="success"
           :closable="false"
           class="detail-alert"
-          title="建好了，现在加几份资料吧"
+          title="还没建好，先选几份资料"
         />
+        <ElForm label-width="72px" @submit.prevent>
+          <ElFormItem label="名称">
+            <ElInput v-model="pendingDetail.name" maxlength="128" placeholder="知识库名称" />
+          </ElFormItem>
+        </ElForm>
         <dl class="detail-meta">
           <dt>说明</dt>
           <dd>{{ pendingDetail.description || '—' }}</dd>
@@ -217,8 +238,12 @@
           <ElTag :type="statusTagType(detailRow)" effect="plain" size="small">
             {{ statusLabel(detailRow) }}
           </ElTag>
-          <span v-if="detailRow.active_version_no" class="detail-version">第 {{ detailRow.active_version_no }} 版</span>
         </div>
+        <ElForm label-width="72px" @submit.prevent>
+          <ElFormItem label="名称">
+            <ElInput v-model="detailName" maxlength="128" :disabled="isSavingName" placeholder="知识库名称" />
+          </ElFormItem>
+        </ElForm>
         <p v-if="detailRow.description" class="detail-desc">{{ detailRow.description }}</p>
 
         <ElAlert
@@ -233,7 +258,7 @@
           type="error"
           :closable="false"
           class="detail-alert"
-          :title="detailRow.index_error || '索引没有成功'"
+          :title="detailRow.index_error || '整理失败'"
           description="可以点「重试」再试一次；一直失败请检查 AI 服务商和预算。"
         >
           <template #default>
@@ -253,24 +278,36 @@
         </dl>
 
         <div class="detail-actions">
+          <ElButton type="primary" :loading="isSavingName" :disabled="isSavingName" @click="saveDetailName">保存</ElButton>
           <ElButton
             v-if="rowStatus(detailRow) === 'usable'"
-            type="primary"
             @click="openTrial(detailRow)"
           >试一下</ElButton>
           <ElButton
             v-if="detailRow.state === 'draft'"
-            type="primary"
             :loading="publishingId === detailRow.id"
             @click="publishDraft(detailRow)"
           >发布</ElButton>
           <ElButton
             v-if="detailRow.state === 'published'"
-            type="danger"
-            plain
             @click="confirmDisable(detailRow)"
           >停用</ElButton>
+          <ElButton
+            v-if="detailRow.state === 'disabled'"
+            :disabled="!detailRow.active_version_id || disablingId === detailRow.id"
+            :loading="disablingId === detailRow.id && Boolean(detailRow.active_version_id)"
+            :title="detailRow.active_version_id ? '' : '没有已发布的版本，不能启用'"
+            @click="confirmEnable(detailRow)"
+          >启用</ElButton>
+          <ElButton
+            v-if="detailRow.state === 'disabled'"
+            type="danger"
+            plain
+            :disabled="disablingId === detailRow.id"
+            @click="confirmRetire(detailRow)"
+          >删除</ElButton>
         </div>
+        <p v-if="detailRow.state === 'disabled' && !detailRow.active_version_id" class="detail-hint">没有已发布的版本，不能启用。</p>
         <p class="detail-hint">资料在建库时一次选定；需要更换资料请新建知识库。</p>
       </template>
     </ElDrawer>
@@ -417,6 +454,8 @@
 
   const detailOpen = ref(false)
   const detailRow = ref<KnowledgeBaseRow | null>(null)
+  const detailName = ref('')
+  const isSavingName = ref(false)
   const pendingDetail = ref<PendingKnowledgeBase | null>(null)
 
   const filePickerOpen = ref(false)
@@ -451,9 +490,9 @@
 
   function statusLabel(row: KnowledgeBaseRow): string {
     switch (rowStatus(row)) {
-      case 'usable': return '可用'
-      case 'indexing': return '索引中'
-      case 'failed': return '索引失败（可重试）'
+      case 'usable': return '能用了'
+      case 'indexing': return '整理中'
+      case 'failed': return '整理失败'
       case 'draft': return '未发布'
       case 'disabled': return '已停用'
     }
@@ -649,7 +688,6 @@
     detailRow.value = null
     pendingDetail.value = pendingKnowledgeBase.value
     detailOpen.value = true
-    ElMessage.success('建好了，现在加几份资料吧')
   }
 
   function resetCreateForm(): void {
@@ -663,8 +701,45 @@
 
   function openDetail(row: KnowledgeBaseRow): void {
     detailRow.value = row
+    detailName.value = row.name
     pendingDetail.value = null
     detailOpen.value = true
+  }
+
+  async function saveDetailName(): Promise<void> {
+    const row = detailRow.value
+    const envId = props.environmentId
+    const name = detailName.value.trim()
+    if (!row || envId === null || isSavingName.value) return
+    if (name === '') {
+      ElMessage.warning('请填写名称')
+      return
+    }
+    if ([...name].length > 128) {
+      ElMessage.warning('名称最多 128 个字')
+      return
+    }
+    if (name === row.name) {
+      ElMessage.success(`已保存「${name}」`)
+      detailOpen.value = false
+      return
+    }
+    isSavingName.value = true
+    try {
+      await knowledgeApi.rename(envId, row.id, name)
+      ElMessage.success(`已保存「${name}」`)
+      detailOpen.value = false
+      await load()
+      const fresh = rows.value.find((item) => item.id === row.id)
+      if (fresh) {
+        detailRow.value = fresh
+        detailName.value = fresh.name
+      }
+    } catch (error) {
+      ElMessage.error(errorDisplayText(error, '改名没有成功，请稍后再试。'))
+    } finally {
+      isSavingName.value = false
+    }
   }
 
   function closeDetail(): void {
@@ -751,7 +826,7 @@
       pendingKnowledgeBase.value = null
       filePickerOpen.value = false
       closeDetail()
-      ElMessage.success('知识库已建好，正在整理资料')
+      ElMessage.success(`已新建知识库「${pending.name}」`)
       await load()
       const created = rows.value.find((row) => row.id === draft.knowledge_base.id)
       if (created !== undefined) openDetail(created)
@@ -840,9 +915,66 @@
     }
   }
 
+  // 后端中文原因原样展示；未翻译的错误码由 errorDisplayText 按系统故障带编号兜底。
+  function knowledgeDeleteReason(error: unknown): string {
+    return errorDisplayText(error, '删除没有成功，请稍后再试。')
+  }
+
+  async function confirmEnable(row: KnowledgeBaseRow): Promise<void> {
+    const envId = props.environmentId
+    if (envId === null || disablingId.value !== null || !row.active_version_id) return
+    disablingId.value = row.id
+    const mark = identity.capture()
+    const current = generation
+    try {
+      await knowledgeApi.enable(envId, row.id, crypto.randomUUID())
+      if (!alive || current !== generation || !identity.current(mark)) return
+      ElMessage.success(`已启用「${row.name}」`)
+      await load()
+    } catch (error) {
+      if (!alive || current !== generation || !identity.current(mark)) return
+      ElMessage.error(errorDisplayText(error, '启用没有成功，请稍后再试。'))
+    } finally {
+      if (alive && current === generation) disablingId.value = null
+    }
+  }
+
+  async function confirmRetire(row: KnowledgeBaseRow): Promise<void> {
+    const envId = props.environmentId
+    if (envId === null || row.state !== 'disabled' || disablingId.value !== null) return
+    try {
+      await ElMessageBox.confirm(
+        '删除后不能恢复。用过的费用记录会保留。',
+        `删除「${row.name}」？`,
+        { confirmButtonText: '删除', cancelButtonText: '再想想', type: 'warning' }
+      )
+    } catch {
+      return
+    }
+    disablingId.value = row.id
+    const mark = identity.capture()
+    const current = generation
+    try {
+      await knowledgeApi.purgeEmbeddingIndex(envId, row.id, crypto.randomUUID())
+      await knowledgeApi.purgeSources(envId, row.id, crypto.randomUUID())
+      await knowledgeApi.retire(envId, row.id, crypto.randomUUID())
+      if (!alive || current !== generation || !identity.current(mark)) return
+      ElMessage.success(`已删除「${row.name}」`)
+      await load()
+      closeDetail()
+    } catch (error) {
+      if (!alive || current !== generation || !identity.current(mark)) return
+      ElMessage.error(knowledgeDeleteReason(error))
+    } finally {
+      if (alive && current === generation) disablingId.value = null
+    }
+  }
+
   function onRowCommand(command: unknown, row: KnowledgeBaseRow): void {
     if (command === 'publish') void publishDraft(row)
     else if (command === 'disable') void confirmDisable(row)
+    else if (command === 'enable') void confirmEnable(row)
+    else if (command === 'retire') void confirmRetire(row)
   }
 
   function openTrial(row: KnowledgeBaseRow): void {

@@ -130,6 +130,11 @@ export function updateHomeActivationIntent(intent: HomeActivationIntent): void {
   }
 }
 
+/** 用户确认放弃后清掉本机开通记录，页面恢复可继续操作。 */
+export function abandonHomeActivationIntent(adminId: number): void {
+  sessionStorage.removeItem(namespace(adminId))
+}
+
 /** 仅在读取确认与存储记录完全一致后解除原意图锁。 */
 export function resolveHomeActivationIntent(intent: HomeActivationIntent): void {
   const stored = readHomeActivationIntent(intent.admin_id)

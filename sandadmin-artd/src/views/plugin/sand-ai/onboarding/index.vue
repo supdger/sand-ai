@@ -26,13 +26,13 @@
           <ChatRouteTrialPanel :environment-id="environmentId || undefined" />
         </details>
         <details class="section">
-          <summary>高级 · 授权项检查（通常已由系统自动完成，一般无需操作）</summary>
+          <summary>高级</summary>
           <section class="section">
             <h3>能力权限检查</h3>
             <p class="muted">安装时已自动登记 SandAI 所需的全部能力权限。如下方检查发现缺失，可点“补齐”；补齐不会创建应用、调用密钥或允许使用。</p>
             <ElAlert v-if="catalogMessage" :type="catalogMessageType" :title="catalogMessage" show-icon :closable="false" class="catalog-notice" />
             <p v-if="catalogPreflight?.port_available" class="muted">
-              已读取授权服务状态。补齐仅补缺失项，重复检查是安全的。
+              已读取身份与权限服务状态。补齐仅补缺失项，重复检查是安全的。
             </p>
             <p v-if="catalogPreflight?.action_codes.length" class="muted">
               能力权限共 {{ catalogPreflight.action_codes.length }} 项。
@@ -42,11 +42,11 @@
               </details>
             </p>
             <ElSpace v-if="catalogDisabled" wrap>
-              <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
-              <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
+              <ElButton @click="router.push('/sand-iam/service')">查看身份与权限服务</ElButton>
+              <ElButton @click="router.push('/sand-iam/action')">查看身份与权限能力</ElButton>
             </ElSpace>
             <ElSpace wrap>
-              <ElButton :loading="catalogBusy === 'checking'" :disabled="Boolean(catalogBusy)" @click="loadCatalog">检查授权服务连接</ElButton>
+              <ElButton :loading="catalogBusy === 'checking'" :disabled="Boolean(catalogBusy)" @click="loadCatalog">检查身份与权限连接</ElButton>
               <ElButton type="primary" :loading="catalogBusy === 'registering'" :disabled="Boolean(catalogBusy) || !canRegisterCatalog(catalogPreflight) || catalogDisabled || catalogRegistered" @click="registerCatalog">
                 {{ catalogRegistered ? '本次已补齐' : '补齐能力权限' }}
               </ElButton>
@@ -54,7 +54,7 @@
           </section>
           <section class="section">
             <h3>技能模板授权检查</h3>
-            <p class="muted">技能模板的使用、读取、管理、测试和启用权限单独登记。登记后，还需在 SandIAM 为具体应用允许使用；此操作不会自动允许任何调用。</p>
+            <p class="muted">技能模板的使用、读取、管理、测试和启用权限单独登记。登记后，还需在「身份与权限」为具体应用允许使用；此操作不会自动允许任何调用。</p>
             <ElAlert v-if="skillCatalogMessage" :type="skillCatalogMessageType" :title="skillCatalogMessage" show-icon :closable="false" class="catalog-notice" />
             <p v-if="skillCatalogPreflight?.action_codes.length" class="muted">
               技能模板权限共 {{ skillCatalogPreflight.action_codes.length }} 项。
@@ -64,8 +64,8 @@
               </details>
             </p>
             <ElSpace v-if="skillCatalogDisabled" wrap>
-              <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
-              <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
+              <ElButton @click="router.push('/sand-iam/service')">查看身份与权限服务</ElButton>
+              <ElButton @click="router.push('/sand-iam/action')">查看身份与权限能力</ElButton>
             </ElSpace>
             <ElSpace wrap>
               <ElButton :loading="skillCatalogBusy === 'checking'" :disabled="Boolean(skillCatalogBusy)" @click="loadSkillCatalog">检查技能模板权限</ElButton>
@@ -76,7 +76,7 @@
           </section>
           <section class="section">
             <h3>音频能力授权检查</h3>
-            <p class="muted">音频转写、片段复核和语音合成的权限单独登记。登记后，还需在 SandIAM 为具体应用允许使用；此操作不会自动允许任何调用。</p>
+            <p class="muted">音频转写、片段复核和语音合成的权限单独登记。登记后，还需在「身份与权限」为具体应用允许使用；此操作不会自动允许任何调用。</p>
             <ElAlert v-if="audioCatalogMessage" :type="audioCatalogMessageType" :title="audioCatalogMessage" show-icon :closable="false" class="catalog-notice" />
             <p v-if="audioCatalogPreflight?.action_codes.length" class="muted">
               音频权限共 {{ audioCatalogPreflight.action_codes.length }} 项。
@@ -86,8 +86,8 @@
               </details>
             </p>
             <ElSpace v-if="audioCatalogDisabled" wrap>
-              <ElButton @click="router.push('/sand-iam/service')">查看 SandIAM 服务</ElButton>
-              <ElButton @click="router.push('/sand-iam/action')">查看 SandIAM 能力权限</ElButton>
+              <ElButton @click="router.push('/sand-iam/service')">查看身份与权限服务</ElButton>
+              <ElButton @click="router.push('/sand-iam/action')">查看身份与权限能力</ElButton>
             </ElSpace>
             <ElSpace wrap>
               <ElButton :loading="audioCatalogBusy === 'checking'" :disabled="Boolean(audioCatalogBusy)" @click="loadAudioCatalog">检查音频权限</ElButton>
@@ -147,7 +147,7 @@
             </template>
             <ElForm v-else label-width="90px" class="narrow">
               <ElFormItem label="应用">
-                <ElSelect v-model="applicationId" clearable filterable placeholder="可选，选择 SandIAM 应用" :loading="loadingIam" :disabled="connectionSubmitting || bindingSubmitting || busy === 'bind'" @change="loadEnvironments">
+                <ElSelect v-model="applicationId" clearable filterable placeholder="选择应用" :loading="loadingIam" :disabled="connectionSubmitting || bindingSubmitting || busy === 'bind'" @change="loadEnvironments">
                   <ElOption v-for="app in applications" :key="app.id" :label="app.name" :value="app.id" />
                 </ElSelect>
               </ElFormItem>
@@ -161,11 +161,11 @@
           </section>
 
           <section class="section">
-            <ElAlert v-if="journey" type="info" :closable="false" :title="`原开通目标：应用 ${journey.application_id ?? '未选'}，环境 ${journey.environment_id ?? '未选'}；${journey.deployment_id ? `部署 ${journey.deployment_id} · 修订 ${journey.revision}` : '保存回执待找回'}。此目标不代表环境绑定或允许使用。`" />
+            <ElAlert v-if="journey" type="info" :closable="false" :title="`原开通目标：应用 ${journey.application_id ?? '未选'}，环境 ${journey.environment_id ?? '未选'}；${journey.deployment_id ? `设置 ${journey.deployment_id} · 版本 ${journey.revision}` : '保存回执待找回'}。此目标不代表环境绑定或允许使用。`" />
             <ElAlert v-if="connectionSubmitting" type="info" :closable="false" title="原连接操作仍在处理。切换登录状态不会解除在途锁；请等待原操作结束，再读取状态或配置。" />
             <ElAlert v-else-if="journeyLocked" type="warning" :closable="false" title="原开通状态尚未确认，已锁定新增保存、验证、启用和换目标。请只读找回原开通状态。" />
             <h3>2. 服务商连接</h3>
-            <p class="muted">此处供管理员新增模型连接。应用选用已有授权能力时，可直接使用上方聊天入口；其他能力沿“能力配置”选择已启用部署，不需要再次输入服务商 Key。</p>
+            <p class="muted">此处供管理员新增模型连接。应用选用已有授权能力时，可直接使用上方聊天入口；其他能力沿“能力配置”选择已启用的连接，不需要再次输入服务商 Key。</p>
             <ElSelect v-model="selectedProviderCode" class="narrow provider-select" placeholder="选择服务商" :disabled="Boolean(draft || saveAttempt || journeyLocked)">
               <ElOption v-for="item in providerGuides" :key="item.provider_code || item.adapter" :label="item.name" :value="item.provider_code || item.adapter" />
             </ElSelect>
@@ -247,7 +247,7 @@
                   <ElOption label="最大" value="max" />
                 </ElSelect>
                 <span class="muted">控制模型用于推理的额度。仅在模型服务明确支持时选择低、高或最大；默认不指定，具体效果以该模型说明为准。</span>
-                <span class="muted">保存请求和修订会锁定所选额度。修改配置后须重新保存、验证和启用。</span>
+                <span class="muted">保存请求和版本会锁定所选额度。修改配置后须重新保存、验证和启用。</span>
               </ElFormItem>
               <ElFormItem>
                 <ElButton type="primary" :loading="busy === 'save'" :disabled="Boolean(busy || draft || verificationRecoveryPending || verificationStorageError || journeyLocked) || (!saveAttempt && !canSave)" @click="saveDraft">保存模型草稿</ElButton>
@@ -259,52 +259,52 @@
 
           <section class="section">
             <h3>已保存模型配置（只读）</h3>
-            <p class="muted">按已启用模型名称选择部署与修订，读取原保存值。此处不重新验证、保存、启用或绑定环境。</p>
+            <p class="muted">按已启用模型名称选择设置与版本，读取原保存值。此处不重新验证、保存、启用或绑定环境。</p>
             <ElForm label-width="110px" class="narrow" @submit.prevent>
-              <ElFormItem label="名称筛选"><ElInput v-model.trim="inspectionSearchName" placeholder="可选，输入模型或服务商名称后读取部署列表" :disabled="inspectionLoading || inspectionReading" /></ElFormItem>
+              <ElFormItem label="名称筛选"><ElInput v-model.trim="inspectionSearchName" placeholder="可选，输入模型或服务商名称后读取设置列表" :disabled="inspectionLoading || inspectionReading" /></ElFormItem>
               <ElFormItem label="已启用模型">
-                <ElSelect v-model="inspectionDeploymentId" filterable placeholder="先读取部署列表，再选择名称与修订" :loading="inspectionLoading" :disabled="inspectionLoading || inspectionReading" @change="chooseInspectionDeployment">
-                  <ElOption v-for="item in inspectionDeployments" :key="item.id" :label="`${item.display_name} · 修订 ${item.deployment_revision}`" :value="item.id" />
+                <ElSelect v-model="inspectionDeploymentId" filterable placeholder="先读取设置列表，再选择名称与版本" :loading="inspectionLoading" :disabled="inspectionLoading || inspectionReading" @change="chooseInspectionDeployment">
+                  <ElOption v-for="item in inspectionDeployments" :key="item.id" :label="`${item.display_name} · 版本 ${item.deployment_revision}`" :value="item.id" />
                 </ElSelect>
-                <ElButton :loading="inspectionLoading" :disabled="inspectionReading" @click="loadInspectionDeployments">读取部署列表</ElButton>
+                <ElButton :loading="inspectionLoading" :disabled="inspectionReading" @click="loadInspectionDeployments">读取设置列表</ElButton>
               </ElFormItem>
               <ElFormItem>
-                <ElButton :loading="inspectionReading" :disabled="inspectionLoading || !validInspectionTarget" @click="readInspectionRevision">读取所选修订</ElButton>
+                <ElButton :loading="inspectionReading" :disabled="inspectionLoading || !validInspectionTarget" @click="readInspectionRevision">读取所选版本</ElButton>
               </ElFormItem>
               <ElCollapse>
-                <ElCollapseItem title="按保存回执编号读取历史修订（专家备用）" name="inspection-reference">
-                  <p class="muted">已启用列表展示当前修订。读取历史修订时，使用原保存回执中的部署号与修订号；不会猜测或创建配置。</p>
-                  <ElFormItem label="部署号"><ElInputNumber v-model="inspectionTargetId" :min="1" :precision="0" :disabled="inspectionReading" aria-label="已有部署号" /></ElFormItem>
-                  <ElFormItem label="修订号"><ElInputNumber v-model="inspectionTargetRevision" :min="1" :precision="0" :disabled="inspectionReading" aria-label="已有修订号" /></ElFormItem>
+                <ElCollapseItem title="按保存回执编号读取历史版本（专家备用）" name="inspection-reference">
+                  <p class="muted">已启用列表展示当前版本。读取历史版本时，使用原保存回执中的设置号与版本号；不会猜测或创建配置。</p>
+                  <ElFormItem label="设置号"><ElInputNumber v-model="inspectionTargetId" :min="1" :precision="0" :disabled="inspectionReading" aria-label="已有设置号" /></ElFormItem>
+                  <ElFormItem label="版本号"><ElInputNumber v-model="inspectionTargetRevision" :min="1" :precision="0" :disabled="inspectionReading" aria-label="已有版本号" /></ElFormItem>
                 </ElCollapseItem>
               </ElCollapse>
             </ElForm>
             <template v-if="inspectedRevision">
-              <p>部署 {{ inspectedRevision.deployment_id }} · 修订 {{ inspectedRevision.revision }} · {{ inspectedRevision.state === 'published' ? '已启用（只读）' : '保存值（只读）' }}</p>
+              <p>设置 {{ inspectedRevision.deployment_id }} · 版本 {{ inspectedRevision.revision }} · {{ inspectedRevision.state === 'published' ? '已启用（只读）' : '保存值（只读）' }}</p>
               <p>{{ inspectedRevision.provider.name }} · {{ inspectedRevision.model.name }} · {{ inspectedRevision.deployment.remote_model }}</p>
               <p>输出上限：{{ inspectedRevision.deployment.config.max_output_tokens }}</p>
               <p>技能模板输出：{{ inspectedRevision.deployment.config.skill_output_strategy ? skillStrategyLabels[inspectedRevision.deployment.config.skill_output_strategy] : '未指定（新技能模板采用标准输出，历史版本保持原策略）' }}</p>
-              <p class="muted">显示值来自指定修订的冻结配置。未指定策略的旧修订保持缺字段；新建配置的默认选择不会写回这里。</p>
+              <p class="muted">显示值来自指定版本的冻结配置。未指定策略的旧版本保持缺字段；新建配置的默认选择不会写回这里。</p>
             </template>
           </section>
 
           <section class="section">
             <h3>3. 验证并启用模型连接</h3>
-            <p v-if="draft">部署 {{ draft.deployment_id }} · 修订 {{ draft.revision }} · {{ verificationStateLabel }}</p>
-            <p v-if="verificationRequest" class="muted">原验证请求号：{{ verificationRequest.key }} · 部署 {{ verificationRequest.deployment_id }} · 修订 {{ verificationRequest.revision }}。此号用于找回本次验证，与费用明细中的尝试编号不同。</p>
+            <p v-if="draft">设置 {{ draft.deployment_id }} · 版本 {{ draft.revision }} · {{ verificationStateLabel }}</p>
+            <p v-if="verificationRequest" class="muted">原验证请求号：{{ verificationRequest.key }} · 设置 {{ verificationRequest.deployment_id }} · 版本 {{ verificationRequest.revision }}。此号用于找回本次验证，与费用明细中的尝试编号不同。</p>
             <ElAlert v-if="verificationRecoveryPending" type="warning" :closable="false" title="原验证结果尚未确认。本页保留请求编号，暂时锁定新保存、验证和重新配置；只读找回不会再次调用模型。" />
-            <ElAlert v-if="verificationStorageError" type="warning" :closable="false" title="无法确认本机会话中的原验证记录，暂时不能发起新验证。请保留原部署与修订号，由管理员核查；不会换请求号重发。" />
+            <ElAlert v-if="verificationStorageError" type="warning" :closable="false" title="无法确认本机会话中的原验证记录，暂时不能发起新验证。请保留原设置号与版本号，由管理员核查；不会换请求号重发。" />
             <ElButton v-if="verificationRecoveryPending || verificationStorageError || journeyLocked" :loading="busy === 'read'" :disabled="Boolean(busy)" @click="restoreVerificationRequest">找回原验证状态</ElButton>
-            <p v-if="draft" class="muted">当前修订的推理额度：{{ savedReasoningEffortLabel }}。此值来自服务器保存的修订配置。</p>
-            <p v-if="draft" class="muted">当前修订的技能模板输出：{{ draft.deployment.config.skill_output_strategy ? skillStrategyLabels[draft.deployment.config.skill_output_strategy] : '未指定（新技能模板采用标准 JSON，历史版本保持原策略）' }}。</p>
+            <p v-if="draft" class="muted">当前版本的推理额度：{{ savedReasoningEffortLabel }}。此值来自服务器保存的版本配置。</p>
+            <p v-if="draft" class="muted">当前版本的技能模板输出：{{ draft.deployment.config.skill_output_strategy ? skillStrategyLabels[draft.deployment.config.skill_output_strategy] : '未指定（新技能模板采用标准格式，历史版本保持原策略）' }}。</p>
             <p v-else class="muted">请先保存模型草稿。验证会发送极小样本，可能产生服务商费用。</p>
-            <ElAlert v-if="publicationConfirmationRequired" type="warning" :closable="false" title="启用结果或当前修订尚未确认。请先读取当前部署修订并核对；读取不会验证或启用模型，也不代表原启用没有执行。" />
+            <ElAlert v-if="publicationConfirmationRequired" type="warning" :closable="false" title="启用结果或当前版本尚未确认。请先读取当前设置版本并核对；读取不会验证或启用模型，也不代表原启用没有执行。" />
             <ElButton v-if="journey?.phase === 'publish_unknown'" :loading="busy === 'read' || busy === 'publish'" :disabled="Boolean(busy) || originalPublicationConfirming || journeyRecoveryPending || verificationRecoveryPending || verificationStorageError" @click="confirmOriginalPublication">读取原目标启用状态</ElButton>
-            <ElButton v-if="publicationConfirmationRequired" :loading="busy === 'read'" :disabled="Boolean(busy) || verificationRecoveryPending || verificationStorageError || journeyStorageError || journeyRecoveryPending" @click="readCurrentPublicationRevision">读取并确认当前修订</ElButton>
+            <ElButton v-if="publicationConfirmationRequired" :loading="busy === 'read'" :disabled="Boolean(busy) || verificationRecoveryPending || verificationStorageError || journeyStorageError || journeyRecoveryPending" @click="readCurrentPublicationRevision">读取并确认当前版本</ElButton>
             <div v-if="publicationConfirmationRequired && publicationPreview" class="muted">
-              <p>当前部署 {{ publicationPreview.draft.deployment_id }} · 修订 {{ publicationPreview.draft.revision }} · {{ verificationLabel(publicationPreview.verification.state) }}。服务商：{{ publicationPreview.draft.provider.name }}；模型：{{ publicationPreview.draft.model.name }}（{{ publicationPreview.draft.deployment.remote_model }}）。</p>
+              <p>当前设置 {{ publicationPreview.draft.deployment_id }} · 版本 {{ publicationPreview.draft.revision }} · {{ verificationLabel(publicationPreview.verification.state) }}。服务商：{{ publicationPreview.draft.provider.name }}；模型：{{ publicationPreview.draft.model.name }}（{{ publicationPreview.draft.deployment.remote_model }}）。</p>
               <p>输出上限 {{ publicationPreview.draft.deployment.config.max_output_tokens }}；推理额度 {{ publicationPreview.draft.deployment.config.reasoning_effort || '由模型服务决定' }}；技能模板输出 {{ publicationPreview.draft.deployment.config.skill_output_strategy ? skillStrategyLabels[publicationPreview.draft.deployment.config.skill_output_strategy] : '标准输出（默认）' }}。</p>
-              <ElButton :disabled="Boolean(busy) || verificationRecoveryPending || verificationStorageError || journeyLocked" @click="confirmCurrentPublicationRevision">确认使用此修订</ElButton>
+              <ElButton :disabled="Boolean(busy) || verificationRecoveryPending || verificationStorageError || journeyLocked" @click="confirmCurrentPublicationRevision">确认使用此版本</ElButton>
             </div>
             <ElForm v-if="draft" label-width="110px" class="narrow" @submit.prevent>
               <ElFormItem label="处理位置">
@@ -317,7 +317,7 @@
               <ElFormItem>
                 <ElSpace wrap>
                   <ElButton :loading="busy === 'verify'" :disabled="!canVerify" @click="verifyDraft">验证聊天模型</ElButton>
-                  <ElButton :loading="busy === 'read'" :disabled="Boolean(busy)" @click="readVerification">读取当前修订配置与状态</ElButton>
+                  <ElButton :loading="busy === 'read'" :disabled="Boolean(busy)" @click="readVerification">读取当前版本配置与状态</ElButton>
                   <ElButton type="primary" :loading="busy === 'publish'" :disabled="Boolean(busy) || publicationConfirmationRequired || verificationRecoveryPending || verificationStorageError || journeyLocked || verification?.state !== 'tested' || !verification.validation_evidence" @click="publish">启用模型连接</ElButton>
                   <ElButton v-if="canReconfigure" :disabled="Boolean(busy)" @click="reconfigureConnection">重新配置连接</ElButton>
                 </ElSpace>
@@ -327,21 +327,21 @@
             <p v-if="verificationFailure?.failed_at" class="muted">失败时间：{{ verificationFailure.failed_at }}</p>
             <ElAlert v-if="!verificationFailure && verification?.state === 'draft' && (verificationRejected || verificationAttempted || hasVerificationFailure) && !verificationUncertain" type="warning" :closable="false"
               :title="verificationRejected && !hasVerificationFailure
-                ? '服务商拒绝了聊天验证。当前修订已确认回到待验证，可重新配置连接；此处不会重复验证失败修订。'
+                ? '服务商拒绝了聊天验证。当前版本已确认回到待验证，可重新配置连接；此处不会重复验证失败版本。'
                 : !hasVerificationFailure
-                  ? '当前修订已确认回到待验证。可重新配置连接；此处不会重复验证已经发送过的修订。'
-                  : '当前修订的失败反馈无法确认。请保留部署与修订号并联系管理员核查；此处不会重复验证或重新配置。'" />
+                  ? '当前版本已确认回到待验证。可重新配置连接；此处不会重复验证已经发送过的版本。'
+                  : '当前版本的失败反馈无法确认。请保留设置号与版本号并联系管理员核查；此处不会重复验证或重新配置。'" />
             <ElAlert v-if="verification?.validation_evidence?.usage_measured === false" type="warning" :closable="false"
               title="模型已通过调用验证，但服务商未返回用量。运行费用会保持未知，依赖精确用量的限额和低成本模型可能不可用。" />
-            <ElAlert v-if="verification?.state === 'verifying'" type="info" :closable="false" title="服务商验证仍在进行。请稍后读取当前修订状态，不要重复发送验证请求。" />
-            <ElAlert v-if="verificationUncertain" type="warning" :closable="false" title="验证结果无法确定，可能已产生服务商费用。请保留上方部署与修订号，请到服务商控制台核查调用记录并联系管理员；此处不会重新发送验证请求。" />
+            <ElAlert v-if="verification?.state === 'verifying'" type="info" :closable="false" title="服务商验证仍在进行。请稍后读取当前版本状态，不要重复发送验证请求。" />
+            <ElAlert v-if="verificationUncertain" type="warning" :closable="false" title="验证结果无法确定，可能已产生服务商费用。请保留上方设置号与版本号，请到服务商控制台核查调用记录并联系管理员；此处不会重新发送验证请求。" />
             <ElAlert v-if="bindingStorageError" type="warning" :closable="false"
               title="原绑定操作记录无法确认，暂不发送新的绑定。请恢复会话存储后重读原记录。" />
             <ElButton v-if="bindingStorageError" :disabled="bindingSubmitting || bindingReading || Boolean(busy)" @click="loadOriginalBindingIntent">重读原绑定记录</ElButton>
             <section v-if="bindingIntent">
               <ElAlert type="warning" :closable="false"
                 title="原绑定结果尚未确认"
-                :description="`原目标：应用 ${bindingIntent.application_id}，环境 ${bindingIntent.environment_id}，部署 ${bindingIntent.deployment_id} · 修订 ${bindingIntent.revision}。`" />
+                :description="`原目标：应用 ${bindingIntent.application_id}，环境 ${bindingIntent.environment_id}，设置 ${bindingIntent.deployment_id} · 版本 ${bindingIntent.revision}。`" />
               <ElButton :loading="bindingReading" :disabled="bindingSubmitting || bindingReading || Boolean(busy)" @click="readOriginalBinding">读取原绑定目标</ElButton>
               <p class="muted">仅核对原目标当前的已启用默认聊天配置。这不是服务器原操作回执；未找到、读取失败或目标不匹配不证明原绑定未发生，不会重新发送绑定。</p>
             </section>
@@ -352,12 +352,12 @@
                 :disabled="Boolean(busy) || journeyLocked || !environmentId || boundEnvironmentId === environmentId" @click="bindDefaultChat">
                 {{ boundEnvironmentId === environmentId ? '本次已绑定到该环境' : '绑定到所选环境' }}
               </ElButton>
-              <span v-if="!environmentId" class="muted">先在工作目标中选择 SandIAM 应用和环境。</span>
+              <span v-if="!environmentId" class="muted">先选择应用和环境。</span>
             </ElSpace>
             <p v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" class="muted">聊天能力已绑定；所选工作目标仍需按对应配置入口继续准备、试用并启用。</p>
             <ElSpace v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" wrap>
               <ElButton type="primary" :disabled="Boolean(busy)" @click="openChatTrial">试用已启用聊天能力</ElButton>
-              <span class="muted">后台管理员负责配置；应用调用使用 SandIAM 工作负载调用密钥，调用环境由凭证决定。进入“聊天模型试用”后填写该凭证，无需填写服务商 API Key。</span>
+              <span class="muted">后台管理员负责配置；应用调用使用「身份与权限」签发的调用密钥，调用环境由凭证决定。进入“聊天模型试用”后填写该凭证，无需填写服务商 API Key。</span>
             </ElSpace>
           </section>
 
@@ -730,13 +730,13 @@ async function restoreJourney(): Promise<void> {
     journeyRecoveryPending.value = false
     journeyStorageError.value = false
     notice(journey.value?.phase === 'publish_unknown'
-      ? '原启用结果仍未确认。保留原部署与修订，只读找回不会重新启用；未找到或状态未启用均不表示原请求未执行。'
-      : `已找回原部署 ${saved.deployment_id} 的修订 ${saved.revision}，请按实际状态继续。原应用/环境仅为配置目标，不代表允许使用。`, journeyLocked.value ? 'warning' : 'success')
+      ? '原启用结果仍未确认。保留原设置与版本，只读找回不会重新启用；未找到或状态未启用均不表示原请求未执行。'
+      : `已找回原设置 ${saved.deployment_id} 的版本 ${saved.revision}，请按实际状态继续。原应用/环境仅为配置目标，不代表允许使用。`, journeyLocked.value ? 'warning' : 'success')
     void restoreJourneyScope(target, current)
   } catch (error) {
     if (current === epoch) {
       journeyStorageError.value = true
-      notice(accessFailureNotice(error) || '原首次开通记录尚未确认。请继续只读找回原请求或修订；不能新建请求、放弃原目标或重复启用。', 'warning')
+      notice(accessFailureNotice(error) || '原首次开通记录尚未确认。请继续只读找回原请求或版本；不能新建请求、放弃原目标或重复启用。', 'warning')
     }
   } finally { if (current === epoch) busy.value = '' }
 }
@@ -954,7 +954,7 @@ async function reconfigureConnection(): Promise<void> {
   const target = draft.value
   try {
     await ElMessageBox.confirm(
-      `服务器会保留部署 ${target.deployment_id} 的修订 ${target.revision} 草稿。继续后请重新填写 Key 和聊天模型；新的连接仍需保存、验证和启用。`,
+      `服务器会保留设置 ${target.deployment_id} 的版本 ${target.revision} 草稿。继续后请重新填写 Key 和聊天模型；新的连接仍需保存、验证和启用。`,
       '重新配置连接',
       { type: 'warning', confirmButtonText: '重新填写', cancelButtonText: '保留当前草稿' }
     )
@@ -980,7 +980,7 @@ async function reconfigureConnection(): Promise<void> {
   modelName.value = ''
   reasoningEffort.value = ''
   skillOutputStrategy.value = 'neuron_json_extract_v1'
-  connectionNotice.value = `原部署 ${target.deployment_id} 的修订 ${target.revision} 仍保留在服务器。请在服务商连接中填写新的 Key 或模型标识。`
+  connectionNotice.value = `原设置 ${target.deployment_id} 的版本 ${target.revision} 仍保留在服务器。请在服务商连接中填写新的 Key 或模型标识。`
   notice('可以重新填写服务商连接。新连接不会自动启用或绑定环境。', 'warning')
   await nextTick()
   apiKeyInput.value?.focus()
@@ -998,7 +998,7 @@ function providerProblemCode(error: unknown): string {
 function accessFailureNotice(error: unknown): string | null {
   if (!(error instanceof HttpError)) return null
   if (error.code === 403) return '当前后台账号没有执行此操作的权限。请联系 SandAdmin 管理员授权后重试；无需更换服务商 Key。'
-  if (error.code === 401) return '登录已失效，请重新登录后读取原修订状态。'
+  if (error.code === 401) return '登录已失效，请重新登录后读取原版本状态。'
   return null
 }
 
@@ -1063,10 +1063,10 @@ const failureNotices: Readonly<Record<Exclude<VerificationFailureReason, 'local_
   chat_endpoint_unsupported: ['SAND_AI_PROVIDER_REJECTED', '服务商未接受聊天接口，请确认模型支持聊天以及 API 基础地址正确'],
   model_or_parameters_rejected: ['SAND_AI_PROVIDER_REJECTED', '服务商拒绝了模型或参数，请核对聊天能力、用量额度与推理额度'],
   provider_rejected: ['SAND_AI_PROVIDER_REJECTED', '服务商拒绝了验证请求，请核对 Key、权限、模型和参数'],
-  provider_timeout: ['SAND_AI_PROVIDER_UNAVAILABLE', '模型验证超时，可能已发送并产生费用，请核对服务商调用记录；不要重复验证此修订'],
-  provider_unavailable: ['SAND_AI_PROVIDER_UNAVAILABLE', '模型验证连接或响应未确认，请核对服务商调用记录和当前修订状态'],
-  provider_rate_limited: ['SAND_AI_PROVIDER_RATE_LIMITED', '服务商当前限流，请核对当前修订状态和服务商调用记录后决定后续操作'],
-  verification_ambiguous: ['SAND_AI_DEPLOYMENT_VERIFICATION_AMBIGUOUS', '当前修订验证结果无法确定，可能已产生费用；请保留部署与修订号并联系管理员核查']
+  provider_timeout: ['SAND_AI_PROVIDER_UNAVAILABLE', '模型验证超时，可能已发送并产生费用，请核对服务商调用记录；不要重复验证此版本'],
+  provider_unavailable: ['SAND_AI_PROVIDER_UNAVAILABLE', '模型验证连接或响应未确认，请核对服务商调用记录和当前版本状态'],
+  provider_rate_limited: ['SAND_AI_PROVIDER_RATE_LIMITED', '服务商当前限流，请核对当前版本状态和服务商调用记录后决定后续操作'],
+  verification_ambiguous: ['SAND_AI_DEPLOYMENT_VERIFICATION_AMBIGUOUS', '当前版本验证结果无法确定，可能已产生费用；请保留设置号与版本号并联系管理员核查']
 }
 
 function isFailureReason(value: unknown): value is keyof typeof failureNotices {
@@ -1080,7 +1080,7 @@ function safeVerificationFailure(state: Verification | null): VerificationFailur
   const [code, text] = failureNotices[failure.reason]
   const uncertain = state.state === 'verification_ambiguous'
   const expectedMessage = text + (code === 'SAND_AI_PROVIDER_REJECTED'
-    ? uncertain ? '；当前修订结果仍无法确定，请先核查服务商调用记录，不要重复验证此修订' : '，修正后可重新配置连接'
+    ? uncertain ? '；当前版本结果仍无法确定，请先核查服务商调用记录，不要重复验证此版本' : '，修正后可重新配置连接'
     : '')
   if (failure.error_code !== code || failure.message !== expectedMessage
     || failure.outcome_uncertain !== uncertain
@@ -1123,10 +1123,10 @@ function canRegisterCatalog(result: ServiceCatalogPreflight | null): boolean {
 }
 
 function catalogPreflightNotice(result: ServiceCatalogPreflight): string {
-  if (!result.port_available) return 'SandIAM 服务目录暂不可用。请先完成 SandIAM 安装和配置。'
+  if (!result.port_available) return '身份与权限服务目录暂不可用。请先完成 「身份与权限」安装和配置。'
   const disabled = disabledCatalogItems(result)
-  if (disabled.length) return `已停用：${disabled.join('、')}。请由 SandIAM 管理员核查停用决定；此页不会自动恢复。`
-  return canRegisterCatalog(result) ? '' : '目录状态尚未确认，暂不能登记。请重新检查或联系 SandIAM 管理员。'
+  if (disabled.length) return `已停用：${disabled.join('、')}。请由 「身份与权限」管理员核查停用决定；此页不会自动恢复。`
+  return canRegisterCatalog(result) ? '' : '目录状态尚未确认，暂不能登记。请重新检查或联系 「身份与权限」管理员。'
 }
 
 function isCatalogDisabled(error: unknown): boolean {
@@ -1162,7 +1162,7 @@ async function loadCatalog(): Promise<void> {
   } catch {
     if (generation === catalogGeneration) {
       catalogPreflight.value = null
-      catalogMessage.value = '无法检查 SandIAM 服务目录，请确认后台权限与插件安装状态。'
+      catalogMessage.value = '无法检查 身份与权限服务目录，请确认后台权限与插件安装状态。'
       catalogMessageType.value = 'warning'
     }
   } finally {
@@ -1175,7 +1175,7 @@ async function registerCatalog(): Promise<void> {
   const confirmedGeneration = catalogGeneration
   try {
     await ElMessageBox.confirm(
-      `将向 SandIAM 登记 SandAI 的 ${catalogPreflight.value?.action_codes.length ?? 0} 个能力权限。此操作不会为应用或客户端创建授权。`,
+      `将向「身份与权限」登记 SandAI 的 ${catalogPreflight.value?.action_codes.length ?? 0} 个能力权限。此操作不会为应用或客户端创建授权。`,
       '登记服务目录',
       { type: 'warning', confirmButtonText: '确认登记' }
     )
@@ -1195,14 +1195,14 @@ async function registerCatalog(): Promise<void> {
       throw new Error('Unexpected service catalog registration result')
     }
     catalogRegistered.value = true
-    catalogMessage.value = 'SandAI 能力权限已登记。请到 SandIAM 为目标应用和调用身份配置授权。'
+    catalogMessage.value = 'SandAI 能力权限已登记。请到「身份与权限」为目标应用和调用身份配置授权。'
     catalogMessageType.value = 'success'
   } catch (error) {
     if (generation === catalogGeneration) {
       catalogDisabled.value = isCatalogDisabled(error)
       catalogMessage.value = catalogDisabled.value
-        ? 'SandIAM 中的 SandAI 服务或动作已停用。请由 SandIAM 管理员核查停用决定；此页不会自动恢复。'
-        : '登记结果未确认。请先到 SandIAM 核查服务目录，再决定是否重试。'
+        ? '「身份与权限」中的 SandAI 服务或动作已停用。请由 「身份与权限」管理员核查停用决定；此页不会自动恢复。'
+        : '登记结果未确认。请先到「身份与权限」核查服务目录，再决定是否重试。'
       catalogMessageType.value = 'warning'
     }
   } finally {
@@ -1229,7 +1229,7 @@ async function loadSkillCatalog(): Promise<void> {
   } catch {
     if (generation === skillCatalogGeneration) {
       skillCatalogPreflight.value = null
-      skillCatalogMessage.value = '无法检查技能模板能力权限，请确认后台权限与 SandIAM 状态。'
+      skillCatalogMessage.value = '无法检查技能模板能力权限，请确认后台权限与 「身份与权限」状态。'
       skillCatalogMessageType.value = 'warning'
     }
   } finally {
@@ -1263,14 +1263,14 @@ async function registerSkillCatalog(): Promise<void> {
       throw new Error('Unexpected skill service catalog registration result')
     }
     skillCatalogRegistered.value = true
-    skillCatalogMessage.value = '技能模板能力权限已登记。请到 SandIAM 为目标应用和调用身份配置授权。'
+    skillCatalogMessage.value = '技能模板能力权限已登记。请到「身份与权限」为目标应用和调用身份配置授权。'
     skillCatalogMessageType.value = 'success'
   } catch (error) {
     if (generation === skillCatalogGeneration) {
       skillCatalogDisabled.value = isCatalogDisabled(error)
       skillCatalogMessage.value = skillCatalogDisabled.value
-        ? 'SandIAM 中的服务或技能模板动作已停用。请由 SandIAM 管理员核查；此页不会自动恢复。'
-        : '登记结果未确认。请先到 SandIAM 核查，再决定是否重试。'
+        ? '「身份与权限」中的服务或技能模板动作已停用。请由 「身份与权限」管理员核查；此页不会自动恢复。'
+        : '登记结果未确认。请先到「身份与权限」核查，再决定是否重试。'
       skillCatalogMessageType.value = 'warning'
     }
   } finally {
@@ -1298,7 +1298,7 @@ async function loadAudioCatalog(): Promise<void> {
   } catch {
     if (generation === audioCatalogGeneration) {
       audioCatalogPreflight.value = null
-      audioCatalogMessage.value = '无法检查音频能力权限，请确认后台权限与 SandIAM 状态。'
+      audioCatalogMessage.value = '无法检查音频能力权限，请确认后台权限与 「身份与权限」状态。'
       audioCatalogMessageType.value = 'warning'
     }
   } finally {
@@ -1355,14 +1355,14 @@ async function registerAudioCatalog(): Promise<void> {
       throw new Error('Unexpected audio service catalog registration result')
     }
     audioCatalogRegistered.value = true
-    audioCatalogMessage.value = '音频能力权限已登记。请到 SandIAM 为目标应用和客户端配置授权。'
+    audioCatalogMessage.value = '音频能力权限已登记。请到「身份与权限」为目标应用和客户端配置授权。'
     audioCatalogMessageType.value = 'success'
   } catch (error) {
     if (generation === audioCatalogGeneration) {
       audioCatalogDisabled.value = isCatalogDisabled(error)
       audioCatalogMessage.value = audioCatalogDisabled.value
-        ? 'SandIAM 中的服务或音频动作已停用。请由 SandIAM 管理员核查；此页不会自动恢复。'
-        : '登记结果未确认。请先到 SandIAM 核查，再决定是否重试。'
+        ? '「身份与权限」中的服务或音频动作已停用。请由 「身份与权限」管理员核查；此页不会自动恢复。'
+        : '登记结果未确认。请先到「身份与权限」核查，再决定是否重试。'
       audioCatalogMessageType.value = 'warning'
     }
   } finally {
@@ -1550,7 +1550,7 @@ function readChatDraftSettings(saved: DraftSave): { remoteModel: string; maxOutp
     || !Number.isInteger(config.max_output_tokens) || config.max_output_tokens < 1 || config.max_output_tokens > 131072
     || (effort !== undefined && effort !== 'low' && effort !== 'high' && effort !== 'max')
     || (strategy !== undefined && strategy !== 'neuron_json_extract_v1' && strategy !== 'neuron_zai_json_object_v1' && strategy !== 'neuron_openai_json_schema_v1')) {
-    throw new Error('聊天模型修订配置无效')
+    throw new Error('聊天模型版本配置无效')
   }
   return { remoteModel: saved.deployment.remote_model, maxOutputTokens: config.max_output_tokens, effort: effort ?? '', strategy: strategy ?? 'neuron_json_extract_v1' }
 }
@@ -1570,12 +1570,12 @@ async function loadInspectionDeployments(): Promise<void> {
   try {
     const result = await onboardingApi.publishedDeployments('chat', inspectionSearchName.value.trim())
     if (generation !== inspectionGeneration) return
-    if (!Array.isArray(result.data) || result.data.some(item => !Number.isSafeInteger(item.id) || item.id < 1 || !Number.isSafeInteger(item.deployment_revision) || item.deployment_revision < 1 || typeof item.display_name !== 'string' || item.model_type !== 'chat' || item.publication_status !== 'published')) throw new Error('部署列表无效')
+    if (!Array.isArray(result.data) || result.data.some(item => !Number.isSafeInteger(item.id) || item.id < 1 || !Number.isSafeInteger(item.deployment_revision) || item.deployment_revision < 1 || typeof item.display_name !== 'string' || item.model_type !== 'chat' || item.publication_status !== 'published')) throw new Error('设置列表无效')
     inspectionDeployments.value = result.data
-    if (!result.data.length) notice('没有匹配的已启用聊天模型。可调整名称筛选；历史修订可用原保存回执编号读取。', 'warning')
-    else if (result.total > result.per_page) notice('已启用模型超过当前页，请输入名称筛选后读取部署列表。', 'warning')
+    if (!result.data.length) notice('没有匹配的已启用聊天模型。可调整名称筛选；历史版本可用原保存回执编号读取。', 'warning')
+    else if (result.total > result.per_page) notice('已启用模型超过当前页，请输入名称筛选后读取设置列表。', 'warning')
   } catch (error) {
-    if (generation === inspectionGeneration) notice(accessFailureNotice(error) || '部署列表读取失败。请检查当前管理权限后重试。', 'warning')
+    if (generation === inspectionGeneration) notice(accessFailureNotice(error) || '设置列表读取失败。请检查当前管理权限后重试。', 'warning')
   } finally {
     if (generation === inspectionGeneration) inspectionLoading.value = false
   }
@@ -1599,14 +1599,14 @@ async function readInspectionRevision(): Promise<void> {
   try {
     const saved = await onboardingApi.readDraft(deploymentId, revision)
     if (generation !== inspectionGeneration) return
-    if (saved.deployment_id !== deploymentId || saved.revision !== revision || !Number.isSafeInteger(saved.provider.id) || saved.provider.id < 1 || !Number.isSafeInteger(saved.model.id) || saved.model.id < 1) throw new Error('返回的部署修订与请求不一致')
+    if (saved.deployment_id !== deploymentId || saved.revision !== revision || !Number.isSafeInteger(saved.provider.id) || saved.provider.id < 1 || !Number.isSafeInteger(saved.model.id) || saved.model.id < 1) throw new Error('返回的设置版本与请求不一致')
     readChatDraftSettings(saved)
     // Keep the exact server DTO, including absent fields. Do not populate the
     // mutable new-connection draft or unlock verification/publish controls.
     inspectedRevision.value = saved
-    notice('已只读取得原修订保存值。不会重新发送模型验证或写入配置。', 'success')
+    notice('已只读取得原版本保存值。不会重新发送模型验证或写入配置。', 'success')
   } catch (error) {
-    if (generation === inspectionGeneration) notice(accessFailureNotice(error) || '原修订读取失败。请核对保存回执与当前管理权限。', 'warning')
+    if (generation === inspectionGeneration) notice(accessFailureNotice(error) || '原版本读取失败。请核对保存回执与当前管理权限。', 'warning')
   } finally {
     if (generation === inspectionGeneration) inspectionReading.value = false
   }
@@ -1617,7 +1617,7 @@ function readInspectionRoute(): void {
   const revision = route.query.revision
   if (id === undefined && revision === undefined) return
   if (typeof id !== 'string' || typeof revision !== 'string' || !/^[1-9][0-9]*$/.test(id) || !/^[1-9][0-9]*$/.test(revision) || !Number.isSafeInteger(Number(id)) || !Number.isSafeInteger(Number(revision))) {
-    notice('部署修订链接无效。请从原保存回执或已启用模型列表读取。', 'warning')
+    notice('设置版本链接无效。请从原保存回执或已启用模型列表读取。', 'warning')
     return
   }
   inspectionTargetId.value = Number(id)
@@ -1729,7 +1729,7 @@ async function readVerification(): Promise<void> {
     if (!ownsRead()) return
     if (saved.deployment_id !== target.deployment_id || saved.revision !== target.revision
       || state.deployment_id !== target.deployment_id || state.revision !== target.revision) {
-      throw new Error('返回的部署修订与请求不一致')
+      throw new Error('返回的设置版本与请求不一致')
     }
     if (journey.value) assertJourneyDraft(saved, journey.value)
     hydrateDraftConfiguration(saved)
@@ -1746,11 +1746,11 @@ async function readVerification(): Promise<void> {
     }
     if (verificationRecoveryPending.value) notice('原验证尚无明确终态。请继续用请求编号只读找回；不会换号验证或重新配置。', 'warning')
     else if (verificationFailure.value) notice('已读取原验证的失败状态，请查看下方恢复提示。', 'warning')
-    else if (state.state === 'verifying') notice('验证仍在进行。稍后读取同一修订状态。', 'warning')
-    else if (state.state === 'verification_ambiguous') notice('验证结果无法确定，可能已产生服务商费用。请保留部署、修订和请求编号，联系管理员核查；不会自动重试。', 'warning')
-    else if (state.state === 'draft' && (verificationRejected.value || verificationAttempted.value || hasVerificationFailure.value)) notice('已读取当前修订状态，请查看下方恢复提示。', 'warning')
+    else if (state.state === 'verifying') notice('验证仍在进行。稍后读取同一版本状态。', 'warning')
+    else if (state.state === 'verification_ambiguous') notice('验证结果无法确定，可能已产生服务商费用。请保留设置、版本和请求编号，联系管理员核查；不会自动重试。', 'warning')
+    else if (state.state === 'draft' && (verificationRejected.value || verificationAttempted.value || hasVerificationFailure.value)) notice('已读取当前版本状态，请查看下方恢复提示。', 'warning')
     else if (state.validation_evidence?.usage_measured === false) notice('模型已验证；服务商未返回用量，费用暂不可确认。', 'warning')
-    else notice(`当前修订状态：${verificationStateLabel.value}`, 'success')
+    else notice(`当前版本状态：${verificationStateLabel.value}`, 'success')
   } catch (error) {
     if (ownsRead()) notice(accessFailureNotice(error) || '无法确认原验证尝试。未找到或读取失败不表示未发送；请保留请求编号并继续只读核查。', 'warning')
   } finally {
@@ -1821,7 +1821,7 @@ async function verifyDraft(): Promise<void> {
       const result = await onboardingApi.verify(target.deployment_id, target.revision, processingLocation.value, request.key, 150000)
       if (current !== epoch || draft.value !== target) return
       if (result.deployment_id !== target.deployment_id || result.revision !== target.revision
-        || result.state !== 'tested') throw new Error('返回的验证修订或状态不一致')
+        || result.state !== 'tested') throw new Error('返回的验证版本或状态不一致')
       if (!result.validation_evidence) throw new Error('验证证据缺失')
       applyVerification(result)
       resolveVerificationRequest(request)
@@ -1834,7 +1834,7 @@ async function verifyDraft(): Promise<void> {
         if (providerProblemCode(error) === 'SAND_AI_PROVIDER_REJECTED') verificationRejected.value = true
 
         // An access denial does not substitute for a receipt associated with the original key.
-        notice(accessFailureNotice(error) || '验证未确认。请读取同一修订状态；结果不明时不要重复验证。', 'warning')
+        notice(accessFailureNotice(error) || '验证未确认。请读取同一版本状态；结果不明时不要重复验证。', 'warning')
         busy.value = ''
         await readVerification()
       }
@@ -1855,17 +1855,17 @@ async function readCurrentPublicationRevision(): Promise<void> {
   try {
     const saved = await onboardingApi.readDraft(target.deployment_id)
     if (current !== epoch || !matchesDraft(target)) return
-    if (saved.deployment_id !== target.deployment_id || !Number.isSafeInteger(saved.revision) || saved.revision < 1) throw new Error('当前修订不一致')
+    if (saved.deployment_id !== target.deployment_id || !Number.isSafeInteger(saved.revision) || saved.revision < 1) throw new Error('当前版本不一致')
     readChatDraftSettings(saved)
     if (journey.value && (saved.provider.code !== journey.value.provider_code || saved.model.code !== journey.value.model_code || saved.model.type !== journey.value.model_type || !positiveId(saved.provider.id) || !positiveId(saved.model.id))) throw new Error('Original deployment identity differs')
     const state = await onboardingApi.readVerification(saved.deployment_id, saved.revision)
     if (current !== epoch || !matchesDraft(target)) return
     if (state.deployment_id !== saved.deployment_id || state.revision !== saved.revision || state.state !== saved.state
-      || !['draft', 'verifying', 'tested', 'published', 'verification_ambiguous'].includes(state.state)) throw new Error('当前修订状态不一致')
+      || !['draft', 'verifying', 'tested', 'published', 'verification_ambiguous'].includes(state.state)) throw new Error('当前版本状态不一致')
     publicationPreview.value = { draft: saved, verification: state }
-    notice('已读取当前修订。请核对上方模型、配置和状态后明确确认；本页不会自动验证或启用。', 'warning')
+    notice('已读取当前版本。请核对上方模型、配置和状态后明确确认；本页不会自动验证或启用。', 'warning')
   } catch (error) {
-    if (current === epoch && matchesDraft(target)) notice(accessFailureNotice(error) || '当前部署修订读取未确认，请重试读取；保留原目标，不会自动启用或解除原验证锁。', 'warning')
+    if (current === epoch && matchesDraft(target)) notice(accessFailureNotice(error) || '当前设置版本读取未确认，请重试读取；保留原目标，不会自动启用或解除原验证锁。', 'warning')
   } finally {
     if (current === epoch && matchesDraft(target)) busy.value = ''
   }
@@ -1877,8 +1877,8 @@ async function confirmCurrentPublicationRevision(): Promise<void> {
   const current = epoch
   try {
     await ElMessageBox.confirm(
-      `确认切换到部署 ${preview.draft.deployment_id} 的修订 ${preview.draft.revision}，模型 ${preview.draft.model.name}（${preview.draft.deployment.remote_model}）？这只更新本页操作目标，不会验证或启用。`,
-      '确认当前修订', { confirmButtonText: '确认此修订', cancelButtonText: '保留原目标', type: 'warning' }
+      `确认切换到设置 ${preview.draft.deployment_id} 的版本 ${preview.draft.revision}，模型 ${preview.draft.model.name}（${preview.draft.deployment.remote_model}）？这只更新本页操作目标，不会验证或启用。`,
+      '确认当前版本', { confirmButtonText: '确认此版本', cancelButtonText: '保留原目标', type: 'warning' }
     )
   } catch { return }
   if (current !== epoch || publicationPreview.value !== preview || busy.value || verificationRecoveryPending.value || verificationStorageError.value || journeyLocked.value) return
@@ -1887,7 +1887,7 @@ async function confirmCurrentPublicationRevision(): Promise<void> {
     if (!stored || stored.phase !== 'saved') throw new Error('Original journey unresolved')
     if (preview.draft.provider.code !== stored.provider_code || preview.draft.model.code !== stored.model_code || preview.draft.model.type !== 'chat') throw new Error('Original deployment identity changed')
     persistJourney({ ...stored, deployment_id: preview.draft.deployment_id, revision: preview.draft.revision, provider_id: preview.draft.provider.id, model_id: preview.draft.model.id })
-  } catch { journeyStorageError.value = true; notice('无法可靠保留已确认的修订，请先找回原开通状态。', 'warning'); return }
+  } catch { journeyStorageError.value = true; notice('无法可靠保留已确认的版本，请先找回原开通状态。', 'warning'); return }
   hydrateDraftConfiguration(preview.draft)
   draft.value = preview.draft
   applyVerification(preview.verification)
@@ -1897,7 +1897,7 @@ async function confirmCurrentPublicationRevision(): Promise<void> {
   boundEnvironmentId.value = null
   publicationConfirmationRequired.value = false
   publicationPreview.value = null
-  notice(published.value ? '已确认当前修订已经启用；可按实际状态继续绑定环境。' : '已确认当前修订。请按其实际状态选择验证、启用或重新配置；不会自动执行。', 'success')
+  notice(published.value ? '已确认当前版本已经启用；可按实际状态继续绑定环境。' : '已确认当前版本。请按其实际状态选择验证、启用或重新配置；不会自动执行。', 'success')
 }
 
 async function confirmOriginalPublication(): Promise<void> {
@@ -1928,13 +1928,13 @@ async function confirmOriginalPublication(): Promise<void> {
     publicationConfirmationRequired.value = true
     publicationPreview.value = null
     if (saved.state !== 'published' || (state.state !== 'published' && !verifiedPublished)) {
-      notice(`原部署 ${stored.deployment_id} · 修订 ${stored.revision} 当前为${verificationLabel(saved.state)}。原启用结果仍未确认；当前状态不能证明原启用未发生，保留原目标，不再次提交启用。`, 'warning')
+      notice(`原设置 ${stored.deployment_id} · 版本 ${stored.revision} 当前为${verificationLabel(saved.state)}。原启用结果仍未确认；当前状态不能证明原启用未发生，保留原目标，不再次提交启用。`, 'warning')
       return
     }
     persistJourney(savedJourney(stored, saved))
     journeyStorageError.value = false
     publicationConfirmationRequired.value = false
-    notice(`已只读确认原部署 ${stored.deployment_id} · 修订 ${stored.revision} 当前已启用。这是固定修订的当前状态，不是原启用操作回执；目标环境仍需显式绑定。`, 'success')
+    notice(`已只读确认原设置 ${stored.deployment_id} · 版本 ${stored.revision} 当前已启用。这是固定版本的当前状态，不是原启用操作回执；目标环境仍需显式绑定。`, 'success')
   } catch (error) {
     if (current === epoch) {
       publicationConfirmationRequired.value = true
@@ -1961,15 +1961,15 @@ async function publish(): Promise<void> {
   try {
     try {
       await ElMessageBox.confirm(
-        `确认启用部署 ${target.deployment_id} · 修订 ${target.revision}？服务商：${target.provider.name}；模型：${target.model.name}（${target.deployment.remote_model}）；验证状态：${verificationLabel(verification.value.state)}；输出上限：${target.deployment.config.max_output_tokens}；推理额度：${target.deployment.config.reasoning_effort || '由模型服务决定'}；技能模板输出：${target.deployment.config.skill_output_strategy ? skillStrategyLabels[target.deployment.config.skill_output_strategy] : '标准输出（默认）'}。当前应用 ${selectedApplication || '未选'}、环境 ${selectedEnvironment || '未选'}；启用不会自动绑定环境。`,
-        '确认启用模型修订', { type: 'warning', confirmButtonText: '启用此修订', cancelButtonText: '取消' }
+        `确认启用设置 ${target.deployment_id} · 版本 ${target.revision}？服务商：${target.provider.name}；模型：${target.model.name}（${target.deployment.remote_model}）；验证状态：${verificationLabel(verification.value.state)}；输出上限：${target.deployment.config.max_output_tokens}；推理额度：${target.deployment.config.reasoning_effort || '由模型服务决定'}；技能模板输出：${target.deployment.config.skill_output_strategy ? skillStrategyLabels[target.deployment.config.skill_output_strategy] : '标准输出（默认）'}。当前应用 ${selectedApplication || '未选'}、环境 ${selectedEnvironment || '未选'}；启用不会自动绑定环境。`,
+        '确认启用模型版本', { type: 'warning', confirmButtonText: '启用此版本', cancelButtonText: '取消' }
       )
     } catch { return }
     if (current !== epoch) return
     if (draft.value !== target || JSON.stringify(draft.value) !== targetSnapshot
       || JSON.stringify(verification.value) !== verificationSnapshot || JSON.stringify(journey.value) !== originalJourney
       || applicationId.value !== selectedApplication || environmentId.value !== selectedEnvironment) {
-      notice('确认期间模型修订、配置、验证状态或目标环境已变化，尚未启用。请重新读取并核对原目标。', 'warning')
+      notice('确认期间模型版本、配置、验证状态或目标环境已变化，尚未启用。请重新读取并核对原目标。', 'warning')
       return
     }
     try {
@@ -1987,7 +1987,7 @@ async function publish(): Promise<void> {
       const state = await onboardingApi.readVerification(target.deployment_id, target.revision)
       if (current !== epoch || !matchesDraft(target)) return
       if (saved.deployment_id !== target.deployment_id || saved.revision !== target.revision || saved.state !== 'published'
-        || state.deployment_id !== target.deployment_id || state.revision !== target.revision || state.state !== 'published') throw new Error('启用修订未确认')
+        || state.deployment_id !== target.deployment_id || state.revision !== target.revision || state.state !== 'published') throw new Error('启用版本未确认')
       hydrateDraftConfiguration(saved)
       draft.value = saved
       applyVerification(state)
@@ -2002,7 +2002,7 @@ async function publish(): Promise<void> {
         publicationPreview.value = null
         published.value = false
         boundEnvironmentId.value = null
-        notice(accessFailureNotice(error) || '原启用结果尚未确认。请只读找回原部署与修订；可预览当前修订，但原结果未知时不能切换目标或重新启用。', 'warning')
+        notice(accessFailureNotice(error) || '原启用结果尚未确认。请只读找回原设置与版本；可预览当前版本，但原结果未知时不能切换目标或重新启用。', 'warning')
       }
     } finally {
       if (current === epoch) busy.value = ''
@@ -2038,7 +2038,7 @@ async function readOriginalBinding(): Promise<void> {
     const before = await onboardingApi.readDraft(target.deployment_id)
     if (!stillOriginal()) return
     if (before.deployment_id !== target.deployment_id || before.revision !== target.revision || before.state !== 'published') {
-      bindingNotice.value = '原部署当前修订或启用状态不匹配。保留原目标，请到专业配置核对；不会重新绑定。'
+      bindingNotice.value = '原设置当前版本或启用状态不匹配。保留原目标，请到专业配置核对；不会重新绑定。'
       return
     }
     const result = await capabilityApi.readProfile(target.environment_id)
@@ -2060,7 +2060,7 @@ async function readOriginalBinding(): Promise<void> {
     const after = await onboardingApi.readDraft(target.deployment_id)
     if (!stillOriginal()) return
     if (after.deployment_id !== target.deployment_id || after.revision !== target.revision || after.state !== 'published') {
-      bindingNotice.value = '读取期间原部署修订或状态已变化，绑定结果仍未确认。请保留原目标。'
+      bindingNotice.value = '读取期间原设置版本或状态已变化，绑定结果仍未确认。请保留原目标。'
       return
     }
     resolveOnboardingBindingIntent(target)
@@ -2068,7 +2068,7 @@ async function readOriginalBinding(): Promise<void> {
     bindingIntent.value = null
     bindingStorageError.value = false
     boundEnvironmentId.value = target.environment_id
-    bindingNotice.value = `已核对环境 ${target.environment_id} 当前默认聊天使用部署 ${target.deployment_id} · 修订 ${target.revision}。这是当前配置状态，不是原操作回执。`
+    bindingNotice.value = `已核对环境 ${target.environment_id} 当前默认聊天使用设置 ${target.deployment_id} · 版本 ${target.revision}。这是当前配置状态，不是原操作回执。`
   } catch {
     if (stillOriginal()) bindingNotice.value = '原绑定目标读取或记录确认失败，结果仍未确认。请保留原目标，恢复权限或会话存储后再读取；不会重新发送绑定。'
   } finally {
@@ -2089,7 +2089,7 @@ async function bindDefaultChat(): Promise<void> {
   const verificationSnapshot = JSON.stringify(verification.value)
   if (!positiveId(selectedApplication) || !applications.value.some(item => item.id === selectedApplication)
     || !environments.value.some(item => item.id === selectedEnvironment && item.application_id === selectedApplication)) {
-    notice('请先从当前 SandIAM 目录重新选择应用与环境。', 'warning'); return
+    notice('请先从当前「身份与权限」目录重新选择应用与环境。', 'warning'); return
   }
   const ownsTarget = (): boolean => current === epoch && applicationId.value === selectedApplication
     && environmentId.value === selectedEnvironment && draft.value === selectedDraft
@@ -2108,7 +2108,7 @@ async function bindDefaultChat(): Promise<void> {
     const saved = await onboardingApi.readDraft(deploymentId)
     if (!ownsTarget()) return
     if (!samePublishedDeployment(saved)) {
-      bindingNotice.value = '原部署修订、配置或启用状态已变化，尚未发送绑定。请重新读取并核对原修订。'
+      bindingNotice.value = '原设置版本、配置或启用状态已变化，尚未发送绑定。请重新读取并核对原版本。'
       return
     }
     const before = await capabilityApi.readProfile(selectedEnvironment)
@@ -2118,12 +2118,12 @@ async function bindDefaultChat(): Promise<void> {
       || !positiveId(previous.revision) || !Array.isArray(previous.routes))) throw new Error('当前能力配置无法确认')
     const bindingSnapshot = JSON.stringify(previous)
     const previousDescription = previous
-      ? `当前能力档 ${previous.id} · 修订 ${previous.revision}（${previous.state}）；名称：${previous.name}；模板：${previous.template_code || '未指定'}；材料发送策略：${previous.data_egress_policy}；路线：${previous.routes?.map(route => `${route.capability_code} / ${route.deployment_id ?? route.driver_code ?? '未设置'}`).join('、') || '无'}`
+      ? `当前能力档 ${previous.id} · 版本 ${previous.revision}（${previous.state}）；名称：${previous.name}；模板：${previous.template_code || '未指定'}；材料发送策略：${previous.data_egress_policy}；路线：${previous.routes?.map(route => `${route.capability_code} / ${route.deployment_id ?? route.driver_code ?? '未设置'}`).join('、') || '无'}`
       : '当前环境尚无能力档'
     try {
       await ElMessageBox.confirm(
-        `确认将应用 ${selectedApplication}、环境 ${selectedEnvironment} 的默认聊天绑定到部署 ${deploymentId} · 修订 ${revision}？模型：${selectedDraft.model.name}（${selectedDraft.deployment.remote_model}）；验证状态：${verificationLabel(verification.value?.state ?? 'draft')}；输出上限：${selectedDraft.deployment.config.max_output_tokens}；推理额度：${selectedDraft.deployment.config.reasoning_effort || '由模型服务决定'}；技能模板输出：${selectedDraft.deployment.config.skill_output_strategy ? skillStrategyLabels[selectedDraft.deployment.config.skill_output_strategy] : '标准输出（默认）'}。${previousDescription}。本操作采用首次开通默认聊天配置、允许已批准云端处理；不会覆盖不同的已启用能力档。`,
-        '确认默认聊天绑定', { type: 'warning', confirmButtonText: '绑定此修订和环境', cancelButtonText: '保留原目标' }
+        `确认将应用 ${selectedApplication}、环境 ${selectedEnvironment} 的默认聊天绑定到设置 ${deploymentId} · 版本 ${revision}？模型：${selectedDraft.model.name}（${selectedDraft.deployment.remote_model}）；验证状态：${verificationLabel(verification.value?.state ?? 'draft')}；输出上限：${selectedDraft.deployment.config.max_output_tokens}；推理额度：${selectedDraft.deployment.config.reasoning_effort || '由模型服务决定'}；技能模板输出：${selectedDraft.deployment.config.skill_output_strategy ? skillStrategyLabels[selectedDraft.deployment.config.skill_output_strategy] : '标准输出（默认）'}。${previousDescription}。本操作采用首次开通默认聊天配置、允许已批准云端处理；不会覆盖不同的已启用能力档。`,
+        '确认默认聊天绑定', { type: 'warning', confirmButtonText: '绑定此版本和环境', cancelButtonText: '保留原目标' }
       )
     } catch { return }
     if (!ownsTarget()) return
@@ -2132,7 +2132,7 @@ async function bindDefaultChat(): Promise<void> {
     ])
     if (!ownsTarget()) return
     if (!samePublishedDeployment(head) || JSON.stringify(latest.profile) !== bindingSnapshot) {
-      bindingNotice.value = '确认期间部署修订或当前环境能力配置已变化，尚未发送绑定。请重新核对当前配置。'
+      bindingNotice.value = '确认期间设置版本或当前环境能力配置已变化，尚未发送绑定。请重新核对当前配置。'
       return
     }
     const target: OnboardingBindingIntent = {
@@ -2159,7 +2159,7 @@ async function bindDefaultChat(): Promise<void> {
   } catch (error) {
     if (ownsTarget()) bindingNotice.value = retainedTarget
       ? '绑定结果尚未确认，服务器可能已完成原绑定。请读取原目标；不会重新绑定或覆盖配置。'
-      : accessFailureNotice(error) || '无法读取当前部署或环境能力配置，尚未发送绑定。请恢复读取条件后重新核对。'
+      : accessFailureNotice(error) || '无法读取当前设置或环境能力配置，尚未发送绑定。请恢复读取条件后重新核对。'
   } finally {
     if (flight === bindingFlightSerial) {
       bindingSubmitting.value = false
