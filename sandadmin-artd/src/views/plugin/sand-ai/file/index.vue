@@ -5,10 +5,7 @@
         <div class="file-header">
           <div>
             <h2 class="file-title">文件中心</h2>
-            <p class="file-desc">
-              上传文档或录音后，可提交解析或转写任务。录音结果和费用在任务中心查看。
-              清理进行中请刷新状态；清理失败可在原文件上重试，无需重新上传。
-            </p>
+            <p class="file-desc">上传文档或录音，整理好后可以放进知识库。</p>
           </div>
         </div>
 
@@ -26,17 +23,17 @@
         </ElForm>
 
         <p v-if="pendingCleanupIds.length" class="file-desc">
-          有文件的清理结果尚未确认或被占用阻止；请在下方「高级：按编号查询与找回恢复」中按原文件号核对。
+          有文件的清理结果尚未确认或被占用阻止；请在下方「高级」里按原文件号核对。
         </p>
         <p v-if="parseRecoveryLocked" class="file-desc">
-          有一份解析提交的结果尚未确认；请在「高级：按编号查询与找回恢复」中按原请求编号只读找回。
+          有一份解析提交的结果尚未确认；请在「高级」里按原请求编号查看。
         </p>
         <p v-if="audioRecoveryLocked" class="file-desc">
-          有一份转写提交的结果尚未确认；请在「高级：按编号查询与找回恢复」中按原请求编号只读找回。
+          有一份转写提交的结果尚未确认；请在「高级」里按原请求编号查看。
         </p>
 
         <details class="file-alert file-advanced">
-          <summary>高级：按编号查询与找回恢复（一般不用）</summary>
+          <summary>高级</summary>
           <ElDivider content-position="left">按编号查询已有文件</ElDivider>
           <ElForm label-width="110px" class="file-cred" @submit.prevent>
             <ElFormItem label="文件编号">
@@ -311,7 +308,7 @@
   import '../components/sandAiPage.css'
   import { computed, h, onMounted, onUnmounted, reactive, ref, watch, type VNode } from 'vue'
   import { useRouter } from 'vue-router'
-  import { ElButton, ElMessage, ElMessageBox, ElSpace } from 'element-plus'
+  import { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox, ElSpace } from 'element-plus'
   import type { ColumnOption } from '@/types'
   import { useUserStore } from '@/store/modules/user'
   import fileApi from '../api/file'
@@ -536,8 +533,8 @@
 
   function formatFileSize(bytes: number): string {
     if (!Number.isFinite(bytes) || bytes < 0) return '—'
-    if (bytes < 1024) return `${bytes} B`
-    const units = ['KB', 'MB', 'GB', 'TB']
+    if (bytes < 1024) return `${bytes} 字节`
+    const units = ['千字节', '兆字节', '吉字节']
     let value = bytes / 1024
     let unit = 0
     while (value >= 1024 && unit < units.length - 1) {
@@ -608,12 +605,13 @@
         onClick: main.run
       }, () => main.label))
     }
-    nodes.push(h(ElButton, { size: 'small', onClick: () => { detailFileId.value = row.id } }, () => '详情'))
-    nodes.push(h(
-      ElButton,
-      { size: 'small', loading: busy.value === 'read', onClick: () => void refreshOne(row.id) },
-      () => '刷新'
-    ))
+    nodes.push(h(ElDropdown, { trigger: 'click' }, {
+      default: () => h(ElButton, { size: 'small', link: true }, () => '更多'),
+      dropdown: () => h(ElDropdownMenu, null, () => [
+        h(ElDropdownItem, { onClick: () => { detailFileId.value = row.id } }, () => '详情'),
+        h(ElDropdownItem, { onClick: () => void refreshOne(row.id) }, () => '刷新')
+      ])
+    }))
     nodes.push(h(
       ElButton,
       {
@@ -630,9 +628,9 @@
 
   const columns: ColumnOption<SandAiFile>[] = [
     { prop: 'original_name', label: '文件', minWidth: 180, showOverflowTooltip: true },
-    { prop: 'size_bytes', label: '大小', width: 90, align: 'right', formatter: (row: SandAiFile) => formatFileSize(row.size_bytes) },
+    { prop: 'size_bytes', label: '大小', width: 120, align: 'right', formatter: (row: SandAiFile) => formatFileSize(row.size_bytes) },
     { prop: 'progress', label: '处理进度', minWidth: 150, formatter: (row: SandAiFile) => fileProgressText(row) },
-    { prop: 'create_time', label: '上传时间', width: 165 },
+    { prop: 'create_time', label: '上传时间', minWidth: 180 },
     {
       prop: 'actions',
       label: '操作',

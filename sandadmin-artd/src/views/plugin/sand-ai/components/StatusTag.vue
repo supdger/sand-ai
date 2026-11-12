@@ -1,6 +1,6 @@
 <template>
   <ElTag :type="status === 1 ? 'success' : 'info'" effect="light">
-    {{ status === 1 ? '启用' : '停用' }}
+    {{ status === 1 ? '已启用' : '已停用' }}
   </ElTag>
 </template>
 

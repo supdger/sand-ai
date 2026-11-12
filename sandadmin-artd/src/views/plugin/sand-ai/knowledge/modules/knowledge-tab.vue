@@ -17,9 +17,9 @@
         class="filter-status"
         @change="page = 1"
       >
-        <ElOption label="可用" value="usable" />
-        <ElOption label="索引中" value="indexing" />
-        <ElOption label="索引失败（可重试）" value="failed" />
+        <ElOption label="能用了" value="usable" />
+        <ElOption label="整理中" value="indexing" />
+        <ElOption label="整理失败" value="failed" />
         <ElOption label="未发布" value="draft" />
         <ElOption label="已停用" value="disabled" />
       </ElSelect>
@@ -238,7 +238,6 @@
           <ElTag :type="statusTagType(detailRow)" effect="plain" size="small">
             {{ statusLabel(detailRow) }}
           </ElTag>
-          <span v-if="detailRow.active_version_no" class="detail-version">第 {{ detailRow.active_version_no }} 版</span>
         </div>
         <ElForm label-width="72px" @submit.prevent>
           <ElFormItem label="名称">
@@ -259,7 +258,7 @@
           type="error"
           :closable="false"
           class="detail-alert"
-          :title="detailRow.index_error || '索引没有成功'"
+          :title="detailRow.index_error || '整理失败'"
           description="可以点「重试」再试一次；一直失败请检查 AI 服务商和预算。"
         >
           <template #default>
@@ -286,19 +285,15 @@
           >试一下</ElButton>
           <ElButton
             v-if="detailRow.state === 'draft'"
-            type="primary"
             :loading="publishingId === detailRow.id"
             @click="publishDraft(detailRow)"
           >发布</ElButton>
           <ElButton
             v-if="detailRow.state === 'published'"
-            type="danger"
-            plain
             @click="confirmDisable(detailRow)"
           >停用</ElButton>
           <ElButton
             v-if="detailRow.state === 'disabled'"
-            type="primary"
             :disabled="!detailRow.active_version_id || disablingId === detailRow.id"
             :loading="disablingId === detailRow.id && Boolean(detailRow.active_version_id)"
             :title="detailRow.active_version_id ? '' : '没有已发布的版本，不能启用'"
@@ -495,9 +490,9 @@
 
   function statusLabel(row: KnowledgeBaseRow): string {
     switch (rowStatus(row)) {
-      case 'usable': return '可用'
-      case 'indexing': return '索引中'
-      case 'failed': return '索引失败（可重试）'
+      case 'usable': return '能用了'
+      case 'indexing': return '整理中'
+      case 'failed': return '整理失败'
       case 'draft': return '未发布'
       case 'disabled': return '已停用'
     }
@@ -726,12 +721,14 @@
     }
     if (name === row.name) {
       ElMessage.success(`已保存「${name}」`)
+      detailOpen.value = false
       return
     }
     isSavingName.value = true
     try {
       await knowledgeApi.rename(envId, row.id, name)
       ElMessage.success(`已保存「${name}」`)
+      detailOpen.value = false
       await load()
       const fresh = rows.value.find((item) => item.id === row.id)
       if (fresh) {
