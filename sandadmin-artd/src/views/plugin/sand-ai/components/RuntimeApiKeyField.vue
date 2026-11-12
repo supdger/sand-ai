@@ -1,10 +1,10 @@
 <template>
-  <ElFormItem label="调用密钥">
+  <ElFormItem label="上传身份">
     <div class="runtime-key">
       <template v-if="mode === 'auto'">
         <ElSpace wrap>
           <ElTag :type="trial.state.value === 'ready' ? 'success' : 'info'" effect="plain">
-            {{ trial.state.value === 'ready' ? '已使用管理员试用身份（自动获取，到期自动续期）' : '正在获取管理员试用身份…' }}
+            {{ trial.state.value === 'ready' ? '已用当前管理员身份' : '正在确认身份…' }}
           </ElTag>
         </ElSpace>
         <ElAlert
@@ -16,7 +16,7 @@
           show-icon
         />
         <details class="runtime-key__advanced">
-          <summary>高级：使用自己的调用密钥</summary>
+          <summary>高级</summary>
           <div class="runtime-key__manual">
             <ElInput
               v-model="manualValue"

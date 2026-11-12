@@ -26,7 +26,7 @@
           <ChatRouteTrialPanel :environment-id="environmentId || undefined" />
         </details>
         <details class="section">
-          <summary>高级 · 授权项检查（通常已由系统自动完成，一般无需操作）</summary>
+          <summary>高级</summary>
           <section class="section">
             <h3>能力权限检查</h3>
             <p class="muted">安装时已自动登记 SandAI 所需的全部能力权限。如下方检查发现缺失，可点“补齐”；补齐不会创建应用、调用密钥或允许使用。</p>
@@ -147,7 +147,7 @@
             </template>
             <ElForm v-else label-width="90px" class="narrow">
               <ElFormItem label="应用">
-                <ElSelect v-model="applicationId" clearable filterable placeholder="可选，选择 SandIAM 应用" :loading="loadingIam" :disabled="connectionSubmitting || bindingSubmitting || busy === 'bind'" @change="loadEnvironments">
+                <ElSelect v-model="applicationId" clearable filterable placeholder="选择应用" :loading="loadingIam" :disabled="connectionSubmitting || bindingSubmitting || busy === 'bind'" @change="loadEnvironments">
                   <ElOption v-for="app in applications" :key="app.id" :label="app.name" :value="app.id" />
                 </ElSelect>
               </ElFormItem>
@@ -352,7 +352,7 @@
                 :disabled="Boolean(busy) || journeyLocked || !environmentId || boundEnvironmentId === environmentId" @click="bindDefaultChat">
                 {{ boundEnvironmentId === environmentId ? '本次已绑定到该环境' : '绑定到所选环境' }}
               </ElButton>
-              <span v-if="!environmentId" class="muted">先在工作目标中选择 SandIAM 应用和环境。</span>
+              <span v-if="!environmentId" class="muted">先选择应用和环境。</span>
             </ElSpace>
             <p v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" class="muted">聊天能力已绑定；所选工作目标仍需按对应配置入口继续准备、试用并启用。</p>
             <ElSpace v-if="boundEnvironmentId === environmentId && environmentId && !publicationConfirmationRequired" wrap>

@@ -40,8 +40,9 @@ ok(str_contains($audio, 'function abandonLocalJournal'), 'audio can abandon a lo
 ok(str_contains($ocr, 'isWriteRejected(error)'), 'ocr unlocks a rejected write');
 ok(str_contains($audio, 'isWriteRejected(error)'), 'audio unlocks a rejected write');
 
+// OCR 首装失败页按验收文案用「放弃这次改动」，其余页沿用「放弃此次变更」。
+ok(str_contains($read('components/OcrDeploymentSetup.vue'), '放弃这次改动'), 'components/OcrDeploymentSetup.vue shows the abandon action');
 $pages = [
-    'components/OcrDeploymentSetup.vue',
     'components/SpeechDeploymentSetup.vue',
     'components/TranscriptionDeploymentSetup.vue',
     'components/EmbeddingDeploymentSetup.vue',
