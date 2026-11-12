@@ -312,6 +312,7 @@
   import { errorDisplayText } from '../../api/errorText'
   import { isWriteRejected, writeRejectionText } from '../../api/writeRejection'
   import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
+  import { confirmDeletion } from '../../composables/confirmDeletion'
   import { displayableRuntimeMessage, hintForRuntimeErrorCode } from '../../api/runtimeErrors'
   import iamApi, { type SandIamEnvironmentReference, type SandIamWorkloadClientReference } from '../../api/iam'
   import { AGENT_PAGE_BRIDGE } from '../pageBridge'
@@ -1249,9 +1250,7 @@
     const environment = props.environment
     if (!environment || writing.value || pendingBindingMutation.value || row.status === 1) return
     try {
-      await ElMessageBox.confirm(`删除后「${row.name}」不能恢复。`, `删除「${row.name}」？`, {
-        type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想', confirmButtonClass: 'el-button--danger'
-      })
+      await confirmDeletion(`删除后「${row.name}」不能恢复。`, `删除「${row.name}」？`)
     } catch {
       return
     }

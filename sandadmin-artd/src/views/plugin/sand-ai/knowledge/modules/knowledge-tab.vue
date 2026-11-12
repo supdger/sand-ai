@@ -116,6 +116,13 @@
                 :title="trialHint(row)"
                 @click="openTrial(row)"
               >试一试</ElButton>
+              <ElButton
+                v-if="rowStatus(row) === 'failed'"
+                link
+                type="primary"
+                :loading="retryingId === row.id"
+                @click="retryIndex(row)"
+              >重试</ElButton>
               <ElDropdown trigger="click" @command="(cmd: string) => onRowCommand(cmd, row)">
                 <ElButton link type="primary">更多</ElButton>
                 <template #dropdown>
@@ -532,7 +539,7 @@
     switch (rowStatus(row)) {
       case 'usable': return ''
       case 'indexing': return '整理好才能试'
-      case 'failed': return '整理失败的不能试，先在「更多」里重试'
+      case 'failed': return '整理失败的不能试，先点「重试」'
       case 'draft': return '还没发布的不能试'
       default: return '已停用的不能试'
     }

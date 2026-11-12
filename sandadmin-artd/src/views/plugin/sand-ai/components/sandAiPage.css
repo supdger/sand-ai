@@ -18,3 +18,23 @@
   height: auto;
   overflow: visible;
 }
+
+/* 删除确认框的「再想想」：固定成普通灰按钮，主题给默认按钮加主色描边时不跟着变蓝。 */
+.el-button.sand-ai-confirm-cancel {
+  color: var(--el-text-color-regular);
+  background-color: var(--el-bg-color);
+  border-color: var(--el-border-color);
+}
+
+.el-button.sand-ai-confirm-cancel:hover,
+.el-button.sand-ai-confirm-cancel:focus {
+  color: var(--el-text-color-primary);
+  background-color: var(--el-fill-color-light);
+  border-color: var(--el-border-color-hover);
+}
+
+.el-button.sand-ai-confirm-cancel:active {
+  color: var(--el-text-color-primary);
+  background-color: var(--el-fill-color);
+  border-color: var(--el-border-color-hover);
+}

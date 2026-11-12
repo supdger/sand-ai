@@ -66,7 +66,7 @@ ok(str_contains($file, '上传一份文档或录音试试'), 'file empty state h
 ok(str_contains($file, '上传文件'), 'solid 上传文件 button');
 ok(!str_contains($file, '选择并上传材料'), 'old upload entry copy removed from file page');
 ok(str_contains($file, '已删除「'), 'delete success toast uses file name');
-ok(str_contains($file, '删除后不能恢复，用过的费用记录会保留。'), 'delete confirm plain consequence');
+ok(str_contains($file, '删除后不能恢复。用过的费用记录会保留。'), 'delete confirm plain consequence');
 ok(str_contains($file, "route.query.dev === '1'"), 'dev-only blocks gated by dev=1 query');
 
 // 知识库列表整改

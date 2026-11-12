@@ -165,6 +165,7 @@ import { newRuntimeRequestId, SandAiRuntimeError } from '../../api/runtime'
 import { errorDisplayText } from '../../api/errorText'
 import { isWriteRejected, writeRejectionText } from '../../api/writeRejection'
 import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
+import { confirmDeletion } from '../../composables/confirmDeletion'
 const props = defineProps<{ environmentId: number | null }>()
 const user = useUserStore()
 const adminBusy = ref(false)
@@ -524,9 +525,7 @@ async function retireDefinition(): Promise<void> {
   const current = detail.value
   if (!env || !current || current.definition.state === 'published' || busy.value || adminPending.value) return
   try {
-    await ElMessageBox.confirm(`删除后「${current.definition.name}」不能恢复。`, `删除「${current.definition.name}」？`, {
-      type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想', confirmButtonClass: 'el-button--danger'
-    })
+    await confirmDeletion(`删除后「${current.definition.name}」不能恢复。`, `删除「${current.definition.name}」？`)
   } catch { return }
   const generation = ++epoch
   adminBusy.value = true
