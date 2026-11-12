@@ -10,6 +10,30 @@
           <ElButton type="primary" :disabled="!canPickFile" @click="pickFile">上传文件</ElButton>
         </div>
 
+        <div v-if="environments.length > 1" class="file-env">
+          <ElSelect
+            v-model="environmentModel"
+            clearable
+            filterable
+            placeholder="选择环境"
+            class="file-env-select"
+          >
+            <ElOption
+              v-for="item in environments"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </ElSelect>
+        </div>
+        <ElAlert
+          v-else-if="environmentsLoaded && environments.length === 0"
+          type="info"
+          :closable="false"
+          class="file-alert"
+          title="还没有可用环境，请先在应用里开通环境后再管理文件。"
+        />
+
         <ElForm v-show="devOpen" label-width="110px" class="file-cred" @submit.prevent>
           <RuntimeApiKeyField
             v-model="apiKey"
@@ -17,7 +41,7 @@
             placeholder="当前应用的调用密钥（需允许使用文件读写）"
           />
         </ElForm>
-        <PrivateFileUpload ref="uploadRef" :bearer="apiKey" :disabled="busy !== ''"
+        <PrivateFileUpload ref="uploadRef" :bearer="apiKey" :environment-id="environmentId ?? undefined" :disabled="busy !== ''"
           hide-trigger :plain="!devOpen"
           accept=".pdf,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp,.mp3,.m4a,.ogg,.wav,.webm,.flac"
           @file="upsertFile" @busy="uploadBusy" @identity-denied="clearOnAccessDenied" />
@@ -48,7 +72,7 @@
           <details class="file-alert file-recover">
             <summary>长 TXT 来源与旧解析恢复</summary>
             <p class="file-desc">新 TXT 解析将长行分成来源块，保留原行及实际字符范围；更新不会改写旧解析或已启用知识版本。</p>
-            <p class="file-desc">若已确认旧来源块超过模型或索引输入上限，请重新选择原 TXT 上传，取得新的文件号，再提交解析。解析结果不明时沿请求编号找回，失败只处理原任务；完成后到知识库配置选择新文件，使用新的知识库代码建立草稿、启用并准备索引。</p>
+            <p class="file-desc">若已确认旧来源块超过模型或索引输入上限，请重新选择原 TXT 上传，取得新的文件号，等待自动处理。解析结果不明时沿请求编号找回，失败只处理原任务；完成后到知识库配置选择新文件，使用新的知识库代码建立草稿、启用并准备索引。</p>
             <p class="file-desc">保留旧文件、已启用知识库及原索引记录。停用不会解除已启用来源引用；清理向量或解除来源引用不能用于重新解析并保留历史。</p>
             <ElButton :disabled="Boolean(busy)" @click="router.push('/sand-ai/knowledge')">继续建立新知识库</ElButton>
           </details>
@@ -76,7 +100,7 @@
             </ElFormItem>
             <ElFormItem label="原解析请求编号">
               <ElInput v-model.trim="parseLookupKey" maxlength="96"
-                :disabled="Boolean(busy) || !!pendingParseSubmit" placeholder="原提交解析时的请求编号" />
+                :disabled="Boolean(busy) || !!pendingParseSubmit" placeholder="原解析请求编号" />
             </ElFormItem>
             <ElFormItem>
               <ElSpace wrap>
@@ -187,12 +211,54 @@
           >去能力配置补齐该能力</ElButton>
         </ElAlert>
 
-        <div v-if="recentFiles.length === 0 && busy === ''" class="file-empty">
-          <p class="file-empty-title">还没有文件</p>
-          <p class="file-desc">上传一份文档或录音试试</p>
-          <ElButton type="primary" :disabled="!canPickFile" @click="pickFile">上传文件</ElButton>
-        </div>
-        <ArtTable v-else row-key="id" :loading="busy !== ''" :data="recentFiles" :columns="columns" empty-text="还没有文件" />
+        <ElSkeleton v-if="!environmentsLoaded" :rows="6" animated />
+        <ElEmpty v-else-if="environmentId === null" description="请先在上方选择环境" />
+        <template v-else>
+          <div class="file-filters">
+            <ElInput
+              v-model="listKeyword"
+              clearable
+              placeholder="按文件名搜索"
+              class="file-search"
+              @keyup.enter="applyListFilter"
+              @clear="applyListFilter"
+            />
+            <ElSelect
+              v-model="listStateFilter"
+              clearable
+              placeholder="全部状态"
+              class="file-state-filter"
+              @change="applyListFilter"
+            >
+              <ElOption label="处理中" value="processing" />
+              <ElOption label="能用了" value="usable" />
+              <ElOption label="处理失败" value="failed" />
+            </ElSelect>
+          </div>
+          <ElAlert v-if="listError" class="file-alert" type="error" :closable="false" :title="listError">
+            <template #default>
+              <ElButton size="small" type="primary" @click="loadFiles()">重新加载</ElButton>
+            </template>
+          </ElAlert>
+          <div v-else-if="listRows.length === 0 && !listLoading && !listFiltered" class="file-empty">
+            <p class="file-empty-title">还没有文件</p>
+            <p class="file-desc">上传一份文档或录音试试</p>
+            <ElButton type="primary" :disabled="!canPickFile" @click="pickFile">上传文件</ElButton>
+          </div>
+          <template v-else>
+            <ArtTable row-key="id" :loading="listLoading" :data="listRows" :columns="columns" empty-text="没有找到符合条件的文件" />
+            <div class="file-pager">
+              <ElPagination
+                :current-page="listPage"
+                :page-size="LIST_LIMIT"
+                :total="listTotal"
+                layout="total, prev, pager, next"
+                background
+                @current-change="onListPage"
+              />
+            </div>
+          </template>
+        </template>
       </ElCard>
 
       <ElDialog v-model="detailDialogOpen" title="文件详情" width="640px">
@@ -203,7 +269,7 @@
             <ElDescriptionsItem v-if="devOpen" label="扩展名">{{ detailFile.extension || '—' }}</ElDescriptionsItem>
             <ElDescriptionsItem v-if="devOpen" label="文件格式">{{ detailFile.media_type }}</ElDescriptionsItem>
             <ElDescriptionsItem label="大小">{{ formatFileSize(detailFile.size_bytes) }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="文件状态">{{ fileStateLabel(detailFile.state) }}</ElDescriptionsItem>
+            <ElDescriptionsItem label="文件状态">{{ fileStatusText(detailFile.state) }}</ElDescriptionsItem>
             <ElDescriptionsItem label="上传时间">{{ formatServerDateTime(detailFile.create_time) }}</ElDescriptionsItem>
             <ElDescriptionsItem label="更新时间">{{ formatServerDateTime(detailFile.update_time) }}</ElDescriptionsItem>
             <ElDescriptionsItem v-if="devOpen" label="清理状态">
@@ -225,11 +291,9 @@
             <ElButton v-if="detailFile && !parsedTextTargetForRow(detailFile) && (lastTaskByFile[detailFile.id] ?? detailFile.latest_parse?.task)"
               :disabled="pendingCleanup.has(detailFile.id) || isCleanupState(detailFile.state)"
               @click="goTask(detailFile.id)">看任务</ElButton>
-            <ElButton :disabled="busy !== '' || pendingCleanup.has(detailFile.id) || parseRecoveryLocked
-              || (!!parseLookupKey.trim() && !pendingParseSubmit) || audioExtensions.has(detailFile.extension) || isCleanupState(detailFile.state)"
-              :loading="busy === 'parse'" @click="handleParse(detailFile.id)">
-              {{ detailFile.state === 'parse_canceled' ? '核对取消后重新解析' : detailFile.state === 'parse_failed' ? '继续原解析任务' : '提交解析' }}
-            </ElButton>
+            <ElButton v-if="fileStatusView(detailFile.state) === 'failed' && !isCleanupState(detailFile.state) && !audioExtensions.has(detailFile.extension)"
+              :disabled="retryDisabled(detailFile)"
+              :loading="busy === 'parse'" @click="retryParse(detailFile.id)">重试</ElButton>
             <ElButton v-if="audioExtensions.has(detailFile.extension)"
               :disabled="busy !== '' || pendingCleanup.has(detailFile.id) || detailFile.state !== 'uploaded' || !detailFile.file_ref"
               :loading="busy === 'audio'" @click="openAudioDialog(detailFile)">转写录音</ElButton>
@@ -240,7 +304,7 @@
 
       <ElDialog v-model="cleanupDialogOpen" title="文件清理状态" width="640px">
         <template v-if="cleanupFile">
-          <p>原文件 #{{ cleanupFile.id }} · {{ fileStateLabel(cleanupFile.state) }}</p>
+          <p>原文件 #{{ cleanupFile.id }} · {{ cleanupFile.state === 'deleted' ? '已删除' : fileStatusText(cleanupFile.state) }}</p>
           <ElButton :disabled="Boolean(busy) || !apiKey.trim()" @click="refreshOne(cleanupFile.id)">刷新原文件清理状态</ElButton>
           <ElDescriptions :column="1" border>
             <ElDescriptionsItem label="清理状态">{{ cleanupStateLabel(cleanupFile.cleanup?.state) }}</ElDescriptionsItem>
@@ -315,13 +379,15 @@
   import '../components/sandAiPage.css'
   import { computed, h, onMounted, onUnmounted, reactive, ref, watch, type VNode } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
-  import { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElSpace } from 'element-plus'
+  import { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElSpace, ElTag, ElTooltip } from 'element-plus'
   import { ElMessageBox } from 'element-plus'
   import { confirmDeletion } from '../composables/confirmDeletion'
+  import { useAdminReadIdentity } from '../composables/useAdminReadIdentity'
   import { formatServerDateTime, formatServerMinute } from '../api/localTime'
   import type { ColumnOption } from '@/types'
   import { useUserStore } from '@/store/modules/user'
   import fileApi from '../api/file'
+  import iamApi, { type SandIamEnvironmentReference } from '../api/iam'
   import audioTranscriptionApi, { type AudioTranscriptionRequest } from '../api/audioTranscription'
   import taskApi from '../api/task'
   import { readRuntimeBearer } from '../api/runtimeBearerSession'
@@ -331,8 +397,9 @@
   import { isWriteRejected, writeRejectionText } from '../api/writeRejection'
   import { confirmAbandonPendingWrite } from '../composables/pendingWrite'
   import type { RuntimeUiError } from '../api/runtimeErrors'
-  import type { SandAiCleanupState, SandAiCleanupStatus, SandAiFile, SandAiTask } from '../api/types'
+  import type { SandAiCleanupState, SandAiCleanupStatus, SandAiFile, SandAiFileListItem, SandAiTask } from '../api/types'
   import { runStateLabel } from '../api/displayLabels'
+  import { fileStatusText, fileStatusView, type FileStatusKind } from '../api/fileStatus'
   import RuntimeApiKeyField from '../components/RuntimeApiKeyField.vue'
   import PrivateFileUpload from '../components/PrivateFileUpload.vue'
   import FileParsedTextDrawer from '../components/FileParsedTextDrawer.vue'
@@ -340,19 +407,67 @@
   const router = useRouter()
   const route = useRoute()
   const userStore = useUserStore()
+  const identity = useAdminReadIdentity()
   /** 上传身份、按编号查询与找回恢复、清理明细只在开发者模式下露出。 */
   const devOpen = computed(() => route.query.dev === '1')
   const apiKey = ref('')
   const uploadRef = ref<InstanceType<typeof PrivateFileUpload> | null>(null)
-  const canPickFile = computed(() => apiKey.value.trim() !== '' && busy.value === '' && (uploadRef.value?.uploadReady ?? false))
+  const canPickFile = computed(() => apiKey.value.trim() !== '' && busy.value === '' && environmentId.value !== null && (uploadRef.value?.uploadReady ?? false))
   function pickFile(): void {
     uploadRef.value?.pick()
   }
   let viewGeneration = 0
   const lookupId = ref<number | undefined>(undefined)
-  const recentFiles = ref<SandAiFile[]>([])
+
+  /** 列表行：后端分页项叠上本会话已读到的完整文件（含解析/清理投影）。 */
+  type FileRow = SandAiFile & { failure_text?: string | null }
+  const LIST_LIMIT = 20
+  const LIST_POLL_MS = 4000
+  /** 状态筛选下拉值 → 后端 state 多值，只含 LIST_STATES 白名单内取值。 */
+  const LIST_STATE_GROUPS: Record<FileStatusKind, string[]> = {
+    processing: ['uploaded', 'parsing', 'deleting'],
+    usable: ['parsed'],
+    failed: ['parse_failed', 'parse_canceled', 'delete_failed']
+  }
+  const environmentId = ref<number | null>(null)
+  const environmentModel = computed<number | null>({
+    get: () => environmentId.value,
+    set: (value) => { environmentId.value = typeof value === 'number' ? value : null }
+  })
+  const environments = ref<SandIamEnvironmentReference[]>([])
+  const environmentsLoaded = ref(false)
+  const listItems = ref<SandAiFileListItem[]>([])
+  const listTotal = ref(0)
+  const listPage = ref(1)
+  const listKeyword = ref('')
+  const listStateFilter = ref<FileStatusKind | ''>('')
+  const listLoading = ref(false)
+  const listError = ref('')
+  const fullFiles = reactive(new Map<number, SandAiFile>())
+  let listGeneration = 0
+  let listPollTimer: ReturnType<typeof setTimeout> | null = null
+
+  function mergedRow(item: SandAiFileListItem): FileRow {
+    const known = fullFiles.get(item.id)
+    if (known !== undefined) return { ...known, failure_text: item.failure_text }
+    return {
+      id: item.id, original_name: item.original_name, extension: item.extension,
+      media_type: item.media_type, size_bytes: item.size_bytes, sha256: item.sha256,
+      state: item.state, latest_parse: null, create_time: item.create_time,
+      update_time: item.create_time, failure_text: item.failure_text
+    }
+  }
+
+  const listRows = computed<FileRow[]>(() => listItems.value.map(mergedRow))
+  const listFiltered = computed(() => listKeyword.value.trim() !== '' || listStateFilter.value !== '')
+  const needsListPoll = computed(() => listRows.value.some(row => fileStatusView(row.state) === 'processing'))
+
+  function fileById(fileId: number): FileRow | null {
+    return listRows.value.find(row => row.id === fileId) ?? fullFiles.get(fileId) ?? null
+  }
+
   const cleanupFileId = ref<number | null>(null)
-  const cleanupFile = computed(() => recentFiles.value.find(file => file.id === cleanupFileId.value))
+  const cleanupFile = computed(() => cleanupFileId.value === null ? null : fileById(cleanupFileId.value))
   const cleanupDialogOpen = computed({ get: () => cleanupFileId.value !== null, set: (value: boolean) => { if (!value) cleanupFileId.value = null } })
   const lastTaskByFile = ref<Record<number, SandAiTask>>({})
   const busy = ref<'upload' | 'read' | 'parse' | 'audio' | 'audio-recovery' | 'parse-recovery' | 'delete' | ''>('')
@@ -459,7 +574,8 @@
   }
 
   function clearFilePrivateState(fileId: number): void {
-    recentFiles.value = recentFiles.value.map((file) => file.id === fileId ? { ...file, latest_parse: null } : file)
+    const known = fullFiles.get(fileId)
+    if (known !== undefined) fullFiles.set(fileId, { ...known, latest_parse: null })
     delete lastTaskByFile.value[fileId]
     if (selectedAudioFile.value?.id === fileId) {
       selectedAudioFile.value = null
@@ -490,7 +606,7 @@
     parseReaderKey.value = ''
     parsedTextTarget.value = null
     fileEpochs.clear()
-    recentFiles.value = []
+    fullFiles.clear()
     cleanupFileId.value = null
     lastTaskByFile.value = {}
     pendingCleanup.clear()
@@ -537,7 +653,7 @@
   }
 
   const detailFileId = ref<number | null>(null)
-  const detailFile = computed(() => recentFiles.value.find(file => file.id === detailFileId.value) ?? null)
+  const detailFile = computed(() => detailFileId.value === null ? null : fileById(detailFileId.value))
   const detailTask = computed<SandAiTask | null>(() => {
     const file = detailFile.value
     if (!file) return null
@@ -562,57 +678,53 @@
     return `${value >= 100 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`
   }
 
-  /** 主列表只保留「文件名 / 处理进度 / 查看结果」；解析与任务细节进详情。 */
-  function fileProgressText(row: SandAiFile): string {
-    if (pendingCleanup.has(row.id)) return '清理结果尚未确认'
-    if (row.state === 'deleting') return '清理进行中'
-    if (row.state === 'delete_failed') return '清理失败，可重试'
-    if (row.state === 'deleted') return '已删除'
-    const parts = [fileStateLabel(row.state)]
-    const parse = row.latest_parse
-    if (parse && parse.state !== 'succeeded') parts.push(`解析${runStateLabel(parse.state)}`)
-    const task = lastTaskByFile.value[row.id] ?? parse?.task
-    if (task && !isTerminal(task.state)) parts.push(`任务${runStateLabel(task.state)}`)
-    else if (task && task.state === 'failed') parts.push('任务失败')
-    return parts.join(' · ')
-  }
-
-  function parseActionDisabled(row: SandAiFile): boolean {
-    return busy.value !== '' || pendingCleanup.has(row.id) || parseRecoveryLocked.value
-      || (!!parseLookupKey.value.trim() && !pendingParseSubmit.value) || audioExtensions.has(row.extension) || isCleanupState(row.state)
-  }
-
-  function parseActionLabel(row: SandAiFile): string {
-    return row.state === 'parse_canceled' ? '核对取消后重新解析' : row.state === 'parse_failed' ? '继续原解析任务' : '提交解析'
-  }
-
-  function rowMainAction(row: SandAiFile): { label: string; disabled: boolean; loading: boolean; run: () => void } | null {
-    const cleanupBusy = pendingCleanup.has(row.id) || isCleanupState(row.state)
-    if (cleanupBusy || row.state === 'deleted') return null
-    const target = parsedTextTargetForRow(row)
-    if (target) return { label: '查看结果', disabled: false, loading: false, run: () => openParsedText(target) }
-    if (audioExtensions.has(row.extension)) {
-      if (row.state === 'uploaded' && row.file_ref) {
-        return { label: '转写录音', disabled: busy.value !== '', loading: busy.value === 'audio', run: () => openAudioDialog(row) }
-      }
-      const task = lastTaskByFile.value[row.id] ?? row.latest_parse?.task
-      if (task) return { label: '看任务', disabled: false, loading: false, run: () => goTask(row.id) }
-      return null
+  function fileStatusTip(row: FileRow, view: FileStatusKind): string | null {
+    if (view === 'failed') {
+      return row.state === 'delete_failed' ? '清理失败，可以重试删除' : (row.failure_text ?? '处理失败，请稍后重试')
     }
-    if (row.state === 'parse_failed' || row.state === 'parse_canceled') {
-      return { label: parseActionLabel(row), disabled: parseActionDisabled(row), loading: busy.value === 'parse', run: () => void handleParse(row.id) }
-    }
-    if (row.state === 'uploaded' || row.state === 'available' || row.state === 'failed') {
-      return { label: '提交解析', disabled: parseActionDisabled(row), loading: busy.value === 'parse', run: () => void handleParse(row.id) }
-    }
-    if (row.state === 'parsing' || row.state === 'parsed') {
-      const task = lastTaskByFile.value[row.id] ?? row.latest_parse?.task
-      if (task) return { label: '看任务', disabled: false, loading: false, run: () => goTask(row.id) }
+    if (view === 'processing') {
+      return row.state === 'deleting' ? '正在清理，稍等就好' : '正在处理，稍等就好'
     }
     return null
   }
 
-  function fileRowButtons(row: SandAiFile): VNode[] {
+  function fileStatusCell(row: FileRow): VNode {
+    const view = fileStatusView(row.state)
+    const tag = h(ElTag, {
+      type: view === 'usable' ? 'success' : view === 'failed' ? 'danger' : 'warning',
+      effect: 'plain', size: 'small'
+    }, () => fileStatusText(row.state))
+    const tip = fileStatusTip(row, view)
+    return tip === null ? tag : h(ElTooltip, { content: tip, placement: 'top' }, () => tag)
+  }
+
+  function retryDisabled(row: FileRow): boolean {
+    return busy.value !== '' || !apiKey.value.trim() || pendingCleanup.has(row.id)
+      || parseRecoveryLocked.value || (!!parseLookupKey.value.trim() && !pendingParseSubmit.value)
+      || audioExtensions.has(row.extension) || isCleanupState(row.state)
+  }
+
+  /** 行主按钮：「能用了」看结果，「处理失败」露重试；解析细节进详情或任务页。 */
+  function rowMainAction(row: FileRow): { label: string; disabled: boolean; loading: boolean; run: () => void } | null {
+    if (pendingCleanup.has(row.id) || isCleanupState(row.state) || row.state === 'deleted') return null
+    const target = parsedTextTargetForRow(row)
+    if (target) return { label: '查看结果', disabled: false, loading: false, run: () => openParsedText(target) }
+    const view = fileStatusView(row.state)
+    if (view === 'usable') {
+      return { label: '查看结果', disabled: !apiKey.value.trim(), loading: busy.value === 'read', run: () => void viewParsed(row) }
+    }
+    if (view === 'failed' && !audioExtensions.has(row.extension)) {
+      return { label: '重试', disabled: retryDisabled(row), loading: busy.value === 'parse', run: () => void retryParse(row.id) }
+    }
+    if (audioExtensions.has(row.extension) && row.state === 'uploaded' && row.file_ref) {
+      return { label: '转写录音', disabled: busy.value !== '', loading: busy.value === 'audio', run: () => openAudioDialog(row) }
+    }
+    const task = lastTaskByFile.value[row.id] ?? row.latest_parse?.task
+    if (task) return { label: '看任务', disabled: false, loading: false, run: () => goTask(row.id) }
+    return null
+  }
+
+  function fileRowButtons(row: FileRow): VNode[] {
     const nodes: VNode[] = []
     const main = rowMainAction(row)
     if (main) {
@@ -647,64 +759,32 @@
     return nodes
   }
 
-  const columns: ColumnOption<SandAiFile>[] = [
+  const columns: ColumnOption<FileRow>[] = [
     { prop: 'original_name', label: '文件', minWidth: 180, showOverflowTooltip: true },
-    { prop: 'size_bytes', label: '大小', width: 120, align: 'right', formatter: (row: SandAiFile) => formatFileSize(row.size_bytes) },
-    { prop: 'progress', label: '处理进度', minWidth: 150, formatter: (row: SandAiFile) => fileProgressText(row) },
-    { prop: 'create_time', label: '上传时间', minWidth: 180, formatter: (row: SandAiFile) => formatServerMinute(row.create_time) },
+    { prop: 'size_bytes', label: '大小', width: 120, align: 'right', formatter: (row: FileRow) => formatFileSize(row.size_bytes) },
+    { prop: 'state', label: '处理进度', minWidth: 150, formatter: (row: FileRow) => fileStatusCell(row) },
+    { prop: 'create_time', label: '上传时间', minWidth: 180, formatter: (row: FileRow) => formatServerMinute(row.create_time) },
     {
       prop: 'actions',
       label: '操作',
       width: 260,
       fixed: 'right',
-      formatter: (row: SandAiFile) => h(ElSpace, { wrap: true }, () => fileRowButtons(row))
+      formatter: (row: FileRow) => h(ElSpace, { wrap: true }, () => fileRowButtons(row))
     }
   ]
 
+  /** 上传回执与整读结果进本地完整文件缓存；不在当前页的新行回第一页静默拉一次。 */
   function upsertFile(file: SandAiFile): void {
     restoreCleanup(file.id)
     if (isCleanupState(file.state)) clearFilePrivateState(file.id)
     // Only an authorized explicit failed-cleanup state permits the original-file retry.
     if (file.state === 'delete_failed' || file.cleanup?.state === 'purged') retainCleanup(file.id, false)
     else if (file.state === 'deleted') { pendingCleanup.add(file.id); retainCleanup(file.id, true) }
-    const next = recentFiles.value.filter((item) => item.id !== file.id)
-    if (file.state === 'deleted') {
-      const { file_ref: discardedFileRef, ...metadata } = file
-      void discardedFileRef
-      next.unshift({ ...metadata, latest_parse: null })
-    } else next.unshift(file)
-    recentFiles.value = next
-    rememberRecent()
-  }
-
-  const recentStorageKey = 'sand-ai-file-recent:v1'
-
-  function rememberRecent(): void {
-    const ids = recentFiles.value.map((file) => file.id).slice(0, 50)
-    try { sessionStorage.setItem(recentStorageKey, JSON.stringify(ids)) } catch { /* 刷新前列表仍在内存里 */ }
-  }
-
-  function storedRecentIds(): number[] {
-    try {
-      const raw: unknown = JSON.parse(sessionStorage.getItem(recentStorageKey) || '[]')
-      if (!Array.isArray(raw)) return []
-      return raw.filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id) && id > 0).slice(0, 50)
-    } catch {
-      return []
-    }
-  }
-
-  async function reloadRecent(): Promise<void> {
-    const credential = apiKey.value.trim()
-    if (credential === '') return
-    const current = viewGeneration
-    for (const fileId of storedRecentIds()) {
-      if (current !== viewGeneration) return
-      try {
-        const file = await fileApi.read(credential, fileId)
-        if (current !== viewGeneration) return
-        upsertFile(file)
-      } catch { /* 读不到的跳过，不把已有行清掉 */ }
+    const listed = listItems.value.some((item) => item.id === file.id)
+    fullFiles.set(file.id, file)
+    if (!listed) {
+      listPage.value = 1
+      void loadFiles(true)
     }
   }
 
@@ -712,16 +792,7 @@
     return state === 'deleting' || state === 'delete_failed' || state === 'deleted'
   }
 
-  function fileStateLabel(state: SandAiFile['state']): string {
-    const labels: Record<string, string> = {
-      uploaded: '已上传', available: '可用', parsing: '解析中', parsed: '已解析',
-      parse_failed: '解析失败', parse_canceled: '解析已取消', failed: '失败',
-      deleting: '清理进行中', delete_failed: '清理失败', deleted: '已删除'
-    }
-    return labels[state] ?? state
-  }
-
-  function formatParse(row: SandAiFile): string {
+  function formatParse(row: FileRow): string {
     if (pendingCleanup.has(row.id)) return '清理尚待确认，仅读取原文件状态'
     if (row.state === 'deleting') return '正在清理，刷新查看进度'
     if (row.state === 'delete_failed') return '清理未完成，可重试清理'
@@ -732,7 +803,7 @@
   }
 
   /** 文件行已成功解析时给出「查看解析出的文字」目标；与凭证隔离的任务列表无关，同一文件即达。 */
-  function parsedTextTargetForRow(row: SandAiFile): { fileId: number; parseId: number; fileName?: string } | null {
+  function parsedTextTargetForRow(row: FileRow): { fileId: number; parseId: number; fileName?: string } | null {
     if (pendingCleanup.has(row.id) || isCleanupState(row.state)) return null
     const parse = row.latest_parse
     if (parse?.state !== 'succeeded' || !Number.isSafeInteger(parse.id) || parse.id < 1) return null
@@ -769,7 +840,7 @@
   function viewKnownParseText(): void {
     const target = knownParseTextTarget()
     if (!target) return
-    const file = recentFiles.value.find(item => item.id === target.fileId)
+    const file = fileById(target.fileId)
     openParsedText({ fileId: target.fileId, parseId: target.parseId, fileName: file?.original_name })
   }
 
@@ -780,6 +851,89 @@
   function uploadBusy(value: boolean): void {
     if (value) busy.value = 'upload'
     else if (busy.value === 'upload') busy.value = ''
+  }
+
+  async function loadEnvironments(): Promise<void> {
+    const mark = identity.capture()
+    try {
+      const result = await iamApi.listEnvironments({ page: 1, limit: 100 })
+      if (!identity.current(mark)) return
+      environments.value = result.data.filter(item => item.status === 1)
+    } catch { /* 环境读不到时给出空态，不阻塞开发态表单 */ }
+    finally {
+      if (identity.current(mark)) environmentsLoaded.value = true
+    }
+    if (environmentId.value === null && environments.value.length > 0) {
+      environmentId.value = environments.value[0].id
+    }
+  }
+
+  async function loadFiles(silent = false): Promise<void> {
+    const envId = environmentId.value
+    if (envId === null) {
+      listItems.value = []
+      listTotal.value = 0
+      clearListPoll()
+      return
+    }
+    const current = silent ? listGeneration : ++listGeneration
+    const mark = identity.capture()
+    if (!silent) {
+      listLoading.value = true
+      listError.value = ''
+    }
+    try {
+      const keyword = listKeyword.value.trim()
+      const states = listStateFilter.value === '' ? undefined : LIST_STATE_GROUPS[listStateFilter.value]
+      const result = await fileApi.list(envId, {
+        page: listPage.value, limit: LIST_LIMIT,
+        keyword: keyword === '' ? undefined : keyword, state: states
+      })
+      if (current !== listGeneration || !identity.current(mark)) return
+      listItems.value = result.data
+      listTotal.value = result.total
+      if (result.data.length === 0 && listPage.value > 1) {
+        listPage.value = 1
+        void loadFiles()
+        return
+      }
+    } catch (error) {
+      if (current !== listGeneration || !identity.current(mark)) return
+      if (!silent) {
+        listError.value = errorDisplayText(error, '文件列表没能加载出来，请稍后再试。')
+        listItems.value = []
+        listTotal.value = 0
+      }
+    } finally {
+      if (current === listGeneration && !silent) listLoading.value = false
+    }
+    scheduleListPoll()
+  }
+
+  function applyListFilter(): void {
+    listPage.value = 1
+    void loadFiles()
+  }
+
+  function onListPage(page: number): void {
+    listPage.value = page
+    void loadFiles()
+  }
+
+  function clearListPoll(): void {
+    if (listPollTimer !== null) {
+      clearTimeout(listPollTimer)
+      listPollTimer = null
+    }
+  }
+
+  function scheduleListPoll(): void {
+    clearListPoll()
+    if (!needsListPoll.value) return
+    listPollTimer = setTimeout(() => {
+      listPollTimer = null
+      void loadFiles(true)
+    }, LIST_POLL_MS)
   }
 
   async function handleLookup(): Promise<void> {
@@ -798,7 +952,7 @@
     busy.value = 'read'
     lastError.value = null
     try {
-      const file = await fileApi.read(apiKey.value, fileId)
+      const file = await fileApi.read(apiKey.value, fileId, environmentId.value ?? undefined)
       if (current !== viewGeneration || fileEpochs.get(fileId) !== epoch) return
       if (file.id !== fileId) throw new Error('读取结果与原文件标识不一致')
       const refusedBeforeCleanup = cleanupConflicts.get(fileId) === file.sha256
@@ -814,7 +968,8 @@
       if (current !== viewGeneration || fileEpochs.get(fileId) !== epoch || clearOnAccessDenied(error)) return
       if (error instanceof SandAiRuntimeError && error.httpStatus === 404) {
         // Not found may also be a denied or changed source; it never proves DELETE completion.
-        recentFiles.value = recentFiles.value.filter((item) => item.id !== fileId)
+        fullFiles.delete(fileId)
+        listItems.value = listItems.value.filter((item) => item.id !== fileId)
         clearFilePrivateState(fileId)
       }
       const detail = toUiError(error)
@@ -827,7 +982,7 @@
   }
 
   function goTask(fileId: number): void {
-    const row = recentFiles.value.find((file) => file.id === fileId)
+    const row = fileById(fileId)
     const task = lastTaskByFile.value[fileId] ?? row?.latest_parse?.task
     if (!task) return
     void router.push({ path: '/sand-ai/task', query: { id: String(task.id) } })
@@ -1007,20 +1162,6 @@
     void router.push({ path: '/sand-ai/task', query: { id: String(audioRecoveredTask.value.id) } })
   }
 
-  async function pollTask(taskId: number, fileId: number, generation: number): Promise<SandAiTask> {
-    let latest = await taskApi.read(apiKey.value, taskId)
-    if (generation !== viewGeneration) throw new Error('File task view changed')
-    lastTaskByFile.value = { ...lastTaskByFile.value, [fileId]: latest }
-    for (let i = 0; i < 20 && !isTerminal(latest.state); i += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      if (generation !== viewGeneration) throw new Error('File task view changed')
-      latest = await taskApi.read(apiKey.value, taskId)
-      if (generation !== viewGeneration) throw new Error('File task view changed')
-      lastTaskByFile.value = { ...lastTaskByFile.value, [fileId]: latest }
-    }
-    return latest
-  }
-
   function retainParseRecovery(value: ParseRecovery): void {
     // Persist identifiers before the first POST; never a credential, file body or result.
     sessionStorage.setItem(PARSE_RECOVERY_STORAGE, JSON.stringify(value))
@@ -1134,7 +1275,7 @@
   function viewRecoveredParse(): void {
     const target = recoveredParseTextTarget()
     if (target) {
-      const file = recentFiles.value.find(item => item.id === target.fileId)
+      const file = fileById(target.fileId)
       openParsedText({ fileId: target.fileId, parseId: target.parseId, fileName: file?.original_name })
       return
     }
@@ -1161,7 +1302,7 @@
     const original = pendingParseSubmit.value
     const task = parseRecoveredTask.value
     if (busy.value || !apiKey.value.trim() || !original?.taskId || pendingCleanup.has(original.fileId)
-      || isCleanupState(recentFiles.value.find(file => file.id === original.fileId)?.state ?? '')
+      || isCleanupState(fileById(original.fileId)?.state ?? '')
       || !task || !canRetryOriginalParse(task)) return
     const current = viewGeneration
     const credential = apiKey.value
@@ -1192,7 +1333,7 @@
         ElMessage.info('原解析状态或执行代次已变化，本次重试未发送；请按当前任务重新确认')
         return
       }
-      const file = await fileApi.read(credential, original.fileId)
+      const file = await fileApi.read(credential, original.fileId, environmentId.value ?? undefined)
       if (!ownsRetry()) return
       if (file.id !== original.fileId) throw new Error('原文件读取目标不一致，本次重试未发送')
       upsertFile(file)
@@ -1212,7 +1353,7 @@
       if (result.file_parse_id !== task.file_parse_id) throw new Error('重试响应与原解析记录不一致，请只读原任务核对')
       parseRecoveredTask.value = result
       lastTaskByFile.value = { ...lastTaskByFile.value, [original.fileId]: result }
-      ElMessage.success(`已继续原解析任务 #${result.id}，请刷新原任务查看进度`)
+      ElMessage.success(`已重试原解析任务 #${result.id}，请刷新原任务查看进度`)
     } catch (error) {
       if (ownsRetry() && !clearOnAccessDenied(error)) lastError.value = toUiError(error)
     } finally {
@@ -1222,7 +1363,7 @@
 
   function canRestartCanceledParse(task: SandAiTask | null | undefined): boolean {
     const proof = task?.parse_restart
-    if (task && isCleanupState(recentFiles.value.find(file => file.id === task.resource_id)?.state ?? '')) return false
+    if (task && isCleanupState(fileById(task.resource_id)?.state ?? '')) return false
     return task?.state === 'canceled' && task.task_type === 'file_parse' && task.resource_type === 'file'
       && Number.isSafeInteger(task.id) && task.id > 0 && Number.isSafeInteger(task.resource_id) && task.resource_id > 0
       && proof?.allowed === true && proof.task_id === task.id && proof.file_id === task.resource_id
@@ -1272,16 +1413,10 @@
     }
   }
 
-  async function handleParse(fileId: number): Promise<void> {
-    const file = recentFiles.value.find((item) => item.id === fileId)
-    if (busy.value !== '' || pendingCleanup.has(fileId) || parseRecoveryLocked.value || (!pendingParseSubmit.value && parseLookupKey.value.trim()) || (file && isCleanupState(file.state))) return
-    const existing = lastTaskByFile.value[fileId] ?? file?.latest_parse?.task
-    if ((existing && !isTerminal(existing.state)) || (file && ['parse_failed', 'parse_canceled'].includes(file.state))) {
-      if (canRestartCanceledParse(existing)) await restartCanceledParse(existing)
-      else if (existing) goTask(fileId)
-      else ElMessage.warning('原解析任务号尚未找到，请按原解析请求号只读找回后继续')
-      return
-    }
+  /** 失败行的行内重试：复用原解析提交通道，发完交还给后端轮询。 */
+  async function retryParse(fileId: number): Promise<void> {
+    const row = fileById(fileId)
+    if (row === null || retryDisabled(row)) return
     const current = viewGeneration
     busy.value = 'parse'
     lastError.value = null
@@ -1289,35 +1424,14 @@
       const requestId = newRuntimeRequestId('file-parse')
       parseRecoveredTask.value = null
       retainParseRecovery({ fileId, key: requestId, taskId: null })
-      const submitted = await fileApi.parse(apiKey.value, fileId, requestId)
+      const submitted = await fileApi.parse(apiKey.value, fileId, requestId, environmentId.value ?? undefined)
       if (current !== viewGeneration) return
       assertOriginalParse(submitted.task, fileId, null)
       retainParseRecovery({ fileId, key: requestId, taskId: submitted.task.id })
       parseRecoveredTask.value = submitted.task
       lastTaskByFile.value = { ...lastTaskByFile.value, [fileId]: submitted.task }
-      const replay = submitted.idempotent_replay ? '（幂等重放）' : ''
-      ElMessage.success(`已提交解析任务 #${submitted.task.id}${replay}`)
-
-      const task = await pollTask(submitted.task.id, fileId, current)
-      if (current !== viewGeneration) return
-      assertOriginalParse(task, fileId, submitted.task.id)
-      parseRecoveredTask.value = task
-      const file = await fileApi.read(apiKey.value, fileId)
-      if (current !== viewGeneration) return
-      upsertFile(file)
-
-      const code = task.error_code ?? file.latest_parse?.error_code
-      const hint = hintForRuntimeErrorCode(code)
-      if (code && hint) {
-        lastError.value = { title: '解析未成功', description: hint, code }
-        ElMessage.warning(hint)
-      } else if (task.state === 'succeeded') {
-        ElMessage.success(`解析任务 #${task.id} 已完成`)
-      } else if (!isTerminal(task.state)) {
-        ElMessage.info(`任务 #${task.id} 仍为 ${task.state}，可在任务中心继续查看`)
-      } else {
-        ElMessage.warning(`任务 #${task.id} 结束：${task.state}`)
-      }
+      ElMessage.success(`已重新排队处理，任务 #${submitted.task.id}`)
+      void loadFiles()
     } catch (error) {
       if (current !== viewGeneration) return
       lastError.value = toUiError(error)
@@ -1329,9 +1443,36 @@
     }
   }
 
+  /** 「能用了」但本会话还没有成功解析记录时，先整读文件再打开解析文本。 */
+  async function viewParsed(row: FileRow): Promise<void> {
+    if (!apiKey.value.trim()) {
+      ElMessage.warning('正在确认身份，稍后再点')
+      return
+    }
+    const current = viewGeneration
+    busy.value = 'read'
+    lastError.value = null
+    try {
+      const file = await fileApi.read(apiKey.value, row.id, environmentId.value ?? undefined)
+      if (current !== viewGeneration) return
+      if (file.id !== row.id) throw new Error('读取结果与原文件不一致')
+      upsertFile(file)
+      const target = parsedTextTargetForRow({ ...file, failure_text: row.failure_text })
+      if (target === null) {
+        ElMessage.info('该文件没有可读取的解析内容。')
+        return
+      }
+      openParsedText(target)
+    } catch (error) {
+      if (current === viewGeneration && !clearOnAccessDenied(error)) lastError.value = toUiError(error)
+    } finally {
+      if (current === viewGeneration) busy.value = ''
+    }
+  }
+
   async function handleDelete(fileId: number): Promise<void> {
     restoreCleanup(fileId)
-    const file = recentFiles.value.find((item) => item.id === fileId)
+    const file = fileById(fileId)
     if (busy.value || !file || cleanupFlights.has(fileId) || file.state === 'deleting' || file.state === 'deleted' || pendingCleanup.has(fileId)) return
     const retrying = file.state === 'delete_failed'
     const current = viewGeneration
@@ -1341,7 +1482,7 @@
         retrying ? `继续清理「${file.original_name}」？` : `删除「${file.original_name}」？`)
     } catch { return }
     if (current !== viewGeneration || busy.value) return
-    const confirmed = recentFiles.value.find((item) => item.id === fileId)
+    const confirmed = fileById(fileId)
     if (!confirmed || confirmed.sha256 !== file.sha256 || confirmed.file_ref !== file.file_ref
       || confirmed.state !== file.state || pendingCleanup.has(fileId)) {
       ElMessage.warning('原文件状态已变化，请读取当前状态后重新确认清理')
@@ -1388,16 +1529,28 @@
     restoreParseRecovery()
     apiKey.value = readRuntimeBearer()
     restoreCleanupRecords()
+    void loadEnvironments()
   })
   watch(apiKey, () => {
     clearProtectedFileView()
-    void reloadRecent()
   }, { flush: 'sync' })
+  watch(environmentId, () => {
+    listPage.value = 1
+    listKeyword.value = ''
+    listStateFilter.value = ''
+    fullFiles.clear()
+    void loadFiles()
+  })
+  watch(needsListPoll, () => scheduleListPoll())
   watch(() => [userStore.info.id, userStore.accessToken], () => {
     if (apiKey.value) apiKey.value = ''
     else clearProtectedFileView()
+    environmentId.value = null
+    environments.value = []
+    environmentsLoaded.value = false
+    void loadEnvironments()
   }, { flush: 'sync' })
-  onUnmounted(() => { ++viewGeneration; ++parseReaderGeneration; fileEpochs.clear() })
+  onUnmounted(() => { ++viewGeneration; ++listGeneration; ++parseReaderGeneration; fileEpochs.clear(); clearListPoll() })
 
 </script>
 
@@ -1422,6 +1575,36 @@
     font-size: 13px;
     color: var(--el-text-color-secondary);
     max-width: 720px;
+  }
+
+  .file-env {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .file-env-select {
+    width: 240px;
+  }
+
+  .file-filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .file-search {
+    width: 260px;
+  }
+
+  .file-state-filter {
+    width: 160px;
+  }
+
+  .file-pager {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
   }
 
   .file-cred {

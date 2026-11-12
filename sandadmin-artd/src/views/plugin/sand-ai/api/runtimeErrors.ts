@@ -23,7 +23,7 @@ export const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
     '宿主未安装可验证的 SandIAM context adapter，或 signer 不可用；不会回退 API Key。',
   SAND_AI_SERVICE_ACTION_FORBIDDEN: '暂无权限查看该内容：该记录可能属于其他调用身份或已过期的试用会话。文件解析结果请到文件页查看。',
   SAND_AI_ENVIRONMENT_MISMATCH: '应用运行身份与所选环境不一致，请使用该环境的 SandIAM 运行身份。',
-  SAND_AI_OCR_UNAVAILABLE: 'OCR 尚未配置，图片不会被标成已解析。',
+  SAND_AI_OCR_UNAVAILABLE: 'OCR 尚未配置，图片类文件会处理失败。',
   SAND_AI_OCR_REQUIRED: '材料包含尚未解析的图片或嵌入对象，不能标为完整解析。PDF 需配置 OCR 后继续原解析任务；DOCX 需先在私有处理流程中导出保留视觉正文的 PDF，再走现有 OCR 解析流程。',
   SAND_AI_PARSE_UNSUPPORTED: '当前文件类型没有可用解析驱动。',
   SAND_AI_PARSE_EMPTY: '未提取到有效文本。',

@@ -204,6 +204,15 @@ export interface KnowledgeDraftInput {
   replace_draft: boolean
 }
 
+/** 一步建库输入；code 由调用方生成（kb- 前缀），幂等回放与原草稿一致。 */
+export interface KnowledgeCreateInput {
+  environment_id: number
+  code: string
+  name: string
+  description: string
+  files: Array<{ id: number; sha256: string }>
+}
+
 function draftResult(value: unknown, code: string, expectedBaseId: number | null): KnowledgePublishResult {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('草稿响应无效，请保留原请求号继续原请求')
@@ -316,6 +325,14 @@ export default {
       params: { environment_id: environmentId, before },
       showErrorMessage: false
     })
+  },
+  /** 一步建库：名称加至少一份可用资料，单事务直接发布并入队索引。 */
+  async create(input: KnowledgeCreateInput, key: string): Promise<KnowledgePublishResult> {
+    const result: unknown = await request.post<unknown>({
+      url: `${base}/create`, data: input, headers: { 'Idempotency-Key': key },
+      showErrorMessage: false
+    })
+    return draftResult(result, input.code, null)
   },
   async createDraft(input: KnowledgeDraftInput, key: string, expectedBaseId: number | null = null): Promise<KnowledgePublishResult> {
     const result: unknown = await request.post<unknown>({
