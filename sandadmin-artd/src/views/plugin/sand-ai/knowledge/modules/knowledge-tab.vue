@@ -91,7 +91,7 @@
             <span class="cell-muted">{{ formatUpdateTime(row.update_time) }}</span>
           </template>
         </ElTableColumn>
-        <ElTableColumn label="操作" width="240" fixed="right">
+        <ElTableColumn label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <ElSpace :size="4" wrap>
               <ElButton link type="primary" @click="openDetail(row)">打开</ElButton>
@@ -108,15 +108,28 @@
                 :loading="retryingId === row.id"
                 @click="retryIndex(row)"
               >重试</ElButton>
-              <ElDropdown trigger="click" @command="(cmd: string) => onRowCommand(cmd, row)">
+              <ElButton
+                v-if="row.state === 'disabled'"
+                link
+                type="primary"
+                :disabled="!row.active_version_id || disablingId === row.id"
+                :title="row.active_version_id ? '' : '没有已发布的版本，不能启用'"
+                @click="confirmEnable(row)"
+              >启用</ElButton>
+              <ElButton
+                v-if="row.state === 'disabled'"
+                link
+                type="danger"
+                :disabled="disablingId === row.id"
+                @click="confirmRetire(row)"
+              >删除</ElButton>
+              <ElDropdown v-if="row.state !== 'disabled'" trigger="click" @command="(cmd: string) => onRowCommand(cmd, row)">
                 <ElButton link type="primary">更多</ElButton>
                 <template #dropdown>
                   <ElDropdownMenu>
                     <ElDropdownItem v-if="row.state === 'draft'" command="publish">发布</ElDropdownItem>
-                    <ElDropdownItem v-if="row.state === 'disabled' && row.active_version_id" command="enable">启用</ElDropdownItem>
                     <ElDropdownItem v-if="row.state === 'published'" command="disable" divided>停用</ElDropdownItem>
-                    <ElDropdownItem v-if="row.state === 'disabled'" command="retire" divided>删除</ElDropdownItem>
-                    <ElDropdownItem v-else disabled divided>删除（先停用才能删）</ElDropdownItem>
+                    <ElDropdownItem disabled divided>删除（先停用才能删）</ElDropdownItem>
                   </ElDropdownMenu>
                 </template>
               </ElDropdown>
@@ -283,7 +296,23 @@
             plain
             @click="confirmDisable(detailRow)"
           >停用</ElButton>
+          <ElButton
+            v-if="detailRow.state === 'disabled'"
+            type="primary"
+            :disabled="!detailRow.active_version_id || disablingId === detailRow.id"
+            :loading="disablingId === detailRow.id && Boolean(detailRow.active_version_id)"
+            :title="detailRow.active_version_id ? '' : '没有已发布的版本，不能启用'"
+            @click="confirmEnable(detailRow)"
+          >启用</ElButton>
+          <ElButton
+            v-if="detailRow.state === 'disabled'"
+            type="danger"
+            plain
+            :disabled="disablingId === detailRow.id"
+            @click="confirmRetire(detailRow)"
+          >删除</ElButton>
         </div>
+        <p v-if="detailRow.state === 'disabled' && !detailRow.active_version_id" class="detail-hint">没有已发布的版本，不能启用。</p>
         <p class="detail-hint">资料在建库时一次选定；需要更换资料请新建知识库。</p>
       </template>
     </ElDrawer>
@@ -898,7 +927,7 @@
 
   async function confirmEnable(row: KnowledgeBaseRow): Promise<void> {
     const envId = props.environmentId
-    if (envId === null || disablingId.value !== null) return
+    if (envId === null || disablingId.value !== null || !row.active_version_id) return
     disablingId.value = row.id
     const mark = identity.capture()
     const current = generation

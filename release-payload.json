@@ -1267,6 +1267,7 @@
     "plugin/sand-ai/migrations/main-app/202611120173_g13_menu_regroup.pgsql": "c83582aecc4190c2205768d0b78b9c21e677417ed206b0ce4c7af4e7006b3585",
     "plugin/sand-ai/migrations/main-app/202611130174_rename_capability_menu.pgsql": "9fbd406b483665531e0c0eda25cf7440faecf7e21ea91fc1b9b6e72fa73f7b6c",
     "plugin/sand-ai/migrations/main-app/202611140175_composition_retire_operation.pgsql": "4cf79f9a1a6701caee351e4cb48477f2d73714af39e17c49d280d1f49c45aaec",
+    "plugin/sand-ai/migrations/main-app/202611140176_knowledge_enable_retire_operation.pgsql": "676925144f1cd8f56008099ff9ce2bc25b357c0bd2629f37d7ed9b94094e639b",
     "plugin/sand-ai/resources/verification/ocr-sample.png": "c004fade65203979c50f8c7ec346d967377a3a55fc0417f2447bf7218a4bd1a2",
     "plugin/sand-ai/resources/verification/transcription-sample.wav": "4ad32f3c91f35d132bd740fd63cf0aab2e8c0636936d4a9b0e7f5c0f659328e3",
     "plugin/sand-ai/tools/archive-legacy-sandai.sql": "c338f5777bd70a058ea7e2785eddd6d5938051f9406e1fde868147e49f5d8cdd",
