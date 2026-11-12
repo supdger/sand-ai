@@ -4,7 +4,7 @@
     <p class="muted">图片在这台服务器上识别，不用填写网址和密钥。识别程序需要事先装好。保存后先检查能不能用，再用到能力配置里。</p>
     <PublishedOcrDeploymentPrice @selection="selectPublishedPrice" />
     <template v-if="priceTarget">
-      <p>正在看价格：{{ priceTarget.model.name }}（{{ priceContext === 'existing' ? '已启用的部署' : '本次启用的部署' }} {{ priceTarget.deployment_id }}）。</p>
+      <p>正在看价格：{{ priceTarget.model.name }}（{{ priceContext === 'existing' ? '已启用的识别程序' : '这次启用的识别程序' }}，编号 {{ priceTarget.deployment_id }}）。</p>
       <p class="muted">价格属于服务商「{{ priceTarget.provider.name }}」的这个模型。</p>
       <OcrPricingPanel :key="`${priceTarget.provider.id}:${priceTarget.model.id}`" :provider-id="priceTarget.provider.id" :model-id="priceTarget.model.id" />
     </template>
@@ -41,7 +41,7 @@
     <p v-if="journal?.phase === 'failed'" class="muted">识别程序还没配好。请让技术同事改好后再保存一次。</p>
     <ElButton v-if="canStartNew" v-permission="'sand_ai:setup:deployment:save'" :disabled="Boolean(busy) || postFlight" @click="saveSuccessor">{{ published ? '沿用原设置再保存一个' : '在原基础上再保存一个' }}</ElButton>
     <ElButton v-if="published && draft" @click="priceContext = 'current'">查看价格</ElButton>
-    <p v-if="published" class="muted">价格启用后，到「能力配置」把「图片里的文字」指到这个部署就能用了。</p>
+    <p v-if="published" class="muted">价格启用后，到「能力配置」把「图片里的文字」指到这一项就能用了。</p>
     <ElButton v-if="published" @click="router.push('/sand-ai/capability')">去能力配置</ElButton>
   </ElCard>
 </template>

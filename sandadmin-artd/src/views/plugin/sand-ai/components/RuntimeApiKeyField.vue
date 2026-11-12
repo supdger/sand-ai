@@ -28,11 +28,11 @@
             />
             <ElSpace wrap>
               <ElButton :disabled="!manualValue.trim()" @click="useManual">使用此密钥</ElButton>
-              <ElButton link type="primary" @click="goSandIamApplication">去 SandIAM 应用</ElButton>
+              <ElButton link type="primary" @click="goSandIamApplication">去身份与权限</ElButton>
               <ElButton link type="primary" @click="goWorkloadClient">调用身份</ElButton>
             </ElSpace>
             <p class="runtime-key__hint">
-              其他应用的调用密钥可在身份与授权插件（SandIAM）中生成；粘贴密钥本身即可，无需加前缀。
+              其他应用的调用密钥可在「身份与权限」中生成；粘贴密钥本身即可，无需加前缀。
             </p>
           </div>
         </details>
@@ -56,7 +56,7 @@
           <ElButton v-if="trialEnabled" type="primary" plain :loading="trial.state.value === 'loading'" @click="retryTrial">
             {{ trialAvailable === false ? '重试自动获取' : '使用管理员试用身份' }}
           </ElButton>
-          <ElButton link type="primary" @click="goSandIamApplication">去 SandIAM 应用</ElButton>
+          <ElButton link type="primary" @click="goSandIamApplication">去身份与权限</ElButton>
           <ElButton link type="primary" @click="goWorkloadClient">调用身份</ElButton>
         </ElSpace>
         <ElAlert
@@ -75,7 +75,7 @@
           show-icon
         />
         <p class="runtime-key__hint">
-          请填写管理员在身份与授权插件（SandIAM）中生成的调用密钥，粘贴密钥本身即可，无需加前缀。填写后仍由每次调用验证身份与允许使用。
+          请填写管理员在「身份与权限」中生成的调用密钥，粘贴密钥本身即可，无需加前缀。填写后仍由每次调用验证身份与允许使用。
         </p>
       </template>
     </div>
