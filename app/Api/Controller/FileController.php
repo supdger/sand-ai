@@ -20,6 +20,7 @@ use app\Identity\Infrastructure\HostSandIamInvocationAuthorizer;
 use app\Identity\Infrastructure\RequestAuditId;
 use support\Request;
 use support\Response;
+use Throwable;
 use Webman\Http\UploadFile;
 
 final class FileController
@@ -43,16 +44,16 @@ final class FileController
                 throw new ApiProblem('SAND_AI_FILE_INVALID', 'A single multipart file field named file is required');
             }
             $decision = (new FileUploadAccessGuard())->authorize($request, $context['context'], $requestId);
+            $attribution = UsageAttribution::fromIdentity($context['context'], 'file', 'sand_ai.file.write', 'file');
             $result = (new FileGateway())->upload(
-                $context['environment_id'], $upload,
-                UsageAttribution::fromIdentity($context['context'], 'file', 'sand_ai.file.write', 'file'),
-                $requestId,
+                $context['environment_id'], $upload, $attribution, $requestId,
             );
             $header = trim((string) $request->header('authorization', ''));
             $signed = str_starts_with($header, 'Bearer ') ? trim(substr($header, 7)) : '';
             (new HostSandIamInvocationAuthorizer())->revalidate($decision['authorization_id'], $signed,
                 $context['context'], 'sand_ai.file.write', 'sand_iam.workload_client',
                 $context['context']->workloadClientId, $request->getRemoteIp(), $requestId);
+            $this->queueParse($request, $context, $attribution, $result, $requestId);
             return ApiResponder::success($result, $requestId)->header('Cache-Control', 'no-store');
         } catch (ApiProblem $problem) {
             return ApiResponder::error($problem, $requestId);
@@ -277,6 +278,43 @@ final class FileController
             ), $requestId);
         } catch (ApiProblem $problem) {
             return ApiResponder::error($problem, $requestId);
+        }
+    }
+
+    /**
+     * A committed upload queues its own parse before the response returns, so
+     * processing continues even when the browser session ends. Queueing uses
+     * the original request id: an idempotent upload replay finds the same task
+     * instead of opening a second parse. A queueing failure must not retract
+     * the upload receipt; the file is marked parse_failed with a retryable
+     * projection instead of being left in the uploaded state.
+     *
+     * @param array{context:object,environment_id:int} $context
+     * @param array<string,mixed> $result committed upload receipt
+     */
+    private function queueParse(Request $request, array $context, UsageAttribution $attribution, array $result, string $requestId): void
+    {
+        if (($result['state'] ?? null) !== 'uploaded' || !is_int($result['id'] ?? null)) {
+            return;
+        }
+        try {
+            $authorization = (new FileParseAccessGuard())->authorize(
+                $request, $context['context'], $result['id'], $requestId);
+            (new FileParseGateway())->parse(
+                $context['environment_id'], $result['id'], $requestId,
+                UsageAttribution::fromIdentity($context['context'], 'file_parse', 'sand_ai.document_parse', 'document_parse'),
+                $authorization,
+            );
+        } catch (Throwable $queueFailure) {
+            try {
+                (new FileParseGateway())->markEnqueueFailed(
+                    $context['environment_id'], $result['id'], FileOwnershipGuard::scope($attribution));
+            } catch (Throwable) {
+                \support\Log::warning('SandAI upload parse enqueue recovery failed', [
+                    'file_id' => $result['id'],
+                    'exception_type' => $queueFailure::class,
+                ]);
+            }
         }
     }
 

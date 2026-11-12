@@ -25,6 +25,7 @@ use plugin\SandAi\app\admin\middleware\OnboardingSensitiveRequestMiddleware;
 use plugin\SandAi\app\admin\middleware\ToolConnectionSensitiveRequestMiddleware;
 use plugin\SandAi\app\admin\middleware\FeishuCredentialSensitiveRequestMiddleware;
 use plugin\SandAi\app\admin\middleware\WecomCredentialSensitiveRequestMiddleware;
+use plugin\SandAi\app\admin\controller\FileController as AdminFileController;
 use plugin\SandAi\app\admin\controller\KnowledgeBaseController as AdminKnowledgeBaseController;
 use plugin\SandAi\app\admin\controller\AgentDefinitionController as AdminAgentDefinitionController;
 use plugin\SandAi\app\admin\controller\ChannelBindingController as AdminChannelBindingController;
@@ -326,8 +327,12 @@ Route::group('/app/sand-ai/admin/billing/credential', function (): void {
     Route::get('/by-request-key', [BillingCredentialController::class, 'recover']);
     Route::get('/status', [BillingCredentialController::class, 'status']);
 })->middleware([OnboardingSensitiveRequestMiddleware::class, CheckLogin::class, CheckAuth::class]);
+Route::group('/app/sand-ai/admin/files', function (): void {
+    Route::get('/index', [AdminFileController::class, 'index']);
+})->middleware([CheckLogin::class, CheckAuth::class]);
 Route::group('/app/sand-ai/admin/knowledge-bases', function (): void {
     Route::get('/index', [AdminKnowledgeBaseController::class, 'index']);
+    Route::post('/create', [AdminKnowledgeBaseController::class, 'create']);
     Route::get('/eligible-files', [AdminKnowledgeBaseController::class, 'eligibleFiles']);
     Route::post('/embedding-index/start', [AdminKnowledgeBaseController::class, 'startEmbeddingIndex']);
     Route::post('/embedding-index/advance', [AdminKnowledgeBaseController::class, 'advanceEmbeddingIndex']);

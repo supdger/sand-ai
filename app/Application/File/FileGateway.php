@@ -5,8 +5,13 @@ declare(strict_types=1);
 namespace app\Application\File;
 
 use app\Api\Support\ApiProblem;
+use app\Api\Support\IdentityContextProblem;
 use app\Application\Agent\AgentFileUsageGateway;
 use app\Application\Audio\AudioContentPurgeGateway;
+use app\Application\Knowledge\KnowledgeBasePolicy;
+use app\Identity\Contract\IdentityContextException;
+use app\Identity\Infrastructure\FileInvocationFacts;
+use app\Identity\Infrastructure\HostSandIamEnvironmentFacts;
 use app\Infrastructure\Persistence\Model\AiFile;
 use app\Infrastructure\Persistence\Model\AuditLog;
 use app\Application\Knowledge\KnowledgeSourceReferenceGuard;
@@ -23,6 +28,11 @@ use support\Log;
 
 final class FileGateway
 {
+    /** States the admin list may show, identical to the sand_ai.file.read whitelist. */
+    public const LIST_STATES = ['uploaded', 'parsing', 'parsed', 'parse_failed', 'parse_canceled', 'deleting', 'delete_failed'];
+
+    private const LIST_SCAN_CHUNK = 200;
+
     /** Durable intent precedes storage; a lost acknowledgement never creates a second file. */
     public function upload(int $environmentId, UploadFile $upload, UsageAttribution $attribution, string $requestKey): array
     {
@@ -406,6 +416,174 @@ final class FileGateway
             $current = AiFile::where('id', $fileId)->find();
             if ($current !== null && (string) $current->state !== 'deleted') throw $problem;
         }
+    }
+
+    /**
+     * Admin file list. Ownership matches the single-file read contract: only
+     * rows whose owner_attribution resolves to this environment's owner are
+     * listed; the rest are skipped silently rather than throwing. Ownership is
+     * verified in PHP (same approach as eligibleFiles), so SQL filters state
+     * and keyword first, then a chunked scan applies ownership before paging.
+     *
+     * @param list<string>|null $states every readable state when null
+     * @return array{current_page:int,per_page:int,total:int,data:list<array<string,mixed>>}
+     */
+    public function index(int $environmentId, int $page, int $limit, ?string $keyword, ?array $states): array
+    {
+        if ($page < 1 || $limit < 1 || $limit > 100) {
+            throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'File list pagination is invalid');
+        }
+        $states ??= self::LIST_STATES;
+        foreach ($states as $state) {
+            if (!in_array($state, self::LIST_STATES, true)) {
+                throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'File list state filter is invalid');
+            }
+        }
+        if ($keyword !== null && mb_strlen($keyword, 'UTF-8') > 128) {
+            throw new ApiProblem('SAND_AI_VALIDATION_ERROR', 'File list keyword is invalid');
+        }
+        try {
+            $owner = (new HostSandIamEnvironmentFacts())->resolve($environmentId);
+        } catch (IdentityContextException $exception) {
+            throw IdentityContextProblem::from($exception);
+        }
+        if ($states === []) {
+            return ['current_page' => $page, 'per_page' => $limit, 'total' => 0, 'data' => []];
+        }
+        $conditions = 'f.environment_id=? AND f.status=1 AND f.delete_time IS NULL';
+        $parameters = [$environmentId];
+        $conditions .= ' AND f.state IN (' . implode(',', array_fill(0, count($states), '?')) . ')';
+        foreach ($states as $state) {
+            $parameters[] = $state;
+        }
+        if ($keyword !== null && $keyword !== '') {
+            $conditions .= " AND f.original_name ILIKE ? ESCAPE '\\\\'";
+            $parameters[] = '%' . KnowledgeBasePolicy::escapedLike($keyword) . '%';
+        }
+        $matched = [];
+        $offset = 0;
+        do {
+            $rows = Db::connect('pgsql')->query(
+                "SELECT f.id,f.original_name,f.size_bytes,f.media_type,f.extension,f.sha256,f.state,
+                        f.status,f.delete_time,f.environment_id,f.owner_scope,f.owner_attribution,f.create_time
+                 FROM sand_ai_file f WHERE {$conditions} ORDER BY f.id DESC LIMIT ? OFFSET ?",
+                [...$parameters, self::LIST_SCAN_CHUNK, $offset],
+            );
+            foreach ($rows as $row) {
+                if ($this->isOwnedByEnvironment($row, $owner)) {
+                    $matched[] = $row;
+                }
+            }
+            $offset += self::LIST_SCAN_CHUNK;
+        } while (count($rows) === self::LIST_SCAN_CHUNK);
+        $pageRows = array_slice($matched, ($page - 1) * $limit, $limit);
+        $failures = $this->latestParseFailures(
+            array_map(static fn (array $row): int => (int) $row['id'], $pageRows),
+        );
+        $items = [];
+        foreach ($pageRows as $row) {
+            $fileId = (int) $row['id'];
+            $items[] = [
+                'id' => $fileId,
+                'original_name' => (string) $row['original_name'],
+                'size_bytes' => (int) $row['size_bytes'],
+                'media_type' => (string) $row['media_type'],
+                'extension' => (string) $row['extension'],
+                'sha256' => (string) $row['sha256'],
+                'state' => (string) $row['state'],
+                'failure_text' => $failures[$fileId] ?? null,
+                'create_time' => self::offsetTime($row['create_time']),
+            ];
+        }
+        return ['current_page' => $page, 'per_page' => $limit, 'total' => count($matched), 'data' => $items];
+    }
+
+    /** @param array<string,mixed> $row @param array{organization_id:int,application_id:int,environment_id:int} $owner */
+    private function isOwnedByEnvironment(array $row, array $owner): bool
+    {
+        $attribution = $row['owner_attribution'] ?? null;
+        if (is_string($attribution)) {
+            try {
+                $attribution = json_decode($attribution, true, 32, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                return false;
+            }
+        }
+        try {
+            $facts = FileInvocationFacts::fromPersisted([
+                'id' => $row['id'], 'status' => $row['status'], 'delete_time' => $row['delete_time'],
+                'state' => $row['state'], 'environment_id' => $row['environment_id'],
+                'owner_scope' => $row['owner_scope'], 'owner_attribution' => $attribution,
+            ], (int) $row['id'], 'sand_ai.file.read');
+        } catch (IdentityContextException) {
+            return false;
+        }
+        return $facts['environment_id'] === $owner['environment_id']
+            && $facts['organization_id'] === $owner['organization_id']
+            && $facts['application_id'] === $owner['application_id'];
+    }
+
+    /** @param list<int> $fileIds @return array<int,string> file_id => operator-facing failure text */
+    private function latestParseFailures(array $fileIds): array
+    {
+        if ($fileIds === []) {
+            return [];
+        }
+        $marks = implode(',', array_fill(0, count($fileIds), '?'));
+        $rows = Db::connect('pgsql')->query(
+            "SELECT DISTINCT ON (file_id) file_id,state,error_code
+             FROM sand_ai_file_parse
+             WHERE file_id IN ({$marks}) AND status=1 AND delete_time IS NULL
+             ORDER BY file_id,id DESC",
+            $fileIds,
+        );
+        $failures = [];
+        foreach ($rows as $row) {
+            if ((string) $row['state'] !== 'failed') {
+                continue;
+            }
+            $failures[(int) $row['file_id']] = self::failureText(
+                $row['error_code'] === null ? null : (string) $row['error_code'],
+            );
+        }
+        return $failures;
+    }
+
+    /** Pages get plain-language failure text only; error codes and raw summaries stay out of the list. */
+    public static function failureText(?string $code): string
+    {
+        if ($code === null || $code === '') {
+            return '处理失败，请重试';
+        }
+        return match (true) {
+            str_contains($code, 'QUEUE_FAILED') => '提交处理失败，请点重试',
+            str_contains($code, 'UNSUPPORTED') => '当前文件类型没有可用解析驱动',
+            str_contains($code, 'EMPTY') => '没有从文件里解析出可用内容',
+            str_contains($code, 'CAPABILITY') || str_contains($code, 'NOT_PUBLISHED') => '解析能力配置不可用，请检查能力配置后重试',
+            str_contains($code, 'OCR') => '图片或扫描件识别不可用，请检查 OCR 配置后重试',
+            str_contains($code, 'BUDGET') => 'AI 预算不足或已用完，请到费用页处理后重试',
+            str_contains($code, 'STORAGE') => '文件存储暂时不可用，请稍后重试',
+            str_contains($code, 'LEASE') || str_contains($code, 'TIMEOUT') => '处理超时，请重试',
+            str_contains($code, 'IDENTITY') || str_contains($code, 'FORBIDDEN') || str_contains($code, 'AUTHORIZATION') => '处理授权已失效，请重试',
+            default => '处理失败，请稍后重试',
+        };
+    }
+
+    /** Upload time rendered in the host business timezone with its offset. */
+    private static function offsetTime(mixed $value): ?string
+    {
+        $zone = function_exists('config') ? config('app.default_timezone') : null;
+        if (!is_string($zone) || !in_array($zone, timezone_identifiers_list(\DateTimeZone::ALL_WITH_BC), true)) {
+            $zone = 'Asia/Shanghai';
+        }
+        try {
+            $time = $value instanceof \DateTimeInterface
+                ? \DateTimeImmutable::createFromInterface($value)
+                : (is_string($value) && $value !== '' ? new \DateTimeImmutable($value, new \DateTimeZone($zone)) : null);
+        } catch (\Exception) {
+            return null;
+        }
+        return $time?->setTimezone(new \DateTimeZone($zone))->format('Y-m-d\TH:i:sP');
     }
 
     private function fileForEnvironment(int $environmentId, int $fileId, string $trustedIdentityScope): AiFile

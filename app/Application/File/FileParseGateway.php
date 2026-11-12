@@ -543,6 +543,44 @@ final class FileParseGateway
         }
     }
 
+    /**
+     * Fallback projection when a committed upload could not queue its parse.
+     * The file must not stall in 'uploaded': a failed parse row carries the
+     * operator-facing reason and the file moves to parse_failed so the normal
+     * parse endpoint can retry. No task row is created here; the retry creates
+     * both rows itself.
+     */
+    public function markEnqueueFailed(int $environmentId, int $fileId, string $scope): void
+    {
+        Db::connect('pgsql')->transaction(function () use ($environmentId, $fileId, $scope): void {
+            (new KnowledgeSourceReferenceGuard())->lockFile($fileId);
+            $file = AiFile::where('environment_id', $environmentId)->where('id', $fileId)->lock(true)->find();
+            if ($file === null || (int) $file->status !== 1 || $file->delete_time !== null
+                || (string) $file->state !== 'uploaded') {
+                return;
+            }
+            try {
+                (new FileOwnershipGuard())->assert($file, $scope);
+            } catch (ApiProblem) {
+                return;
+            }
+            $now = date('Y-m-d H:i:s');
+            AiFileParse::create([
+                'file_id' => $fileId,
+                'parser_code' => 'pending',
+                'parser_version' => 'pending',
+                'state' => TaskState::FAILED,
+                'error_code' => 'SAND_AI_PARSE_QUEUE_FAILED',
+                'error_summary' => '提交处理失败，请点重试',
+                'started_at' => $now,
+                'completed_at' => $now,
+                'status' => 1,
+            ]);
+            $file->save(['state' => 'parse_failed']);
+            $this->audit($environmentId, 'file.parse_enqueue_failed', $fileId, 'SandAI file parse enqueue failed', []);
+        });
+    }
+
     /** @return array<string, mixed>|null */
     public function latest(int $fileId, ?string $trustedIdentityScope = null): ?array
     {

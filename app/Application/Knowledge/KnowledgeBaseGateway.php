@@ -209,6 +209,107 @@ final class KnowledgeBaseGateway
         });
     }
 
+    /**
+     * One-shot creation: name plus at least one eligible parsed file commits a
+     * published base in a single transaction — base, version, frozen sources,
+     * index task and both ledger rows. Any failure rolls the whole operation
+     * back. The ledger keeps the same create_draft + publish pair the two-step
+     * flow writes, so replay and receipts behave identically.
+     *
+     * @param array<string,mixed> $input code is optional here; a missing or
+     *        blank code gets a server-generated `kb-` identifier
+     * @return array<string,mixed>
+     */
+    public function create(int $environmentId, array $input, string $idempotencyKey, string $actorRef): array
+    {
+        $this->requireEnvironment($environmentId);
+        $actorRef = trim($actorRef);
+        $idempotencyKey = trim($idempotencyKey);
+        if ($actorRef === '' || $idempotencyKey === '' || strlen($idempotencyKey) > 128) {
+            throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Administrator and Idempotency-Key are required');
+        }
+        $generatedCode = !is_string($input['code'] ?? null) || trim((string) $input['code']) === '';
+        if ($generatedCode) {
+            $input['code'] = 'kb-' . bin2hex(random_bytes(8));
+        }
+        $input = KnowledgeBasePolicy::normalizeDraft($input);
+        if ($input['replace_draft']) {
+            throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', 'Knowledge base input is invalid');
+        }
+        // A generated code differs on every retry, so it cannot be part of the
+        // replay fingerprint; name, description and files still bind the key.
+        $fingerprintInput = $input;
+        unset($fingerprintInput['replace_draft']);
+        if ($generatedCode) {
+            unset($fingerprintInput['code']);
+        }
+        $fingerprint = KnowledgeBasePolicy::fingerprint($fingerprintInput);
+        return Db::connect('pgsql')->transaction(function () use ($environmentId, $input, $idempotencyKey, $actorRef, $fingerprint): array {
+            $db = Db::connect('pgsql');
+            $db->execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", [$environmentId . ':knowledge-operation:create:' . $idempotencyKey]);
+            $db->execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", [$environmentId . ':knowledge:' . $input['code']]);
+            $bound = $db->query('SELECT * FROM sand_ai_knowledge_operation WHERE environment_id=? AND idempotency_key=? FOR UPDATE', [$environmentId, $idempotencyKey]);
+            $draftOperation = null;
+            $publishOperation = null;
+            foreach ($bound as $operation) {
+                if ((string) $operation['operation_code'] === 'create_draft') {
+                    $draftOperation = $operation;
+                } elseif ((string) $operation['operation_code'] === 'publish') {
+                    $publishOperation = $operation;
+                } else {
+                    throw new ApiProblem('SAND_AI_IDEMPOTENCY_CONFLICT', 'The Idempotency-Key belongs to another request');
+                }
+            }
+            if ($draftOperation !== null || $publishOperation !== null) {
+                // One-shot creates commit both rows atomically; a single-row hit
+                // means the key was bound to a two-step request.
+                if ($draftOperation === null || $publishOperation === null
+                    || !hash_equals((string) $draftOperation['request_fingerprint'], $fingerprint)
+                    || (int) $draftOperation['knowledge_base_id'] !== (int) $publishOperation['knowledge_base_id']
+                    || (int) $draftOperation['version_id'] !== (int) $publishOperation['version_id']) {
+                    throw new ApiProblem('SAND_AI_IDEMPOTENCY_CONFLICT', 'The Idempotency-Key belongs to another request');
+                }
+                return $this->summary((int) $draftOperation['knowledge_base_id'], (int) $draftOperation['version_id'], true);
+            }
+            if (KnowledgeBase::where('environment_id', $environmentId)->where('code', $input['code'])->lock(true)->find() !== null) {
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '知识库编码已存在，请换一个');
+            }
+            $base = KnowledgeBase::create([
+                'environment_id' => $environmentId, 'code' => $input['code'],
+                'name' => $input['name'], 'description' => $input['description'],
+                'state' => 'draft', 'status' => 1,
+            ]);
+            $version = KnowledgeBaseVersion::create([
+                'knowledge_base_id' => (int) $base->id, 'version_no' => 1,
+                'state' => 'draft', 'source_count' => 0, 'snapshot_sha256' => str_repeat('0', 64),
+            ]);
+            $sources = $this->freezeSources($environmentId, (int) $version->id, $input['files']);
+            $snapshot = KnowledgeBasePolicy::fingerprint(['code' => $input['code'], 'version' => 1, 'sources' => $sources]);
+            $db->execute('UPDATE sand_ai_knowledge_base_version SET source_count = ?, snapshot_sha256 = ? WHERE id = ?', [count($sources), $snapshot, (int) $version->id]);
+            try {
+                $owner = (new HostSandIamEnvironmentFacts())->resolve($environmentId);
+            } catch (IdentityContextException $exception) {
+                throw IdentityContextProblem::from($exception);
+            }
+            $scope = (new KnowledgeVersionSourceScope())->resolve((int) $version->id, $owner);
+            $version->save([
+                'state' => 'published',
+                'published_time' => date('Y-m-d H:i:s'),
+                'source_scope_sha256' => $scope['source_scope_sha256'],
+                'data_class' => $scope['data_class'],
+            ]);
+            $base->save(['state' => 'published', 'active_version_id' => (int) $version->id]);
+            // ensure() is two pure statements with no external effects, so the
+            // index task row commits with the publication it tracks.
+            (new IndexTaskGateway())->ensure($environmentId, (int) $base->id, (int) $version->id);
+            $db->execute('INSERT INTO sand_ai_knowledge_operation (environment_id, operation_code, idempotency_key, request_fingerprint, knowledge_base_id, version_id) VALUES (?, ?, ?, ?, ?, ?)', [$environmentId, 'create_draft', $idempotencyKey, $fingerprint, (int) $base->id, (int) $version->id]);
+            $db->execute('INSERT INTO sand_ai_knowledge_operation (environment_id, operation_code, idempotency_key, request_fingerprint, knowledge_base_id, version_id) VALUES (?, ?, ?, ?, ?, ?)', [$environmentId, 'publish', $idempotencyKey, self::publishFingerprint((int) $base->id, $snapshot, $actorRef), (int) $base->id, (int) $version->id]);
+            $this->audit($actorRef, 'knowledge_base.draft', (int) $base->id, ['version' => 1, 'source_count' => count($sources)]);
+            $this->audit($actorRef, 'knowledge_base.publish', (int) $base->id, ['version' => 1]);
+            return $this->summary((int) $base->id, (int) $version->id, false);
+        });
+    }
+
     /** Original association proof and current metadata are deliberately separate.
      * @return array<string,mixed>
      */
@@ -546,6 +647,20 @@ final class KnowledgeBaseGateway
             }
             $rows = $db->query('SELECT id,state,status,active_version_id FROM sand_ai_knowledge_base WHERE id=? AND environment_id=? AND delete_time IS NULL FOR UPDATE', [$knowledgeBaseId, $environmentId]);
             if (count($rows) !== 1) throw new ApiProblem('SAND_AI_RESOURCE_NOT_FOUND', 'Knowledge base not found');
+            $versions = $db->query('SELECT count(*) AS total FROM sand_ai_knowledge_base_version WHERE knowledge_base_id=?', [$knowledgeBaseId]);
+            if ((int) ($versions[0]['total'] ?? 0) === 0) {
+                // A base that never reached a version has no sources, vectors
+                // or snapshots to unwind, so it can be deleted without first
+                // passing through the disabled lifecycle.
+                $openPublications = $db->query("SELECT count(*) AS total FROM sand_ai_knowledge_publication WHERE knowledge_base_id=? AND state='published'", [$knowledgeBaseId]);
+                if ((int) ($openPublications[0]['total'] ?? 0) > 0) {
+                    throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '还有应用在开放这个知识库，先撤销开放再删除');
+                }
+                $db->execute('UPDATE sand_ai_knowledge_base SET delete_time=CURRENT_TIMESTAMP(0), update_time=CURRENT_TIMESTAMP(0) WHERE id=? AND delete_time IS NULL', [$knowledgeBaseId]);
+                $db->execute('INSERT INTO sand_ai_knowledge_operation (environment_id, operation_code, idempotency_key, request_fingerprint, knowledge_base_id, version_id) VALUES (?, ?, ?, ?, ?, NULL)', [$environmentId, 'retire', $idempotencyKey, hash('sha256', (string) $knowledgeBaseId), $knowledgeBaseId]);
+                $this->audit(trim($actorRef), 'knowledge_base.retire', $knowledgeBaseId, ['environment_id' => $environmentId, 'request_id' => $idempotencyKey]);
+                return ['knowledge_base_id' => $knowledgeBaseId, 'state' => 'deleted', 'idempotent_replay' => false];
+            }
             if ((string) $rows[0]['state'] !== 'disabled' || (int) $rows[0]['status'] !== 2) {
                 throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '先停用知识库，再删除');
             }
