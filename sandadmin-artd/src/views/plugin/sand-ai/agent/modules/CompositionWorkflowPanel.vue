@@ -525,7 +525,7 @@ async function retireDefinition(): Promise<void> {
   if (!env || !current || current.definition.state === 'published' || busy.value || adminPending.value) return
   try {
     await ElMessageBox.confirm(`删除后「${current.definition.name}」不能恢复。`, `删除「${current.definition.name}」？`, {
-      type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想'
+      type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想', confirmButtonClass: 'el-button--danger'
     })
   } catch { return }
   const generation = ++epoch

@@ -1,5 +1,5 @@
 <template>
-  <ElDialog :model-value="modelValue" :title="`试一下 · ${agentName}`" width="min(680px, 94vw)"
+  <ElDialog :model-value="modelValue" :title="`试一试 · ${agentName}`" width="min(680px, 94vw)"
     append-to-body destroy-on-close @update:model-value="emit('update:modelValue', $event)" @closed="reset">
     <div class="trial-dialog">
       <ElAlert v-if="intro" type="info" :closable="false" :title="intro" class="trial-intro" />

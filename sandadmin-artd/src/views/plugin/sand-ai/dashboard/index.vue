@@ -66,7 +66,7 @@
                 <ElTableColumn label="状态" width="100">
                   <template #default="{ row }">{{ runStateLabel(row.state) }}</template>
                 </ElTableColumn>
-                <ElTableColumn prop="request_at" label="请求时间" width="170" />
+                <ElTableColumn label="请求时间" width="170"><template #default="{ row }">{{ formatServerMinute(row.request_at) }}</template></ElTableColumn>
               </ElTable>
             </ElCol>
             <ElCol :xs="24" :lg="12">
@@ -77,7 +77,7 @@
                   <template #default="{ row }">{{ serviceActionLabel(row.action) }}</template>
                 </ElTableColumn>
                 <ElTableColumn prop="summary" label="摘要" min-width="160" />
-                <ElTableColumn prop="create_time" label="时间" width="170" />
+                <ElTableColumn label="时间" width="170"><template #default="{ row }">{{ formatServerMinute(row.create_time) }}</template></ElTableColumn>
               </ElTable>
             </ElCol>
           </ElRow>
@@ -111,6 +111,7 @@
   import type { SandAiAuditLog, SandAiInvocation } from '../api/types'
   import { runStateLabel, serviceActionLabel } from '../api/displayLabels'
   import { errorDisplayText } from '../api/errorText'
+  import { formatServerMinute } from '../api/localTime'
   import { useSetupBootstrap } from '../composables/useSetupBootstrap'
 
   type SummaryCard = {

@@ -4,35 +4,37 @@
       <ElCard class="art-table-card sand-ai-page-card" shadow="never">
         <div class="file-header">
           <div>
-            <h2 class="file-title">文件中心</h2>
-            <p class="file-desc">上传文档或录音，整理好后可以放进知识库。</p>
+            <h2 class="file-title">文件</h2>
+            <p class="file-desc">上传文档或录音，AI 帮你整理成文字</p>
           </div>
+          <ElButton type="primary" :disabled="!canPickFile" @click="pickFile">上传文件</ElButton>
         </div>
 
-        <ElForm label-width="110px" class="file-cred" @submit.prevent>
+        <ElForm v-show="devOpen" label-width="110px" class="file-cred" @submit.prevent>
           <RuntimeApiKeyField
             v-model="apiKey"
             :trial-actions="['sand_ai.file.read', 'sand_ai.file.write', 'sand_ai.document_parse', 'sand_ai.task.read', 'sand_ai.task.retry', 'sand_ai.audio.transcription']"
             placeholder="当前应用的调用密钥（需允许使用文件读写）"
           />
-          <ElFormItem label="上传文件">
-            <PrivateFileUpload :bearer="apiKey" :disabled="busy !== ''"
-              accept=".pdf,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp,.mp3,.m4a,.ogg,.wav,.webm,.flac"
-              @file="upsertFile" @busy="uploadBusy" @identity-denied="clearOnAccessDenied" />
-          </ElFormItem>
         </ElForm>
+        <PrivateFileUpload ref="uploadRef" :bearer="apiKey" :disabled="busy !== ''"
+          hide-trigger :plain="!devOpen"
+          accept=".pdf,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp,.mp3,.m4a,.ogg,.wav,.webm,.flac"
+          @file="upsertFile" @busy="uploadBusy" @identity-denied="clearOnAccessDenied" />
 
-        <p v-if="pendingCleanupIds.length" class="file-desc">
-          有文件的清理结果尚未确认或被占用阻止；请在下方「高级」里按原文件号核对。
-        </p>
-        <p v-if="parseRecoveryLocked" class="file-desc">
-          有一份解析提交的结果尚未确认；请在「高级」里按原请求编号查看。
-        </p>
-        <p v-if="audioRecoveryLocked" class="file-desc">
-          有一份转写提交的结果尚未确认；请在「高级」里按原请求编号查看。
-        </p>
+        <template v-if="devOpen">
+          <p v-if="pendingCleanupIds.length" class="file-desc">
+            有文件的清理结果尚未确认或被占用阻止；请在下方「高级」里按原文件号核对。
+          </p>
+          <p v-if="parseRecoveryLocked" class="file-desc">
+            有一份解析提交的结果尚未确认；请在「高级」里按原请求编号查看。
+          </p>
+          <p v-if="audioRecoveryLocked" class="file-desc">
+            有一份转写提交的结果尚未确认；请在「高级」里按原请求编号查看。
+          </p>
+        </template>
 
-        <details class="file-alert file-advanced">
+        <details v-if="devOpen" class="file-alert file-advanced">
           <summary>高级</summary>
           <ElDivider content-position="left">按编号查询已有文件</ElDivider>
           <ElForm label-width="110px" class="file-cred" @submit.prevent>
@@ -185,21 +187,26 @@
           >去能力配置补齐该能力</ElButton>
         </ElAlert>
 
-        <ArtTable row-key="id" :loading="busy !== ''" :data="recentFiles" :columns="columns" />
+        <div v-if="recentFiles.length === 0 && busy === ''" class="file-empty">
+          <p class="file-empty-title">还没有文件</p>
+          <p class="file-desc">上传一份文档或录音试试</p>
+          <ElButton type="primary" :disabled="!canPickFile" @click="pickFile">上传文件</ElButton>
+        </div>
+        <ArtTable v-else row-key="id" :loading="busy !== ''" :data="recentFiles" :columns="columns" empty-text="还没有文件" />
       </ElCard>
 
       <ElDialog v-model="detailDialogOpen" title="文件详情" width="640px">
         <template v-if="detailFile">
           <ElDescriptions :column="1" border>
-            <ElDescriptionsItem label="编号">#{{ detailFile.id }}</ElDescriptionsItem>
+            <ElDescriptionsItem v-if="devOpen" label="编号">#{{ detailFile.id }}</ElDescriptionsItem>
             <ElDescriptionsItem label="文件名">{{ detailFile.original_name }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="扩展名">{{ detailFile.extension || '—' }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="文件格式">{{ detailFile.media_type }}</ElDescriptionsItem>
+            <ElDescriptionsItem v-if="devOpen" label="扩展名">{{ detailFile.extension || '—' }}</ElDescriptionsItem>
+            <ElDescriptionsItem v-if="devOpen" label="文件格式">{{ detailFile.media_type }}</ElDescriptionsItem>
             <ElDescriptionsItem label="大小">{{ formatFileSize(detailFile.size_bytes) }}</ElDescriptionsItem>
             <ElDescriptionsItem label="文件状态">{{ fileStateLabel(detailFile.state) }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="上传时间">{{ detailFile.create_time }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="更新时间">{{ detailFile.update_time }}</ElDescriptionsItem>
-            <ElDescriptionsItem label="清理状态">
+            <ElDescriptionsItem label="上传时间">{{ formatServerDateTime(detailFile.create_time) }}</ElDescriptionsItem>
+            <ElDescriptionsItem label="更新时间">{{ formatServerDateTime(detailFile.update_time) }}</ElDescriptionsItem>
+            <ElDescriptionsItem v-if="devOpen" label="清理状态">
               <ElButton link type="primary" :disabled="Boolean(busy)" @click="showCleanup(detailFile.id)">
                 {{ detailFile.cleanup ? cleanupStateLabel(detailFile.cleanup.state) : '查看清理状态' }}
               </ElButton>
@@ -307,8 +314,11 @@
   import SandAiErrorBoundary from '../components/SandAiErrorBoundary.vue'
   import '../components/sandAiPage.css'
   import { computed, h, onMounted, onUnmounted, reactive, ref, watch, type VNode } from 'vue'
-  import { useRouter } from 'vue-router'
-  import { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElMessageBox, ElSpace } from 'element-plus'
+  import { useRoute, useRouter } from 'vue-router'
+  import { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu, ElMessage, ElSpace } from 'element-plus'
+  import { ElMessageBox } from 'element-plus'
+  import { confirmDeletion } from '../composables/confirmDeletion'
+  import { formatServerDateTime, formatServerMinute } from '../api/localTime'
   import type { ColumnOption } from '@/types'
   import { useUserStore } from '@/store/modules/user'
   import fileApi from '../api/file'
@@ -328,8 +338,16 @@
   import FileParsedTextDrawer from '../components/FileParsedTextDrawer.vue'
 
   const router = useRouter()
+  const route = useRoute()
   const userStore = useUserStore()
+  /** 上传身份、按编号查询与找回恢复、清理明细只在开发者模式下露出。 */
+  const devOpen = computed(() => route.query.dev === '1')
   const apiKey = ref('')
+  const uploadRef = ref<InstanceType<typeof PrivateFileUpload> | null>(null)
+  const canPickFile = computed(() => apiKey.value.trim() !== '' && busy.value === '' && (uploadRef.value?.uploadReady ?? false))
+  function pickFile(): void {
+    uploadRef.value?.pick()
+  }
   let viewGeneration = 0
   const lookupId = ref<number | undefined>(undefined)
   const recentFiles = ref<SandAiFile[]>([])
@@ -600,13 +618,15 @@
     if (main) {
       nodes.push(h(ElButton, {
         size: 'small',
+        link: true,
+        type: 'primary',
         disabled: main.disabled,
         loading: main.loading,
         onClick: main.run
       }, () => main.label))
     }
     nodes.push(h(ElDropdown, { trigger: 'click' }, {
-      default: () => h(ElButton, { size: 'small', link: true }, () => '更多'),
+      default: () => h(ElButton, { size: 'small', link: true, type: 'primary' }, () => '更多'),
       dropdown: () => h(ElDropdownMenu, null, () => [
         h(ElDropdownItem, { onClick: () => { detailFileId.value = row.id } }, () => '详情'),
         h(ElDropdownItem, { onClick: () => void refreshOne(row.id) }, () => '刷新')
@@ -616,6 +636,7 @@
       ElButton,
       {
         size: 'small',
+        link: true,
         type: 'danger',
         loading: busy.value === 'delete',
         disabled: busy.value !== '' || pendingCleanup.has(row.id) || cleanupFlights.has(row.id) || row.state === 'deleting' || row.state === 'deleted',
@@ -630,7 +651,7 @@
     { prop: 'original_name', label: '文件', minWidth: 180, showOverflowTooltip: true },
     { prop: 'size_bytes', label: '大小', width: 120, align: 'right', formatter: (row: SandAiFile) => formatFileSize(row.size_bytes) },
     { prop: 'progress', label: '处理进度', minWidth: 150, formatter: (row: SandAiFile) => fileProgressText(row) },
-    { prop: 'create_time', label: '上传时间', minWidth: 180 },
+    { prop: 'create_time', label: '上传时间', minWidth: 180, formatter: (row: SandAiFile) => formatServerMinute(row.create_time) },
     {
       prop: 'actions',
       label: '操作',
@@ -1315,11 +1336,9 @@
     const retrying = file.state === 'delete_failed'
     const current = viewGeneration
     try {
-      await ElMessageBox.confirm(
-        retrying
-          ? `确认继续清理文件 #${fileId}？删除后不能恢复，用过的费用记录会保留。`
-          : `确认删除文件 #${fileId}？删除后不能恢复，用过的费用记录会保留。`,
-        retrying ? '重试清理' : '删除确认', { type: 'warning' })
+      await confirmDeletion(
+        '删除后不能恢复，用过的费用记录会保留。',
+        retrying ? `继续清理「${file.original_name}」？` : `删除「${file.original_name}」？`)
     } catch { return }
     if (current !== viewGeneration || busy.value) return
     const confirmed = recentFiles.value.find((item) => item.id === fileId)
@@ -1340,9 +1359,10 @@
       if (result.id !== fileId || result.state !== 'deleted') throw new Error('文件清理结果尚未确认')
       clearFilePrivateState(fileId)
       upsertFile({ id: file.id, original_name: file.original_name, extension: file.extension, media_type: file.media_type, size_bytes: file.size_bytes, sha256: file.sha256, state: 'deleted', latest_parse: null, create_time: file.create_time, update_time: file.update_time, cleanup: result.cleanup })
-      cleanupFileId.value = fileId
-      if (result.cleanup.state === 'purged') ElMessage.success(`文件 #${fileId} 清理已完成，来源内容不可用；费用与最小历史保留，知识库向量按独立状态核对`)
-      else ElMessage.info(`原文件 #${fileId} 已删除，整体清理${result.cleanup.state === 'pending' ? '仍待完成' : '尚未确认完成'}；请保留原文件号只读刷新分类状态`)
+      cleanupFileId.value = devOpen.value ? fileId : null
+      const deletedName = file.original_name.trim()
+      if (result.cleanup.state === 'purged') ElMessage.success(deletedName === '' ? '已删除' : `已删除「${deletedName}」`)
+      else ElMessage.info(deletedName === '' ? '已删除，还在完成收尾清理。' : `已删除「${deletedName}」，还在完成收尾清理。`)
     } catch (error) {
       if (current !== viewGeneration || fileEpochs.get(fileId) !== epoch || clearOnAccessDenied(error)) return
       if (isWriteRejected(error)) {
@@ -1455,5 +1475,20 @@
     margin-top: 16px;
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .file-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 32px 0;
+  }
+
+  .file-empty-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
   }
 </style>

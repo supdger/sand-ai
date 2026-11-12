@@ -895,7 +895,7 @@
     const environmentId = props.environmentId
     if (!environmentId || writing.value || row.status === 1 || channelCount(row) > 0) return
     try {
-      await ElMessageBox.confirm(`删除后「${row.name}」不能恢复。`, `删除「${row.name}」？`, { type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想' })
+      await ElMessageBox.confirm(`删除后「${row.name}」不能恢复。`, `删除「${row.name}」？`, { type: 'warning', confirmButtonText: '删除', cancelButtonText: '再想想', confirmButtonClass: 'el-button--danger' })
     } catch { return }
     const flight = Symbol('agent-management')
     managementFlight.value = flight
