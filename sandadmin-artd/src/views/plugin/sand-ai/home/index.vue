@@ -41,7 +41,7 @@
               <template v-else-if="panelStates[card.key] === 'error'">
                 <div class="home-card__label">{{ card.label }}</div>
                 <div class="home-card__error">
-                  暂时读不到
+                  没取到
                   <ElButton link type="primary" @click="retryPanelField(card.key)">重试</ElButton>
                 </div>
               </template>
@@ -1265,7 +1265,12 @@
     const todayStart = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} 00:00:00`
     const fetchers = panelFetchers(environmentId.value || undefined, monthStart, todayStart)
     try {
-      const value = await fetchers[key]()
+      const value = await Promise.race([
+        fetchers[key](),
+        new Promise<string>((_resolve, reject) => {
+          setTimeout(() => reject(new Error('panel timeout')), 10000)
+        })
+      ])
       if (!live || generation !== loadGeneration) return
       panelValues.value[key] = value
       panelStates.value[key] = 'ready'
