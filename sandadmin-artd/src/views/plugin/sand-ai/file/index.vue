@@ -1337,7 +1337,7 @@
     const current = viewGeneration
     try {
       await confirmDeletion(
-        '删除后不能恢复，用过的费用记录会保留。',
+        '删除后不能恢复。用过的费用记录会保留。',
         retrying ? `继续清理「${file.original_name}」？` : `删除「${file.original_name}」？`)
     } catch { return }
     if (current !== viewGeneration || busy.value) return

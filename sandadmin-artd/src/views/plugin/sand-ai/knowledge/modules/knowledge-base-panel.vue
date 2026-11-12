@@ -172,6 +172,7 @@ import { newRuntimeRequestId } from '../../api/runtime'
 import { errorDisplayText } from '../../api/errorText'
 import { isWriteRejected, writeRejectionText } from '../../api/writeRejection'
 import { confirmAbandonPendingWrite } from '../../composables/pendingWrite'
+import { DELETION_CANCEL_CLASS } from '../../composables/confirmDeletion'
 import MaterialSampleFiles from '../../components/MaterialSampleFiles.vue'
 import RuntimeApiKeyField from '../../components/RuntimeApiKeyField.vue'
 import EmbeddingIndexPanel from './embedding-index-panel.vue'
@@ -839,7 +840,7 @@ async function changeLifecycle(row: KnowledgeBaseRow, action: LifecycleAction): 
             ? `将永久清理“${target.name}”的向量索引数据，此操作不可撤销。若仍有构建或检索正在执行，清理会被阻止。是否继续？`
             : `解除“${target.name}”的来源引用前，须先撤销所有应用启用并清理向量。操作会删除该知识库的知识问答会话及轮次，并释放来源引用；原始文件须由原所有者另行删除才能清除正文。此操作不可撤销。是否继续？`,
         action === 'disable' ? '停用知识库' : action === 'purge' ? '清理向量索引' : '解除来源引用',
-        { type: 'warning', confirmButtonText: action === 'disable' ? '确认停用' : '删除', cancelButtonText: '再想想', confirmButtonClass: action === 'disable' ? '' : 'el-button--danger' }
+        { type: 'warning', confirmButtonText: action === 'disable' ? '确认停用' : '删除', cancelButtonText: '再想想', cancelButtonClass: DELETION_CANCEL_CLASS, confirmButtonClass: action === 'disable' ? '' : 'el-button--danger' }
       )
     } catch { return }
     if (!isCurrent() || !hasDisablePermission.value) return

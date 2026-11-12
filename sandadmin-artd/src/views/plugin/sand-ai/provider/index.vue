@@ -151,7 +151,7 @@
 
   async function handleDelete(row: SandAiProvider): Promise<void> {
     try {
-      await confirmDeletion('删除后不能恢复，用过的费用记录会保留。', `删除「${row.name}」？`)
+      await confirmDeletion('删除后不能恢复。用过的费用记录会保留。', `删除「${row.name}」？`)
       await providerApi.delete({ ids: [row.id] })
       ElMessage.success('删除成功')
       refreshData()
