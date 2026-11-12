@@ -142,6 +142,22 @@ final class KnowledgeBaseController extends SandAiAdminController
 
     #[Permission('SandAI 创建知识库草稿', 'sand_ai:knowledge:create')]
     public function createDraft(Request $request): Response { return $this->guard(function () use ($request): array { $body = $this->body($request, ['environment_id', 'code', 'name', 'description', 'files', 'replace_draft']); $environmentId = $this->positiveInt($body['environment_id']); unset($body['environment_id']); return (new KnowledgeBaseGateway())->createDraft($environmentId, $body, $this->idempotencyKey($request), (string) $this->authenticatedAdminId()); }, '知识库草稿已创建'); }
+    #[Permission('SandAI 知识库改名', 'sand_ai:knowledge:create')]
+    public function rename(Request $request): Response
+    {
+        return $this->guard(function () use ($request): array {
+            $body = $this->body($request, ['environment_id', 'knowledge_base_id', 'name']);
+            $name = $body['name'] ?? null;
+            if (!is_string($name)) {
+                throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', '名称不能为空，最多 128 个字');
+            }
+            return (new KnowledgeBaseGateway())->rename(
+                $this->positiveInt($body['environment_id'] ?? null),
+                $this->positiveInt($body['knowledge_base_id'] ?? null),
+                $name,
+            );
+        }, '知识库名称已保存');
+    }
     #[Permission('SandAI 找回知识库草稿', 'sand_ai:knowledge:create')]
     public function draftByRequestKey(Request $request): Response
     {

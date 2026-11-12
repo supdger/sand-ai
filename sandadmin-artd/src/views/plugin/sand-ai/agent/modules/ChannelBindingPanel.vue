@@ -609,8 +609,9 @@
   const selectedAgent = computed(() => agents.value.find(agent => agent.agent_definition_id === form.agent_definition_id && isPublishedAgent(agent)))
   const selectedClient = computed(() => clients.value.find(client => String(client.id) === form.workload_client_id &&
     client.environment_id === props.environment?.id && client.status === 1))
+  // 新建渠道的编码在点保存时才生成，保存前表单里还没有。
   const canSave = computed(() => !pendingBindingMutation.value && !!currentAdminId.value && !!props.environment &&
-    !!form.code.trim() && !!form.name.trim() && !!selectedAgent.value && !!selectedClient.value && !writing.value && !directoryLoading.value)
+    (editingId.value !== null ? !!form.code.trim() : true) && !!form.name.trim() && !!selectedAgent.value && !!selectedClient.value && !writing.value && !directoryLoading.value)
   /** 新建/编辑弹窗内：名称、智能体、调用身份必填；保存还要求本次会话测试连接通过。 */
   const canSaveDialog = computed(() => canSave.value && testState.value === 'ok' && !testing.value)
   const canTest = computed(() => !!props.environment && !!form.agent_definition_id && !testing.value && !writing.value && !pendingBindingMutation.value)

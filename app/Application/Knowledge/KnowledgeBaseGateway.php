@@ -678,6 +678,30 @@ final class KnowledgeBaseGateway
         return null;
     }
 
+    /** @return array{id:int,name:string} */
+    public function rename(int $environmentId, int $knowledgeBaseId, string $name): array
+    {
+        $this->requireEnvironment($environmentId);
+        if ($knowledgeBaseId <= 0) {
+            throw new ApiProblem('SAND_AI_KNOWLEDGE_VALIDATION_ERROR', '请选择要改名的知识库');
+        }
+        $name = KnowledgeBasePolicy::normalizeName($name);
+        return Db::connect('pgsql')->transaction(function () use ($environmentId, $knowledgeBaseId, $name): array {
+            $base = KnowledgeBase::where('environment_id', $environmentId)->where('id', $knowledgeBaseId)->lock(true)->find();
+            if ($base === null) {
+                throw new ApiProblem('SAND_AI_RESOURCE_NOT_FOUND', '找不到这个知识库');
+            }
+            $taken = KnowledgeBase::where('environment_id', $environmentId)->where('name', $name)->where('id', '<>', $knowledgeBaseId)->find();
+            if ($taken !== null) {
+                throw new ApiProblem('SAND_AI_RESOURCE_CONFLICT', '已经有叫这个名字的知识库，换一个');
+            }
+            if ((string) $base->getAttr('name') !== $name) {
+                $base->save(['name' => $name]);
+            }
+            return ['id' => $knowledgeBaseId, 'name' => $name];
+        });
+    }
+
     /** 产品面「最近更新」：取知识库行、当前草稿版本、已发布版本三个时间点的最大值。 */
     private static function recentUpdateTime(array $row): ?string
     {

@@ -6,7 +6,7 @@
 import axios, { type AxiosResponse } from 'axios'
 import type { BaseResponse } from '@/types'
 import { ApiStatus } from '@/utils/http/status'
-import { RUNTIME_API_PREFIX } from './config'
+import { runtimeAbsolutePath } from './config'
 import {
   nextRuntimeIdentityRequestSequence,
   notifyRuntimeIdentityAccepted,
@@ -128,7 +128,7 @@ function unwrapData<T>(response: AxiosResponse<BaseResponse<T>>): T {
 
 const runtimeClient = axios.create({
   timeout: 60000,
-  baseURL: import.meta.env.VITE_API_URL || '',
+  baseURL: '',
   validateStatus: () => true
 })
 
@@ -159,7 +159,7 @@ export async function runtimeRequest<T>(options: {
   const identityRequestSequence = nextRuntimeIdentityRequestSequence()
   const response = await runtimeClient.request<BaseResponse<T>>({
     method: options.method,
-    url: `${RUNTIME_API_PREFIX}${options.path}`,
+    url: runtimeAbsolutePath(options.path),
     params: options.params,
     data: options.data,
     headers: {
@@ -222,7 +222,7 @@ export async function runtimeBlobRequest(apiKey: string, path: string): Promise<
     })
   }
   const identityRequestSequence = nextRuntimeIdentityRequestSequence()
-  const response = await runtimeClient.get<Blob>(`${RUNTIME_API_PREFIX}${path}`, {
+  const response = await runtimeClient.get<Blob>(runtimeAbsolutePath(path), {
     responseType: 'blob',
     headers: { Authorization: `Bearer ${key}`, 'Cache-Control': 'no-store' }
   })

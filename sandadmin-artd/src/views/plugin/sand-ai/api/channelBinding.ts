@@ -2,7 +2,7 @@ import request from '@/utils/http'
 import type { SandAiPage } from './types'
 import type { SandAiChannelSource, SandAiInvocationCost, SandAiTask, SandAiTaskSubmitResult } from './types'
 import { runtimeRequest } from './runtime'
-import { RUNTIME_API_PREFIX } from './config'
+import { runtimeAbsolutePath } from './config'
 import { AgentReplayError } from './agentEventReplay'
 
 const base = '/app/sand-ai/admin/channels/bindings'
@@ -551,8 +551,7 @@ export async function readChannelTokenStream(options: {
   const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
   const params = new URLSearchParams({ conversation_id: options.conversationId, sender_id: options.senderId, after_event_id: String(options.afterEventId) })
   if (options.deliveryPlatform) params.set('delivery_platform', options.deliveryPlatform)
-  const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
-  const response = await fetch(`${base}${RUNTIME_API_PREFIX}/channels/${encodeURIComponent(options.code)}/messages/${options.taskId}/events?${params}`, {
+  const response = await fetch(`${runtimeAbsolutePath(`/channels/${encodeURIComponent(options.code)}/messages/${options.taskId}/events`)}?${params}`, {
     headers: { Authorization: `Bearer ${options.apiKey.trim()}`, Accept: 'text/event-stream', 'Cache-Control': 'no-store' },
     signal: options.signal,
     cache: 'no-store'

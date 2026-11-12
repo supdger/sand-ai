@@ -91,7 +91,7 @@
             <span class="cell-muted">{{ formatUpdateTime(row.update_time) }}</span>
           </template>
         </ElTableColumn>
-        <ElTableColumn label="操作" width="240" fixed="right">
+        <ElTableColumn label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <ElSpace :size="4" wrap>
               <ElButton link type="primary" @click="openDetail(row)">打开</ElButton>
@@ -108,15 +108,28 @@
                 :loading="retryingId === row.id"
                 @click="retryIndex(row)"
               >重试</ElButton>
-              <ElDropdown trigger="click" @command="(cmd: string) => onRowCommand(cmd, row)">
+              <ElButton
+                v-if="row.state === 'disabled'"
+                link
+                type="primary"
+                :disabled="!row.active_version_id || disablingId === row.id"
+                :title="row.active_version_id ? '' : '没有已发布的版本，不能启用'"
+                @click="confirmEnable(row)"
+              >启用</ElButton>
+              <ElButton
+                v-if="row.state === 'disabled'"
+                link
+                type="danger"
+                :disabled="disablingId === row.id"
+                @click="confirmRetire(row)"
+              >删除</ElButton>
+              <ElDropdown v-if="row.state !== 'disabled'" trigger="click" @command="(cmd: string) => onRowCommand(cmd, row)">
                 <ElButton link type="primary">更多</ElButton>
                 <template #dropdown>
                   <ElDropdownMenu>
                     <ElDropdownItem v-if="row.state === 'draft'" command="publish">发布</ElDropdownItem>
-                    <ElDropdownItem v-if="row.state === 'disabled' && row.active_version_id" command="enable">启用</ElDropdownItem>
                     <ElDropdownItem v-if="row.state === 'published'" command="disable" divided>停用</ElDropdownItem>
-                    <ElDropdownItem v-if="row.state === 'disabled'" command="retire" divided>删除</ElDropdownItem>
-                    <ElDropdownItem v-else disabled divided>删除（先停用才能删）</ElDropdownItem>
+                    <ElDropdownItem disabled divided>删除（先停用才能删）</ElDropdownItem>
                   </ElDropdownMenu>
                 </template>
               </ElDropdown>
@@ -207,6 +220,11 @@
           class="detail-alert"
           title="还没建好，先选几份资料"
         />
+        <ElForm label-width="72px" @submit.prevent>
+          <ElFormItem label="名称">
+            <ElInput v-model="pendingDetail.name" maxlength="128" placeholder="知识库名称" />
+          </ElFormItem>
+        </ElForm>
         <dl class="detail-meta">
           <dt>说明</dt>
           <dd>{{ pendingDetail.description || '—' }}</dd>
@@ -222,6 +240,11 @@
           </ElTag>
           <span v-if="detailRow.active_version_no" class="detail-version">第 {{ detailRow.active_version_no }} 版</span>
         </div>
+        <ElForm label-width="72px" @submit.prevent>
+          <ElFormItem label="名称">
+            <ElInput v-model="detailName" maxlength="128" :disabled="isSavingName" placeholder="知识库名称" />
+          </ElFormItem>
+        </ElForm>
         <p v-if="detailRow.description" class="detail-desc">{{ detailRow.description }}</p>
 
         <ElAlert
@@ -256,9 +279,9 @@
         </dl>
 
         <div class="detail-actions">
+          <ElButton type="primary" :loading="isSavingName" :disabled="isSavingName" @click="saveDetailName">保存</ElButton>
           <ElButton
             v-if="rowStatus(detailRow) === 'usable'"
-            type="primary"
             @click="openTrial(detailRow)"
           >试一下</ElButton>
           <ElButton
@@ -273,7 +296,23 @@
             plain
             @click="confirmDisable(detailRow)"
           >停用</ElButton>
+          <ElButton
+            v-if="detailRow.state === 'disabled'"
+            type="primary"
+            :disabled="!detailRow.active_version_id || disablingId === detailRow.id"
+            :loading="disablingId === detailRow.id && Boolean(detailRow.active_version_id)"
+            :title="detailRow.active_version_id ? '' : '没有已发布的版本，不能启用'"
+            @click="confirmEnable(detailRow)"
+          >启用</ElButton>
+          <ElButton
+            v-if="detailRow.state === 'disabled'"
+            type="danger"
+            plain
+            :disabled="disablingId === detailRow.id"
+            @click="confirmRetire(detailRow)"
+          >删除</ElButton>
         </div>
+        <p v-if="detailRow.state === 'disabled' && !detailRow.active_version_id" class="detail-hint">没有已发布的版本，不能启用。</p>
         <p class="detail-hint">资料在建库时一次选定；需要更换资料请新建知识库。</p>
       </template>
     </ElDrawer>
@@ -420,6 +459,8 @@
 
   const detailOpen = ref(false)
   const detailRow = ref<KnowledgeBaseRow | null>(null)
+  const detailName = ref('')
+  const isSavingName = ref(false)
   const pendingDetail = ref<PendingKnowledgeBase | null>(null)
 
   const filePickerOpen = ref(false)
@@ -665,8 +706,43 @@
 
   function openDetail(row: KnowledgeBaseRow): void {
     detailRow.value = row
+    detailName.value = row.name
     pendingDetail.value = null
     detailOpen.value = true
+  }
+
+  async function saveDetailName(): Promise<void> {
+    const row = detailRow.value
+    const envId = props.environmentId
+    const name = detailName.value.trim()
+    if (!row || envId === null || isSavingName.value) return
+    if (name === '') {
+      ElMessage.warning('请填写名称')
+      return
+    }
+    if ([...name].length > 128) {
+      ElMessage.warning('名称最多 128 个字')
+      return
+    }
+    if (name === row.name) {
+      ElMessage.success(`已保存「${name}」`)
+      return
+    }
+    isSavingName.value = true
+    try {
+      await knowledgeApi.rename(envId, row.id, name)
+      ElMessage.success(`已保存「${name}」`)
+      await load()
+      const fresh = rows.value.find((item) => item.id === row.id)
+      if (fresh) {
+        detailRow.value = fresh
+        detailName.value = fresh.name
+      }
+    } catch (error) {
+      ElMessage.error(errorDisplayText(error, '改名没有成功，请稍后再试。'))
+    } finally {
+      isSavingName.value = false
+    }
   }
 
   function closeDetail(): void {
@@ -851,7 +927,7 @@
 
   async function confirmEnable(row: KnowledgeBaseRow): Promise<void> {
     const envId = props.environmentId
-    if (envId === null || disablingId.value !== null) return
+    if (envId === null || disablingId.value !== null || !row.active_version_id) return
     disablingId.value = row.id
     const mark = identity.capture()
     const current = generation

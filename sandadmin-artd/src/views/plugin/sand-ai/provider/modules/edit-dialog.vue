@@ -17,9 +17,6 @@
     <ElButton v-if="!pending && !journalError && !configurationLoaded" :loading="loadingExisting"
       :disabled="submitting || reading" @click="loadExisting">重新读取当前配置</ElButton>
     <el-form ref="formRef" :model="formData" :rules="rules" :disabled="formBlocked" label-width="120px">
-      <el-form-item v-if="formData.code" label="编码">
-        <span>编码：{{ formData.code }}（自动生成）</span>
-      </el-form-item>
       <el-form-item v-if="dialogType === 'add' && presetGuides.length > 0" label="选择服务商">
         <div class="preset-grid" role="radiogroup" aria-label="服务商预设">
           <button
@@ -61,9 +58,8 @@
             <el-input
               v-model="formData.configApiKey"
               type="password"
-              show-password
-              autocomplete="off"
-              placeholder="服务商提供的 API Key"
+              autocomplete="new-password"
+              placeholder=""
             />
             <div v-if="selectedGuide?.api_key_help || selectedGuide?.api_key_url" class="config-hint">
               {{ selectedGuide?.api_key_help }}
@@ -236,7 +232,7 @@
       case 'local_runtime':
         return '本地运行不使用远程接口地址或 API Key，无需填写连接配置。'
       case 'fake':
-        return '开发用模拟接口不连接真实模型，无需填写真实 API Key。'
+        return '开发用模拟接口不连接真实模型，不用填写密钥。'
       default:
         return '请按当前服务商类型已声明的连接方式填写接口地址与 API Key。'
     }

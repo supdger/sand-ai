@@ -94,7 +94,7 @@
             <ElSelect v-model="form.model" filterable clearable allow-create default-first-option :loading="modelsLoading"
               placeholder="选择当前环境已启用的聊天模型" style="width: 100%" aria-label="用哪个模型"
               @change="modelTouched = true">
-              <ElOption v-for="model in models" :key="model.code" :label="`${model.name} · ${model.code}`" :value="model.code" />
+              <ElOption v-for="model in models" :key="model.code" :label="model.name" :value="model.code" />
             </ElSelect>
             <div class="knowledge-actions">
               <ElButton link type="primary" :loading="modelsLoading" @click="loadModels">刷新模型</ElButton>
@@ -310,7 +310,8 @@
     return `会先查「${selectedKnowledge.value || '所选知识库'}」，再用「${modelName}」回答`
   })
   function knowledgeLabel(item: ConsumerKnowledgePublication): string {
-    return `${item.owner_name} · ${item.code}`
+    const name = item.owner_name.trim()
+    return name !== '' ? name : '未命名知识库'
   }
   function knowledgeNameOf(code: string | null | undefined): string | undefined {
     if (!code) return undefined
