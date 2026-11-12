@@ -48,7 +48,8 @@
             </template>
             <div v-if="(chartEmpty || chartSeries.length === 0) && !loading" class="chart-empty">本月还没有花费</div>
             <ArtLineChart v-else :data="chartSeries" :x-axis-data="chartLabels" height="260px"
-              :show-legend="chartSeries.length > 1" :loading="loading" :smooth="false" symbol="circle" />
+              :show-legend="chartSeries.length > 1" :loading="loading" :smooth="false" symbol="circle"
+              :animated="false" />
           </ElCard>
 
           <SpendRanking :rows="rankingRows" :group-by="groupBy" :loading="loading"
