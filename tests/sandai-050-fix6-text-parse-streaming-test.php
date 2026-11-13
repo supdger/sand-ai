@@ -3,9 +3,15 @@
 declare(strict_types=1);
 
 /**
- * 0.5.0 fix6 TXT 解析有界内存：TextParseDriver 改流式逐块产出，
- * 8MB/84,000 行文本在 128MB worker 内不再 OOM；与旧 file_get_contents+
- * preg_split('/\R/u') 算法逐块等价，行号按物理行序（含空行）计数。
+ * 0.5.0 fix6 TXT 解析有界内存返修：TextParseDriver 流式逐块产出，
+ * 删除 4MiB 单行上限，恢复「整份字节串先定编码再 \R/u 分行」的旧语义，
+ * 行首空白按码点计入 char 偏移，窗口为 4096 码点连续切片。
+ *
+ * 参照实现不是重写的等价算法：用 git show 取出 dbfa245（旧整量版）与
+ * 660c8c3（fix6d 流式版）的真实类源码，改名加载后直接调用。
+ * 大文件参照在子进程高内存运行：
+ *   php -d memory_limit=128M 本文件            —— 全部断言
+ *   php -d memory_limit=1024M 本文件 --legacy-dump <file> —— 输出旧算法块摘要
  *
  * Usage: php -d memory_limit=128M tests/sandai-050-fix6-text-parse-streaming-test.php
  */
@@ -20,12 +26,66 @@ require_once $root . '/app/Infrastructure/Parsing/ParseResult.php';
 require_once $root . '/app/Infrastructure/Parsing/ParseDriver.php';
 require_once $root . '/app/Infrastructure/Parsing/StreamingParseDriver.php';
 require_once $root . '/app/Infrastructure/Parsing/NeuronSourceTextSplitter.php';
+require_once $root . '/app/Infrastructure/Parsing/MbEncodingScanner.php';
+require_once $root . '/app/Infrastructure/Parsing/MbEncodingGuess.php';
+require_once $root . '/app/Infrastructure/Parsing/MbChunkDecoder.php';
+require_once $root . '/app/Infrastructure/Parsing/LineBlockEmitter.php';
 require_once $root . '/app/Infrastructure/Parsing/TextParseDriver.php';
 
 use app\Infrastructure\Parsing\ParsedSourceBlock;
 use app\Infrastructure\Parsing\ParseException;
 use app\Infrastructure\Parsing\ParseInput;
 use app\Infrastructure\Parsing\TextParseDriver;
+
+/**
+ * 从 git 历史取真实旧实现源码，改类名后落临时文件加载。
+ * 类体一行不动：use/import、TextFileReader、utf8()、splitter 调用全部原样。
+ */
+function loadLegacyDriver(string $ref, string $className, string $root): void
+{
+    $source = shell_exec('git -C ' . escapeshellarg($root) . ' show ' . escapeshellarg($ref . ':app/Infrastructure/Parsing/TextParseDriver.php'));
+    if (!is_string($source) || !str_contains($source, 'final class TextParseDriver')) {
+        fwrite(STDERR, "cannot load legacy driver {$ref}\n");
+        exit(2);
+    }
+    $source = preg_replace('/final class TextParseDriver/', 'final class ' . $className, $source, 1);
+    $legacyPath = tempnam(sys_get_temp_dir(), 'legacy-driver-') . '.php';
+    file_put_contents($legacyPath, (string) $source);
+    require_once $legacyPath;
+    unlink($legacyPath);
+}
+
+/** 每块折叠成一行摘要再整体取哈希：块本身不再驻留内存。 */
+function digestAppend(string &$digestState, ParsedSourceBlock $block): void
+{
+    $digestState .= hash(
+        'sha1',
+        $block->sequenceNo . '|' . $block->locatorType . '|' . json_encode($block->locator) . '|' . $block->content,
+        true
+    );
+}
+
+// ---- 子进程模式：输出旧算法（dbfa245 整量版）的块数与摘要哈希 ----
+if (in_array('--legacy-dump', $argv, true)) {
+    loadLegacyDriver('dbfa245', 'LegacyDbfa245TextParseDriver', $root);
+    $path = $argv[array_search('--legacy-dump', $argv, true) + 1];
+    $digest = '';
+    $count = 0;
+    try {
+        $result = (new \app\Infrastructure\Parsing\LegacyDbfa245TextParseDriver())->parse(new ParseInput($path, 'txt', 'text/plain'));
+        foreach ($result->blocks as $block) {
+            digestAppend($digest, $block);
+            $count++;
+        }
+        echo "count={$count} digest=" . hash('sha1', $digest) . "\n";
+    } catch (ParseException $exception) {
+        echo "error={$exception->errorCode}\n";
+    }
+    exit(0);
+}
+
+loadLegacyDriver('dbfa245', 'LegacyDbfa245TextParseDriver', $root);
+loadLegacyDriver('660c8c3', 'Legacy660c8c3TextParseDriver', $root);
 
 $passed = 0;
 $failed = 0;
@@ -50,36 +110,83 @@ function fixture(string $path): string
     return $path;
 }
 
-/** 与旧实现逐字一致的参考算法：全量读入 + preg_split('/\R/u') + 同一循环。 */
-function referenceBlocks(string $path): array
+function writeFixture(string $tag, string $data): string
 {
-    $contents = file_get_contents($path);
-    if (!mb_check_encoding($contents, 'UTF-8')) {
-        $contents = mb_convert_encoding($contents, 'UTF-8', 'UTF-8, GB18030, GBK, BIG-5, ISO-8859-1');
-    }
-    $lines = preg_split('/\R/u', $contents) ?: [];
-    $blocks = [];
-    foreach ($lines as $index => $line) {
-        $content = trim($line);
-        if ($content === '') {
-            continue;
-        }
-        $offset = mb_strlen($line, 'UTF-8') - mb_strlen(ltrim($line), 'UTF-8');
-        foreach (\app\Infrastructure\Parsing\NeuronSourceTextSplitter::split($content, 4096) as $piece) {
-            $length = mb_strlen($piece, 'UTF-8');
-            if (trim($piece) !== '') {
-                $blocks[] = new ParsedSourceBlock(count($blocks) + 1, 'line', [
-                    'line' => $index + 1, 'char_start' => $offset + 1, 'char_end' => $offset + $length,
-                ], $piece);
-            }
-            $offset += $length;
-        }
-    }
-    return $blocks;
+    $path = fixture(tempnam(sys_get_temp_dir(), 'sandai-txt' . $tag . '-') ?: sys_get_temp_dir() . '/sandai-txt' . $tag);
+    file_put_contents($path, $data);
+    return $path;
 }
 
-// 生成 QA 形状的 8MB 文本：84,000 行，常规行 ~94B，每 997 行一个空行，
-// 含 UTF-8 中文行，另含一条 5000 字符行验证多 piece 的 char 区间连续。
+/** 旧整量版（dbfa245）在本进程内逐块比对：块数 + 每块 seq/定位/内容全等。 */
+function equivalentToLegacy(string $name, string $path): bool
+{
+    $driver = new TextParseDriver();
+    try {
+        $reference = (new \app\Infrastructure\Parsing\LegacyDbfa245TextParseDriver())->parse(new ParseInput($path, 'txt', 'text/plain'))->blocks;
+    } catch (ParseException $exception) {
+        $reference = 'ERR:' . $exception->errorCode;
+    }
+    $index = 0;
+    $matched = true;
+    try {
+        foreach ($driver->streamBlocks(new ParseInput($path, 'txt', 'text/plain')) as $block) {
+            $expected = is_array($reference) ? ($reference[$index] ?? null) : null;
+            if ($expected === null
+                || $block->sequenceNo !== $expected->sequenceNo
+                || $block->locatorType !== $expected->locatorType
+                || $block->locator != $expected->locator
+                || $block->content !== $expected->content) {
+                $matched = false;
+            }
+            $index++;
+        }
+    } catch (ParseException $exception) {
+        $same = $reference === 'ERR:' . $exception->errorCode;
+        ok($same, "{$name} (new throws {$exception->errorCode})");
+        return $same;
+    }
+    // 旧 parse() 对零块直接抛 SAND_AI_PARSE_EMPTY；流式侧零块经 parse()
+    // 同样抛 EMPTY，由第 6 节单独断言，此处把「零块」与 EMPTY 视为一致。
+    $same = (is_array($reference) && $matched && $index === count($reference))
+        || ($reference === 'ERR:SAND_AI_PARSE_EMPTY' && $index === 0);
+    ok($same, $name);
+    return $same;
+}
+
+/** 大文件：子进程跑旧整量版得摘要哈希，本进程流式侧同算法折叠。 */
+function equivalentToLegacyBig(string $name, string $path, string $root, string $phpBinary): bool
+{
+    $cmd = sprintf(
+        '%s -d memory_limit=1024M %s --legacy-dump %s 2>/dev/null',
+        escapeshellarg($phpBinary),
+        escapeshellarg(__FILE__),
+        escapeshellarg($path)
+    );
+    $output = trim((string) shell_exec($cmd));
+    if (!preg_match('/count=(\d+) digest=([0-9a-f]{40})/', $output, $match)) {
+        ok(false, "{$name} (legacy subprocess failed: {$output})");
+        return false;
+    }
+    [, $refCount, $refDigest] = $match;
+    $digest = '';
+    $count = 0;
+    foreach ((new TextParseDriver())->streamBlocks(new ParseInput($path, 'txt', 'text/plain')) as $block) {
+        digestAppend($digest, $block);
+        $count++;
+    }
+    $same = $count === (int) $refCount && hash('sha1', $digest) === $refDigest;
+    ok($same, "{$name} (ref {$refCount} vs {$count})");
+    return $same;
+}
+
+$phpBinary = PHP_BINARY ?: 'php';
+$driver = new TextParseDriver();
+$input = static fn (string $path): ParseInput => new ParseInput($path, 'txt', 'text/plain');
+
+// ---------------------------------------------------------------------------
+// 1) QA 形状的 8MB UTF-8 样本：84,000 行，每 997 行一条空行，行 42000 为
+//    5000 字符长行（跨 4096 窗口）。
+// ---------------------------------------------------------------------------
 const LINE_COUNT = 84000;
 const BLANK_EVERY = 997;
 const LONG_LINE_NO = 42000;
@@ -109,16 +216,13 @@ for ($i = 1; $i <= LINE_COUNT; $i++) {
 fclose($handle);
 ok(filesize($path8mb) > 6 * 1024 * 1024, 'fixture is ~8MB (' . filesize($path8mb) . ' bytes)');
 
-$driver = new TextParseDriver();
 ok($driver instanceof \app\Infrastructure\Parsing\StreamingParseDriver, 'text driver implements StreamingParseDriver');
-$input = new ParseInput($path8mb, 'txt', 'text/plain');
 
-// 1) 块数与首/中/尾块定位、内容抽核；同时验证长行多 piece 的 char 区间连续。
 $count = 0;
 $midIndex = intdiv($expectedBlocks, 2);
 $first = $mid = $last = null;
 $longBlocks = [];
-foreach ($driver->streamBlocks($input) as $block) {
+foreach ($driver->streamBlocks($input($path8mb)) as $block) {
     if ($count === 0) {
         $first = $block;
     }
@@ -145,127 +249,124 @@ ok($last !== null && $last->locator['line'] === LINE_COUNT
     && $last->content === $lineText(LINE_COUNT)
     && $last->sequenceNo === $expectedBlocks, 'last block locator and content');
 ok(count($longBlocks) === 2
-    && $longBlocks[0]->locator['line'] === LONG_LINE_NO
-    && $longBlocks[0]->locator['char_start'] === 1
-    && $longBlocks[0]->locator['char_end'] === 4096
-    && $longBlocks[1]->locator['line'] === LONG_LINE_NO
-    && $longBlocks[1]->locator['char_start'] === 4097
-    && $longBlocks[1]->locator['char_end'] === LONG_LINE_CHARS
+    && $longBlocks[0]->locator === ['line' => LONG_LINE_NO, 'char_start' => 1, 'char_end' => 4096]
+    && $longBlocks[1]->locator === ['line' => LONG_LINE_NO, 'char_start' => 4097, 'char_end' => LONG_LINE_CHARS]
     && $longBlocks[0]->content . $longBlocks[1]->content === $lineText(LONG_LINE_NO),
     'long line splits into contiguous char windows');
 
-// 3a) 8MB 样本峰值内存远低于 worker 128MB 上限。
 $peak8mb = memory_get_peak_usage(true);
 ok($peak8mb < 64 * 1024 * 1024, 'peak memory on 8MB input < 64MB (got ' . round($peak8mb / 1048576, 1) . 'MB)');
 
-// 3b) 2 倍行数样本：峰值不随文件大小线性增长。
-$path16mb = fixture(tempnam(sys_get_temp_dir(), 'sandai-txt16-') ?: '/tmp/sandai-txt16');
-$handle = fopen($path16mb, 'wb');
-for ($i = 1; $i <= LINE_COUNT * 2; $i++) {
-    fwrite($handle, $lineText($i) . "\n");
+// ---------------------------------------------------------------------------
+// 2) 与真实旧实现（dbfa245）逐块等价：编码、\R 变体、行尾、边界。
+// ---------------------------------------------------------------------------
+equivalentToLegacy('equivalence: UTF-8 chinese short lines', writeFixture('u8', "第一行\n第二行 abc\n\n第三行\n"));
+equivalentToLegacy('equivalence: mixed ascii/non-ascii', writeFixture('mix', "hello 中文\nworld \xE4\xB8\xAD\xC3\xA9 tail\n"));
+equivalentToLegacy('equivalence: gb18030 chinese', writeFixture('gb', mb_convert_encoding("中文第一行\n第二行 abc 测试\n", 'GB18030', 'UTF-8')));
+// GB18030 是全 Unicode 变换编码：NEL/LS/PS 都能编码，转 UTF-8 后就是
+// \R 分隔符；BIG-5/GBK 装不下的字符在造夹具时就已是 '?'，两侧一致。
+$gbSeps = mb_convert_encoding("中\xC2\x85文\xE2\x80\xA8档\xE2\x80\xA9尾", 'GB18030', 'UTF-8');
+equivalentToLegacy('equivalence: gb18030 NEL/LS/PS separators', writeFixture('gbs', $gbSeps . "\n"));
+equivalentToLegacy('equivalence: utf-8 NEL/LS/PS', writeFixture('usp', "a\xC2\x85b\xE2\x80\xA8c\xE2\x80\xA9d\n"));
+equivalentToLegacy('equivalence: no newline at all', writeFixture('nn', "只有一行没有换行"));
+equivalentToLegacy('equivalence: no trailing newline', writeFixture('ntn', "a\nb\nc"));
+equivalentToLegacy('equivalence: crlf/cr/vt/ff mixes', writeFixture('crlf', "one\r\ntwo\rthree\x0Bfour\x0Cfive\n"));
+equivalentToLegacy('equivalence: leading ws counts chars', writeFixture('lws', "   \t abc \t\n\t\tx\n"));
+equivalentToLegacy('equivalence: nul bytes inside line', writeFixture('nul', "a\x00\x00b\x00\n"));
+equivalentToLegacy('equivalence: latin1 high bytes', writeFixture('l1', "caf\xE9\nna\xEFve\n"));
+equivalentToLegacy('equivalence: big5 traditional', writeFixture('b5', mb_convert_encoding("許願池\n台灣繁體\n", 'BIG-5', 'UTF-8')));
+equivalentToLegacy('equivalence: utf-8 bom kept as content', writeFixture('bom', "\xEF\xBB\xBF第一行\n"));
+
+// 恰在 1MiB 读取边界上的 \r\n / 多字节字符 / LS 序列。
+$MIB = 1048576;
+equivalentToLegacy('equivalence: \\r\\n spanning 1MiB chunk edge', writeFixture('ce1', str_repeat('a', $MIB - 1) . "\r\n" . "tail\n"));
+equivalentToLegacy('equivalence: 3-byte char spanning 1MiB edge', writeFixture('ce2', str_repeat('a', $MIB - 1) . '中' . str_repeat('b', 100) . "\n"));
+equivalentToLegacy('equivalence: LS spanning 1MiB edge', writeFixture('ce3', str_repeat('a', $MIB - 3) . "\xE2\x80\xA8" . "tail\n"));
+equivalentToLegacy('equivalence: \\r spanning 1MiB edge', writeFixture('ce4', str_repeat('a', $MIB - 1) . "\r" . "tail\n"));
+
+// 4096 窗口边界：整 4096 / 4096+1 / 跨窗口的空白串 / 全空白窗不计块但推偏移。
+equivalentToLegacy('equivalence: line exactly 4096 cps', writeFixture('w1', str_repeat('z', 4096) . "\n"));
+equivalentToLegacy('equivalence: line 4097 cps', writeFixture('w2', str_repeat('z', 4097) . "\n"));
+equivalentToLegacy('equivalence: ws run crossing window boundary', writeFixture('w3', 'a' . str_repeat(' ', 9000) . 'b' . "\n"));
+equivalentToLegacy('equivalence: trailing ws run after content', writeFixture('w4', 'a' . str_repeat(' ', 9000) . "\n"));
+equivalentToLegacy('equivalence: all-whitespace long line', writeFixture('w5', str_repeat(" \t", 5000) . "\n"));
+
+// 8MB 样本也要和旧整量版逐块一致。
+equivalentToLegacy('equivalence: full 8MB QA-shaped fixture', $path8mb);
+
+// ---------------------------------------------------------------------------
+// 3) >4MiB 单行：fix6d 旧代码拒绝，新代码成功且与 dbfa245 旧算法等价。
+// ---------------------------------------------------------------------------
+$pathHuge = writeFixture('huge', str_repeat('y', 4 * $MIB + 1) . "\n");
+$hugeCode = null;
+try {
+    foreach ((new \app\Infrastructure\Parsing\Legacy660c8c3TextParseDriver())->streamBlocks($input($pathHuge)) as $block) {
+    }
+} catch (ParseException $exception) {
+    $hugeCode = $exception->errorCode;
+}
+ok($hugeCode === 'SAND_AI_PARSE_FAILED', 'legacy fix6d driver rejects >4MiB line with SAND_AI_PARSE_FAILED');
+equivalentToLegacyBig('equivalence: >4MiB single line vs dbfa245 (subprocess)', $pathHuge, $root, $phpBinary);
+
+$pathHugeWs = writeFixture('hugews', str_repeat('y', 4 * $MIB) . str_repeat(' ', 3 * $MIB) . 'z' . "\n");
+equivalentToLegacyBig('equivalence: >4MiB line with 3MiB interior ws run', $pathHugeWs, $root, $phpBinary);
+
+// ---------------------------------------------------------------------------
+// 4) 接近 50MiB 上限的多行文件：摘要等价 + 内存有界。
+// ---------------------------------------------------------------------------
+$path50 = fixture(tempnam(sys_get_temp_dir(), 'sandai-txt50-') ?: '/tmp/sandai-txt50');
+$handle = fopen($path50, 'wb');
+$target = 50 * $MIB - 64 * 1024;
+$line50 = "中文字符混合 abc 12345 line content padding\n";
+for ($i = 0, $lineReps = intdiv($target, strlen($line50)); $i < $lineReps; $i++) {
+    fwrite($handle, $line50);
 }
 fclose($handle);
-$count16 = 0;
-foreach ($driver->streamBlocks(new ParseInput($path16mb, 'txt', 'text/plain')) as $block) {
-    $count16++;
-}
-$peak16mb = memory_get_peak_usage(true);
-ok($peak16mb < 64 * 1024 * 1024, 'peak memory on 2x input < 64MB (got ' . round($peak16mb / 1048576, 1) . 'MB)');
-ok($peak16mb - $peak8mb < 16 * 1024 * 1024,
-    'peak does not grow linearly with input size (+' . round(($peak16mb - $peak8mb) / 1048576, 1) . 'MB)');
+ok(filesize($path50) >= 49 * $MIB, 'fixture approaches the 50MiB file limit (' . filesize($path50) . ' bytes)');
+equivalentToLegacyBig('equivalence: near-50MiB file vs dbfa245 (subprocess)', $path50, $root, $phpBinary);
 
-// 2) 语义等价：流式逐块与旧参考实现完全一致。
-$reference = referenceBlocks($path8mb);
-$matched = true;
-$seen = 0;
-foreach ($driver->streamBlocks($input) as $block) {
-    $expected = $reference[$seen] ?? null;
-    if ($expected === null
-        || $block->sequenceNo !== $expected->sequenceNo
-        || $block->locatorType !== $expected->locatorType
-        || $block->locator != $expected->locator
-        || $block->content !== $expected->content) {
-        $matched = false;
-        break;
+// ---------------------------------------------------------------------------
+// 5) 128MB 限额下的峰值内存：每个输入跑两遍，峰值不得随遍数增长。
+// ---------------------------------------------------------------------------
+$peakBefore = memory_get_peak_usage(true);
+$report = [];
+foreach (['8mb' => $path8mb, 'huge' => $pathHuge, 'near50' => $path50] as $tag => $path) {
+    $peaks = [];
+    for ($run = 1; $run <= 2; $run++) {
+        memory_reset_peak_usage();
+        $mark = memory_get_peak_usage(true);
+        foreach ($driver->streamBlocks($input($path)) as $block) {
+        }
+        $peaks[] = memory_get_peak_usage(true) - $mark;
+        $report[$tag][] = end($peaks);
     }
-    $seen++;
+    ok($peaks[1] <= $peaks[0] + 1024 * 1024,
+        "{$tag}: second-run peak does not grow (" . round($peaks[0] / 1048576, 1) . 'MB -> ' . round($peaks[1] / 1048576, 1) . 'MB)');
 }
-ok($matched && $seen === count($reference), 'streamBlocks matches the legacy algorithm block-for-block');
-unset($reference);
+echo 'memory peaks: ' . json_encode($report) . "\n";
 
-// 4) 空文件 → SAND_AI_PARSE_EMPTY；单行 >4MiB → SAND_AI_PARSE_FAILED。
-$pathEmpty = fixture(tempnam(sys_get_temp_dir(), 'sandai-txt0-') ?: '/tmp/sandai-txt0');
-file_put_contents($pathEmpty, '');
+// ---------------------------------------------------------------------------
+// 6) 空文件与异常契约。
+// ---------------------------------------------------------------------------
+$pathEmpty = writeFixture('empty', '');
 $emptyCode = null;
 try {
-    $driver->parse(new ParseInput($pathEmpty, 'txt', 'text/plain'));
+    $driver->parse($input($pathEmpty));
 } catch (ParseException $exception) {
     $emptyCode = $exception->errorCode;
 }
 ok($emptyCode === 'SAND_AI_PARSE_EMPTY', 'empty file throws SAND_AI_PARSE_EMPTY');
 
-$pathHuge = fixture(tempnam(sys_get_temp_dir(), 'sandai-txth-') ?: '/tmp/sandai-txth');
-file_put_contents($pathHuge, str_repeat('y', 4 * 1024 * 1024 + 1) . "\n");
-$hugeCode = null;
-$hugeMessage = null;
+$pathWs = writeFixture('ws', "   \n\t\n");
+$wsCode = null;
 try {
-    foreach ($driver->streamBlocks(new ParseInput($pathHuge, 'txt', 'text/plain')) as $block) {
-    }
+    $driver->parse($input($pathWs));
 } catch (ParseException $exception) {
-    $hugeCode = $exception->errorCode;
-    $hugeMessage = $exception->getMessage();
+    $wsCode = $exception->errorCode;
 }
-ok($hugeCode === 'SAND_AI_PARSE_FAILED' && $hugeMessage === 'A text line exceeds the supported size',
-    'a single line over 4MiB throws SAND_AI_PARSE_FAILED');
+ok($wsCode === 'SAND_AI_PARSE_EMPTY', 'whitespace-only file throws SAND_AI_PARSE_EMPTY');
 
-// 5) \R 变体（\x0B VT、纯 \r、\r\n、NEL、LS、PS）与跨块边界的 \r\n。
-$pathBreaks = fixture(tempnam(sys_get_temp_dir(), 'sandai-txtb-') ?: '/tmp/sandai-txtb');
-file_put_contents($pathBreaks, "one\x0Btwo\rthree\rfour\nfive\xC2\x85six\xE2\x80\xA8seven\xE2\x80\xA9eight");
-$lines = [];
-foreach ($driver->streamBlocks(new ParseInput($pathBreaks, 'txt', 'text/plain')) as $block) {
-    $lines[$block->locator['line']] = $block->content;
-}
-ok($lines === [1 => 'one', 2 => 'two', 3 => 'three', 4 => 'four', 5 => 'five', 6 => 'six', 7 => 'seven', 8 => 'eight'],
-    'all \\R variants split lines with physical line numbers');
-
-// \r 恰好是安全区最后一个字节，\n 还在尾部保留区：把 \r 切掉会在下一轮看到幻影空行。
-$pathEdge = fixture(tempnam(sys_get_temp_dir(), 'sandai-txte-') ?: '/tmp/sandai-txte');
-file_put_contents($pathEdge, str_repeat('x', 100) . "\r\n" . 'zzzzzzz');
-$edgeBlocks = [];
-foreach ($driver->streamBlocks(new ParseInput($pathEdge, 'txt', 'text/plain')) as $block) {
-    $edgeBlocks[] = $block;
-}
-ok(count($edgeBlocks) === 2 && $edgeBlocks[1]->locator['line'] === 2
-    && $edgeBlocks[1]->content === 'zzzzzzz',
-    '\\r at safe-zone edge joined with tail \\n produces no phantom empty line');
-
-// \r 是 1MiB 读取块的最后一个字节，\n 是下一块的第一个字节：同样不得出现幻影空行。
-$pathChunkEdge = fixture(tempnam(sys_get_temp_dir(), 'sandai-txtc-') ?: '/tmp/sandai-txtc');
-file_put_contents($pathChunkEdge, str_repeat('x', 1048575) . "\r\n" . str_repeat('w', 100) . "\n");
-$chunkLines = [];
-$chunkCount = 0;
-foreach ($driver->streamBlocks(new ParseInput($pathChunkEdge, 'txt', 'text/plain')) as $block) {
-    $chunkLines[$block->locator['line']] = true;
-    $chunkCount++;
-}
-ok(isset($chunkLines[2]) && !isset($chunkLines[3]) && $chunkCount === 257,
-    '\\r at a 1MiB read boundary joined with next-chunk \\n produces no phantom empty line');
-
-// 6) GB18030 行转 UTF-8。
-$pathGb = fixture(tempnam(sys_get_temp_dir(), 'sandai-txtg-') ?: '/tmp/sandai-txtg');
-file_put_contents($pathGb, "utf8-first\n"
-    . mb_convert_encoding('中文GB18030行', 'GB18030', 'UTF-8') . "\nutf8-last\n");
-$gbLines = [];
-foreach ($driver->streamBlocks(new ParseInput($pathGb, 'txt', 'text/plain')) as $block) {
-    $gbLines[$block->locator['line']] = $block->content;
-}
-ok($gbLines === [1 => 'utf8-first', 2 => '中文GB18030行', 3 => 'utf8-last'],
-    'GB18030 lines convert to UTF-8 after byte-level line split');
-
-// 7) parse() 兼容：小文件返回原契约。
-$pathSmall = fixture(tempnam(sys_get_temp_dir(), 'sandai-txts-') ?: '/tmp/sandai-txts');
-file_put_contents($pathSmall, "alpha\n\nbeta\n");
-$result = $driver->parse(new ParseInput($pathSmall, 'txt', 'text/plain'));
+$result = $driver->parse($input(writeFixture('small', "alpha\n\nbeta\n")));
 ok($result->driverCode === 'text/plain' && $result->driverVersion === '2.0'
     && count($result->blocks) === 2
     && $result->blocks[0]->content === 'alpha' && $result->blocks[1]->content === 'beta',
