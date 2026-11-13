@@ -557,7 +557,7 @@ final class FileGateway
         }
         return match (true) {
             str_contains($code, 'QUEUE_FAILED') => '提交处理失败，请点重试',
-            str_contains($code, 'UNSUPPORTED') => '当前文件类型没有可用解析驱动',
+            str_contains($code, 'UNSUPPORTED') => '这种格式暂时读不了，请换成 PDF、Word 或 TXT 再传',
             str_contains($code, 'EMPTY') => '没有从文件里解析出可用内容',
             str_contains($code, 'CAPABILITY') || str_contains($code, 'NOT_PUBLISHED') => '解析能力配置不可用，请检查能力配置后重试',
             str_contains($code, 'OCR') => '图片或扫描件识别不可用，请检查 OCR 配置后重试',

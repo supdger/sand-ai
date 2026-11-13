@@ -90,7 +90,7 @@ ok(str_contains($source, 'DISTINCT ON (file_id)'), 'failure text reads the lates
 // 白话失败原因映射
 
 ok(FileGateway::failureText(null) === '处理失败，请重试', 'null error code maps to generic retry text');
-ok(FileGateway::failureText('SAND_AI_PARSE_UNSUPPORTED') === '当前文件类型没有可用解析驱动', 'unsupported maps to driver copy');
+ok(FileGateway::failureText('SAND_AI_PARSE_UNSUPPORTED') === '这种格式暂时读不了，请换成 PDF、Word 或 TXT 再传', 'unsupported maps to driver copy');
 ok(FileGateway::failureText('SAND_AI_PARSE_QUEUE_FAILED') === '提交处理失败，请点重试', 'queue failure maps to retry copy');
 ok(FileGateway::failureText('SAND_AI_OCR_UNAVAILABLE') === '图片或扫描件识别不可用，请检查 OCR 配置后重试', 'ocr maps to ocr copy');
 ok(FileGateway::failureText('SAND_AI_BUDGET_SCOPE_UNVERIFIED') === 'AI 预算不足或已用完，请到费用页处理后重试', 'budget maps to budget copy');

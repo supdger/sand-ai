@@ -428,6 +428,7 @@
     if (apiKey.value.trim() === '') return devOpen.value ? '先在上面填调用密钥' : '正在准备上传身份'
     if (busy.value === 'upload') return '正在上传，传完即可再选'
     if (busy.value !== '') return '有操作正在进行，结束后即可上传'
+    if (uploadRef.value?.initFailed === true) return '上传暂时不可用，请点下方「重新准备上传」再试'
     return '上传还没准备好，正在初始化'
   })
   function pickFile(): void {
