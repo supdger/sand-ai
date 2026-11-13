@@ -111,7 +111,7 @@
                   :loading="busy === 'parse-recovery'" @click="readOriginalParse(false)">按原请求只读找回</ElButton>
                 <ElButton v-if="pendingParseSubmit?.taskId" :disabled="Boolean(busy) || !apiKey.trim()"
                   @click="readOriginalParse(true)">刷新原解析任务</ElButton>
-                <ElButton v-if="parseRecoveredTask" :disabled="Boolean(busy)" @click="viewRecoveredParse">{{ recoveredParseTextTarget() ? '查看解析出的文字' : '查看原任务与来源' }}</ElButton>
+                <ElButton v-if="parseRecoveredTask" :disabled="Boolean(busy)" @click="viewRecoveredParse">{{ recoveredParseTextTarget() ? '看文字' : '查看原任务与来源' }}</ElButton>
                 <ElButton v-if="parseRecoveredTask?.state === 'failed'"
                   :disabled="Boolean(busy) || !apiKey.trim() || !canRetryOriginalParse(parseRecoveredTask)" @click="retryOriginalParse">重试原解析任务</ElButton>
                 <ElButton v-if="canRestartCanceledParse(parseRecoveredTask)"
@@ -150,7 +150,7 @@
             </template>
             <p class="file-desc">此结果未提供费用金额。请按原任务号查看成果、来源与实际费用记录；解析请求号不是费用记录号。</p>
             <ElSpace wrap>
-              <ElButton v-if="knownParseTextTarget()" :disabled="!apiKey.trim()" @click="viewKnownParseText">查看解析出的文字</ElButton>
+              <ElButton v-if="knownParseTextTarget()" :disabled="!apiKey.trim()" @click="viewKnownParseText">看文字</ElButton>
               <ElButton link type="primary" @click="viewKnownParse">查看原任务、成果与费用</ElButton>
             </ElSpace>
           </section>
@@ -285,7 +285,7 @@
             <ElDescriptionsItem label="任务">
               <template v-if="detailTask">
                 #{{ detailTask.id }} · {{ runStateLabel(detailTask.state) }}
-                <ElButton link type="primary" @click="goTask(detailFile.id)">查看任务</ElButton>
+                <ElButton link type="primary" @click="goTask(detailFile.id)">看进度</ElButton>
               </template>
               <template v-else>—</template>
             </ElDescriptionsItem>
