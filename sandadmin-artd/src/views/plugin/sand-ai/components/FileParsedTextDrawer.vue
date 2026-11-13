@@ -1,14 +1,14 @@
 <template>
   <ElDrawer
     :model-value="open"
-    title="解析出的文字"
+    title="读出的文字"
     :size="'min(720px, 94vw)'"
     destroy-on-close
     @closed="handleClosed"
   >
     <div class="parsed-text">
       <p class="parsed-text__note">
-        以下是从「{{ displayName }}」解析出的文字摘录（每段最多 500 个字），是原文内容，不是 AI 整理后的成果。
+        以下是从「{{ displayName }}」里读出的原文，每段最多 500 个字，不是 AI 整理后的内容。
       </p>
       <ElAlert
         v-if="!hasTarget"

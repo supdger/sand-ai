@@ -17,7 +17,9 @@ use app\Infrastructure\Parsing\ParseDriverFactory;
 use app\Infrastructure\Parsing\ParseDriver;
 use app\Infrastructure\Parsing\ParseException;
 use app\Infrastructure\Parsing\ParseInput;
+use app\Infrastructure\Parsing\ParsedSourceBlock;
 use app\Infrastructure\Parsing\ParseResult;
+use app\Infrastructure\Parsing\StreamingParseDriver;
 use app\Infrastructure\Parsing\NeuronSourceTextSplitter;
 use app\Infrastructure\Parsing\PdfOcrCoveragePolicy;
 use app\Infrastructure\Persistence\Model\AiFile;
@@ -310,6 +312,74 @@ final class FileParseGateway
             $driver = $route === null
                 ? ParseDriverFactory::forExtension((string) $file->extension)
                 : ParseDriverFactory::forCapabilityDriver((string) $route['driver_code'], (string) $file->extension);
+            if ($driver instanceof StreamingParseDriver) {
+                $this->assertOcrDispatchAllowed($task, $lease, $parse, $driver);
+                $locatedText = $driver->code() === 'text/plain' && $driver->version() === '2.0';
+                $completedAt = date('Y-m-d H:i:s');
+                $insertedRows = 0;
+                $taskResult = [
+                    'file_id' => (int) $file->id,
+                    'parse' => [
+                        'id' => (int) $parse->id,
+                        'parser_code' => $driver->code(),
+                        'parser_version' => $driver->version(),
+                        'state' => TaskState::SUCCEEDED,
+                        'source_block_count' => 0,
+                        'error_code' => null,
+                        'error_summary' => null,
+                        'started_at' => $parse->started_at,
+                        'completed_at' => $completedAt,
+                    ],
+                ];
+                $parseInput = $this->parseInput($temporaryPath, $file, $task, $lease, $parse, $driver, $route);
+                (new TaskGateway())->completeFileParse($task, $taskResult, $lease, function () use ($task, $file, $parse, $driver, $parseInput, $locatedText, $completedAt, $lease, &$persistenceStage, &$insertedRows): void {
+                    $guard = new KnowledgeSourceReferenceGuard();
+                    $guard->lockFile((int) $file->id);
+                    $guard->rejectPublishedReference((int) $file->id);
+                    $this->rejectExistingSourceBlocks((int) $parse->id);
+                    $persistenceStage = 'source_blocks';
+                    $taskGateway = new TaskGateway();
+                    $sequenceNo = 0;
+                    $rowsBatch = [];
+                    $insertedBatches = 0;
+                    foreach ($driver->streamBlocks($parseInput) as $block) {
+                        foreach ($this->blockRows($file, $parse, $block, $locatedText, $sequenceNo) as $row) {
+                            $rowsBatch[] = $row;
+                            if (count($rowsBatch) === 250) {
+                                $this->insertSourceRows($rowsBatch);
+                                $insertedRows += count($rowsBatch);
+                                $rowsBatch = [];
+                                if (++$insertedBatches % 8 === 0) {
+                                    $taskGateway->heartbeat($lease);
+                                }
+                            }
+                        }
+                    }
+                    if ($rowsBatch !== []) {
+                        $this->insertSourceRows($rowsBatch);
+                        $insertedRows += count($rowsBatch);
+                    }
+                    if ($insertedRows === 0) {
+                        throw new ParseException('SAND_AI_PARSE_EMPTY', 'The file contains no extractable source blocks');
+                    }
+                    $persistenceStage = 'parse_record';
+                    $parse->save([
+                        'parser_code' => $driver->code(),
+                        'parser_version' => $driver->version(),
+                        'state' => 'succeeded',
+                        'source_block_count' => $insertedRows,
+                        'completed_at' => $completedAt,
+                    ]);
+                    $persistenceStage = 'file_record';
+                    $file->save(['state' => 'parsed']);
+                    $this->audit((int) $task->environment_id, 'file.parse', (int) $file->id, 'Parsed SandAI file', ['parse_id' => (int) $parse->id, 'task_id' => (int) $task->id, 'source_block_count' => $insertedRows]);
+                }, function (array $result) use (&$insertedRows): array {
+                    $result['parse']['source_block_count'] = $insertedRows;
+                    return $result;
+                });
+                $taskResult['parse']['source_block_count'] = $insertedRows;
+                return $taskResult + ['_terminal_committed' => true];
+            }
             try {
                 $this->assertOcrDispatchAllowed($task, $lease, $parse, $driver);
                 $result = $driver->parse($this->parseInput($temporaryPath, $file, $task, $lease, $parse, $driver, $route));
@@ -357,26 +427,7 @@ final class FileParseGateway
                 // ThinkORM. Keep the enclosing lease-fenced transaction, while
                 // bounding each statement to 250 rows (2,500 parameters).
                 foreach (array_chunk($rows, 250) as $batch) {
-                    // Pgsql insertAll builds SELECT ... UNION ALL, which resolves
-                    // untyped parameters as text before the target-column types apply.
-                    $parameters = [];
-                    foreach ($batch as $row) {
-                        array_push($parameters,
-                            $row['file_id'], $row['parse_id'], $row['sequence_no'],
-                            $row['locator_type'], json_encode($row['locator'], JSON_THROW_ON_ERROR),
-                            $row['content'], $row['content_sha256'], $row['status'],
-                            $row['create_time'], $row['update_time'],
-                        );
-                    }
-                    $inserted = Db::connect('pgsql')->execute(
-                        'INSERT INTO sand_ai_source_block '
-                        . '(file_id,parse_id,sequence_no,locator_type,locator,content,content_sha256,status,create_time,update_time) VALUES '
-                        . implode(',', array_fill(0, count($batch), '(?,?,?,?,CAST(? AS jsonb),?,?,?,?,?)')),
-                        $parameters,
-                    );
-                    if ($inserted !== count($batch)) {
-                        throw new \RuntimeException('Source block batch was not fully persisted');
-                    }
+                    $this->insertSourceRows($batch);
                 }
                 $persistenceStage = 'parse_record';
                 $parse->save([
@@ -543,6 +594,44 @@ final class FileParseGateway
         }
     }
 
+    /**
+     * Fallback projection when a committed upload could not queue its parse.
+     * The file must not stall in 'uploaded': a failed parse row carries the
+     * operator-facing reason and the file moves to parse_failed so the normal
+     * parse endpoint can retry. No task row is created here; the retry creates
+     * both rows itself.
+     */
+    public function markEnqueueFailed(int $environmentId, int $fileId, string $scope): void
+    {
+        Db::connect('pgsql')->transaction(function () use ($environmentId, $fileId, $scope): void {
+            (new KnowledgeSourceReferenceGuard())->lockFile($fileId);
+            $file = AiFile::where('environment_id', $environmentId)->where('id', $fileId)->lock(true)->find();
+            if ($file === null || (int) $file->status !== 1 || $file->delete_time !== null
+                || (string) $file->state !== 'uploaded') {
+                return;
+            }
+            try {
+                (new FileOwnershipGuard())->assert($file, $scope);
+            } catch (ApiProblem) {
+                return;
+            }
+            $now = date('Y-m-d H:i:s');
+            AiFileParse::create([
+                'file_id' => $fileId,
+                'parser_code' => 'pending',
+                'parser_version' => 'pending',
+                'state' => TaskState::FAILED,
+                'error_code' => 'SAND_AI_PARSE_QUEUE_FAILED',
+                'error_summary' => '提交处理失败，请点重试',
+                'started_at' => $now,
+                'completed_at' => $now,
+                'status' => 1,
+            ]);
+            $file->save(['state' => 'parse_failed']);
+            $this->audit($environmentId, 'file.parse_enqueue_failed', $fileId, 'SandAI file parse enqueue failed', []);
+        });
+    }
+
     /** @return array<string, mixed>|null */
     public function latest(int $fileId, ?string $trustedIdentityScope = null): ?array
     {
@@ -579,50 +668,84 @@ final class FileParseGateway
     /** @return list<array<string, mixed>> */
     private function sourceRows(AiFile $file, AiFileParse $parse, ParseResult $result): array
     {
-        // The legacy configuration name is retained; mb_strcut consumes bytes, not characters.
-        $maxBytes = min(65536, max(256, (int) config('sand_ai_parse.max_source_block_characters', 12000)));
         $locatedText = $result->driverCode === 'text/plain' && $result->driverVersion === '2.0';
         $rows = [];
+        $sequenceNo = 0;
         foreach ($result->blocks as $block) {
-            $content = $locatedText ? $block->content : trim($block->content);
-            if ($locatedText) {
-                $locator = FileSourceBlockLocator::project($block->locatorType, $block->locator);
-                if ($block->locatorType !== 'line' || !is_int($locator['char_start'] ?? null)
-                    || !is_int($locator['char_end'] ?? null) || trim($content) === ''
-                    || !mb_check_encoding($content, 'UTF-8') || strlen($content) > 65536
-                    || $locator['char_end'] - $locator['char_start'] + 1 !== mb_strlen($content, 'UTF-8')) {
-                    throw new ParseException('SAND_AI_PARSE_FAILED', 'Text source positions could not be persisted');
-                }
-            }
-            // A complete short block keeps its position. For a longer block, four bytes per
-            // Unicode code point bound the SDK window within the configured UTF-8 byte ceiling.
-            $pieces = $locatedText || strlen($content) <= $maxBytes
-                ? ($content === '' ? [] : [$content])
-                : NeuronSourceTextSplitter::split($content, intdiv($maxBytes, 4));
-            $part = 0;
-            foreach ($pieces as $piece) {
-                $part++;
-                if (trim($piece) === '') continue;
-                $locator = $block->locator;
-                if ($part > 1) {
-                    $locator['part'] = $part;
-                }
-                $rows[] = [
-                    'file_id' => (int) $file->id,
-                    'parse_id' => (int) $parse->id,
-                    'sequence_no' => count($rows) + 1,
-                    'locator_type' => $block->locatorType,
-                    'locator' => $locator,
-                    'content' => $piece,
-                    'content_sha256' => hash('sha256', $piece),
-                    'status' => 1,
-                    'create_time' => date('Y-m-d H:i:s'),
-                    'update_time' => date('Y-m-d H:i:s'),
-                ];
+            foreach ($this->blockRows($file, $parse, $block, $locatedText, $sequenceNo) as $row) {
+                $rows[] = $row;
             }
         }
 
         return $rows;
+    }
+
+    /** @return \Generator<int, array<string, mixed>> */
+    private function blockRows(AiFile $file, AiFileParse $parse, ParsedSourceBlock $block, bool $locatedText, int &$sequenceNo): \Generator
+    {
+        // The legacy configuration name is retained; mb_strcut consumes bytes, not characters.
+        $maxBytes = min(65536, max(256, (int) config('sand_ai_parse.max_source_block_characters', 12000)));
+        $content = $locatedText ? $block->content : trim($block->content);
+        if ($locatedText) {
+            $locator = FileSourceBlockLocator::project($block->locatorType, $block->locator);
+            if ($block->locatorType !== 'line' || !is_int($locator['char_start'] ?? null)
+                || !is_int($locator['char_end'] ?? null) || trim($content) === ''
+                || !mb_check_encoding($content, 'UTF-8') || strlen($content) > 65536
+                || $locator['char_end'] - $locator['char_start'] + 1 !== mb_strlen($content, 'UTF-8')) {
+                throw new ParseException('SAND_AI_PARSE_FAILED', 'Text source positions could not be persisted');
+            }
+        }
+        // A complete short block keeps its position. For a longer block, four bytes per
+        // Unicode code point bound the SDK window within the configured UTF-8 byte ceiling.
+        $pieces = $locatedText || strlen($content) <= $maxBytes
+            ? ($content === '' ? [] : [$content])
+            : NeuronSourceTextSplitter::split($content, intdiv($maxBytes, 4));
+        $part = 0;
+        foreach ($pieces as $piece) {
+            $part++;
+            if (trim($piece) === '') continue;
+            $locator = $block->locator;
+            if ($part > 1) {
+                $locator['part'] = $part;
+            }
+            yield [
+                'file_id' => (int) $file->id,
+                'parse_id' => (int) $parse->id,
+                'sequence_no' => ++$sequenceNo,
+                'locator_type' => $block->locatorType,
+                'locator' => $locator,
+                'content' => $piece,
+                'content_sha256' => hash('sha256', $piece),
+                'status' => 1,
+                'create_time' => date('Y-m-d H:i:s'),
+                'update_time' => date('Y-m-d H:i:s'),
+            ];
+        }
+    }
+
+    /** @param list<array<string, mixed>> $batch */
+    private function insertSourceRows(array $batch): void
+    {
+        // Pgsql insertAll builds SELECT ... UNION ALL, which resolves
+        // untyped parameters as text before the target-column types apply.
+        $parameters = [];
+        foreach ($batch as $row) {
+            array_push($parameters,
+                $row['file_id'], $row['parse_id'], $row['sequence_no'],
+                $row['locator_type'], json_encode($row['locator'], JSON_THROW_ON_ERROR),
+                $row['content'], $row['content_sha256'], $row['status'],
+                $row['create_time'], $row['update_time'],
+            );
+        }
+        $inserted = Db::connect('pgsql')->execute(
+            'INSERT INTO sand_ai_source_block '
+            . '(file_id,parse_id,sequence_no,locator_type,locator,content,content_sha256,status,create_time,update_time) VALUES '
+            . implode(',', array_fill(0, count($batch), '(?,?,?,?,CAST(? AS jsonb),?,?,?,?,?)')),
+            $parameters,
+        );
+        if ($inserted !== count($batch)) {
+            throw new \RuntimeException('Source block batch was not fully persisted');
+        }
     }
 
     /** @return array<string, mixed> */

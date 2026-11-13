@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace app\Infrastructure\Parsing;
 
-use NeuronAI\Exceptions\DataReaderException;
-use NeuronAI\RAG\DataLoader\TextFileReader;
-
-final class TextParseDriver implements ParseDriver
+final class TextParseDriver implements StreamingParseDriver
 {
+    private const CHUNK_BYTES = 1024 * 1024;
+
     public function code(): string
     {
         return 'text/plain';
@@ -21,33 +20,7 @@ final class TextParseDriver implements ParseDriver
 
     public function parse(ParseInput $input): ParseResult
     {
-        try {
-            $contents = (new TextFileReader())->read($input->path);
-        } catch (DataReaderException $exception) {
-            // SDK errors contain the private path; keep only SandAI's safe public error.
-            throw new ParseException('SAND_AI_PARSE_FAILED', 'Text file could not be read', $exception);
-        }
-
-        $contents = $this->utf8($contents);
-        $lines = preg_split('/\R/u', $contents) ?: [];
-        $blocks = [];
-        foreach ($lines as $index => $line) {
-            $content = trim($line);
-            if ($content === '') {
-                continue;
-            }
-            $offset = mb_strlen($line, 'UTF-8') - mb_strlen(ltrim($line), 'UTF-8');
-            foreach (NeuronSourceTextSplitter::split($content, 4096) as $piece) {
-                $length = mb_strlen($piece, 'UTF-8');
-                // Blank windows advance the real source position but never create an embedding input.
-                if (trim($piece) !== '') {
-                    $blocks[] = new ParsedSourceBlock(count($blocks) + 1, 'line', [
-                        'line' => $index + 1, 'char_start' => $offset + 1, 'char_end' => $offset + $length,
-                    ], $piece);
-                }
-                $offset += $length;
-            }
-        }
+        $blocks = iterator_to_array($this->streamBlocks($input), false);
 
         if ($blocks === []) {
             throw new ParseException('SAND_AI_PARSE_EMPTY', 'The text file contains no extractable text');
@@ -56,12 +29,38 @@ final class TextParseDriver implements ParseDriver
         return new ParseResult($this->code(), $this->version(), $blocks);
     }
 
-    private function utf8(string $contents): string
+    /** @return \Generator<int, ParsedSourceBlock> */
+    public function streamBlocks(ParseInput $input): \Generator
     {
-        if (mb_check_encoding($contents, 'UTF-8')) {
-            return $contents;
+        // 第一遍定全文件源编码，与旧算法对整份字节串做一次
+        // mb_check_encoding/mb_convert_encoding 的语义一一对应：
+        // UTF-8 合法则不转换，否则按候选顺序的启发评分选源编码。
+        [$encoding, $rawUtf8] = MbEncodingGuess::guess($input->path);
+        if ($encoding === null) {
+            // strict_detection 下全部候选被淘汰：旧算法得到
+            // mb_convert_encoding 的 false，等同于无可解析内容。
+            return;
         }
 
-        return mb_convert_encoding($contents, 'UTF-8', 'UTF-8, GB18030, GBK, BIG-5, ISO-8859-1');
+        $stream = @fopen($input->path, 'rb');
+        if ($stream === false) {
+            throw new ParseException('SAND_AI_PARSE_FAILED', 'Text file could not be read');
+        }
+        try {
+            // 第二遍按已定的单一源编码逐单元转换，再对解码后的
+            // UTF-8 码点流做 \R 分行与 4096 码点窗口切块。
+            $decoder = new MbChunkDecoder($encoding, $rawUtf8);
+            $emitter = new LineBlockEmitter();
+            while (!feof($stream)) {
+                $chunk = fread($stream, self::CHUNK_BYTES);
+                if ($chunk === false) {
+                    throw new ParseException('SAND_AI_PARSE_FAILED', 'Text file could not be read');
+                }
+                yield from $emitter->feed($decoder->feed($chunk, false), false);
+            }
+            yield from $emitter->feed($decoder->feed('', true), true);
+        } finally {
+            fclose($stream);
+        }
     }
 }

@@ -829,3 +829,18 @@ export type SandAiParseSubmitResult = {
   parse: SandAiFileParseSummary
   task: SandAiTask
 }
+
+/** 管理端文件列表行（GET /app/sand-ai/admin/files/index），比 file.read 投影窄。 */
+export type FileListRow = {
+  id: number
+  original_name: string
+  size_bytes: number
+  media_type: string
+  extension: string
+  sha256: string
+  state: SandAiFileState
+  /** 最近一次解析失败的白话原因；没有失败记录为 null */
+  failure_text: string | null
+  /** ISO8601 带时区偏移 */
+  create_time: string
+}

@@ -16,8 +16,12 @@ export interface KnowledgeBaseRow {
   draft_source_count: number | null
   /** 已发布（active）版本的资料段数；未发布过为 null */
   active_source_count: number | null
-  /** 产品面资料数：草稿段数优先、已发布段数兜底；无资料为 null */
+  /** 当前草稿版本的资料份数（按文件计）；无草稿为 null */
+  draft_file_count: number | null
+  /** 产品面资料数（段数）：草稿段数优先、已发布段数兜底；无资料为 null */
   material_count: number | null
+  /** 产品面资料数（文件份数）：草稿优先、已发布兜底；无资料为 null */
+  material_file_count: number | null
   draft_snapshot_sha256?: string | null
   /** 最近更新：知识库行、当前草稿、已发布版本三个时间点的最大值，格式 YYYY-MM-DD HH:MM:SS */
   update_time: string | null
@@ -204,6 +208,15 @@ export interface KnowledgeDraftInput {
   replace_draft: boolean
 }
 
+/** 一步建库输入；code 由调用方生成（kb- 前缀），幂等回放与原草稿一致。 */
+export interface KnowledgeCreateInput {
+  environment_id: number
+  code: string
+  name: string
+  description: string
+  files: Array<{ id: number; sha256: string }>
+}
+
 function draftResult(value: unknown, code: string, expectedBaseId: number | null): KnowledgePublishResult {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('草稿响应无效，请保留原请求号继续原请求')
@@ -316,6 +329,14 @@ export default {
       params: { environment_id: environmentId, before },
       showErrorMessage: false
     })
+  },
+  /** 一步建库：名称加至少一份可用资料，单事务直接发布并入队索引。 */
+  async create(input: KnowledgeCreateInput, key: string): Promise<KnowledgePublishResult> {
+    const result: unknown = await request.post<unknown>({
+      url: `${base}/create`, data: input, headers: { 'Idempotency-Key': key },
+      showErrorMessage: false
+    })
+    return draftResult(result, input.code, null)
   },
   async createDraft(input: KnowledgeDraftInput, key: string, expectedBaseId: number | null = null): Promise<KnowledgePublishResult> {
     const result: unknown = await request.post<unknown>({

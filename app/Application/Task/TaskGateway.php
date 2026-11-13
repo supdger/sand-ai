@@ -2499,12 +2499,16 @@ final class TaskGateway
      *
      * @param array<string, mixed> $result
      * @param \Closure():void $persistFile
+     * @param \Closure(array<string, mixed>):array<string, mixed>|null $resultFinalizer
      */
-    public function completeFileParse(TaskRun $task, array $result, TaskExecutionLease $lease, \Closure $persistFile): void
+    public function completeFileParse(TaskRun $task, array $result, TaskExecutionLease $lease, \Closure $persistFile, ?\Closure $resultFinalizer = null): void
     {
-        Db::connect('pgsql')->transaction(function () use ($task, $result, $lease, $persistFile): void {
+        Db::connect('pgsql')->transaction(function () use ($task, $result, $lease, $persistFile, $resultFinalizer): void {
             $this->assertRunningLease($lease);
             $persistFile();
+            // A streaming persist learns the final source block count only after
+            // iterating; succeed() must seal the finalized result, not the estimate.
+            $result = $resultFinalizer === null ? $result : $resultFinalizer($result);
             $this->succeed($task, $result, $lease);
         });
     }

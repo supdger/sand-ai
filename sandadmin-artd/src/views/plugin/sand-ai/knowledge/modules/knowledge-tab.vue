@@ -161,13 +161,14 @@
       </div>
     </template>
 
-    <!-- 新建知识库：只有 3 个字段 -->
-    <ElDialog
+    <!-- 新建知识库：一个抽屉里选名选资料，一步建好 -->
+    <ElDrawer
       v-model="createOpen"
       title="新建知识库"
-      width="min(520px, 94vw)"
+      size="min(560px, 94vw)"
       :close-on-click-modal="false"
-      @closed="resetCreateForm"
+      :before-close="confirmCreateClose"
+      destroy-on-close
     >
       <ElForm label-width="90px" @submit.prevent>
         <ElFormItem label="名称" required :error="nameError">
@@ -189,32 +190,43 @@
             placeholder="一句话说明这是什么资料（选填）"
           />
         </ElFormItem>
-        <ElFormItem label="给谁用">
-          <ElSelect
-            v-model="createForm.audiences"
-            multiple
-            clearable
-            collapse-tags
-            collapse-tags-tooltip
-            placeholder="暂时谁都不用"
-            class="audience-select"
-          >
-            <ElOption label="试用" value="__trial__" />
-            <ElOption
-              v-for="agent in agentOptions"
-              :key="agent"
-              :label="agent"
-              :value="agent"
-            />
-          </ElSelect>
-          <div class="field-hint">不选表示暂时谁都不用；建好后也可以随时调整。</div>
+        <ElFormItem label="资料" required>
+          <div class="create-files">
+            <p v-if="!filesLoading && eligibleFiles.length === 0" class="create-files-empty">
+              还没有能用的文件，先去<RouterLink to="/sand-ai/file" class="create-files-link">「文件」</RouterLink>上传一份
+            </p>
+            <ElTable
+              v-if="eligibleFiles.length > 0 || filesLoading"
+              v-loading="filesLoading"
+              :data="eligibleFiles"
+              size="default"
+              row-key="id"
+              max-height="320"
+              @selection-change="onCreateFileSelection"
+            >
+              <ElTableColumn type="selection" width="46" :selectable="() => createSelectedFiles.length < MAX_FILES_PER_BATCH" />
+              <ElTableColumn prop="name" label="文件名" min-width="200" show-overflow-tooltip />
+            </ElTable>
+            <div v-if="eligibleFiles.length > 0" class="picker-foot">
+              <span class="picker-count">已选 {{ createSelectedFiles.length }} / {{ MAX_FILES_PER_BATCH }} 份</span>
+              <ElButton v-if="filesNextBefore !== null" link type="primary" :loading="filesLoading" @click="loadMoreFiles">
+                加载更多文件
+              </ElButton>
+            </div>
+            <p v-if="createSelectedFiles.length === 0" class="create-hint">至少选一份资料</p>
+          </div>
         </ElFormItem>
       </ElForm>
       <template #footer>
-        <ElButton @click="createOpen = false">取消</ElButton>
-        <ElButton type="primary" :loading="creating" @click="submitCreate">创建</ElButton>
+        <ElButton @click="onCancelCreate">取消</ElButton>
+        <ElButton
+          type="primary"
+          :disabled="createForm.name.trim() === '' || createSelectedFiles.length === 0"
+          :loading="creating"
+          @click="submitCreate"
+        >创建</ElButton>
       </template>
-    </ElDialog>
+    </ElDrawer>
 
     <!-- 详情抽屉 -->
     <ElDrawer
@@ -222,29 +234,8 @@
       size="min(560px, 94vw)"
       :title="detailTitle"
       destroy-on-close
-      @close="onDetailClosed"
     >
-      <template v-if="pendingDetail">
-        <ElAlert
-          type="success"
-          :closable="false"
-          class="detail-alert"
-          title="还没建好，先选几份资料"
-        />
-        <ElForm label-width="72px" @submit.prevent>
-          <ElFormItem label="名称">
-            <ElInput v-model="pendingDetail.name" maxlength="128" placeholder="知识库名称" />
-          </ElFormItem>
-        </ElForm>
-        <dl class="detail-meta">
-          <dt>说明</dt>
-          <dd>{{ pendingDetail.description || '—' }}</dd>
-        </dl>
-        <ElButton type="primary" class="detail-add" @click="openFilePicker">加资料</ElButton>
-        <p class="detail-hint">从已上传并解析完成的文件里选择，一次最多 20 份。还没有合适的文件？先去「文件」上传。</p>
-      </template>
-
-      <template v-else-if="detailRow">
+      <template v-if="detailRow">
         <div class="detail-head">
           <ElTag :type="statusTagType(detailRow)" effect="plain" size="small">
             {{ statusLabel(detailRow) }}
@@ -282,14 +273,19 @@
         <dl class="detail-meta">
           <dt>资料状态</dt>
           <dd>{{ sourceStateLabel(detailRow) }}</dd>
-          <template v-if="detailRow.draft_source_count !== null">
+          <template v-if="detailRow.draft_file_count !== null">
             <dt>待发布资料</dt>
-            <dd>{{ detailRow.draft_source_count }} 段</dd>
+            <dd>{{ detailRow.draft_file_count }} 份</dd>
           </template>
         </dl>
 
         <div class="detail-actions">
           <ElButton type="primary" :loading="isSavingName" :disabled="isSavingName" @click="saveDetailName">保存</ElButton>
+          <ElButton
+            v-if="detailRow.state === 'draft'"
+            :loading="materializing"
+            @click="openFilePicker"
+          >加资料</ElButton>
           <ElButton
             v-if="rowStatus(detailRow) === 'usable'"
             @click="openTrial(detailRow)"
@@ -319,11 +315,12 @@
           >删除</ElButton>
         </div>
         <p v-if="detailRow.state === 'disabled' && !detailRow.active_version_id" class="detail-hint">没有已发布的版本，不能启用。</p>
-        <p class="detail-hint">资料在建库时一次选定；需要更换资料请新建知识库。</p>
+        <p v-if="detailRow.state === 'draft'" class="detail-hint">还没发布，点「加资料」选好资料后会直接发布并开始整理。</p>
+        <p v-else class="detail-hint">资料在建库时一次选定；需要更换资料请新建知识库。</p>
       </template>
     </ElDrawer>
 
-    <!-- 加资料：从已解析文件里选，最多 20 份 -->
+    <!-- 加资料：从能用的文件里选，最多 20 份 -->
     <ElDialog
       v-model="filePickerOpen"
       title="加资料"
@@ -334,7 +331,7 @@
         type="info"
         :closable="false"
         class="picker-alert"
-        title="选择已上传并解析完成的文件，一次最多 20 份。"
+        title="选择能用的文件，一次最多 20 份。"
       />
       <ElTable
         v-loading="filesLoading"
@@ -342,13 +339,14 @@
         size="default"
         row-key="id"
         max-height="360"
+        empty-text="还没有能用的文件"
         @selection-change="onFileSelection"
       >
         <ElTableColumn type="selection" width="46" :selectable="() => selectedFiles.length < MAX_FILES_PER_BATCH" />
         <ElTableColumn prop="name" label="文件名" min-width="220" show-overflow-tooltip />
         <ElTableColumn label="状态" width="80" align="center">
           <template #default>
-            <ElTag type="success" size="small" effect="plain">已解析</ElTag>
+            <ElTag type="success" size="small" effect="plain">能用了</ElTag>
           </template>
         </ElTableColumn>
       </ElTable>
@@ -418,10 +416,10 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+  import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { errorDisplayText } from '../../api/errorText'
-  import { confirmDeletion } from '../../composables/confirmDeletion'
+  import { confirmDeletion, DELETION_CANCEL_CLASS } from '../../composables/confirmDeletion'
   import { formatServerMinute } from '../../api/localTime'
   import knowledgeApi, {
     type KnowledgeBaseRow,
@@ -429,7 +427,6 @@
     type KnowledgeSourceFile
   } from '../../api/knowledgeBase'
   import { requestKnowledgeTrial, type KnowledgeTrialResult } from '../../api/adminTrial'
-  import agentDefinitionApi from '../../api/agentDefinition'
   import { useAdminReadIdentity } from '../../composables/useAdminReadIdentity'
 
   const props = defineProps<{ environmentId: number | null }>()
@@ -437,12 +434,6 @@
   const PAGE_SIZE = 20
   const POLL_MS = 4000
   const MAX_FILES_PER_BATCH = 20
-
-  interface PendingKnowledgeBase {
-    name: string
-    description: string
-    audiences: string[]
-  }
 
   type RowStatus = 'usable' | 'indexing' | 'failed' | 'draft' | 'disabled'
 
@@ -457,19 +448,16 @@
   const page = ref(1)
   const pageSize = ref(PAGE_SIZE)
 
-  const pendingKnowledgeBase = ref<PendingKnowledgeBase | null>(null)
-
   const createOpen = ref(false)
   const creating = ref(false)
-  const createForm = reactive({ name: '', description: '', audiences: [] as string[] })
+  const createForm = reactive({ name: '', description: '' })
   const nameError = ref('')
-  const agentOptions = ref<string[]>([])
+  const createSelectedFiles = ref<KnowledgeSourceFile[]>([])
 
   const detailOpen = ref(false)
   const detailRow = ref<KnowledgeBaseRow | null>(null)
   const detailName = ref('')
   const isSavingName = ref(false)
-  const pendingDetail = ref<PendingKnowledgeBase | null>(null)
 
   const filePickerOpen = ref(false)
   const filesLoading = ref(false)
@@ -545,9 +533,9 @@
     }
   }
 
-  /** 资料数：后端已按草稿优先、已发布兜底投影 material_count；无资料显示 —。 */
+  /** 资料数：后端已按草稿优先、已发布兜底投影文件份数 material_file_count；无资料显示 —。 */
   function materialCount(row: KnowledgeBaseRow): string {
-    return typeof row.material_count === 'number' && row.material_count > 0 ? `${row.material_count} 段` : '—'
+    return typeof row.material_file_count === 'number' && row.material_file_count > 0 ? `${row.material_file_count} 份` : '—'
   }
 
   const filteredRows = computed<KnowledgeBaseRow[]>(() => {
@@ -647,30 +635,17 @@
     }
     createForm.name = ''
     createForm.description = ''
-    createForm.audiences = []
+    createSelectedFiles.value = []
     nameError.value = ''
+    eligibleFiles.value = []
+    filesNextBefore.value = null
     createOpen.value = true
-    void loadAgentOptions()
-  }
-
-  async function loadAgentOptions(): Promise<void> {
-    const envId = props.environmentId
-    if (envId === null) return
-    try {
-      const result = await agentDefinitionApi.list(envId, 1)
-      if (!alive) return
-      agentOptions.value = result.data
-        .filter((item) => item.state === 'published' && item.status === 1)
-        .map((item) => item.name)
-    } catch {
-      agentOptions.value = []
-    }
+    void loadFiles(null)
   }
 
   function nameTaken(name: string): boolean {
     const target = name.trim()
     if (target === '') return false
-    if (pendingKnowledgeBase.value !== null && pendingKnowledgeBase.value.name.trim() === target) return true
     return rows.value.some((row) => row.name.trim() === target)
   }
 
@@ -687,7 +662,10 @@
     nameError.value = ''
   }
 
-  function submitCreate(): void {
+  /** 一步建库：code 在前端生成（小写 base36，后端会再小写规范化），幂等键绑定本次提交。 */
+  async function submitCreate(): Promise<void> {
+    const envId = props.environmentId
+    if (envId === null || creating.value) return
     const name = createForm.name.trim()
     if (name === '') {
       nameError.value = '请填写名称'
@@ -701,31 +679,63 @@
       nameError.value = `已经有叫「${name}」的知识库了，换个名字`
       return
     }
-    // 后端建库必须同时带资料，这里先记下名称进详情，点「加资料」时再一次性建库+发布。
-    pendingKnowledgeBase.value = {
-      name,
-      description: createForm.description.trim(),
-      audiences: [...createForm.audiences]
+    if (createSelectedFiles.value.length === 0) return
+    creating.value = true
+    const mark = identity.capture()
+    const current = generation
+    try {
+      const result = await knowledgeApi.create(
+        {
+          environment_id: envId,
+          code: `kb-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+          name,
+          description: createForm.description.trim(),
+          files: createSelectedFiles.value.map((file) => ({ id: file.id, sha256: file.sha256 }))
+        },
+        crypto.randomUUID()
+      )
+      if (!alive || current !== generation || !identity.current(mark)) return
+      createOpen.value = false
+      createForm.name = ''
+      createForm.description = ''
+      createSelectedFiles.value = []
+      ElMessage.success(`已新建知识库「${result.knowledge_base.name}」，正在整理`)
+      await load()
+    } catch (error) {
+      if (!alive || current !== generation || !identity.current(mark)) return
+      ElMessage.error(errorDisplayText(error, '建库没有成功，请稍后再试。'))
+    } finally {
+      if (alive && current === generation) creating.value = false
     }
-    createOpen.value = false
-    detailRow.value = null
-    pendingDetail.value = pendingKnowledgeBase.value
-    detailOpen.value = true
   }
 
-  function resetCreateForm(): void {
-    nameError.value = ''
+  /** 抽屉关闭前：有未提交的名称或已选资料先问一句，防止误关丢掉已填内容。 */
+  function confirmCreateClose(done: () => void): void {
+    if (createForm.name.trim() === '' && createSelectedFiles.value.length === 0) {
+      done()
+      return
+    }
+    void ElMessageBox.confirm('关掉后，刚才填的内容不会保留。', '还没创建，确定不要了？', {
+      confirmButtonText: '不要了',
+      confirmButtonClass: 'el-button--danger',
+      cancelButtonText: '继续填',
+      cancelButtonClass: DELETION_CANCEL_CLASS
+    }).then(() => done()).catch(() => { /* 用户选择继续编辑 */ })
   }
 
-  const detailTitle = computed(() => {
-    if (pendingDetail.value !== null) return pendingDetail.value.name
-    return detailRow.value?.name ?? '知识库详情'
-  })
+  function onCancelCreate(): void {
+    confirmCreateClose(() => { createOpen.value = false })
+  }
+
+  function onCreateFileSelection(items: KnowledgeSourceFile[]): void {
+    createSelectedFiles.value = items.slice(0, MAX_FILES_PER_BATCH)
+  }
+
+  const detailTitle = computed(() => detailRow.value?.name ?? '知识库详情')
 
   function openDetail(row: KnowledgeBaseRow): void {
     detailRow.value = row
     detailName.value = row.name
-    pendingDetail.value = null
     detailOpen.value = true
   }
 
@@ -768,18 +778,10 @@
   function closeDetail(): void {
     detailOpen.value = false
     detailRow.value = null
-    pendingDetail.value = null
-  }
-
-  /** 待建库抽屉关掉即放弃暂存名称；它只在「加资料」流程里有用，不留不可见的重名占用。 */
-  function onDetailClosed(): void {
-    if (pendingDetail.value === null) return
-    pendingDetail.value = null
-    pendingKnowledgeBase.value = null
   }
 
   async function openFilePicker(): Promise<void> {
-    if (props.environmentId === null) return
+    if (props.environmentId === null || detailRow.value === null || detailRow.value.state !== 'draft') return
     filePickerOpen.value = true
     selectedFiles.value = []
     eligibleFiles.value = []
@@ -814,26 +816,27 @@
     selectedFiles.value = items.slice(0, MAX_FILES_PER_BATCH)
   }
 
-  /** 待建库一次性建库+发布；后端随即自动开始索引。 */
+  /** 未发布的库在详情里补齐资料：沿用既有草稿+发布两步，发完即开始整理。 */
   async function confirmAddMaterials(): Promise<void> {
     const envId = props.environmentId
-    const pending = pendingKnowledgeBase.value
-    if (envId === null || pending === null || selectedFiles.value.length === 0 || materializing.value) return
+    const row = detailRow.value
+    if (envId === null || row === null || row.state !== 'draft'
+      || selectedFiles.value.length === 0 || materializing.value) return
     materializing.value = true
     const mark = identity.capture()
     const current = generation
     try {
-      const code = `kb-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
       const draft = await knowledgeApi.createDraft(
         {
           environment_id: envId,
-          code,
-          name: pending.name,
-          description: pending.description,
+          code: row.code,
+          name: row.name,
+          description: row.description ?? '',
           files: selectedFiles.value.map((file) => ({ id: file.id, sha256: file.sha256 })),
-          replace_draft: false
+          replace_draft: true
         },
-        crypto.randomUUID()
+        crypto.randomUUID(),
+        row.id
       )
       const published = await knowledgeApi.publish(
         envId,
@@ -846,16 +849,15 @@
         ElMessage.warning('资料在整理期间有变化，请重新选择后再试')
         return
       }
-      pendingKnowledgeBase.value = null
       filePickerOpen.value = false
-      closeDetail()
-      ElMessage.success(`已新建知识库「${pending.name}」`)
+      selectedFiles.value = []
+      ElMessage.success('已加好资料，正在整理')
       await load()
-      const created = rows.value.find((row) => row.id === draft.knowledge_base.id)
-      if (created !== undefined) openDetail(created)
+      const fresh = rows.value.find((item) => item.id === row.id)
+      if (fresh !== undefined) detailRow.value = fresh
     } catch (error) {
       if (!alive || current !== generation || !identity.current(mark)) return
-      ElMessage.error(errorDisplayText(error, '建库没有成功，请稍后再试。'))
+      ElMessage.error(errorDisplayText(error, '加资料没有成功，请稍后再试。'))
     } finally {
       if (alive && current === generation) materializing.value = false
     }
@@ -1036,19 +1038,14 @@
       keyword.value = ''
       statusFilter.value = ''
       detailRow.value = null
-      pendingDetail.value = null
       detailOpen.value = false
-      pendingKnowledgeBase.value = null
+      createOpen.value = false
       void load()
     },
     { immediate: true }
   )
 
   watch(needsPolling, () => schedulePoll())
-
-  onMounted(() => {
-    void loadAgentOptions()
-  })
 
   onBeforeUnmount(() => {
     alive = false
@@ -1125,12 +1122,23 @@
     color: var(--el-text-color-secondary);
   }
 
-  .audience-select {
+  .create-files {
     width: 100%;
   }
 
-  .field-hint {
-    margin-top: 4px;
+  .create-files-empty {
+    margin: 0;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+
+  .create-files-link {
+    color: var(--el-color-primary);
+    text-decoration: none;
+  }
+
+  .create-hint {
+    margin: 6px 0 0;
     font-size: 12px;
     color: var(--el-text-color-secondary);
   }
@@ -1170,11 +1178,6 @@
 
   .detail-meta dd {
     margin: 0;
-  }
-
-  .detail-add {
-    margin-top: 20px;
-    width: 100%;
   }
 
   .detail-hint {

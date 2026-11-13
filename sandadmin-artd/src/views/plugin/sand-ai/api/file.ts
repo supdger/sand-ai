@@ -1,4 +1,6 @@
-import type { SandAiCleanupStatus, SandAiFile, SandAiParseSubmitResult, SandAiTask } from './types'
+import request from '@/utils/http'
+import type { FileListRow, SandAiCleanupStatus, SandAiFile, SandAiPage, SandAiParseSubmitResult, SandAiTask } from './types'
+import { ADMIN_API_PREFIX } from './config'
 import { runtimeRequest } from './runtime'
 
 export type FileSourceBlock = {
@@ -73,6 +75,21 @@ function uploadReceipt(value: unknown): UploadReceipt {
 }
 
 export default {
+  /** 管理端文件分页列表；state 多值过滤，空数组表示全部可读状态。 */
+  list(environmentId: number, query: { page: number; limit: number; keyword?: string; state?: string[] }) {
+    return request.get<SandAiPage<FileListRow>>({
+      url: `${ADMIN_API_PREFIX}/files/index`,
+      params: {
+        environment_id: environmentId,
+        page: query.page,
+        limit: query.limit,
+        ...(query.keyword === undefined || query.keyword === '' ? {} : { keyword: query.keyword }),
+        ...(query.state === undefined || query.state.length === 0 ? {} : { state: query.state })
+      },
+      showErrorMessage: false
+    })
+  },
+
   async uploadContext(apiKey: string, environmentId?: number): Promise<{ scope: string; environment_id: number }> {
     const result = await runtimeRequest<unknown>({ method: 'GET', path: '/files/upload-context', apiKey,
       headers: { 'Cache-Control': 'no-store', ...(environmentId === undefined ? {} : { 'X-Sand-AI-Environment-ID': String(environmentId) }) } })
@@ -121,7 +138,7 @@ export default {
     return sourceBlocksPage(response)
   },
 
-  /** API 1.4：异步提交解析任务，立即返回 task */
+  /** API 1.4：异步发起解析任务，立即返回 task */
   parse(apiKey: string, fileId: number, requestId?: string, environmentId?: number) {
     return runtimeRequest<SandAiParseSubmitResult>({
       method: 'POST',

@@ -6,12 +6,12 @@
       </ElUpload>
     </div>
     <ElAlert v-if="pending && pending.scope === scope" type="warning" :closable="false" title="有一份上传还没确认。请点下面的按钮查看结果，不要重新选文件。">
-      <p>{{ pending.name }} · {{ pending.size }} 字节</p>
+      <p>{{ pending.name }} · {{ formatFileSize(pending.size) }}</p>
       <ElButton :disabled="busy || !scope" @click="recover">查看上传结果</ElButton>
       <p v-if="retryAllowed">原上传尚未完成。可重新选择相同文件继续，不会创建另一份材料。</p>
     </ElAlert>
-    <ElAlert v-if="message" :type="problem ? 'warning' : 'info'" :closable="false" :title="message" />
-    <ElButton v-if="!scope || storageFailed" :disabled="busy || !bearer.trim()" @click="initialize">{{ plain ? '重试上传' : '重新确认上传身份与原记录' }}</ElButton>
+    <ElAlert v-if="message" :type="problem ? 'warning' : 'info'" :closable="false" :title="message" class="upload-note" />
+    <ElButton v-if="storageFailed" :disabled="busy || !bearer.trim()" @click="initialize">{{ plain ? '重新准备上传' : '重新确认上传身份与原记录' }}</ElButton>
   </div>
 </template>
 <script setup lang="ts">
@@ -19,6 +19,7 @@ import { computed, ref, watch, onUnmounted } from 'vue'
 import type { UploadFile } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
 import fileApi, { type UploadReceipt } from '../api/file'
+import { formatFileSize } from '../api/fileSize'
 import { newRuntimeRequestId, SandAiRuntimeError } from '../api/runtime'
 import type { SandAiFile } from '../api/types'
 const props = withDefaults(defineProps<{ bearer: string; environmentId?: number; disabled: boolean; accept?: string; hideTrigger?: boolean; plain?: boolean }>(), { accept: '.pdf,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp', hideTrigger: false, plain: false })
@@ -36,7 +37,8 @@ function pick(): void {
   const input = uploadBox.value?.querySelector('input[type="file"]')
   if (input instanceof HTMLInputElement) input.click()
 }
-defineExpose({ pick, uploadReady })
+const initFailed = computed(() => storageFailed.value)
+defineExpose({ pick, uploadReady, initFailed })
 function setBusy(value: boolean): void { busy.value = value; emit('busy', value) }
 function valid(value: unknown): value is Pending {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
@@ -74,14 +76,15 @@ function scheduleRetry(): void {
   autoRetries += 1
   retryTimer = setTimeout(() => { retryTimer = null; void initialize() }, 4000)
 }
+// 后台准备上传身份不算用户上传，busy 只锁组件自身控件，不向父级 emit。
 async function initialize(): Promise<void> {
   const current = ++generation
-  scope.value = ''; retryAllowed.value = false; setBusy(false); message.value = ''; problem.value = false
+  scope.value = ''; retryAllowed.value = false; busy.value = false; message.value = ''; problem.value = false
   if (retryTimer !== null) { clearTimeout(retryTimer); retryTimer = null }
   if (!props.bearer.trim()) return
   const credential = props.bearer; const admin = user.info.id
   if (typeof admin !== 'number' || !Number.isSafeInteger(admin) || admin < 1) return
-  setBusy(true)
+  busy.value = true
   try {
     const context = await fileApi.uploadContext(credential, props.environmentId)
     if (current !== generation) return
@@ -98,7 +101,7 @@ async function initialize(): Promise<void> {
       failure(error, props.plain ? '暂时不能上传，请稍后再试。' : '上传身份或原记录暂不可确认，请先恢复读取，不创建新上传。')
       scheduleRetry()
     }
-  } finally { if (current === generation) setBusy(false) }
+  } finally { if (current === generation) busy.value = false }
 }
 async function acceptReceipt(receipt: UploadReceipt, original: Pending, credential: string, current: number): Promise<void> {
   if (receipt.sha256 !== original.sha256 || receipt.size_bytes !== original.size || (original.fileId !== null && receipt.id !== original.fileId)) throw new Error('原上传内容不一致')
@@ -190,5 +193,9 @@ onUnmounted(() => { generation++; if (retryTimer !== null) clearTimeout(retryTim
 <style scoped>
   .file-upload-hidden {
     display: none;
+  }
+
+  .upload-note {
+    margin-bottom: 12px;
   }
 </style>
