@@ -92,7 +92,7 @@ ok(str_contains($api, "'Idempotency-Key': key"), 'create sends Idempotency-Key h
 $fileApi = read($view . '/api/file.ts');
 ok(str_contains($fileApi, 'ADMIN_API_PREFIX') && str_contains($fileApi, '/files/index'), 'fileApi.list uses admin prefix');
 ok(str_contains($fileApi, 'environment_id'), 'fileApi.list passes environment_id');
-ok(str_contains($fileApi, 'SandAiFileListItem') && str_contains($fileApi, 'SandAiPage'), 'fileApi.list typed with page envelope');
+ok(str_contains($fileApi, 'FileListRow') && str_contains($fileApi, 'SandAiPage'), 'fileApi.list typed with page envelope');
 
 echo "passed={$passed} failed={$failed}\n";
 exit($failed === 0 ? 0 : 1);

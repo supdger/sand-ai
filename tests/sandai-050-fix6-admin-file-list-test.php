@@ -14,6 +14,7 @@ $root = dirname(__DIR__);
 require_once $root . '/app/Application/File/FileGateway.php';
 
 use app\Application\File\FileGateway;
+use app\Application\Knowledge\KnowledgeBasePolicy;
 
 $passed = 0;
 $failed = 0;
@@ -54,6 +55,23 @@ ok($params === ['environmentId', 'page', 'limit', 'keyword', 'states'], 'index s
 
 $source = read($root . '/app/Application/File/FileGateway.php');
 ok(str_contains($source, 'ILIKE ? ESCAPE'), 'keyword searches file name with escaped LIKE');
+
+// ESCAPE 子句渲染到 SQL 后必须是单字符：PG standard_conforming_strings
+// 下 '\\\\' 是两字符字面量，PDO 会抛 22025 Invalid escape sequence。
+$escapeLiteral = null;
+if (preg_match('/"[^"\n]*ESCAPE[^"\n]*"/', $source, $escapeMatch) === 1) {
+    $escapeLiteral = eval('return ' . $escapeMatch[0] . ';');
+}
+ok(is_string($escapeLiteral), 'keyword LIKE escape clause renders from source');
+$escapeChar = null;
+if (is_string($escapeLiteral) && preg_match("/ESCAPE '([^']*)'/", $escapeLiteral, $escapeSql) === 1) {
+    $escapeChar = $escapeSql[1];
+}
+ok($escapeChar !== null && strlen($escapeChar) === 1, 'rendered ESCAPE clause is a single character');
+ok($escapeChar === '\\', 'keyword LIKE escape char matches escapedLike backslash');
+
+require_once $root . '/app/Application/Knowledge/KnowledgeBasePolicy.php';
+ok(KnowledgeBasePolicy::escapedLike('a\\b%c_d') === 'a\\\\b\\%c\\_d', 'escapedLike escapes backslash percent underscore');
 ok(str_contains($source, 'FileInvocationFacts::fromPersisted'), 'ownership check reuses the read-time facts resolver');
 ok(str_contains($source, 'HostSandIamEnvironmentFacts'), 'environment owner facts resolved before filtering');
 ok(str_contains($source, "'sand_ai.file.read'"), 'ownership check uses the file.read action surface');

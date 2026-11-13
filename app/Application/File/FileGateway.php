@@ -457,7 +457,7 @@ final class FileGateway
             $parameters[] = $state;
         }
         if ($keyword !== null && $keyword !== '') {
-            $conditions .= " AND f.original_name ILIKE ? ESCAPE '\\\\'";
+            $conditions .= " AND f.original_name ILIKE ? ESCAPE '\\'";
             $parameters[] = '%' . KnowledgeBasePolicy::escapedLike($keyword) . '%';
         }
         $matched = [];

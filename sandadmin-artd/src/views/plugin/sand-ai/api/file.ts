@@ -1,5 +1,5 @@
 import request from '@/utils/http'
-import type { SandAiCleanupStatus, SandAiFile, SandAiFileListItem, SandAiPage, SandAiParseSubmitResult, SandAiTask } from './types'
+import type { FileListRow, SandAiCleanupStatus, SandAiFile, SandAiPage, SandAiParseSubmitResult, SandAiTask } from './types'
 import { ADMIN_API_PREFIX } from './config'
 import { runtimeRequest } from './runtime'
 
@@ -77,7 +77,7 @@ function uploadReceipt(value: unknown): UploadReceipt {
 export default {
   /** 管理端文件分页列表；state 多值过滤，空数组表示全部可读状态。 */
   list(environmentId: number, query: { page: number; limit: number; keyword?: string; state?: string[] }) {
-    return request.get<SandAiPage<SandAiFileListItem>>({
+    return request.get<SandAiPage<FileListRow>>({
       url: `${ADMIN_API_PREFIX}/files/index`,
       params: {
         environment_id: environmentId,

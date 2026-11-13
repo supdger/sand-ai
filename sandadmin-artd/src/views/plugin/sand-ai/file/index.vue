@@ -397,7 +397,7 @@
   import { isWriteRejected, writeRejectionText } from '../api/writeRejection'
   import { confirmAbandonPendingWrite } from '../composables/pendingWrite'
   import type { RuntimeUiError } from '../api/runtimeErrors'
-  import type { SandAiCleanupState, SandAiCleanupStatus, SandAiFile, SandAiFileListItem, SandAiTask } from '../api/types'
+  import type { FileListRow, SandAiCleanupState, SandAiCleanupStatus, SandAiFile, SandAiTask } from '../api/types'
   import { runStateLabel } from '../api/displayLabels'
   import { fileStatusText, fileStatusView, type FileStatusKind } from '../api/fileStatus'
   import RuntimeApiKeyField from '../components/RuntimeApiKeyField.vue'
@@ -436,7 +436,7 @@
   })
   const environments = ref<SandIamEnvironmentReference[]>([])
   const environmentsLoaded = ref(false)
-  const listItems = ref<SandAiFileListItem[]>([])
+  const listItems = ref<FileListRow[]>([])
   const listTotal = ref(0)
   const listPage = ref(1)
   const listKeyword = ref('')
@@ -447,7 +447,7 @@
   let listGeneration = 0
   let listPollTimer: ReturnType<typeof setTimeout> | null = null
 
-  function mergedRow(item: SandAiFileListItem): FileRow {
+  function mergedRow(item: FileListRow): FileRow {
     const known = fullFiles.get(item.id)
     if (known !== undefined) return { ...known, failure_text: item.failure_text }
     return {

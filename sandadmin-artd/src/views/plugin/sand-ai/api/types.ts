@@ -831,7 +831,7 @@ export type SandAiParseSubmitResult = {
 }
 
 /** 管理端文件列表行（GET /app/sand-ai/admin/files/index），比 file.read 投影窄。 */
-export type SandAiFileListItem = {
+export type FileListRow = {
   id: number
   original_name: string
   size_bytes: number
