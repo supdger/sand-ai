@@ -190,7 +190,7 @@
             placeholder="一句话说明这是什么资料（选填）"
           />
         </ElFormItem>
-        <ElFormItem label="资料">
+        <ElFormItem label="资料" required>
           <div class="create-files">
             <p v-if="!filesLoading && eligibleFiles.length === 0" class="create-files-empty">
               还没有能用的文件，先去<RouterLink to="/sand-ai/file" class="create-files-link">「文件」</RouterLink>上传一份
@@ -213,11 +213,11 @@
                 加载更多文件
               </ElButton>
             </div>
+            <p v-if="createSelectedFiles.length === 0" class="create-hint">至少选一份资料</p>
           </div>
         </ElFormItem>
       </ElForm>
       <template #footer>
-        <span v-if="createSelectedFiles.length === 0" class="create-hint">至少选一份资料</span>
         <ElButton @click="onCancelCreate">取消</ElButton>
         <ElButton
           type="primary"
@@ -273,9 +273,9 @@
         <dl class="detail-meta">
           <dt>资料状态</dt>
           <dd>{{ sourceStateLabel(detailRow) }}</dd>
-          <template v-if="detailRow.draft_source_count !== null">
+          <template v-if="detailRow.draft_file_count !== null">
             <dt>待发布资料</dt>
-            <dd>{{ detailRow.draft_source_count }} 段</dd>
+            <dd>{{ detailRow.draft_file_count }} 份</dd>
           </template>
         </dl>
 
@@ -533,9 +533,9 @@
     }
   }
 
-  /** 资料数：后端已按草稿优先、已发布兜底投影 material_count；无资料显示 —。 */
+  /** 资料数：后端已按草稿优先、已发布兜底投影文件份数 material_file_count；无资料显示 —。 */
   function materialCount(row: KnowledgeBaseRow): string {
-    return typeof row.material_count === 'number' && row.material_count > 0 ? `${row.material_count} 段` : '—'
+    return typeof row.material_file_count === 'number' && row.material_file_count > 0 ? `${row.material_file_count} 份` : '—'
   }
 
   const filteredRows = computed<KnowledgeBaseRow[]>(() => {
@@ -715,9 +715,10 @@
       done()
       return
     }
-    void ElMessageBox.confirm('还没创建，确定不要了？', {
+    void ElMessageBox.confirm('关掉后，刚才填的内容不会保留。', '还没创建，确定不要了？', {
       confirmButtonText: '不要了',
-      cancelButtonText: '再想想',
+      confirmButtonClass: 'el-button--danger',
+      cancelButtonText: '继续填',
       cancelButtonClass: DELETION_CANCEL_CLASS
     }).then(() => done()).catch(() => { /* 用户选择继续编辑 */ })
   }
@@ -1137,7 +1138,7 @@
   }
 
   .create-hint {
-    margin-right: auto;
+    margin: 6px 0 0;
     font-size: 12px;
     color: var(--el-text-color-secondary);
   }

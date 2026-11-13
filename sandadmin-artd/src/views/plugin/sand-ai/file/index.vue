@@ -7,7 +7,10 @@
             <h2 class="file-title">文件</h2>
             <p class="file-desc">上传文档或录音，AI 帮你整理成文字</p>
           </div>
-          <ElButton type="primary" :disabled="!canPickFile" @click="pickFile">上传文件</ElButton>
+          <div class="file-upload-action">
+            <ElButton type="primary" :disabled="!canPickFile" @click="pickFile">上传文件</ElButton>
+            <p v-if="uploadBlockReason" class="file-upload-hint">{{ uploadBlockReason }}</p>
+          </div>
         </div>
 
         <div v-if="environments.length > 1" class="file-env">
@@ -244,6 +247,7 @@
             <p class="file-empty-title">还没有文件</p>
             <p class="file-desc">上传一份文档或录音试试</p>
             <ElButton type="primary" :disabled="!canPickFile" @click="pickFile">上传文件</ElButton>
+            <p v-if="uploadBlockReason" class="file-upload-hint">{{ uploadBlockReason }}</p>
           </div>
           <template v-else>
             <ArtTable row-key="id" :loading="listLoading" :data="listRows" :columns="columns" empty-text="没有找到符合条件的文件" />
@@ -287,10 +291,10 @@
             </ElDescriptionsItem>
           </ElDescriptions>
           <ElSpace wrap class="file-detail-actions">
-            <ElButton v-if="detailParseTextTarget" :disabled="!apiKey.trim()" @click="openParsedText(detailParseTextTarget)">查看解析出的文字</ElButton>
+            <ElButton v-if="detailParseTextTarget" :disabled="!apiKey.trim()" @click="openParsedText(detailParseTextTarget)">看文字</ElButton>
             <ElButton v-if="detailFile && !parsedTextTargetForRow(detailFile) && (lastTaskByFile[detailFile.id] ?? detailFile.latest_parse?.task)"
               :disabled="pendingCleanup.has(detailFile.id) || isCleanupState(detailFile.state)"
-              @click="goTask(detailFile.id)">看任务</ElButton>
+              @click="goTask(detailFile.id)">看进度</ElButton>
             <ElButton v-if="fileStatusView(detailFile.state) === 'failed' && !isCleanupState(detailFile.state) && !audioExtensions.has(detailFile.extension)"
               :disabled="retryDisabled(detailFile)"
               :loading="busy === 'parse'" @click="retryParse(detailFile.id)">重试</ElButton>
@@ -400,6 +404,7 @@
   import type { FileListRow, SandAiCleanupState, SandAiCleanupStatus, SandAiFile, SandAiTask } from '../api/types'
   import { runStateLabel } from '../api/displayLabels'
   import { fileStatusText, fileStatusView, type FileStatusKind } from '../api/fileStatus'
+  import { formatFileSize } from '../api/fileSize'
   import RuntimeApiKeyField from '../components/RuntimeApiKeyField.vue'
   import PrivateFileUpload from '../components/PrivateFileUpload.vue'
   import FileParsedTextDrawer from '../components/FileParsedTextDrawer.vue'
@@ -413,6 +418,18 @@
   const apiKey = ref('')
   const uploadRef = ref<InstanceType<typeof PrivateFileUpload> | null>(null)
   const canPickFile = computed(() => apiKey.value.trim() !== '' && busy.value === '' && environmentId.value !== null && (uploadRef.value?.uploadReady ?? false))
+  /** 「上传文件」真正不能点时给出原因；能点时始终是实心主按钮，不变浅。 */
+  const uploadBlockReason = computed<string | null>(() => {
+    if (canPickFile.value) return null
+    if (environmentId.value === null) {
+      if (!environmentsLoaded.value) return '正在读取环境'
+      return environments.value.length === 0 ? '没有可用环境，不能上传' : '先选择环境'
+    }
+    if (apiKey.value.trim() === '') return devOpen.value ? '先在上面填调用密钥' : '正在准备上传身份'
+    if (busy.value === 'upload') return '正在上传，传完即可再选'
+    if (busy.value !== '') return '有操作正在进行，结束后即可上传'
+    return '上传还没准备好，正在初始化'
+  })
   function pickFile(): void {
     uploadRef.value?.pick()
   }
@@ -665,19 +682,6 @@
     set: (value: boolean) => { if (!value) detailFileId.value = null }
   })
 
-  function formatFileSize(bytes: number): string {
-    if (!Number.isFinite(bytes) || bytes < 0) return '—'
-    if (bytes < 1024) return `${bytes} 字节`
-    const units = ['千字节', '兆字节', '吉字节']
-    let value = bytes / 1024
-    let unit = 0
-    while (value >= 1024 && unit < units.length - 1) {
-      value /= 1024
-      unit += 1
-    }
-    return `${value >= 100 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`
-  }
-
   function fileStatusTip(row: FileRow, view: FileStatusKind): string | null {
     if (view === 'failed') {
       return row.state === 'delete_failed' ? '清理失败，可以重试删除' : (row.failure_text ?? '处理失败，请稍后重试')
@@ -704,14 +708,14 @@
       || audioExtensions.has(row.extension) || isCleanupState(row.state)
   }
 
-  /** 行主按钮：「能用了」看结果，「处理失败」露重试；解析细节进详情或任务页。 */
+  /** 行主按钮：「能用了」看文字，「处理失败」露重试；解析细节进详情或任务页。 */
   function rowMainAction(row: FileRow): { label: string; disabled: boolean; loading: boolean; run: () => void } | null {
     if (pendingCleanup.has(row.id) || isCleanupState(row.state) || row.state === 'deleted') return null
     const target = parsedTextTargetForRow(row)
-    if (target) return { label: '查看结果', disabled: false, loading: false, run: () => openParsedText(target) }
+    if (target) return { label: '看文字', disabled: false, loading: false, run: () => openParsedText(target) }
     const view = fileStatusView(row.state)
     if (view === 'usable') {
-      return { label: '查看结果', disabled: !apiKey.value.trim(), loading: busy.value === 'read', run: () => void viewParsed(row) }
+      return { label: '看文字', disabled: !apiKey.value.trim(), loading: busy.value === 'read', run: () => void viewParsed(row) }
     }
     if (view === 'failed' && !audioExtensions.has(row.extension)) {
       return { label: '重试', disabled: retryDisabled(row), loading: busy.value === 'parse', run: () => void retryParse(row.id) }
@@ -720,7 +724,7 @@
       return { label: '转写录音', disabled: busy.value !== '', loading: busy.value === 'audio', run: () => openAudioDialog(row) }
     }
     const task = lastTaskByFile.value[row.id] ?? row.latest_parse?.task
-    if (task) return { label: '看任务', disabled: false, loading: false, run: () => goTask(row.id) }
+    if (task) return { label: '看进度', disabled: false, loading: false, run: () => goTask(row.id) }
     return null
   }
 
@@ -802,7 +806,7 @@
     return `${runStateLabel(parse.state)} · 来源块 ${parse.source_block_count}${err}`
   }
 
-  /** 文件行已成功解析时给出「查看解析出的文字」目标；与凭证隔离的任务列表无关，同一文件即达。 */
+  /** 文件行已成功解析时给出「看文字」目标；与凭证隔离的任务列表无关，同一文件即达。 */
   function parsedTextTargetForRow(row: FileRow): { fileId: number; parseId: number; fileName?: string } | null {
     if (pendingCleanup.has(row.id) || isCleanupState(row.state)) return null
     const parse = row.latest_parse
@@ -1568,6 +1572,19 @@
     font-size: 18px;
     font-weight: 600;
     color: var(--el-text-color-primary);
+  }
+
+  .file-upload-action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .file-upload-hint {
+    margin: 0;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
   }
 
   .file-desc {

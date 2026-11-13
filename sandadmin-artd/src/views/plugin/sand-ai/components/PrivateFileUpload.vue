@@ -6,11 +6,11 @@
       </ElUpload>
     </div>
     <ElAlert v-if="pending && pending.scope === scope" type="warning" :closable="false" title="有一份上传还没确认。请点下面的按钮查看结果，不要重新选文件。">
-      <p>{{ pending.name }} · {{ pending.size }} 字节</p>
+      <p>{{ pending.name }} · {{ formatFileSize(pending.size) }}</p>
       <ElButton :disabled="busy || !scope" @click="recover">查看上传结果</ElButton>
       <p v-if="retryAllowed">原上传尚未完成。可重新选择相同文件继续，不会创建另一份材料。</p>
     </ElAlert>
-    <ElAlert v-if="message" :type="problem ? 'warning' : 'info'" :closable="false" :title="message" />
+    <ElAlert v-if="message" :type="problem ? 'warning' : 'info'" :closable="false" :title="message" class="upload-note" />
     <ElButton v-if="!scope || storageFailed" :disabled="busy || !bearer.trim()" @click="initialize">{{ plain ? '重试上传' : '重新确认上传身份与原记录' }}</ElButton>
   </div>
 </template>
@@ -19,6 +19,7 @@ import { computed, ref, watch, onUnmounted } from 'vue'
 import type { UploadFile } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
 import fileApi, { type UploadReceipt } from '../api/file'
+import { formatFileSize } from '../api/fileSize'
 import { newRuntimeRequestId, SandAiRuntimeError } from '../api/runtime'
 import type { SandAiFile } from '../api/types'
 const props = withDefaults(defineProps<{ bearer: string; environmentId?: number; disabled: boolean; accept?: string; hideTrigger?: boolean; plain?: boolean }>(), { accept: '.pdf,.docx,.txt,.csv,.xlsx,.png,.jpg,.jpeg,.webp', hideTrigger: false, plain: false })
@@ -190,5 +191,9 @@ onUnmounted(() => { generation++; if (retryTimer !== null) clearTimeout(retryTim
 <style scoped>
   .file-upload-hidden {
     display: none;
+  }
+
+  .upload-note {
+    margin-bottom: 12px;
   }
 </style>

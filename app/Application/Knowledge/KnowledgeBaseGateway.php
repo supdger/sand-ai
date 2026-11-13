@@ -38,8 +38,12 @@ final class KnowledgeBaseGateway
         $rows = $database->query(
             "SELECT kb.id,kb.code,kb.name,kb.description,kb.state,kb.active_version_id,
                     active.version_no AS active_version_no,active.source_count AS active_source_count,
+                    (SELECT count(DISTINCT s.file_id) FROM sand_ai_knowledge_base_source s
+                     WHERE s.knowledge_base_version_id=active.id) AS active_file_count,
                     draft.id AS draft_version_id,
                     draft.version_no AS draft_version_no,draft.source_count AS draft_source_count,
+                    (SELECT count(DISTINCT s.file_id) FROM sand_ai_knowledge_base_source s
+                     WHERE s.knowledge_base_version_id=draft.id) AS draft_file_count,
                     draft.snapshot_sha256 AS draft_snapshot_sha256,
                     kb.update_time,draft.create_time AS draft_create_time,
                     active.published_time AS active_published_time,
@@ -88,7 +92,9 @@ final class KnowledgeBaseGateway
                 'draft_version_no' => $row['draft_version_no'] === null ? null : (int) $row['draft_version_no'],
                 'draft_source_count' => $row['draft_source_count'] === null ? null : (int) $row['draft_source_count'],
                 'active_source_count' => $row['active_source_count'] === null ? null : (int) $row['active_source_count'],
+                'draft_file_count' => $row['draft_file_count'] === null ? null : (int) $row['draft_file_count'],
                 'material_count' => self::materialCount($row),
+                'material_file_count' => self::materialFileCount($row),
                 'draft_snapshot_sha256' => $row['draft_snapshot_sha256'] === null ? null : (string) $row['draft_snapshot_sha256'],
                 'update_time' => self::recentUpdateTime($row),
                 'source_state' => $sourceState,
@@ -799,7 +805,19 @@ final class KnowledgeBaseGateway
     /** 产品面「资料数」：优先当前草稿版本段数，其次已发布版本段数；都没有资料时为 null。 */
     private static function materialCount(array $row): ?int
     {
-        foreach (['draft_source_count', 'active_source_count'] as $key) {
+        return self::firstPositiveCount($row, ['draft_source_count', 'active_source_count']);
+    }
+
+    /** 产品面「资料数」按文件份数计：与 materialCount 同口径，段数换 distinct file_id。 */
+    private static function materialFileCount(array $row): ?int
+    {
+        return self::firstPositiveCount($row, ['draft_file_count', 'active_file_count']);
+    }
+
+    /** @param array<string,mixed> $row @param list<string> $keys */
+    private static function firstPositiveCount(array $row, array $keys): ?int
+    {
+        foreach ($keys as $key) {
             $count = $row[$key] ?? null;
             if ($count === null) {
                 continue;

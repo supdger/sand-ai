@@ -16,8 +16,12 @@ export interface KnowledgeBaseRow {
   draft_source_count: number | null
   /** 已发布（active）版本的资料段数；未发布过为 null */
   active_source_count: number | null
-  /** 产品面资料数：草稿段数优先、已发布段数兜底；无资料为 null */
+  /** 当前草稿版本的资料份数（按文件计）；无草稿为 null */
+  draft_file_count: number | null
+  /** 产品面资料数（段数）：草稿段数优先、已发布段数兜底；无资料为 null */
   material_count: number | null
+  /** 产品面资料数（文件份数）：草稿优先、已发布兜底；无资料为 null */
+  material_file_count: number | null
   draft_snapshot_sha256?: string | null
   /** 最近更新：知识库行、当前草稿、已发布版本三个时间点的最大值，格式 YYYY-MM-DD HH:MM:SS */
   update_time: string | null

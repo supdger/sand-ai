@@ -64,15 +64,33 @@ ok(str_contains($file, 'retryParse(') && str_contains($file, 'fileApi.parse('), 
 ok(str_contains($file, 'ElPagination') && str_contains($file, 'listPage'), 'file page keeps backend pagination');
 ok(str_contains($file, 'listKeyword') && str_contains($file, 'listStateFilter'), 'file page keeps search and state filter');
 ok(str_contains($file, 'listPollTimer'), 'file page polls processing rows');
+ok(str_contains($file, "label: '看文字'"), 'file row action reads 看文字');
+ok(str_contains($file, "label: '看进度'"), 'processing row action reads 看进度');
+ok(!str_contains($file, "label: '查看结果'") && !str_contains($file, "label: '看任务'"), 'file row drops 查看结果/看任务 labels');
+ok(str_contains($file, 'uploadBlockReason'), 'upload button explains why it is greyed');
+ok(str_contains($file, 'formatFileSize') && !str_contains($file, '千字节'), 'file size uses shared formatter without Chinese units');
+
+$drawer = read($view . '/components/FileParsedTextDrawer.vue');
+ok(str_contains($drawer, 'title="读出的文字"'), 'parsed text drawer retitled');
+ok(!str_contains($drawer, 'title="解析出的文字"'), 'parsed text drawer drops old title');
 
 // 一步建库抽屉
 
 $tab = read($view . '/knowledge/modules/knowledge-tab.vue');
 ok(str_contains($tab, ':before-close="confirmCreateClose"'), 'create drawer guards close');
-ok(str_contains($tab, '还没创建，确定不要了？'), 'create drawer confirm copy');
-ok(str_contains($tab, "confirmButtonText: '不要了'") && str_contains($tab, "cancelButtonText: '再想想'"), 'create drawer confirm buttons');
+ok(str_contains($tab, "'关掉后，刚才填的内容不会保留。', '还没创建，确定不要了？'"), 'create drawer confirm body and title');
+ok(str_contains($tab, "confirmButtonText: '不要了'") && str_contains($tab, "cancelButtonText: '继续填'"), 'create drawer confirm buttons');
+ok(str_contains($tab, "confirmButtonClass: 'el-button--danger'"), 'create drawer confirm button uses danger class');
 ok(str_contains($tab, 'cancelButtonClass: DELETION_CANCEL_CLASS'), 'create drawer cancel uses gray class');
+$closeConfirm = substr($tab, (int) strpos($tab, 'function confirmCreateClose'), (int) (strpos($tab, 'function onCancelCreate') - strpos($tab, 'function confirmCreateClose')));
+ok(!str_contains($closeConfirm, '再想想'), 'create drawer close confirm drops 再想想');
 ok(str_contains($tab, '至少选一份资料'), 'create drawer shows pick-one hint');
+ok(str_contains($tab, '<p v-if="createSelectedFiles.length === 0" class="create-hint">至少选一份资料</p>'), 'pick-one hint sits under 资料 field');
+ok(!str_contains($tab, '<span v-if="createSelectedFiles.length === 0" class="create-hint">'), 'pick-one hint leaves drawer footer');
+ok(str_contains($tab, 'label="资料" required'), '资料 field carries required star');
+ok(str_contains($tab, 'material_file_count') && str_contains($tab, ' 份'), 'material column reads file count in 份');
+ok(!str_contains($tab, ' 段') && !str_contains($tab, 'material_count ==='), 'material column drops segment count');
+ok(str_contains($tab, 'knowledgeApi.eligibleFiles('), 'create drawer picks from eligible files only');
 ok(str_contains($tab, '还没有能用的文件，先去'), 'create drawer empty-files copy');
 ok(str_contains($tab, '/sand-ai/file') && str_contains($tab, 'RouterLink'), 'empty-files copy links to file page');
 ok(str_contains($tab, 'knowledgeApi.create('), 'create drawer calls one-shot create');
@@ -93,6 +111,14 @@ $fileApi = read($view . '/api/file.ts');
 ok(str_contains($fileApi, 'ADMIN_API_PREFIX') && str_contains($fileApi, '/files/index'), 'fileApi.list uses admin prefix');
 ok(str_contains($fileApi, 'environment_id'), 'fileApi.list passes environment_id');
 ok(str_contains($fileApi, 'FileListRow') && str_contains($fileApi, 'SandAiPage'), 'fileApi.list typed with page envelope');
+
+$gateway = read($root . '/app/Application/Knowledge/KnowledgeBaseGateway.php');
+ok(str_contains($gateway, "f.state='parsed'"), 'eligible files limited to usable parsed files');
+ok(str_contains($gateway, 'material_file_count') && str_contains($gateway, 'DISTINCT s.file_id'), 'list payload carries file-count projection');
+
+$sizeApi = read($view . '/api/fileSize.ts');
+ok(str_contains($sizeApi, 'formatFileSize') && str_contains($sizeApi, "'KB', 'MB', 'GB'"), 'shared file size formatter uses 1024 units');
+ok(!str_contains($sizeApi, '千字节'), 'shared formatter avoids Chinese units');
 
 echo "passed={$passed} failed={$failed}\n";
 exit($failed === 0 ? 0 : 1);

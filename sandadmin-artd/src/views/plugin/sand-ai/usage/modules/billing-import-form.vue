@@ -59,7 +59,7 @@
         <ElButton :disabled="formLocked || !selectedFile" :loading="uploadBusy" @click="uploadEvidence">上传原件</ElButton>
       </div>
       <p v-else class="my-3 text-sm">上传原件需要账单审核权限；可由有权限的管理员上传后提供原件编号。</p>
-      <p v-if="selectedFile" class="my-3 text-sm">已选：{{ selectedFile.name }} · {{ selectedFile.size }} 字节。上传不会解析或导入明细。</p>
+      <p v-if="selectedFile" class="my-3 text-sm">已选：{{ selectedFile.name }} · {{ formatFileSize(selectedFile.size) }}。上传不会解析或导入明细。</p>
       <ElFormItem label="已有原件编号（须属于本服务商）">
         <ElInput v-model="draft.evidenceId" placeholder="上传成功后自动填入，也可填写已有编号" />
       </ElFormItem>
@@ -133,6 +133,7 @@
   import { useAuth } from '@/hooks/core/useAuth'
   import { billingApi, billingError, positiveId } from '../../api/billing'
   import { evidenceLabel } from '../../api/billing-types'
+  import { formatFileSize } from '../../api/fileSize'
   import type {
     BillingEvidence,
     BillingDetail,

@@ -64,7 +64,7 @@
       <ElButton v-if="canResumeUpload" :loading="busy" @click="upload">按原文件恢复上传</ElButton>
     </div>
     <p v-if="file" class="mt-3 text-sm"
-      >已选择：{{ file.name }} · {{ file.size }} 字节；原件以私有方式保存，上传不会解析、认证厂商身份或创建账单行。</p
+      >已选择：{{ file.name }} · {{ formatFileSize(file.size) }}；原件以私有方式保存，上传不会解析、认证厂商身份或创建账单行。</p
     >
     <ElForm class="mt-3" label-position="top" :disabled="locked">
       <ElFormItem label="已有原件编号（须属于本服务商）"
@@ -214,6 +214,7 @@
   import { useAuth } from '@/hooks/core/useAuth'
   import { billingApi, billingError, positiveId } from '../../api/billing'
   import { evidenceLabel, reviewLabel } from '../../api/billing-types'
+  import { formatFileSize } from '../../api/fileSize'
   import type {
     BillingEvidence,
     BillingLine,

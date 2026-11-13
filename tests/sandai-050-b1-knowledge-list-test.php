@@ -91,5 +91,16 @@ ok($material(['draft_source_count' => 0, 'active_source_count' => null]) === nul
 ok($material(['draft_source_count' => null, 'active_source_count' => 0]) === null, 'material count: zero published ignored');
 ok($material([]) === null, 'material count: empty row yields null');
 
+$materialFiles = new ReflectionMethod(KnowledgeBaseGateway::class, 'materialFileCount');
+$materialFiles->setAccessible(true);
+$materialFile = static fn (array $row): ?int => $materialFiles->invoke(null, $row);
+
+// File counts follow the same draft-wins / published-fallback rule as segments.
+ok($materialFile(['draft_file_count' => 2, 'active_file_count' => 5]) === 2, 'material file count: draft wins');
+ok($materialFile(['draft_file_count' => null, 'active_file_count' => 5]) === 5, 'material file count: published fallback');
+ok($materialFile(['active_file_count' => '3']) === 3, 'material file count: numeric string normalised');
+ok($materialFile(['draft_file_count' => 0, 'active_file_count' => null]) === null, 'material file count: zero draft ignored');
+ok($materialFile([]) === null, 'material file count: empty row yields null');
+
 echo "sandai-050-b1-knowledge-list passed={$passed} failed={$failed}\n";
 exit($failed === 0 ? 0 : 1);
